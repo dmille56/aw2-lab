@@ -7,7 +7,7 @@
     let
       systems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
-      toolNames = [ "lua" "mgba" ];
+      toolNames = [ "python3" "lua" "mgba" "pre-commit" ];
       environmentFor = system:
         let
           pkgs = import nixpkgs { inherit system; };
@@ -25,19 +25,34 @@
               pydantic
               uvicorn
             ];
+            nativeCheckInputs = [ pythonPackages.pytestCheckHook ];
             pythonImportsCheck = [ "aw2_lab" ];
             meta.mainProgram = "aw2-lab";
           };
           tools = [ application ] ++ map (name: pkgs.${name}) toolNames;
+          developmentPython = pkgs.python3.withPackages (pythonPackages: with pythonPackages; [
+            fastapi
+            httpx
+            mcp
+            pydantic
+            pytest
+            uvicorn
+          ]);
+          devTools = [ developmentPython pkgs.ruff ];
         in
         {
-          inherit application tools;
+          inherit application tools devTools;
           defaultPackage = pkgs.symlinkJoin {
             name = "aw2-lab-tools";
             paths = tools;
             meta.mainProgram = "aw2-lab";
           };
-          devShell = pkgs.mkShell { packages = tools; };
+          devShell = pkgs.mkShell {
+            packages = tools ++ devTools;
+            shellHook = ''
+              export PYTHONPATH="$PWD/src''${PYTHONPATH:+:$PYTHONPATH}"
+            '';
+          };
         };
       environments = forAllSystems environmentFor;
     in
