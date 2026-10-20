@@ -11,6 +11,16 @@ repos:
         entry: ruff format
         language: system
         types: [python]
+      - id: luacheck
+        name: Luacheck
+        entry: luacheck
+        language: system
+        types: [lua]
+      - id: luac-check
+        name: Lua syntax check
+        entry: luac -p
+        language: system
+        types: [lua]
       - id: mypy
         name: mypy
         entry: mypy --config-file pyproject.toml

@@ -29,7 +29,7 @@
             pythonImportsCheck = [ "aw2_lab" ];
             meta.mainProgram = "aw2-lab";
           };
-          tools = [ application ] ++ map (name: pkgs.${name}) toolNames;
+          tools = [ application pkgs.luaPackages.luacheck ] ++ map (name: pkgs.${name}) toolNames;
           developmentPython = pkgs.python314.withPackages (pythonPackages: with pythonPackages; [
             fastapi
             httpx
