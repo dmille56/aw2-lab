@@ -1,0 +1,19 @@
+Load command-line scripts without opening the graphical scripting console by
+default. AW2_MGBA_SCRIPTING_CONSOLE=1 opens it for interactive debugging.
+
+diff --git a/src/platform/qt/Window.cpp b/src/platform/qt/Window.cpp
+--- a/src/platform/qt/Window.cpp
++++ b/src/platform/qt/Window.cpp
+@@ -2352,7 +2352,11 @@
+ 	if (!m_scripting) {
+ 		QStringList scripts = m_config->getArgvOption("script").toStringList();
+ 		if (!scripts.isEmpty()) {
+-			scriptingOpen();
++			if (qEnvironmentVariable("AW2_MGBA_SCRIPTING_CONSOLE") == "1") {
++				scriptingOpen();
++			} else {
++				ensureScripting();
++			}
+ 			for (const auto& scriptPath : scripts) {
+ 				m_scripting->loadFile(scriptPath);
+ 			}

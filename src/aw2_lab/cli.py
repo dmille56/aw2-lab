@@ -31,12 +31,25 @@ def main() -> None:
     parser.add_argument(
         "--mgba-headless",
         metavar="PATH",
-        help="headless mGBA executable (default: mgba)",
+        help="headless mGBA executable (default: mgba-headless)",
     )
     parser.add_argument(
         "--mgba-windowed",
         metavar="PATH",
         help="windowed mGBA executable (default: mgba-qt)",
+    )
+    parser.add_argument(
+        "--lua-bridge",
+        metavar="PATH",
+        type=Path,
+        help="Lua bridge script to load (default: bundled lua/bridge.lua)",
+    )
+    parser.add_argument(
+        "--scripting-console",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="show mGBA's scripting console in windowed mode (default: false; "
+        "AW2_MGBA_SCRIPTING_CONSOLE)",
     )
     args = parser.parse_args()
 
@@ -56,6 +69,15 @@ def main() -> None:
         parser.error("AW2_EMULATOR_MODE must be 'headless' or 'windowed'")
     print(f"Starting mGBA in {emulator_mode.value} mode")
 
+    console_env = os.environ.get("AW2_MGBA_SCRIPTING_CONSOLE", "false").lower()
+    true_values = {"1", "true", "yes", "on"}
+    false_values = {"0", "false", "no", "off"}
+    if console_env not in true_values | false_values:
+        parser.error("AW2_MGBA_SCRIPTING_CONSOLE must be true or false")
+    show_scripting_console = (
+        args.scripting_console if args.scripting_console is not None else console_env in true_values
+    )
+
     from aw2_lab.api.app import create_app
 
     uvicorn.run(
@@ -65,6 +87,8 @@ def main() -> None:
                 mode=emulator_mode,
                 headless_executable=args.mgba_headless,
                 windowed_executable=args.mgba_windowed,
+                bridge_script=args.lua_bridge.expanduser().resolve() if args.lua_bridge else None,
+                show_scripting_console=show_scripting_console,
             )
         ),
         host=args.host,

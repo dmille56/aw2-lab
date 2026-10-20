@@ -21,6 +21,13 @@ repos:
         entry: luac -p
         language: system
         types: [lua]
+      - id: lua-tests
+        name: Lua bridge tests
+        entry: busted tests/lua
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
       - id: mypy
         name: mypy
         entry: mypy --config-file pyproject.toml

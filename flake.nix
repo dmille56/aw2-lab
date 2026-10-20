@@ -2,16 +2,21 @@
   description = "Development environment for the AW2 emulator-backed platform";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs.mgbaSource = {
+    url = "github:mgba-emu/mgba/fd9dc5c2cbf234365068855851107e762fc6211b";
+    flake = false;
+  };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, mgbaSource }:
     let
       systems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
-      toolNames = [ "python314" "lua" "mgba" "pre-commit" "mypy" ];
+      toolNames = [ "python314" "lua" "pre-commit" "mypy" ];
       environmentFor = system:
         let
           pkgs = import nixpkgs { inherit system; };
           pythonPackages = pkgs.python314Packages;
+          mgba = import ./nix/mgba.nix { inherit pkgs mgbaSource; };
           application = pythonPackages.buildPythonApplication {
             pname = "aw2-lab";
             version = "0.1.0";
@@ -29,7 +34,12 @@
             pythonImportsCheck = [ "aw2_lab" ];
             meta.mainProgram = "aw2-lab";
           };
-          tools = [ application pkgs.luaPackages.luacheck ] ++ map (name: pkgs.${name}) toolNames;
+          tools = [
+            application
+            mgba
+            pkgs.luaPackages.busted
+            pkgs.luaPackages.luacheck
+          ] ++ map (name: pkgs.${name}) toolNames;
           developmentPython = pkgs.python314.withPackages (pythonPackages: with pythonPackages; [
             fastapi
             httpx
@@ -43,7 +53,7 @@
           devTools = [ developmentPython pkgs.ruff ];
         in
         {
-          inherit application tools devTools;
+          inherit application tools devTools mgba;
           defaultPackage = pkgs.symlinkJoin {
             name = "aw2-lab-tools";
             paths = tools;
@@ -63,6 +73,7 @@
         let env = environments.${system};
         in {
           aw2-lab = env.application;
+          mgba = env.mgba;
           default = env.defaultPackage;
         });
 

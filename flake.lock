@@ -1,5 +1,22 @@
 {
   "nodes": {
+    "mgbaSource": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1792375179,
+        "narHash": "sha256-nQJBQVwA0sReLfA/ejQ80KUNlUlo4sBJuS7hN7kk1GU=",
+        "owner": "mgba-emu",
+        "repo": "mgba",
+        "rev": "fd9dc5c2cbf234365068855851107e762fc6211b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mgba-emu",
+        "repo": "mgba",
+        "rev": "fd9dc5c2cbf234365068855851107e762fc6211b",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1792210252,
@@ -18,6 +35,7 @@
     },
     "root": {
       "inputs": {
+        "mgbaSource": "mgbaSource",
         "nixpkgs": "nixpkgs"
       }
     }

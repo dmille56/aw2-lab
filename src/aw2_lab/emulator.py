@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -23,6 +24,8 @@ class EmulatorSettings:
     mode: EmulatorMode = EmulatorMode.HEADLESS
     headless_executable: str | None = None
     windowed_executable: str | None = None
+    bridge_script: Path | None = None
+    show_scripting_console: bool = False
 
 
 class EmulatorLaunchError(RuntimeError):
@@ -44,12 +47,30 @@ class EmulatorLauncher:
     async def start(self) -> None:
         """Launch mGBA with the configured ROM and frontend."""
         executable = (
-            self.settings.headless_executable or "mgba"
+            self.settings.headless_executable or "mgba-headless"
             if self.settings.mode is EmulatorMode.HEADLESS
             else self.settings.windowed_executable or "mgba-qt"
         )
+        script = self.settings.bridge_script
+        if script is None:
+            script = Path(__file__).resolve().parent / "lua" / "bridge.lua"
+            if not script.is_file():
+                script = Path(__file__).resolve().parents[2] / "lua" / "bridge.lua"
+        if not script.is_file():
+            raise EmulatorLaunchError(f"Lua bridge script does not exist: {script}")
+        environment = os.environ.copy()
+        show_console = (
+            self.settings.mode is EmulatorMode.WINDOWED and self.settings.show_scripting_console
+        )
+        environment["AW2_MGBA_SCRIPTING_CONSOLE"] = "1" if show_console else "0"
         try:
-            process = await asyncio.create_subprocess_exec(executable, str(self.settings.rom_path))
+            process = await asyncio.create_subprocess_exec(
+                executable,
+                "--script",
+                str(script),
+                str(self.settings.rom_path),
+                env=environment,
+            )
         except OSError as error:
             raise EmulatorLaunchError(
                 f"Could not start mGBA executable {executable!r}: {error}"
@@ -61,7 +82,8 @@ class EmulatorLauncher:
             return_code = process.returncode
             self.process = None
             raise EmulatorLaunchError(
-                f"mGBA exited during startup with status {return_code} (executable {executable!r})"
+                f"mGBA exited during startup with status {return_code} (executable {executable!r}); "
+                "check that this mGBA build supports Lua scripting and the --script option"
             )
 
     async def stop(self) -> None:

@@ -11,6 +11,7 @@ def invoke_cli(
     *args: str,
     env_rom: str | None = None,
     env_mode: str | None = None,
+    env_console: str | None = None,
 ) -> tuple[object, dict[str, object]]:
     captured: dict[str, object] = {}
     monkeypatch.setattr("sys.argv", ["aw2-lab", *args])
@@ -19,6 +20,10 @@ def invoke_cli(
         monkeypatch.delenv("AW2_EMULATOR_MODE", raising=False)
     else:
         monkeypatch.setenv("AW2_EMULATOR_MODE", env_mode)
+    if env_console is None:
+        monkeypatch.delenv("AW2_MGBA_SCRIPTING_CONSOLE", raising=False)
+    else:
+        monkeypatch.setenv("AW2_MGBA_SCRIPTING_CONSOLE", env_console)
     monkeypatch.setattr(
         cli.uvicorn, "run", lambda application, **kwargs: captured.update(app=application, **kwargs)
     )
@@ -105,6 +110,45 @@ def test_invalid_emulator_mode_environment_is_rejected(
     rom.touch()
     monkeypatch.setenv("AW2_ROM_PATH", str(rom))
     monkeypatch.setenv("AW2_EMULATOR_MODE", "invalid")
+    monkeypatch.setattr("sys.argv", ["aw2-lab"])
+
+    with pytest.raises(SystemExit) as error:
+        cli.main()
+
+    assert error.value.code == 2
+
+
+@pytest.mark.parametrize(
+    ("args", "env_console", "expected"),
+    [
+        ((), None, False),
+        ((), "true", True),
+        (("--scripting-console",), None, True),
+        (("--no-scripting-console",), "true", False),
+    ],
+)
+def test_scripting_console_setting(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    args: tuple[str, ...],
+    env_console: str | None,
+    expected: bool,
+) -> None:
+    rom = tmp_path / "aw2.gba"
+    rom.touch()
+
+    application, _ = invoke_cli(monkeypatch, rom, *args, env_console=env_console)
+
+    assert application.state.emulator_settings.show_scripting_console is expected
+
+
+def test_invalid_scripting_console_environment_is_rejected(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rom = tmp_path / "aw2.gba"
+    rom.touch()
+    monkeypatch.setenv("AW2_ROM_PATH", str(rom))
+    monkeypatch.setenv("AW2_MGBA_SCRIPTING_CONSOLE", "sometimes")
     monkeypatch.setattr("sys.argv", ["aw2-lab"])
 
     with pytest.raises(SystemExit) as error:

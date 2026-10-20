@@ -29,6 +29,7 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/aw2_lab"]
+force-include = { "lua/bridge.lua" = "aw2_lab/lua/bridge.lua" }
 
 [tool.ruff]
 line-length = 100
