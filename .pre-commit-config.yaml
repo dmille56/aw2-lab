@@ -11,6 +11,12 @@ repos:
         entry: ruff format
         language: system
         types: [python]
+      - id: mypy
+        name: mypy
+        entry: mypy --config-file pyproject.toml
+        language: system
+        types: [python]
+        pass_filenames: false
       - id: pytest
         name: pytest
         entry: pytest

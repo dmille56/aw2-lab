@@ -7,7 +7,7 @@
     let
       systems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
-      toolNames = [ "python314" "lua" "mgba" "pre-commit" ];
+      toolNames = [ "python314" "lua" "mgba" "pre-commit" "mypy" ];
       environmentFor = system:
         let
           pkgs = import nixpkgs { inherit system; };
@@ -34,8 +34,10 @@
             fastapi
             httpx
             mcp
+            mypy
             pydantic
             pytest
+            python-lsp-server
             uvicorn
           ]);
           devTools = [ developmentPython pkgs.ruff ];

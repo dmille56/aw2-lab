@@ -20,7 +20,9 @@ aw2-lab = "aw2_lab.cli:main"
 
 [project.optional-dependencies]
 dev = [
+    "mypy>=1.15,<2",
     "pre-commit>=4,<5",
+    "python-lsp-server>=1.12,<2",
     "pytest>=8,<10",
     "ruff>=0.11,<1",
 ]
@@ -36,3 +38,9 @@ target-version = "py314"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-q"
+
+[tool.mypy]
+python_version = "3.14"
+files = ["src/aw2_lab"]
+strict = true
+ignore_missing_imports = true
