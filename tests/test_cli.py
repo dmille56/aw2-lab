@@ -25,13 +25,16 @@ def test_cli_starts_without_a_rom(monkeypatch: pytest.MonkeyPatch) -> None:
     assert application.state.rom_path is None
 
 
-def test_rom_environment_variable_is_used(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_rom_environment_variable_is_used(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     rom = tmp_path / "aw2.gba"
     rom.touch()
 
     application = invoke_cli(monkeypatch, env_rom=str(rom))
 
     assert application.state.rom_path == rom.resolve()
+    assert f"Using AW2 ROM: {rom.resolve()}" in capsys.readouterr().out
 
 
 def test_cli_rom_overrides_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

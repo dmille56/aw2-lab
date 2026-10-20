@@ -27,6 +27,7 @@ def main() -> None:
         if not rom_path.is_file():
             parser.error(f"ROM path is not a file: {rom_path}")
         rom_path = rom_path.resolve()
+        print(f"Using AW2 ROM: {rom_path}")
 
     from aw2_lab.api.app import create_app
 
