@@ -7,11 +7,11 @@
     let
       systems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
-      toolNames = [ "python3" "lua" "mgba" "pre-commit" ];
+      toolNames = [ "python314" "lua" "mgba" "pre-commit" ];
       environmentFor = system:
         let
           pkgs = import nixpkgs { inherit system; };
-          pythonPackages = pkgs.python3Packages;
+          pythonPackages = pkgs.python314Packages;
           application = pythonPackages.buildPythonApplication {
             pname = "aw2-lab";
             version = "0.1.0";
@@ -30,7 +30,7 @@
             meta.mainProgram = "aw2-lab";
           };
           tools = [ application ] ++ map (name: pkgs.${name}) toolNames;
-          developmentPython = pkgs.python3.withPackages (pythonPackages: with pythonPackages; [
+          developmentPython = pkgs.python314.withPackages (pythonPackages: with pythonPackages; [
             fastapi
             httpx
             mcp
