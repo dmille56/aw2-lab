@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aw2-lab"
+version = "0.1.0"
+description = "Server-authoritative Advance Wars 2 emulator platform"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "httpx>=0.28,<1",
+    "mcp>=1.0,<2",
+    "pydantic>=2.10,<3",
+    "uvicorn[standard]>=0.34,<1",
+]
+
+[project.scripts]
+aw2-lab = "aw2_lab.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aw2_lab"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
