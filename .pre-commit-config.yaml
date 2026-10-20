@@ -1,6 +1,22 @@
 repos:
   - repo: local
     hooks:
+      - id: nixfmt
+        name: nixfmt
+        entry: nixfmt
+        language: system
+        types: [nix]
+      - id: statix
+        name: statix
+        entry: statix check .
+        language: system
+        types: [nix]
+        pass_filenames: false
+      - id: deadnix
+        name: deadnix
+        entry: deadnix --fail
+        language: system
+        types: [nix]
       - id: ruff-check
         name: Ruff lint
         entry: ruff check --fix

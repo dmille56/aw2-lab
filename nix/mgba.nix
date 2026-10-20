@@ -3,10 +3,13 @@
 pkgs.mgba.overrideAttrs (previous: {
   version = "0.11-dev-${mgbaSource.shortRev}";
   src = mgbaSource;
-  patches = (previous.patches or []) ++ [
+  patches = (previous.patches or [ ]) ++ [
     ./patches/mgba-quiet-script-startup.patch
   ];
-  buildInputs = previous.buildInputs ++ [ pkgs.json_c pkgs.freetype ];
+  buildInputs = previous.buildInputs ++ [
+    pkgs.json_c
+    pkgs.freetype
+  ];
   cmakeFlags = previous.cmakeFlags ++ [
     "-DBUILD_HEADLESS=ON"
     "-DBUILD_QT=ON"
@@ -24,5 +27,7 @@ pkgs.mgba.overrideAttrs (previous: {
     grep -F -- '--script' windowed-help.txt
     runHook postInstallCheck
   '';
-  meta = previous.meta // { mainProgram = "mgba-headless"; };
+  meta = previous.meta // {
+    mainProgram = "mgba-headless";
+  };
 })

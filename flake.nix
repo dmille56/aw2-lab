@@ -7,12 +7,29 @@
     flake = false;
   };
 
-  outputs = { self, nixpkgs, mgbaSource }:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      mgbaSource,
+    }:
     let
-      systems = [ "x86_64-linux" "aarch64-linux" ];
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
-      toolNames = [ "python314" "lua" "pre-commit" "mypy" ];
-      environmentFor = system:
+      toolNames = [
+        "python314"
+        "lua"
+        "pre-commit"
+        "mypy"
+        "nixfmt"
+        "statix"
+        "deadnix"
+      ];
+      environmentFor =
+        system:
         let
           pkgs = import nixpkgs { inherit system; };
           pythonPackages = pkgs.python314Packages;
@@ -39,21 +56,32 @@
             mgba
             pkgs.luaPackages.busted
             pkgs.luaPackages.luacheck
-          ] ++ map (name: pkgs.${name}) toolNames;
-          developmentPython = pkgs.python314.withPackages (pythonPackages: with pythonPackages; [
-            fastapi
-            httpx
-            mcp
-            mypy
-            pydantic
-            pytest
-            python-lsp-server
-            uvicorn
-          ]);
-          devTools = [ developmentPython pkgs.ruff ];
+          ]
+          ++ map (name: pkgs.${name}) toolNames;
+          developmentPython = pkgs.python314.withPackages (
+            pythonPackages: with pythonPackages; [
+              fastapi
+              httpx
+              mcp
+              mypy
+              pydantic
+              pytest
+              python-lsp-server
+              uvicorn
+            ]
+          );
+          devTools = [
+            developmentPython
+            pkgs.ruff
+          ];
         in
         {
-          inherit application tools devTools mgba;
+          inherit
+            application
+            tools
+            devTools
+            mgba
+            ;
           defaultPackage = pkgs.symlinkJoin {
             name = "aw2-lab-tools";
             paths = tools;
@@ -69,13 +97,17 @@
       environments = forAllSystems environmentFor;
     in
     {
-      packages = forAllSystems (system:
-        let env = environments.${system};
-        in {
+      packages = forAllSystems (
+        system:
+        let
+          env = environments.${system};
+        in
+        {
           aw2-lab = env.application;
-          mgba = env.mgba;
+          inherit (env) mgba;
           default = env.defaultPackage;
-        });
+        }
+      );
 
       devShells = forAllSystems (system: {
         default = environments.${system}.devShell;
