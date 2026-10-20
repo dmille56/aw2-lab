@@ -1,13 +1,20 @@
 from pathlib import Path
 
-from fastapi.testclient import TestClient
+import httpx
+import pytest
 
 from aw2_lab.api.app import app, create_app
 
 
-def test_health_reports_http_and_emulator_status() -> None:
-    with TestClient(app) as client:
-        response = client.get("/health")
+@pytest.mark.anyio
+async def test_health_reports_http_and_emulator_status() -> None:
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+        ) as client,
+    ):
+        response = await client.get("/health")
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "emulator": "not_started"}
