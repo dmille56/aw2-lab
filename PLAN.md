@@ -11,7 +11,7 @@ This document defines future implementation work. Creating this plan does not in
 ## Technology and system architecture
 
 - **Nix flakes:** pin development/build dependencies, mGBA source, and reproducible commands.
-- **Python:** emulator lifecycle, match coordination, AW2 state decoding, action automation, HTTP server, client SDK, and MCP adapter.
+- **Python:** emulator lifecycle, match coordination, AW2 state decoding, action automation, HTTP server, client SDK, and MCP adapter. The HTTP API and Streamable HTTP MCP endpoint run together in one server process.
 - **mGBA:** execute the original game in headless or windowed mode.
 - **Lua:** expose a small set of emulator primitives through a local bridge. Keep game-specific logic in Python.
 - **API libraries:** FastAPI and Pydantic for HTTP and shared models, HTTPX for the client SDK, and the official Python MCP SDK for agent access. Pin compatible versions during implementation.
@@ -118,7 +118,7 @@ A checkpoint includes emulator state, save RAM, ROM checksum, emulator build ide
 
 Persist checkpoints and a command journal locally. On restart, restore the last committed checkpoint and reconcile unfinished commands without silently replaying them. Treat emulator snapshots as build-specific artifacts, not portable save formats.
 
-Provide a stdio MCP adapter that calls the Python SDK. Expose typed gameplay, observation, lifecycle, and checkpoint tools, with raw operations clearly named as debug tools. The adapter must not duplicate game logic or own another emulator. Support state and screenshot observation; defer strategy, legal-move helpers, and speculative rollouts.
+Provide an MCP adapter that calls the Python SDK and is hosted at `/mcp` alongside the HTTP API. Expose typed gameplay, observation, lifecycle, and checkpoint tools, with raw operations clearly named as debug tools. The adapter must not duplicate game logic or own another emulator. Support state and screenshot observation; defer strategy, legal-move helpers, and speculative rollouts.
 
 ## Implementation roadmap
 
@@ -163,7 +163,7 @@ Automate cold-boot menu navigation into the fixed two-player Versus configuratio
 
 **Dependencies:** usable Python SDK from milestone 3.
 
-**Deliverables:** stdio MCP adapter, typed tools, connection examples, and documentation for coordinates, turn handling, failures, and debugging.
+**Deliverables:** Streamable HTTP MCP endpoint hosted by the API server, typed tools, connection examples, and documentation for coordinates, turn handling, failures, and debugging.
 
 **Acceptance criteria:** human-versus-agent and agent-versus-agent clients can inspect a match and complete turns in both modes through the same server. Agents need no emulator-specific knowledge to use high-level actions.
 
