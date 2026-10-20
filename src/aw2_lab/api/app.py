@@ -2,6 +2,7 @@
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -25,13 +26,18 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
 
 
-app = FastAPI(title="AW2 Lab API", version="0.1.0", lifespan=lifespan)
+def create_app(*, rom_path: Path | None = None) -> FastAPI:
+    """Create the API application with optional runtime ROM configuration."""
+    application = FastAPI(title="AW2 Lab API", version="0.1.0", lifespan=lifespan)
+    application.state.rom_path = rom_path
+
+    @application.get("/health", response_model=HealthResponse, tags=["system"])
+    async def health() -> HealthResponse:
+        """Report that the HTTP process is responsive; this does not imply a match is running."""
+        return HealthResponse()
+
+    application.mount("/mcp", mcp_app)
+    return application
 
 
-@app.get("/health", response_model=HealthResponse, tags=["system"])
-async def health() -> HealthResponse:
-    """Report that the HTTP process is responsive; this does not imply a match is running."""
-    return HealthResponse()
-
-
-app.mount("/mcp", mcp_app)
+app = create_app()
