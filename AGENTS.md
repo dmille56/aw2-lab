@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-The Python package lives in `src/aw2_lab/`. Keep the CLI in `cli.py`, the HTTP boundary in `api/`, and place future emulator, bridge, state, match, SDK, and MCP code in separate modules as the architecture grows. Tests live in `tests/`; use `test_*.py` filenames. `PLAN.md` describes planned behavior and integration milestones. `flake.nix` defines the Nix package and development environments.
+The Python package lives in `src/aw2_lab/`. Keep the CLI in `cli.py`, the HTTP boundary in `api/`, and place future emulator, bridge, state, match, SDK, and MCP code in separate modules as the architecture grows. Tests live in `tests/`; use `test_*.py` filenames. `docs/PLAN.md` describes planned behavior and integration milestones; `docs/MILESTONE-1.org` tracks Milestone 1 tasks. `flake.nix` defines the Nix package and development environments.
 
 ## Build, Test, and Development Commands
 

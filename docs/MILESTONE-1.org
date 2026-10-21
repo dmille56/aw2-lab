@@ -1,0 +1,41 @@
+#+TITLE: Milestone 1: Reproducible Emulator-Control Spike
+#+TODO: TODO IN-PROGRESS | DONE BLOCKED
+
+* Remaining work
+
+** TODO Verify idle responsiveness and observation frame stability
+   - [ ] Confirm bridge commands remain responsive while emulation is idle.
+   - [ ] Confirm memory observations do not advance the emulator frame.
+   - [ ] Record the verification method and result.
+
+** TODO Verify clear diagnostics for startup and bridge failures
+   - [ ] Check bridge disconnects and emulator process failures.
+   - [ ] Check invalid emulator modes.
+   - [ ] Check windowed startup when no display is available.
+   - [ ] Check missing frontend capabilities.
+   - [ ] Ensure each failure reports a useful, actionable diagnostic.
+
+** TODO Verify checkpoint round-trip completeness
+   - [ ] Confirm save-state flags include the required save RAM.
+   - [ ] Save and restore a checkpoint, then compare the observed state.
+   - [ ] Record any limitations or build-specific assumptions.
+
+** TODO Record the frame-gate decision
+   - [ ] Determine whether Lua alone safely provides responsive exact frame control in both frontends.
+   - [ ] If a frontend frame-gate patch is required, document its scope and rationale in the project documentation.
+   - [ ] If no patch is required, record the evidence supporting that conclusion.
+
+** TODO Verify automatic startup and clean shutdown in both modes
+   - [ ] Confirm headless mode loads the ROM and bridge without manual interaction.
+   - [ ] Confirm windowed mode loads the ROM and bridge without manual interaction.
+   - [ ] Confirm both modes shut down the emulator cleanly.
+
+* Milestone 1 acceptance checklist
+
+** TODO Confirm all acceptance criteria in [[file:PLAN.md::*1. Reproducible emulator-control spike][PLAN.md]]
+   - [ ] Headless and windowed startup work with bridge loading.
+   - [ ] Windowed mode presents the game and prevents competing local input.
+   - [ ] Python can control buttons, advance exact frame counts, read a coherent memory batch, capture screenshots, and save/restore state.
+   - [ ] Idle bridge responsiveness and non-advancing observation are verified.
+   - [ ] Failure cases produce clear diagnostics.
+   - [ ] Checkpoint restoration reproduces observed state and shutdown is clean.
