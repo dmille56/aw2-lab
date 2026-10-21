@@ -45,9 +45,10 @@ def mock_connection(
         async def wait_closed(self) -> None:
             return None
 
-    async def open_connection(host: str, port: int) -> tuple[Reader, Writer]:
+    async def open_connection(host: str, port: int, **kwargs: object) -> tuple[Reader, Writer]:
         assert host == "127.0.0.1"
         assert port == 43128
+        assert kwargs["limit"] == 4718593
         return reader, Writer()
 
     monkeypatch.setattr(asyncio, "open_connection", open_connection)
@@ -203,6 +204,53 @@ async def test_state_operations_return_the_frame(
 
 
 @pytest.mark.anyio
+async def test_save_state_buffer_decodes_binary_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    state = b"state\x00buffer\xff"
+    requests, _ = mock_connection(
+        monkeypatch,
+        {
+            "id": "$request",
+            "ok": True,
+            "result": {"state_base64": base64.b64encode(state).decode("ascii"), "frame": 456},
+        },
+    )
+
+    assert await LuaBridgeClient().save_state_buffer() == state
+    assert requests[0]["operation"] == "save_state_buffer"
+
+
+@pytest.mark.anyio
+async def test_load_state_buffer_encodes_binary_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    state = b"state\x00buffer\xff"
+    requests, _ = mock_connection(
+        monkeypatch, {"id": "$request", "ok": True, "result": {"frame": 456}}
+    )
+
+    assert await LuaBridgeClient().load_state_buffer(state) == 456
+    assert requests[0]["operation"] == "load_state_buffer"
+    assert requests[0]["state_base64"] == base64.b64encode(state).decode("ascii")
+
+
+@pytest.mark.anyio
+async def test_load_state_buffer_rejects_empty_and_oversized_data() -> None:
+    client = LuaBridgeClient()
+    for state in (b"", b"x" * (3 * 1024 * 1024 + 1)):
+        with pytest.raises(ValueError, match="state"):
+            await client.load_state_buffer(state)
+
+
+@pytest.mark.anyio
+async def test_save_state_buffer_rejects_invalid_base64(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock_connection(
+        monkeypatch,
+        {"id": "$request", "ok": True, "result": {"state_base64": "%%%"}},
+    )
+
+    with pytest.raises(BridgeError, match="invalid state buffer"):
+        await LuaBridgeClient().save_state_buffer()
+
+
+@pytest.mark.anyio
 async def test_reset_returns_the_new_frame(monkeypatch: pytest.MonkeyPatch) -> None:
     requests, _ = mock_connection(
         monkeypatch, {"id": "$request", "ok": True, "result": {"frame": 0}}
@@ -266,7 +314,7 @@ async def test_screenshot_returns_png_bytes_from_bridge_file(
         async def wait_closed(self) -> None:
             return None
 
-    async def open_connection(host: str, port: int) -> tuple[Reader, Writer]:
+    async def open_connection(host: str, port: int, **kwargs: object) -> tuple[Reader, Writer]:
         return reader, Writer()
 
     monkeypatch.setattr(asyncio, "open_connection", open_connection)

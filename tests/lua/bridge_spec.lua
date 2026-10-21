@@ -358,6 +358,33 @@ describe("mGBA Lua bridge", function()
         os.remove(filename)
     end)
 
+    it("saves and restores state buffers without using a file", function()
+        frame = 321
+        keys = 9
+        local saved = _G.AW2Bridge.handle_request({
+            id = 33, version = 1, operation = "save_state_buffer",
+        })
+        assert.is_true(saved.ok)
+        assert.are.equal("321:9", dofile("lua/base64.lua").decode(saved.result.state_base64))
+        frame = 400
+        keys = 0
+        local restored = _G.AW2Bridge.handle_request({
+            id = 34, version = 1, operation = "load_state_buffer",
+            state_base64 = dofile("lua/base64.lua").encode("321:9"),
+        })
+        assert.is_true(restored.ok)
+        assert.are.equal(321, restored.result.frame)
+        assert.are.equal(9, keys)
+    end)
+
+    it("rejects malformed in-memory state encoding", function()
+        local response = _G.AW2Bridge.handle_request({
+            id = 35, version = 1, operation = "load_state_buffer", state_base64 = "%%%",
+        })
+        assert.is_false(response.ok)
+        assert.are.equal("invalid_request", response.error.code)
+    end)
+
     it("returns structured state operation failures", function()
         fail_state_operation = true
         local filename = os.tmpname()

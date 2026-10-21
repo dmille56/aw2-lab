@@ -104,6 +104,13 @@ def test_frame_gate_stays_idle_and_executes_exact_budgets(
                 == initial_batch
             )
             assert await bridge.advance_frames(0) == frame
+            memory_state = await bridge.save_state_buffer()
+            await bridge.advance_frames(7)
+            assert await bridge.load_state_buffer(memory_state) == frame
+            assert (
+                await bridge.read_memory_batch([(0x02000000, 16), (0x080000A0, 16)])
+                == initial_batch
+            )
             if (
                 mode is EmulatorMode.WINDOWED
                 and os.environ.get("DISPLAY")

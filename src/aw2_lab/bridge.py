@@ -11,6 +11,8 @@ from itertools import count
 from pathlib import Path
 from typing import Any
 
+_MAX_STATE_BYTES = 3 * 1024 * 1024
+
 
 class BridgeError(ConnectionError):
     """Raised when the Lua bridge is unavailable or rejects a request."""
@@ -51,7 +53,9 @@ class LuaBridgeClient:
             writer: asyncio.StreamWriter | None = None
             try:
                 async with asyncio.timeout(self.timeout if timeout is None else timeout):
-                    reader, writer = await asyncio.open_connection(self.host, self.port)
+                    reader, writer = await asyncio.open_connection(
+                        self.host, self.port, limit=self.max_message_bytes + 1
+                    )
                     writer.write(payload)
                     await writer.drain()
                     response_line = await reader.readline()
@@ -152,6 +156,33 @@ class LuaBridgeClient:
     async def load_state(self, path: str | Path) -> int:
         """Restore emulator state, including save RAM, and return its frame."""
         result = await self.request("load_state", filename=self._validate_state_path(path))
+        frame = result.get("frame")
+        if isinstance(frame, bool) or not isinstance(frame, int):
+            raise BridgeError("Lua bridge returned an invalid restored-state frame")
+        return frame
+
+    async def save_state_buffer(self) -> bytes:
+        """Save emulator state, including save RAM, and return it as bytes."""
+        result = await self.request("save_state_buffer")
+        try:
+            encoded = result["state_base64"]
+            if not isinstance(encoded, str):
+                raise TypeError("state_base64 must be a string")
+            state = base64.b64decode(encoded, validate=True)
+            if not state or len(state) > _MAX_STATE_BYTES:
+                raise ValueError("state buffer is empty or exceeds the size limit")
+        except (KeyError, TypeError, binascii.Error, ValueError) as error:
+            raise BridgeError(f"Lua bridge returned an invalid state buffer: {error}") from error
+        return state
+
+    async def load_state_buffer(self, state: bytes) -> int:
+        """Restore emulator state from bytes and return the restored frame."""
+        if not isinstance(state, bytes) or not state:
+            raise ValueError("state must be a non-empty bytes object")
+        if len(state) > _MAX_STATE_BYTES:
+            raise ValueError("state buffer exceeds the 3 MiB size limit")
+        encoded = base64.b64encode(state).decode("ascii")
+        result = await self.request("load_state_buffer", state_base64=encoded)
         frame = result.get("frame")
         if isinstance(frame, bool) or not isinstance(frame, int):
             raise BridgeError("Lua bridge returned an invalid restored-state frame")

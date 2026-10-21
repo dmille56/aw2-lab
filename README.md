@@ -58,8 +58,9 @@ serving. A missing bridge, unsupported handshake, or mGBA startup failure aborts
 startup with a diagnostic. `LuaBridgeClient.read_memory_batch()` reads up to 64
 ranges (4096 combined bytes) in one paused bridge callback. `save_state(path)`
 and `load_state(path)` use mGBA's full state flags, including save RAM; keep
-these build-specific state files outside the repository and Nix store. The
-bridge also provides `reset()`, which releases all keys before resetting.
+these build-specific state files outside the repository and Nix store.
+`save_state_buffer()` and `load_state_buffer(bytes)` support in-memory
+checkpoints up to 3 MiB. `reset()` releases all keys before resetting.
 Startup was verified locally with an AW2 ROM on 2026-10-20 through both
 `python -m aw2_lab` and the packaged `aw2-lab` command. Both emulator modes
 reported a running emulator through `/health`, loaded the bridge automatically,

@@ -8,8 +8,10 @@ local bridge = {
     capabilities = {
         "connect", "set_keys", "press_keys", "advance_frames", "read_memory",
         "read_memory_batch", "screenshot", "reset", "save_state", "load_state",
+        "save_state_buffer", "load_state_buffer",
     },
     max_message_bytes = 4718592,
+    max_state_bytes = 3145728,
     max_screenshot_bytes = 3145728,
     port = 43128,
 }
@@ -170,6 +172,40 @@ function bridge.handle_request(request)
     if request.operation == "reset" then
         emu:setKeys(0)
         emu:reset()
+        return {id = request_id, ok = true, result = {frame = emu:currentFrame()}}
+    end
+
+    if request.operation == "save_state_buffer" then
+        local ok, state = pcall(function() return emu:saveStateBuffer(C.SAVESTATE.ALL) end)
+        if not ok or type(state) ~= "string" or #state == 0 then
+            return error_response(request_id, "state_operation_failed", tostring(state))
+        end
+        if #state > bridge.max_state_bytes then
+            return error_response(request_id, "state_too_large", "State buffer exceeds 3 MiB")
+        end
+        return {
+            id = request_id,
+            ok = true,
+            result = {state_base64 = base64.encode(state), frame = emu:currentFrame()},
+        }
+    end
+
+    if request.operation == "load_state_buffer" then
+        local encoded = request.state_base64
+        if type(encoded) ~= "string" or #encoded == 0
+            or #encoded > math.ceil(bridge.max_state_bytes / 3) * 4 then
+            return error_response(request_id, "invalid_request", "invalid state buffer")
+        end
+        local state = base64.decode(encoded)
+        if #state == 0 or #state > bridge.max_state_bytes or base64.encode(state) ~= encoded then
+            return error_response(request_id, "invalid_request", "invalid state buffer encoding")
+        end
+        local ok, loaded = pcall(function()
+            return emu:loadStateBuffer(state, C.SAVESTATE.ALL)
+        end)
+        if not ok or not loaded then
+            return error_response(request_id, "state_operation_failed", tostring(loaded))
+        end
         return {id = request_id, ok = true, result = {frame = emu:currentFrame()}}
     end
 
