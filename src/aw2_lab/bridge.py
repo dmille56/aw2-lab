@@ -77,6 +77,31 @@ class LuaBridgeClient:
         """Return protocol and capability information from the bridge."""
         return await self.request("connect")
 
+    async def advance_frames(self, frames: int) -> int:
+        """Advance exactly ``frames`` frames and return the ending frame number."""
+        if isinstance(frames, bool) or not isinstance(frames, int) or not 0 <= frames <= 600:
+            raise ValueError("frames must be an integer from 0 to 600")
+        result = await self.request("advance_frames", frames=frames)
+        try:
+            start_frame = result["start_frame"]
+            end_frame = result["frame"]
+            reported_frames = result["frames_advanced"]
+            if (
+                isinstance(start_frame, bool)
+                or not isinstance(start_frame, int)
+                or isinstance(end_frame, bool)
+                or not isinstance(end_frame, int)
+                or isinstance(reported_frames, bool)
+                or not isinstance(reported_frames, int)
+            ):
+                raise TypeError("frame values must be integers")
+            actual_frames = (end_frame - start_frame) % (1 << 32)
+            if reported_frames != frames or actual_frames != frames:
+                raise ValueError(f"requested {frames} frames but bridge reported {actual_frames}")
+        except (KeyError, TypeError, ValueError) as error:
+            raise BridgeError(f"Lua bridge returned an invalid frame advance: {error}") from error
+        return end_frame
+
     async def screenshot(self) -> bytes:
         """Capture the current emulator display and return its PNG bytes."""
         with tempfile.TemporaryDirectory(prefix="aw2-lab-screenshot-") as directory:

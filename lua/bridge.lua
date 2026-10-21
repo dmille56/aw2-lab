@@ -82,8 +82,17 @@ function bridge.handle_request(request)
                 "frames must be an integer from 0 to 600"
             )
         end
+        local start_frame = emu:currentFrame()
         for _ = 1, frames do emu:runFrame() end
-        return {id = request_id, ok = true, result = {frame = emu:currentFrame()}}
+        return {
+            id = request_id,
+            ok = true,
+            result = {
+                start_frame = start_frame,
+                frame = emu:currentFrame(),
+                frames_advanced = frames,
+            },
+        }
     end
 
     if request.operation == "read_memory" then
