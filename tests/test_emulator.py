@@ -12,7 +12,23 @@ from aw2_lab.emulator import (
 
 
 async def bridge_ready(_self: object) -> dict[str, object]:
-    return {"protocol_version": 1, "capabilities": ["connect"]}
+    return {
+        "protocol_version": 1,
+        "capabilities": [
+            "connect",
+            "set_keys",
+            "press_keys",
+            "advance_frames",
+            "read_memory",
+            "read_memory_batch",
+            "screenshot",
+            "reset",
+            "save_state",
+            "load_state",
+            "save_state_buffer",
+            "load_state_buffer",
+        ],
+    }
 
 
 class FakeProcess:
@@ -124,7 +140,9 @@ async def test_launcher_reports_executable_start_failure(
         )
     )
 
-    with pytest.raises(EmulatorLaunchError, match="Could not start mGBA"):
+    with pytest.raises(
+        EmulatorLaunchError, match=r"Could not start mGBA executable 'missing':.*missing"
+    ):
         await launcher.start()
 
 
@@ -140,7 +158,10 @@ async def test_launcher_reports_immediate_process_exit(
         EmulatorSettings(rom_path=tmp_path / "aw2.gba", mode=EmulatorMode.HEADLESS)
     )
 
-    with pytest.raises(EmulatorLaunchError, match="exited during startup"):
+    with pytest.raises(
+        EmulatorLaunchError,
+        match=r"mGBA exited during startup with status 1.*supports Lua scripting.*headless frontend",
+    ):
         await launcher.start()
 
 
@@ -170,7 +191,44 @@ async def test_launcher_requires_a_valid_bridge_handshake(
         )
     )
 
-    with pytest.raises(EmulatorLaunchError, match="Lua bridge did not become ready"):
+    with pytest.raises(
+        EmulatorLaunchError,
+        match=r"Lua bridge did not become ready.*connection refused.*supports Lua scripting.*port 43128",
+    ):
         await launcher.start()
+    assert process.terminated
+    assert not launcher.is_running
+
+
+@pytest.mark.anyio
+async def test_launcher_rejects_missing_bridge_capabilities(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    bridge_script = tmp_path / "bridge.lua"
+    bridge_script.touch()
+    process = FakeProcess()
+
+    async def create_process(*args: str, **kwargs: object) -> FakeProcess:
+        return process
+
+    async def incomplete_handshake(_self: object) -> dict[str, object]:
+        return {"protocol_version": 1, "capabilities": ["connect", "advance_frames"]}
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", create_process)
+    monkeypatch.setattr("aw2_lab.emulator.LuaBridgeClient.connect", incomplete_handshake)
+    launcher = EmulatorLauncher(
+        EmulatorSettings(
+            rom_path=tmp_path / "aw2.gba",
+            bridge_script=bridge_script,
+            bridge_ready_timeout=5,
+        )
+    )
+
+    with pytest.raises(
+        EmulatorLaunchError,
+        match=r"missing required capabilities: .*load_state.*compatible with this aw2-lab version",
+    ):
+        await launcher.start()
+
     assert process.terminated
     assert not launcher.is_running

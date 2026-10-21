@@ -86,6 +86,34 @@ async def test_client_turns_bridge_error_into_bridge_error(
 
 
 @pytest.mark.anyio
+async def test_client_reports_disconnect_without_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Reader:
+        async def readline(self) -> bytes:
+            return b""
+
+    class Writer:
+        def write(self, payload: bytes) -> None:
+            return None
+
+        async def drain(self) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+        async def wait_closed(self) -> None:
+            return None
+
+    async def open_connection(*args: object, **kwargs: object) -> tuple[Reader, Writer]:
+        return Reader(), Writer()
+
+    monkeypatch.setattr(asyncio, "open_connection", open_connection)
+
+    with pytest.raises(BridgeError, match="Lua bridge disconnected without a response"):
+        await LuaBridgeClient().connect()
+
+
+@pytest.mark.anyio
 async def test_set_keys_returns_confirmed_mask_and_zero_releases_buttons(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

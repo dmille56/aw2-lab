@@ -111,7 +111,9 @@ def test_emulator_mode_uses_environment_then_default(
 
 
 def test_invalid_emulator_mode_environment_is_rejected(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     rom = tmp_path / "aw2.gba"
     rom.touch()
@@ -123,6 +125,7 @@ def test_invalid_emulator_mode_environment_is_rejected(
         cli.main()
 
     assert error.value.code == 2
+    assert "AW2_EMULATOR_MODE must be 'headless' or 'windowed'" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(

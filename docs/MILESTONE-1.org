@@ -25,12 +25,22 @@
      the development environment. This checks idle bridge requests and confirms
      single and batched memory reads leave the frame unchanged.
 
-** TODO Verify clear diagnostics for startup and bridge failures
-   - [ ] Check bridge disconnects and emulator process failures.
-   - [ ] Check invalid emulator modes.
-   - [ ] Check windowed startup when no display is available.
-   - [ ] Check missing frontend capabilities.
-   - [ ] Ensure each failure reports a useful, actionable diagnostic.
+** DONE Verify clear diagnostics for startup and bridge failures
+   - [X] Check bridge disconnects and emulator process failures.
+   - [X] Check invalid emulator modes.
+   - [X] Check windowed startup when no display is available.
+   - [X] Check missing frontend capabilities.
+   - [X] Ensure each failure reports a useful, actionable diagnostic.
+   - Verification (2026-10-21): unit tests cover bridge disconnects, launcher
+     timeouts, missing executables, early emulator exits, invalid modes, and an
+     incomplete capability handshake. Diagnostics identify the failure and the
+     relevant recovery step; the launcher rejects missing bridge capabilities and
+     stops mGBA immediately.
+   - Runtime verification (2026-10-21): ran the windowed startup check with both
+     =DISPLAY= and =WAYLAND_DISPLAY= unset. Qt failed to connect to its display and
+     the launcher reported that a display server must be available. The opt-in
+     headless/windowed emulator integration suite also passed with the flake-built
+     mGBA. The test runs used a local AW2 ROM and the pinned patched frontends.
 
 ** TODO Verify checkpoint round-trip completeness
    - [ ] Confirm save-state flags include the required save RAM.

@@ -12,7 +12,12 @@ from pathlib import Path
 import pytest
 
 from aw2_lab.bridge import BridgeError, LuaBridgeClient
-from aw2_lab.emulator import EmulatorLauncher, EmulatorMode, EmulatorSettings
+from aw2_lab.emulator import (
+    EmulatorLauncher,
+    EmulatorLaunchError,
+    EmulatorMode,
+    EmulatorSettings,
+)
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("AW2_RUN_EMULATOR_TESTS") != "1",
@@ -154,5 +159,34 @@ def test_frame_gate_stays_idle_and_executes_exact_budgets(
         finally:
             await launcher.stop()
             assert not launcher.is_running
+
+    asyncio.run(check())
+
+
+def test_windowed_startup_without_display_reports_actionable_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rom = Path(os.environ.get("AW2_ROM_PATH", ""))
+    if not rom.is_file():
+        pytest.fail("AW2_ROM_PATH must name a local ROM file")
+    executable = os.environ.get("AW2_TEST_MGBA_WINDOWED", "mgba-qt")
+    if shutil.which(executable) is None:
+        pytest.fail(f"mGBA executable is unavailable: {executable}")
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+
+    async def check() -> None:
+        launcher = EmulatorLauncher(
+            EmulatorSettings(
+                rom_path=rom.resolve(),
+                mode=EmulatorMode.WINDOWED,
+                windowed_executable=executable,
+                bridge_script=Path(__file__).resolve().parents[1] / "lua" / "bridge.lua",
+                bridge_ready_timeout=5,
+            )
+        )
+        with pytest.raises(EmulatorLaunchError, match="display server"):
+            await launcher.start()
+        assert not launcher.is_running
 
     asyncio.run(check())

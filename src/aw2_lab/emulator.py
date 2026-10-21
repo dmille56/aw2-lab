@@ -35,6 +35,24 @@ class EmulatorLaunchError(RuntimeError):
     """Raised when mGBA cannot be started or exits during startup."""
 
 
+_REQUIRED_BRIDGE_CAPABILITIES = frozenset(
+    {
+        "connect",
+        "set_keys",
+        "press_keys",
+        "advance_frames",
+        "read_memory",
+        "read_memory_batch",
+        "screenshot",
+        "reset",
+        "save_state",
+        "load_state",
+        "save_state_buffer",
+        "load_state_buffer",
+    }
+)
+
+
 class EmulatorLauncher:
     """Start and stop one mGBA process for the lifetime of the API server."""
 
@@ -87,10 +105,19 @@ class EmulatorLauncher:
             if process.returncode is not None:
                 return_code = process.returncode
                 self.process = None
+                if self.settings.mode is EmulatorMode.WINDOWED:
+                    startup_hint = (
+                        "check that this build supports Lua scripting and --script, and that a "
+                        "display server is available (DISPLAY or WAYLAND_DISPLAY)"
+                    )
+                else:
+                    startup_hint = (
+                        "check that this build supports Lua scripting, the --script option, and "
+                        "the headless frontend"
+                    )
                 raise EmulatorLaunchError(
                     f"mGBA exited during startup with status {return_code} "
-                    f"(executable {executable!r}); check that this build supports Lua scripting, "
-                    "the --script option, and the requested frontend/display"
+                    f"(executable {executable!r}); {startup_hint}"
                 )
             try:
                 handshake = await bridge.connect()
@@ -98,6 +125,17 @@ class EmulatorLauncher:
                     handshake.get("capabilities"), list
                 ):
                     raise BridgeError("Lua bridge returned an unsupported handshake")
+                capabilities = handshake["capabilities"]
+                if not all(isinstance(capability, str) for capability in capabilities):
+                    raise BridgeError("Lua bridge returned an invalid capability list")
+                missing_capabilities = sorted(_REQUIRED_BRIDGE_CAPABILITIES - set(capabilities))
+                if missing_capabilities:
+                    await self.stop()
+                    raise EmulatorLaunchError(
+                        "Lua bridge is missing required capabilities: "
+                        f"{', '.join(missing_capabilities)}; use a bridge script compatible "
+                        "with this aw2-lab version"
+                    )
                 return
             except BridgeError as error:
                 last_error = str(error)
