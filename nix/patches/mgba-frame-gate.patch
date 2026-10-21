@@ -1,0 +1,274 @@
+Keep AW2 Lab emulation paused between bridge requests. Both frontends poll
+without running the core. Lua queues a bounded frame budget; native code runs
+it after the callback returns, avoiding recursive core execution inside Lua.
+Qt also disables audio/video waits, local key merging, and UI unpause/step
+while gated. Normal mGBA behavior is unchanged unless AW2_MGBA_FRAME_GATE=1.
+
+--- a/include/mgba/core/scripting.h
++++ b/include/mgba/core/scripting.h
+@@ -59,6 +59,9 @@
+ struct mScriptContext;
+ void mScriptContextAttachCore(struct mScriptContext*, struct mCore*);
+ void mScriptContextDetachCore(struct mScriptContext*);
++// Call only from an idle frontend on the core thread. Runs queued frames after
++// bridgePoll returns, so the core never executes recursively inside Lua.
++void mScriptContextPollBridge(struct mScriptContext*);
+ 
+ CXX_GUARD_END
+ 
+--- a/src/core/scripting.c
++++ b/src/core/scripting.c
+@@ -192,6 +192,10 @@
+ #endif
+ 
+ struct mScriptCoreAdapter {
++	bool bridgePolling;
++	uint32_t bridgeFrames;
++	uint32_t bridgeKeys;
++	bool bridgeReleaseKeys;
+ 	struct mCore* core;
+ 	struct mScriptContext* context;
+ 	struct mScriptValue memory;
+@@ -1167,7 +1171,18 @@
+ #endif
+ }
+ 
++static bool _mScriptCoreAdapterRequestFrames(struct mScriptCoreAdapter* adapter, uint32_t frames, uint32_t keys, bool releaseKeys) {
++	if (!adapter->bridgePolling || adapter->bridgeFrames || !frames || frames > 600 || keys > 1023) {
++		return false;
++	}
++	adapter->bridgeFrames = frames;
++	adapter->bridgeKeys = keys;
++	adapter->bridgeReleaseKeys = releaseKeys;
++	return true;
++}
++
+ mSCRIPT_DECLARE_STRUCT(mScriptCoreAdapter);
++mSCRIPT_DECLARE_STRUCT_METHOD(mScriptCoreAdapter, BOOL, requestFrames, _mScriptCoreAdapterRequestFrames, 3, U32, frames, U32, keys, BOOL, releaseKeys);
+ mSCRIPT_DECLARE_STRUCT_METHOD(mScriptCoreAdapter, W(mCore), _get, _mScriptCoreAdapterGet, 1, CHARP, name);
+ mSCRIPT_DECLARE_STRUCT_VOID_METHOD(mScriptCoreAdapter, _deinit, _mScriptCoreAdapterDeinit, 0);
+ mSCRIPT_DECLARE_STRUCT_VOID_METHOD(mScriptCoreAdapter, reset, _mScriptCoreAdapterReset, 0);
+@@ -1224,6 +1239,8 @@
+ 	mSCRIPT_DEFINE_STRUCT_DEFAULT_GET(mScriptCoreAdapter)
+ 	mSCRIPT_DEFINE_DOCSTRING("Reset the emulation. As opposed to struct::mCore.reset, this version calls the **reset** callback")
+ 	mSCRIPT_DEFINE_STRUCT_METHOD(mScriptCoreAdapter, reset)
++	mSCRIPT_DEFINE_DOCSTRING("Queue 1-600 frames during bridgePoll; native frontend execution finishes with bridgeComplete")
++	mSCRIPT_DEFINE_STRUCT_METHOD(mScriptCoreAdapter, requestFrames)
+ 	mSCRIPT_DEFINE_DOCSTRING(
+ 		"Sets the table of functions to be called when the game requests rotation data, for either a gyroscope or accelerometer. "
+ 		"The following functions are supported, and if any isn't set then then default implementation for that function is called instead:\n\n"
+@@ -1280,6 +1297,30 @@
+ 	return value->value.opaque;
+ }
+ 
++void mScriptContextPollBridge(struct mScriptContext* context) {
++	struct mScriptCoreAdapter* adapter = _getAdapter(context);
++	if (!adapter || adapter->bridgePolling || adapter->bridgeFrames) {
++		return;
++	}
++	adapter->bridgePolling = true;
++	mScriptContextTriggerCallback(context, "bridgePoll", NULL);
++	adapter->bridgePolling = false;
++	if (!adapter->bridgeFrames) {
++		return;
++	}
++	struct mCore* core = adapter->core;
++	core->setKeys(core, adapter->bridgeKeys);
++	uint32_t i;
++	for (i = 0; i < adapter->bridgeFrames; ++i) {
++		core->runFrame(core);
++	}
++	if (adapter->bridgeReleaseKeys) {
++		core->setKeys(core, 0);
++	}
++	adapter->bridgeFrames = 0;
++	mScriptContextTriggerCallback(context, "bridgeComplete", NULL);
++}
++
+ static void _setRumble(struct mRumble* rumble, bool enable, uint32_t timeSince) {
+ 	struct mScriptCoreAdapter* adapter = containerof(rumble, struct mScriptCoreAdapter, rumble);
+ 
+--- a/src/platform/headless-main.c
++++ b/src/platform/headless-main.c
+@@ -28,6 +28,9 @@
+ 
+ #include <errno.h>
+ #include <signal.h>
++#include <stdlib.h>
++#include <string.h>
++#include <time.h>
+ 
+ #define HEADLESS_OPTIONS "S:R:"
+ static const char* const headlessUsage =
+@@ -223,9 +226,21 @@
+ 		} while (!_dispatchExiting && debugger.state != DEBUGGER_SHUTDOWN);
+ 	} else
+ #endif
+-	do {
+-		core->runLoop(core);
+-	} while (!_dispatchExiting);
++#ifdef ENABLE_SCRIPTING
++	if (StringListSize(&headlessOpts.scripts) && getenv("AW2_MGBA_FRAME_GATE") &&
++	    strcmp(getenv("AW2_MGBA_FRAME_GATE"), "1") == 0) {
++		const struct timespec pollInterval = { .tv_sec = 0, .tv_nsec = 5000000 };
++		while (!_dispatchExiting) {
++			mScriptContextPollBridge(&scriptContext);
++			nanosleep(&pollInterval, NULL);
++		}
++	} else
++#endif
++	{
++		do {
++			core->runLoop(core);
++		} while (!_dispatchExiting);
++	}
+ 	cleanExit = true;
+ 
+ scriptsError:
+--- a/src/platform/qt/CoreController.cpp
++++ b/src/platform/qt/CoreController.cpp
+@@ -76,6 +76,9 @@
+ 		}
+ 
+ 		controller->updateFastForward(false);
++		if (qEnvironmentVariable("AW2_MGBA_FRAME_GATE") == "1") {
++			controller->setSync(false);
++		}
+ 
+ 		if (controller->m_multiplayer) {
+ 			controller->m_multiplayer->attachGame(controller);
+@@ -483,6 +486,10 @@
+ 	if (!m_patched) {
+ 		mCoreAutoloadPatch(m_threadContext.core);
+ 	}
++	if (qEnvironmentVariable("AW2_MGBA_FRAME_GATE") == "1") {
++		// The reset callback calls finishFrame before the core first runs.
++		m_moreFrames = 1;
++	}
+ 	if (!mCoreThreadStart(&m_threadContext)) {
+ 		emit failed();
+ 		emit stopping();
+@@ -508,6 +515,9 @@
+ }
+ 
+ void CoreController::setPaused(bool paused) {
++	if (!paused && qEnvironmentVariable("AW2_MGBA_FRAME_GATE") == "1") {
++		return;
++	}
+ 	QMutexLocker locker(&m_actionMutex);
+ 	if (paused) {
+ 		if (m_moreFrames < 0) {
+@@ -522,6 +532,9 @@
+ }
+ 
+ void CoreController::frameAdvance() {
++	if (qEnvironmentVariable("AW2_MGBA_FRAME_GATE") == "1") {
++		return;
++	}
+ 	QMutexLocker locker(&m_actionMutex);
+ 	m_moreFrames = 1;
+ 	if (isPaused()) {
+@@ -535,6 +548,9 @@
+ }
+ 
+ void CoreController::setSync(bool sync) {
++	if (qEnvironmentVariable("AW2_MGBA_FRAME_GATE") == "1") {
++		sync = false;
++	}
+ 	if (sync) {
+ 		m_threadContext.impl->sync.audioWait = m_audioSync;
+ 		m_threadContext.impl->sync.videoFrameWait = m_videoSync;
+@@ -1221,6 +1237,9 @@
+ }
+ 
+ void CoreController::updateKeys() {
++	if (qEnvironmentVariable("AW2_MGBA_FRAME_GATE") == "1") {
++		return;
++	}
+ 	int polledKeys = m_inputController->pollEvents() | updateAutofire();
+ 	int activeKeys = m_activeKeys | polledKeys;
+ 	activeKeys |= m_threadContext.core->getKeys(m_threadContext.core) & ~m_removedKeys;
+--- a/src/platform/qt/scripting/ScriptingController.cpp
++++ b/src/platform/qt/scripting/ScriptingController.cpp
+@@ -23,12 +23,20 @@
+ #include "Window.h"
+ 
+ #include <mgba/script.h>
++#include <mgba/core/thread.h>
++#include <mgba/core/scripting.h>
+ #include <mgba-util/math.h>
+ #include <mgba-util/string.h>
+ 
+ #include "scripting/moc_ScriptingController.cpp"
+ 
+ using namespace QGBA;
++
++static void _pollBridge(mCoreThread* thread) {
++	if (thread->scriptContext) {
++		mScriptContextPollBridge(thread->scriptContext);
++	}
++}
+ 
+ ScriptingController::ScriptingController(ConfigController* config, QObject* parent)
+ 	: QObject(parent)
+@@ -63,6 +71,8 @@
+ 
+ 	connect(&m_storageFlush, &QTimer::timeout, this, &ScriptingController::flushStorage);
+ 	m_storageFlush.setInterval(5);
++	connect(&m_bridgePoll, &QTimer::timeout, this, &ScriptingController::pollBridge);
++	m_bridgePoll.setInterval(5);
+ 
+ 	mScriptGamepadInit(&m_gamepad);
+ 
+@@ -84,6 +94,9 @@
+ 		return;
+ 	}
+ 	m_controller = std::move(controller);
++	if (qEnvironmentVariable("AW2_MGBA_FRAME_GATE") == "1") {
++		m_bridgePoll.start();
++	}
+ 	CoreController::Interrupter interrupter(m_controller);
+ 	m_controller->thread()->scriptContext = &m_scriptContext;
+ 	if (m_controller->hasStarted()) {
+@@ -145,6 +158,7 @@
+ 	if (!m_controller) {
+ 		return;
+ 	}
++	m_bridgePoll.stop();
+ 	{
+ 		CoreController::Interrupter interrupter(m_controller);
+ 		mScriptContextDetachCore(&m_scriptContext);
+@@ -184,6 +198,15 @@
+ #ifdef USE_JSON_C
+ 	mScriptStorageFlushAll(&m_scriptContext);
+ #endif
++}
++
++void ScriptingController::pollBridge() {
++	if (!m_controller || !m_controller->hasStarted() || !m_controller->isPaused()) {
++		return;
++	}
++	// Fast-forward settings can restore waits; explicit budgets must never wait.
++	m_controller->setSync(false);
++	mCoreThreadRunFunction(m_controller->thread(), _pollBridge);
+ }
+ 
+ bool ScriptingController::eventFilter(QObject* obj, QEvent* ev) {
+--- a/src/platform/qt/scripting/ScriptingController.h
++++ b/src/platform/qt/scripting/ScriptingController.h
+@@ -66,6 +66,7 @@
+ 	void reset();
+ 	void runCode(const QString& code);
+ 	void openAutorunEdit();
++	void pollBridge();
+ 
+ 	void flushStorage();
+ 
+@@ -105,6 +106,7 @@
+ 	ConfigController* m_config = nullptr;
+ 
+ 	QTimer m_storageFlush;
++	QTimer m_bridgePoll;
+ };
+ 
+ }

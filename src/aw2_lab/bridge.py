@@ -130,7 +130,11 @@ class LuaBridgeClient:
         """Advance exactly ``frames`` frames and return the ending frame number."""
         if isinstance(frames, bool) or not isinstance(frames, int) or not 0 <= frames <= 600:
             raise ValueError("frames must be an integer from 0 to 600")
-        result = await self.request("advance_frames", frames=frames)
+        result = await self.request(
+            "advance_frames",
+            frames=frames,
+            timeout=self.timeout + frames / 60,
+        )
         try:
             start_frame = result["start_frame"]
             end_frame = result["frame"]

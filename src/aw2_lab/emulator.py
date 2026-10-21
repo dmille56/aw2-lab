@@ -59,6 +59,7 @@ class EmulatorLauncher:
         if not script.is_file():
             raise EmulatorLaunchError(f"Lua bridge script does not exist: {script}")
         environment = os.environ.copy()
+        environment["AW2_MGBA_FRAME_GATE"] = "1"
         show_console = (
             self.settings.mode is EmulatorMode.WINDOWED and self.settings.show_scripting_console
         )

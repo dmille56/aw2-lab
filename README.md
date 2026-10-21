@@ -31,6 +31,19 @@ startup; the setting defaults to false. The CLI option takes precedence, and
 `--no-scripting-console` disables it even when the environment variable is true.
 The console also remains available from mGBA's Tools menu for manual debugging.
 
+The launcher sets `AW2_MGBA_FRAME_GATE=1` to enable the patch in
+`nix/patches/mgba-frame-gate.patch`. Both frontends start paused and poll the
+bridge every 5 ms without executing gameplay. Lua queues a budget through the
+patch's `emu:requestFrames` method; native code runs it after the Lua callback
+returns, then invokes `bridgeComplete` to send the result. Polling from ordinary
+frame callbacks requires gameplay to run, and running the core recursively from
+Lua callbacks hung the pinned build during integration checks. This patch keeps
+idle requests responsive and bounds execution to explicit server requests.
+In windowed mode, local controller input, resume, and frame-step controls are
+ignored while gated. Audio/video synchronization waits are disabled so a frame
+budget can complete while the window is paused. Running either patched frontend
+without `AW2_MGBA_FRAME_GATE=1` retains its normal behavior.
+
 Build the emulator separately with `nix build .#mgba`. After changing the flake,
 enter a fresh `nix shell` or `nix develop` so the new executables are on PATH.
 For example:
@@ -40,8 +53,8 @@ nix shell
 aw2-lab --rom /path/to/aw2.gba --emulator-mode headless
 ```
 
-Successful startup script loading does not establish the remaining milestone 1
-requirements, including idle frame control, input authority, and checkpoint recovery.
+The remaining milestone 1 requirements include coherent batched memory reads
+and checkpoint recovery.
 Startup was verified locally with an AW2 ROM on 2026-10-20 through both
 `python -m aw2_lab` and the packaged `aw2-lab` command. Both emulator modes
 reported a running emulator through `/health`, loaded the bridge automatically,
@@ -62,3 +75,32 @@ On 2026-10-20, a live headless check held A for three frames: mGBA reported a
 frame transition from 18574 to 18577 and confirmed that all keys were released.
 On 2026-10-21, the same three-frame A press passed in windowed mode, from frame
 259 to 262, with the bridge confirming release.
+
+`LuaBridgeClient.advance_frames(count)` advances exactly 0–600 frames and returns
+the ending frame number. Passing zero queries the current frame without running
+the core. Held masks from `set_keys` persist across advances; `press_keys` replaces
+the mask for its budget and then releases all keys. Frame counts are checked
+against the emulator's counter, including its 32-bit wraparound.
+
+ROM-independent bridge and launcher checks run by default. To run the frame gate
+integration checks against your local ROM in both frontends:
+
+```sh
+nix develop
+AW2_RUN_EMULATOR_TESTS=1 AW2_ROM_PATH=/path/to/aw2.gba \
+  pytest tests/test_frame_gate_integration.py -v
+```
+
+Stop an existing AW2 Lab emulator first; the checks require bridge port 43128.
+They use temporary configuration and save directories, verify idle queries and
+memory reads, exact budgets through 600 frames, key presses and release, and
+shutdown. Windowed mode requires a display; with X11 and `xdotool` available,
+the checks also verify that resume and frame-step shortcuts leave the core idle.
+Set `AW2_TEST_MGBA_HEADLESS` or `AW2_TEST_MGBA_WINDOWED` to test specific emulator
+executables.
+
+On 2026-10-21, live frame gate checks passed in both modes: startup remained at
+frame 0, idle queries and memory reads left it unchanged, and explicit budgets
+of 1, 3, 17, and 600 frames advanced exactly. After the held-input and press
+checks, both modes stayed idle at frame 627. The X11 window's resume and
+frame-step shortcuts also left the game paused.

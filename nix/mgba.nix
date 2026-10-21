@@ -5,6 +5,7 @@ pkgs.mgba.overrideAttrs (previous: {
   src = mgbaSource;
   patches = (previous.patches or [ ]) ++ [
     ./patches/mgba-quiet-script-startup.patch
+    ./patches/mgba-frame-gate.patch
   ];
   buildInputs = previous.buildInputs ++ [
     pkgs.json_c
