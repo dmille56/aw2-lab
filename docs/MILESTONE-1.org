@@ -3,10 +3,27 @@
 
 * Remaining work
 
-** TODO Verify idle responsiveness and observation frame stability
-   - [ ] Confirm bridge commands remain responsive while emulation is idle.
-   - [ ] Confirm memory observations do not advance the emulator frame.
-   - [ ] Record the verification method and result.
+** DONE Verify idle responsiveness and observation frame stability
+   - [X] Confirm bridge commands remain responsive while emulation is idle.
+   - [X] Confirm memory observations do not advance the emulator frame.
+   - [X] Record the verification method and result.
+   - Verification attempt (2026-10-21): ran
+     =AW2_RUN_EMULATOR_TESTS=1 pytest -q tests/test_frame_gate_integration.py=.
+     Both headless and windowed cases failed during launcher startup because the Lua
+     bridge did not become ready within 15 seconds. The idle responsiveness and
+     non-advancing observation assertions were not reached in that attempt.
+   - Trace finding: both selected mGBA executables opened the Lua bridge TCP listener,
+     but a request received no response and an instrumented temporary Lua bridge saw
+     zero =bridgePoll= callback invocations in either mode. The executables also lack
+     the =AW2_MGBA_FRAME_GATE= marker present in
+     =nix/patches/mgba-frame-gate.patch=, indicating that the selected binaries are
+     unpatched and ignore the frame-gate environment setting. This led to rerunning
+     the check inside the flake-provided development environment.
+   - Successful verification (2026-10-21): ran
+     =nix develop -c bash -lc 'AW2_RUN_EMULATOR_TESTS=1 pytest -q tests/test_frame_gate_integration.py'=.
+     Both headless and windowed cases passed with the flake-provided mGBA selected by
+     the development environment. This checks idle bridge requests and confirms
+     single and batched memory reads leave the frame unchanged.
 
 ** TODO Verify clear diagnostics for startup and bridge failures
    - [ ] Check bridge disconnects and emulator process failures.

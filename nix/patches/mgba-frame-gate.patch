@@ -100,7 +100,7 @@ while gated. Normal mGBA behavior is unchanged unless AW2_MGBA_FRAME_GATE=1.
  
  #define HEADLESS_OPTIONS "S:R:"
  static const char* const headlessUsage =
-@@ -223,9 +226,21 @@
+@@ -223,9 +226,22 @@
  		} while (!_dispatchExiting && debugger.state != DEBUGGER_SHUTDOWN);
  	} else
  #endif
@@ -110,6 +110,7 @@ while gated. Normal mGBA behavior is unchanged unless AW2_MGBA_FRAME_GATE=1.
 +#ifdef ENABLE_SCRIPTING
 +	if (StringListSize(&headlessOpts.scripts) && getenv("AW2_MGBA_FRAME_GATE") &&
 +	    strcmp(getenv("AW2_MGBA_FRAME_GATE"), "1") == 0) {
++		mLOG(STATUS, INFO, "AW2 mGBA patch enabled: mgba-frame-gate.patch");
 +		const struct timespec pollInterval = { .tv_sec = 0, .tv_nsec = 5000000 };
 +		while (!_dispatchExiting) {
 +			mScriptContextPollBridge(&scriptContext);
