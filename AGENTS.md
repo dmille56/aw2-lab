@@ -20,7 +20,7 @@ Use four spaces for Python indentation, descriptive `snake_case` names for modul
 
 ## Testing Guidelines
 
-Use pytest and name tests `test_*.py`; place them under `tests/`. Cover observable behavior and error paths when adding functionality. Before considering any task complete, run `pre-commit run --all-files` and require every hook to pass. The hooks run Ruff linting, Ruff formatting, and pytest. If a hook fails, fix the issue and rerun the full command; report any blocker instead of marking the task done. Emulator integration tests should be clearly separated from ROM-independent checks and must not require a ROM by default.
+Use pytest and name tests `test_*.py`; place them under `tests/`. Cover observable behavior and error paths when adding functionality. Before considering any task complete, run `pre-commit run --all-files` and require every hook to pass. If this cannot proceed because a required binary or library is missing, retry with `nix develop -c pre-commit run --all-files`. If a hook reports a code failure, fix it and rerun the full command; report any blocker instead of marking the task done. Emulator integration tests should be clearly separated from ROM-independent checks and must not require a ROM by default.
 
 ## Commit & Pull Request Guidelines
 

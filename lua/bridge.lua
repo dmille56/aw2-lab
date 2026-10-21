@@ -5,8 +5,9 @@
 
 local bridge = {
     protocol_version = 1,
-    capabilities = {"connect", "set_keys", "advance_frames", "read_memory"},
-    max_message_bytes = 65536,
+    capabilities = {"connect", "set_keys", "advance_frames", "read_memory", "screenshot"},
+    max_message_bytes = 4718592,
+    max_screenshot_bytes = 3145728,
     port = 43128,
 }
 
@@ -15,6 +16,7 @@ local bridge = {
 local script_path = debug.getinfo(1, "S").source:sub(2)
 local script_directory = script_path:match("^(.*[/\\])") or ""
 local json = dofile(script_directory .. "dkjson.lua")
+local base64 = dofile(script_directory .. "base64.lua")
 
 local function decode_json(input)
     local value, position, err = json.decode(input)
@@ -92,6 +94,35 @@ function bridge.handle_request(request)
         end
         local bytes = {string.byte(emu:readRange(address, length), 1, length)}
         return {id = request_id, ok = true, result = {address = address, bytes = bytes}}
+    end
+
+    if request.operation == "screenshot" then
+        local filename = request.filename
+        if type(filename) ~= "string" or #filename == 0 or #filename > 4096 then
+            return error_response(
+                request_id,
+                "invalid_request",
+                "filename must be a non-empty path"
+            )
+        end
+        local ok, err = pcall(function() emu:screenshot(filename) end)
+        if not ok then
+            return error_response(request_id, "screenshot_failed", tostring(err))
+        end
+        local file, open_error = io.open(filename, "rb")
+        if not file then
+            return error_response(request_id, "screenshot_failed", tostring(open_error))
+        end
+        local png = file:read("*a")
+        file:close()
+        if #png > bridge.max_screenshot_bytes then
+            return error_response(
+                request_id,
+                "screenshot_too_large",
+                "Screenshot exceeds the size limit"
+            )
+        end
+        return {id = request_id, ok = true, result = {png_base64 = base64.encode(png)}}
     end
 
     return error_response(request_id, "unsupported_operation", "Operation is not implemented")

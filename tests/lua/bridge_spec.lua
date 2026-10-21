@@ -6,6 +6,7 @@ local active_client
 local frame_callback
 local frame = 100
 local keys = 0
+local screenshot_path
 
 local client = {}
 function client.hasdata(_self)
@@ -59,6 +60,12 @@ end
 function _G.emu.readRange(_self, address, length)
     return string.rep(string.char(address % 256), length)
 end
+function _G.emu.screenshot(_self, filename)
+    screenshot_path = filename
+    local file = assert(io.open(filename, "wb"))
+    file:write("png?")
+    file:close()
+end
 
 dofile("lua/bridge.lua")
 
@@ -69,6 +76,18 @@ describe("mGBA Lua bridge", function()
         active_client = nil
         frame = 100
         keys = 0
+        screenshot_path = nil
+    end)
+
+    it("encodes base64 values with and without padding", function()
+        local base64 = dofile("lua/base64.lua")
+        assert.are.equal("", base64.encode(""))
+        assert.are.equal("Zg==", base64.encode("f"))
+        assert.are.equal("Zm8=", base64.encode("fo"))
+        assert.are.equal("Zm9v", base64.encode("foo"))
+        assert.are.equal("Zm9vYg==", base64.encode("foob"))
+        assert.are.equal("Zm9vYmE=", base64.encode("fooba"))
+        assert.are.equal("Zm9vYmFy", base64.encode("foobar"))
     end)
 
     it("reports protocol version and capabilities", function()
@@ -108,6 +127,17 @@ describe("mGBA Lua bridge", function()
         assert.are.equal(0x02000000, response.result.address)
         assert.are.equal(3, #response.result.bytes)
         assert.are.equal(0, response.result.bytes[1])
+    end)
+
+    it("captures a screenshot to the requested file", function()
+        local filename = os.tmpname()
+        local response = _G.AW2Bridge.handle_request({
+            id = 9, version = 1, operation = "screenshot", filename = filename,
+        })
+        assert.is_true(response.ok)
+        assert.are.equal(filename, screenshot_path)
+        assert.are.equal("cG5nPw==", response.result.png_base64)
+        os.remove(filename)
     end)
 
     it("returns structured errors for invalid versions and operations", function()

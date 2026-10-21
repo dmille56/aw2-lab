@@ -32,7 +32,7 @@ repos:
         entry: luacheck
         language: system
         types: [lua]
-        exclude: ^lua/dkjson\.lua$
+        exclude: ^lua/(dkjson|base64)\.lua$
       - id: luac-check
         name: Lua syntax check
         entry: luac -p
