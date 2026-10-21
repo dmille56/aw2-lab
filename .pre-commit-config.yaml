@@ -32,11 +32,13 @@ repos:
         entry: luacheck
         language: system
         types: [lua]
+        exclude: ^lua/dkjson\.lua$
       - id: luac-check
         name: Lua syntax check
         entry: luac -p
         language: system
         types: [lua]
+        exclude: ^lua/dkjson\.lua$
       - id: lua-tests
         name: Lua bridge tests
         entry: busted tests/lua

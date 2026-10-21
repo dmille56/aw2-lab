@@ -10,120 +10,17 @@ local bridge = {
     port = 43128,
 }
 
--- Small JSON decoder so the bridge does not depend on an optional Lua module.
-local json = {}
-function json.decode(input)
-    local index = 1
-    local function whitespace()
-        while input:sub(index, index):match("%s") do index = index + 1 end
-    end
-    local parse_value
-    local function parse_string()
-        index = index + 1
-        local parts = {}
-        while index <= #input do
-            local char = input:sub(index, index)
-            if char == '"' then index = index + 1; return table.concat(parts) end
-            if char == "\\" then
-                index = index + 1
-                local escaped = input:sub(index, index)
-                local replacements = {['"'] = '"', ['\\'] = '\\', ['/'] = '/',
-                    b = "\b", f = "\f", n = "\n", r = "\r", t = "\t"}
-                if escaped == "u" then
-                    local code = tonumber(input:sub(index + 1, index + 4), 16)
-                    if not code then error("invalid unicode escape") end
-                    parts[#parts + 1] = code < 128 and string.char(code) or "?"
-                    index = index + 4
-                else
-                    parts[#parts + 1] = replacements[escaped] or error("invalid escape")
-                end
-            else
-                parts[#parts + 1] = char
-            end
-            index = index + 1
-        end
-        error("unterminated string")
-    end
-    local function parse_object()
-        index = index + 1
-        local result = {}
-        whitespace()
-        if input:sub(index, index) == "}" then index = index + 1; return result end
-        while true do
-            whitespace()
-            if input:sub(index, index) ~= '"' then error("expected object key") end
-            local key = parse_string()
-            whitespace()
-            if input:sub(index, index) ~= ":" then error("expected colon") end
-            index = index + 1
-            result[key] = parse_value()
-            whitespace()
-            local delimiter = input:sub(index, index)
-            index = index + 1
-            if delimiter == "}" then return result end
-            if delimiter ~= "," then error("expected comma") end
-        end
-    end
-    local function parse_array()
-        index = index + 1
-        local result = {}
-        whitespace()
-        if input:sub(index, index) == "]" then index = index + 1; return result end
-        while true do
-            result[#result + 1] = parse_value()
-            whitespace()
-            local delimiter = input:sub(index, index)
-            index = index + 1
-            if delimiter == "]" then return result end
-            if delimiter ~= "," then error("expected comma") end
-        end
-    end
-    parse_value = function()
-        whitespace()
-        local char = input:sub(index, index)
-        if char == '"' then return parse_string() end
-        if char == "{" then return parse_object() end
-        if char == "[" then return parse_array() end
-        for word, value in pairs({["true"] = true, ["false"] = false, ["null"] = nil}) do
-            if input:sub(index, index + #word - 1) == word then
-                index = index + #word
-                return value
-            end
-        end
-        local number = input:sub(index):match("^-?%d+%.?%d*[eE]?[+-]?%d*")
-        if number and #number > 0 then index = index + #number; return tonumber(number) end
-        error("invalid JSON value")
-    end
-    local value = parse_value()
-    whitespace()
-    if index <= #input then error("trailing JSON data") end
+-- Load the vendored pure-Lua library beside this script; mGBA embeds Lua and
+-- does not necessarily use the host's Lua module search path.
+local script_path = debug.getinfo(1, "S").source:sub(2)
+local script_directory = script_path:match("^(.*[/\\])") or ""
+local json = dofile(script_directory .. "dkjson.lua")
+
+local function decode_json(input)
+    local value, position, err = json.decode(input)
+    if err then error(err) end
+    if input:sub(position):match("%S") then error("trailing JSON data") end
     return value
-end
-
-local function json_quote(value)
-    return '"' .. value:gsub('[%z\1-\31\\"]', function(char)
-        local escapes = {['\\'] = '\\\\', ['"'] = '\\"', ['\n'] = '\\n',
-            ['\r'] = '\\r', ['\t'] = '\\t'}
-        return escapes[char] or string.format('\\u%04x', string.byte(char))
-    end) .. '"'
-end
-
-local function json_encode(value)
-    local kind = type(value)
-    if value == nil then return "null" end
-    if kind == "boolean" or kind == "number" then return tostring(value) end
-    if kind == "string" then return json_quote(value) end
-    if kind ~= "table" then error("unsupported JSON value") end
-    local is_array = #value > 0
-    local parts = {}
-    if is_array then
-        for _, item in ipairs(value) do parts[#parts + 1] = json_encode(item) end
-        return "[" .. table.concat(parts, ",") .. "]"
-    end
-    for key, item in pairs(value) do
-        parts[#parts + 1] = json_quote(tostring(key)) .. ":" .. json_encode(item)
-    end
-    return "{" .. table.concat(parts, ",") .. "}"
 end
 
 local function error_response(request_id, code, message)
@@ -201,7 +98,7 @@ function bridge.handle_request(request)
 end
 
 local function handle_line(client, line)
-    local ok, request = pcall(json.decode, line)
+    local ok, request = pcall(decode_json, line)
     local response
     if ok then
         local handled, result = pcall(bridge.handle_request, request)
@@ -210,7 +107,7 @@ local function handle_line(client, line)
     else
         response = error_response(nil, "invalid_json", tostring(request))
     end
-    local encoded_ok, encoded = pcall(json_encode, response)
+    local encoded_ok, encoded = pcall(json.encode, response)
     if encoded_ok then
         local message = encoded .. "\n"
         local offset = 1

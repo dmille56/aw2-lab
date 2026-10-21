@@ -29,7 +29,10 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/aw2_lab"]
-force-include = { "lua/bridge.lua" = "aw2_lab/lua/bridge.lua" }
+
+[tool.hatch.build.targets.wheel.force-include]
+"lua/bridge.lua" = "aw2_lab/lua/bridge.lua"
+"lua/dkjson.lua" = "aw2_lab/lua/dkjson.lua"
 
 [tool.ruff]
 line-length = 100
