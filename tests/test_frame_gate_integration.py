@@ -90,6 +90,20 @@ def test_frame_gate_stays_idle_and_executes_exact_budgets(
                 await bridge.connect()
                 await bridge.request("read_memory", address=0x080000AC, length=4)
                 assert await bridge.advance_frames(0) == frame
+            frame = (frame + 1) % (1 << 32)
+            assert await bridge.advance_frames(1) == frame
+            initial_batch = await bridge.read_memory_batch([(0x02000000, 16), (0x080000A0, 16)])
+            assert await bridge.advance_frames(0) == frame
+            checkpoint = tmp_path / f"{mode.value}-checkpoint.ss0"
+            assert await bridge.save_state(checkpoint) == frame
+            await bridge.advance_frames(17)
+            restored_frame = await bridge.load_state(checkpoint)
+            assert restored_frame == frame
+            assert (
+                await bridge.read_memory_batch([(0x02000000, 16), (0x080000A0, 16)])
+                == initial_batch
+            )
+            assert await bridge.advance_frames(0) == frame
             if (
                 mode is EmulatorMode.WINDOWED
                 and os.environ.get("DISPLAY")
@@ -128,6 +142,8 @@ def test_frame_gate_stays_idle_and_executes_exact_budgets(
             assert result["frame"] == frame
             await asyncio.sleep(0.3)
             assert await bridge.advance_frames(0) == frame
+            reset_frame = await bridge.reset()
+            assert await bridge.advance_frames(0) == reset_frame
         finally:
             await launcher.stop()
             assert not launcher.is_running

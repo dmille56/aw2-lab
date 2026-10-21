@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+from aw2_lab.bridge import BridgeError, LuaBridgeClient
+
 
 class EmulatorMode(StrEnum):
     """Supported mGBA frontend modes."""
@@ -26,6 +28,7 @@ class EmulatorSettings:
     windowed_executable: str | None = None
     bridge_script: Path | None = None
     show_scripting_console: bool = False
+    bridge_ready_timeout: float = 15.0
 
 
 class EmulatorLaunchError(RuntimeError):
@@ -77,15 +80,37 @@ class EmulatorLauncher:
                 f"Could not start mGBA executable {executable!r}: {error}"
             ) from error
         self.process = process
-
-        await asyncio.sleep(0)
-        if process.returncode is not None:
-            return_code = process.returncode
-            self.process = None
-            raise EmulatorLaunchError(
-                f"mGBA exited during startup with status {return_code} (executable {executable!r}); "
-                "check that this mGBA build supports Lua scripting and the --script option"
-            )
+        bridge = LuaBridgeClient(timeout=1.0)
+        deadline = asyncio.get_running_loop().time() + self.settings.bridge_ready_timeout
+        last_error = "no response"
+        while True:
+            if process.returncode is not None:
+                return_code = process.returncode
+                self.process = None
+                raise EmulatorLaunchError(
+                    f"mGBA exited during startup with status {return_code} "
+                    f"(executable {executable!r}); check that this build supports Lua scripting, "
+                    "the --script option, and the requested frontend/display"
+                )
+            try:
+                handshake = await bridge.connect()
+                if handshake.get("protocol_version") != 1 or not isinstance(
+                    handshake.get("capabilities"), list
+                ):
+                    raise BridgeError("Lua bridge returned an unsupported handshake")
+                return
+            except BridgeError as error:
+                last_error = str(error)
+            if asyncio.get_running_loop().time() >= deadline:
+                await self.stop()
+                raise EmulatorLaunchError(
+                    f"Lua bridge did not become ready within "
+                    f"{self.settings.bridge_ready_timeout:g} seconds "
+                    f"(executable {executable!r}, last error: {last_error}); "
+                    "check that the selected mGBA frontend supports Lua scripting and that "
+                    "bridge port 43128 is available"
+                )
+            await asyncio.sleep(0.05)
 
     async def stop(self) -> None:
         """Terminate mGBA, escalating to kill if it does not exit promptly."""

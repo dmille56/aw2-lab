@@ -1,5 +1,5 @@
 -- Busted specs for the Lua bridge. Run with `busted tests/lua` from the repo root.
--- luacheck: globals describe it before_each socket callbacks emu
+-- luacheck: globals describe it before_each socket callbacks emu C
 local pending_chunks = {}
 local sent_data = ""
 local active_client
@@ -12,18 +12,33 @@ local keys = 0
 local frames_run = 0
 local input_samples = {}
 local screenshot_path
+local fail_state_operation
+local partial_sends
 
 local client = {}
 function client.hasdata(_self)
     return #pending_chunks > 0
 end
 function client.receive(_self)
-    return table.remove(pending_chunks, 1)
+    local item = table.remove(pending_chunks, 1)
+    if type(item) == "table" then
+        if item.error == "disconnected" then active_client = nil end
+        return nil, item.error, item.partial
+    end
+    return item
 end
-function client.send(_self, data, first)
-    sent_data = sent_data .. data:sub(first or 1)
+function client.send(_self, data, first, last)
+    local offset = first or 1
+    local finish = last or #data
+    if partial_sends then
+        local partial = math.min(offset + 2, finish)
+        sent_data = sent_data .. data:sub(offset, partial)
+        if partial < finish then return partial end
+    else
+        sent_data = sent_data .. data:sub(offset, finish)
+    end
     active_client = nil
-    return #data
+    return finish
 end
 
 local listener = {}
@@ -56,6 +71,7 @@ function _G.callbacks.add(_self, name, callback)
 end
 
 _G.emu = {}
+_G.C = {SAVESTATE = {ALL = 31}}
 function _G.emu.setKeys(_self, value)
     keys = value
 end
@@ -70,6 +86,9 @@ end
 function _G.emu.currentFrame(_self)
     return frame
 end
+function _G.emu.reset(_self)
+    frame = 0
+end
 function _G.emu.readRange(_self, address, length)
     return string.rep(string.char(address % 256), length)
 end
@@ -78,6 +97,19 @@ function _G.emu.screenshot(_self, filename)
     local file = assert(io.open(filename, "wb"))
     file:write("png?")
     file:close()
+end
+function _G.emu.saveStateBuffer(_self, flags)
+    assert.are.equal(31, flags)
+    if fail_state_operation then return false end
+    return tostring(frame) .. ":" .. tostring(keys)
+end
+function _G.emu.loadStateBuffer(_self, state, flags)
+    assert.are.equal(31, flags)
+    if fail_state_operation then return false end
+    local restored_frame, restored_keys = state:match("^(%d+):(%d+)$")
+    frame = tonumber(restored_frame)
+    keys = tonumber(restored_keys)
+    return true
 end
 
 function _G.emu.requestFrames(_self, count, mask, release)
@@ -108,6 +140,8 @@ describe("mGBA Lua bridge", function()
         frames_run = 0
         input_samples = {}
         screenshot_path = nil
+        fail_state_operation = false
+        partial_sends = false
         queued_request = nil
         reject_queue = false
         dofile("lua/bridge.lua")
@@ -284,6 +318,57 @@ describe("mGBA Lua bridge", function()
         assert.are.equal(0, response.result.bytes[1])
     end)
 
+    it("reads multiple memory ranges in one request", function()
+        local response = _G.AW2Bridge.handle_request({
+            id = 24, version = 1, operation = "read_memory_batch",
+            ranges = {{address = 0x02000001, length = 2}, {address = 0x03000002, length = 1}},
+        })
+        assert.is_true(response.ok)
+        assert.are.equal(2, #response.result.ranges)
+        assert.are.equal(1, response.result.ranges[1].bytes[1])
+        assert.are.equal(2, response.result.ranges[2].bytes[1])
+    end)
+
+    it("resets the emulator and releases held keys", function()
+        keys = 513
+        local response = _G.AW2Bridge.handle_request({
+            id = 32, version = 1, operation = "reset",
+        })
+        assert.is_true(response.ok)
+        assert.are.equal(0, response.result.frame)
+        assert.are.equal(0, keys)
+    end)
+
+    it("saves and restores emulator state with save RAM flags enabled", function()
+        frame = 321
+        keys = 9
+        local filename = os.tmpname()
+        local saved = _G.AW2Bridge.handle_request({
+            id = 25, version = 1, operation = "save_state", filename = filename,
+        })
+        assert.is_true(saved.ok)
+        frame = 400
+        keys = 0
+        local restored = _G.AW2Bridge.handle_request({
+            id = 26, version = 1, operation = "load_state", filename = filename,
+        })
+        assert.is_true(restored.ok)
+        assert.are.equal(321, restored.result.frame)
+        assert.are.equal(9, keys)
+        os.remove(filename)
+    end)
+
+    it("returns structured state operation failures", function()
+        fail_state_operation = true
+        local filename = os.tmpname()
+        local response = _G.AW2Bridge.handle_request({
+            id = 27, version = 1, operation = "save_state", filename = filename,
+        })
+        assert.is_false(response.ok)
+        assert.are.equal("state_operation_failed", response.error.code)
+        os.remove(filename)
+    end)
+
     it("captures a screenshot to the requested file", function()
         local filename = os.tmpname()
         local response = _G.AW2Bridge.handle_request({
@@ -320,6 +405,50 @@ describe("mGBA Lua bridge", function()
         assert.is_truthy(sent_data:match("\n$"))
         assert.is_truthy(sent_data:match('"id":8'))
         assert.is_truthy(sent_data:match('"ok":true'))
+    end)
+
+    it("preserves partial data returned with a socket timeout", function()
+        pending_chunks = {
+            {error = "timeout", partial = '{"id":28,"version":1,"operation":"connect"'},
+            "}\n",
+        }
+        frame_callback()
+        frame_callback()
+        assert.is_truthy(sent_data:match('"id":28'))
+    end)
+
+    it("returns a structured error for malformed JSON", function()
+        pending_chunks = {"{broken}\n"}
+        frame_callback()
+        assert.is_truthy(sent_data:match('"code":"invalid_json"'))
+    end)
+
+    it("rejects oversized requests before decoding them", function()
+        pending_chunks = {string.rep("x", _G.AW2Bridge.max_message_bytes + 1)}
+        frame_callback()
+        assert.is_truthy(sent_data:match('"code":"message_too_large"'))
+    end)
+
+    it("drops a disconnected partial request and accepts a new client", function()
+        pending_chunks = {
+            {error = "timeout", partial = '{"id":30'},
+            {error = "disconnected", partial = ""},
+            '{"id":31,"version":1,"operation":"connect"}\n',
+        }
+        frame_callback()
+        frame_callback()
+        frame_callback()
+        assert.is_truthy(sent_data:match('"id":31'))
+        assert.is_falsy(sent_data:match('"id":30'))
+    end)
+
+    it("finishes a response after partial socket writes", function()
+        partial_sends = true
+        pending_chunks = {'{"id":29,"version":1,"operation":"connect"}\n'}
+        frame_callback()
+        assert.is_truthy(sent_data:match('"id":29'))
+        assert.is_truthy(sent_data:match('"ok":true'))
+        assert.is_truthy(sent_data:match("\n$"))
     end)
 
     it("accepts another connection after replying to the prior request", function()

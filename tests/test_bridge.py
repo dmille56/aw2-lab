@@ -154,6 +154,65 @@ async def test_input_methods_reject_invalid_masks_and_frame_counts() -> None:
 
 
 @pytest.mark.anyio
+async def test_read_memory_batch_returns_each_range_from_one_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests, _ = mock_connection(
+        monkeypatch,
+        {
+            "id": "$request",
+            "ok": True,
+            "result": {
+                "ranges": [
+                    {"address": 0x02000000, "bytes": [1, 2]},
+                    {"address": 0x03000000, "bytes": [3]},
+                ]
+            },
+        },
+    )
+
+    result = await LuaBridgeClient().read_memory_batch([(0x02000000, 2), (0x03000000, 1)])
+
+    assert result == [b"\x01\x02", b"\x03"]
+    assert requests[0]["operation"] == "read_memory_batch"
+
+
+@pytest.mark.anyio
+async def test_read_memory_batch_rejects_invalid_ranges() -> None:
+    client = LuaBridgeClient()
+    for ranges in ([], [(True, 1)], [(0, 4097)], [(0xFFFFFFFF, 2)], [(0, 4096), (1, 1)]):
+        with pytest.raises(ValueError):
+            await client.read_memory_batch(ranges)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("operation", ["save_state", "load_state"])
+async def test_state_operations_return_the_frame(
+    monkeypatch: pytest.MonkeyPatch, operation: str, tmp_path: Path
+) -> None:
+    requests, _ = mock_connection(
+        monkeypatch, {"id": "$request", "ok": True, "result": {"frame": 456}}
+    )
+    client = LuaBridgeClient()
+
+    result = await getattr(client, operation)(tmp_path / "checkpoint.ss0")
+
+    assert result == 456
+    assert requests[0]["operation"] == operation
+    assert requests[0]["filename"] == str(tmp_path / "checkpoint.ss0")
+
+
+@pytest.mark.anyio
+async def test_reset_returns_the_new_frame(monkeypatch: pytest.MonkeyPatch) -> None:
+    requests, _ = mock_connection(
+        monkeypatch, {"id": "$request", "ok": True, "result": {"frame": 0}}
+    )
+
+    assert await LuaBridgeClient().reset() == 0
+    assert requests[0]["operation"] == "reset"
+
+
+@pytest.mark.anyio
 async def test_client_rejects_response_for_another_request(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

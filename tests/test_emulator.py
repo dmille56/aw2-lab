@@ -11,6 +11,10 @@ from aw2_lab.emulator import (
 )
 
 
+async def bridge_ready(_self: object) -> dict[str, object]:
+    return {"protocol_version": 1, "capabilities": ["connect"]}
+
+
 class FakeProcess:
     def __init__(self, returncode: int | None = None) -> None:
         self.returncode = returncode
@@ -41,6 +45,7 @@ async def test_launcher_uses_mode_executable_and_stops_process(
     executable_override: str | None,
     expected_executable: str,
 ) -> None:
+    monkeypatch.setattr("aw2_lab.emulator.LuaBridgeClient.connect", bridge_ready)
     rom = tmp_path / "aw2.gba"
     bridge = tmp_path / "bridge.lua"
     bridge.touch()
@@ -79,6 +84,7 @@ async def test_launcher_uses_mode_executable_and_stops_process(
 async def test_launcher_enables_scripting_console_when_requested_in_windowed_mode(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    monkeypatch.setattr("aw2_lab.emulator.LuaBridgeClient.connect", bridge_ready)
     bridge = tmp_path / "bridge.lua"
     bridge.touch()
     environment: dict[str, str] = {}
@@ -136,3 +142,35 @@ async def test_launcher_reports_immediate_process_exit(
 
     with pytest.raises(EmulatorLaunchError, match="exited during startup"):
         await launcher.start()
+
+
+@pytest.mark.anyio
+async def test_launcher_requires_a_valid_bridge_handshake(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    bridge_script = tmp_path / "bridge.lua"
+    bridge_script.touch()
+    process = FakeProcess()
+
+    async def create_process(*args: str, **kwargs: object) -> FakeProcess:
+        return process
+
+    async def bridge_unavailable(self: object) -> dict[str, object]:
+        from aw2_lab.bridge import BridgeError
+
+        raise BridgeError("connection refused")
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", create_process)
+    monkeypatch.setattr("aw2_lab.emulator.LuaBridgeClient.connect", bridge_unavailable)
+    launcher = EmulatorLauncher(
+        EmulatorSettings(
+            rom_path=tmp_path / "aw2.gba",
+            bridge_script=bridge_script,
+            bridge_ready_timeout=0,
+        )
+    )
+
+    with pytest.raises(EmulatorLaunchError, match="Lua bridge did not become ready"):
+        await launcher.start()
+    assert process.terminated
+    assert not launcher.is_running

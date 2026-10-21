@@ -48,16 +48,25 @@ class LuaBridgeClient:
             raise BridgeError("Bridge request exceeds the configured message limit")
 
         async with self._lock:
+            writer: asyncio.StreamWriter | None = None
             try:
                 async with asyncio.timeout(self.timeout if timeout is None else timeout):
                     reader, writer = await asyncio.open_connection(self.host, self.port)
                     writer.write(payload)
                     await writer.drain()
                     response_line = await reader.readline()
-                    writer.close()
-                    await writer.wait_closed()
             except (OSError, TimeoutError) as error:
-                raise BridgeError(f"Could not complete Lua bridge request: {error}") from error
+                if writer is not None:
+                    writer.close()
+                raise BridgeError(
+                    f"Could not complete Lua bridge request ({type(error).__name__}): {error}"
+                ) from error
+            else:
+                writer.close()
+                try:
+                    await writer.wait_closed()
+                except OSError:
+                    pass
 
         if not response_line:
             raise BridgeError("Lua bridge disconnected without a response")
@@ -82,6 +91,79 @@ class LuaBridgeClient:
     async def connect(self) -> dict[str, Any]:
         """Return protocol and capability information from the bridge."""
         return await self.request("connect")
+
+    async def read_memory_batch(self, ranges: list[tuple[int, int]]) -> list[bytes]:
+        """Read up to 64 address/length ranges at one paused frame boundary."""
+        if not 1 <= len(ranges) <= 64:
+            raise ValueError("ranges must contain between 1 and 64 entries")
+        total = 0
+        encoded_ranges: list[dict[str, int]] = []
+        for address, length in ranges:
+            if (
+                isinstance(address, bool)
+                or not isinstance(address, int)
+                or not 0 <= address <= 0xFFFFFFFF
+            ):
+                raise ValueError("addresses must be unsigned 32-bit integers")
+            if isinstance(length, bool) or not isinstance(length, int) or not 0 <= length <= 4096:
+                raise ValueError("range lengths must be integers from 0 to 4096")
+            if address + length > 0x100000000:
+                raise ValueError("memory range exceeds the 32-bit address space")
+            total += length
+            encoded_ranges.append({"address": address, "length": length})
+        if total > 4096:
+            raise ValueError("combined memory read exceeds 4096 bytes")
+        result = await self.request("read_memory_batch", ranges=encoded_ranges)
+        returned = result.get("ranges")
+        if not isinstance(returned, list) or len(returned) != len(ranges):
+            raise BridgeError("Lua bridge returned an invalid batched memory read")
+        decoded: list[bytes] = []
+        for requested, item in zip(ranges, returned, strict=True):
+            if not isinstance(item, dict) or item.get("address") != requested[0]:
+                raise BridgeError("Lua bridge returned an invalid batched memory range")
+            values = item.get("bytes")
+            if (
+                not isinstance(values, list)
+                or len(values) != requested[1]
+                or any(
+                    isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 255
+                    for value in values
+                )
+            ):
+                raise BridgeError("Lua bridge returned invalid bytes in a batched memory read")
+            decoded.append(bytes(values))
+        return decoded
+
+    @staticmethod
+    def _validate_state_path(path: str | Path) -> str:
+        value = str(path)
+        if not value or len(value) > 4096:
+            raise ValueError("state path must contain between 1 and 4096 characters")
+        return value
+
+    async def save_state(self, path: str | Path) -> int:
+        """Save emulator state, including save RAM, and return its frame."""
+        result = await self.request("save_state", filename=self._validate_state_path(path))
+        frame = result.get("frame")
+        if isinstance(frame, bool) or not isinstance(frame, int):
+            raise BridgeError("Lua bridge returned an invalid saved-state frame")
+        return frame
+
+    async def load_state(self, path: str | Path) -> int:
+        """Restore emulator state, including save RAM, and return its frame."""
+        result = await self.request("load_state", filename=self._validate_state_path(path))
+        frame = result.get("frame")
+        if isinstance(frame, bool) or not isinstance(frame, int):
+            raise BridgeError("Lua bridge returned an invalid restored-state frame")
+        return frame
+
+    async def reset(self) -> int:
+        """Reset the emulated system, release all keys, and return its frame."""
+        result = await self.request("reset")
+        frame = result.get("frame")
+        if isinstance(frame, bool) or not isinstance(frame, int):
+            raise BridgeError("Lua bridge returned an invalid reset frame")
+        return frame
 
     async def set_keys(self, keys: int) -> int:
         """Set the active GBA key mask; pass zero to release every button."""

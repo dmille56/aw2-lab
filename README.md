@@ -53,8 +53,13 @@ nix shell
 aw2-lab --rom /path/to/aw2.gba --emulator-mode headless
 ```
 
-The remaining milestone 1 requirements include coherent batched memory reads
-and checkpoint recovery.
+The launcher waits for a versioned bridge handshake before the API server starts
+serving. A missing bridge, unsupported handshake, or mGBA startup failure aborts
+startup with a diagnostic. `LuaBridgeClient.read_memory_batch()` reads up to 64
+ranges (4096 combined bytes) in one paused bridge callback. `save_state(path)`
+and `load_state(path)` use mGBA's full state flags, including save RAM; keep
+these build-specific state files outside the repository and Nix store. The
+bridge also provides `reset()`, which releases all keys before resetting.
 Startup was verified locally with an AW2 ROM on 2026-10-20 through both
 `python -m aw2_lab` and the packaged `aw2-lab` command. Both emulator modes
 reported a running emulator through `/health`, loaded the bridge automatically,
@@ -92,9 +97,10 @@ AW2_RUN_EMULATOR_TESTS=1 AW2_ROM_PATH=/path/to/aw2.gba \
 ```
 
 Stop an existing AW2 Lab emulator first; the checks require bridge port 43128.
-They use temporary configuration and save directories, verify idle queries and
-memory reads, exact budgets through 600 frames, key presses and release, and
-shutdown. Windowed mode requires a display; with X11 and `xdotool` available,
+They use temporary configuration, save, and checkpoint directories, verify
+bridge readiness, idle queries, coherent batched reads, state save/restore,
+exact budgets through 600 frames, key presses and release, and shutdown.
+Windowed mode requires a display; with X11 and `xdotool` available,
 the checks also verify that resume and frame-step shortcuts leave the core idle.
 Set `AW2_TEST_MGBA_HEADLESS` or `AW2_TEST_MGBA_WINDOWED` to test specific emulator
 executables.
@@ -103,4 +109,5 @@ On 2026-10-21, live frame gate checks passed in both modes: startup remained at
 frame 0, idle queries and memory reads left it unchanged, and explicit budgets
 of 1, 3, 17, and 600 frames advanced exactly. After the held-input and press
 checks, both modes stayed idle at frame 627. The X11 window's resume and
-frame-step shortcuts also left the game paused.
+frame-step shortcuts also left the game paused. Follow-up checks in both modes
+verified batched reads, save/restore of full state and save RAM flags, and reset.

@@ -1,12 +1,13 @@
 -- mGBA Lua bridge, protocol v1. Messages are newline-delimited JSON objects.
 -- The script binds only to loopback. The patched frontends call bridgePoll while
 -- the core is paused, so requests do not depend on gameplay frames advancing.
--- luacheck: globals emu socket callbacks
+-- luacheck: globals emu socket callbacks C
 
 local bridge = {
     protocol_version = 1,
     capabilities = {
-        "connect", "set_keys", "press_keys", "advance_frames", "read_memory", "screenshot",
+        "connect", "set_keys", "press_keys", "advance_frames", "read_memory",
+        "read_memory_batch", "screenshot", "reset", "save_state", "load_state",
     },
     max_message_bytes = 4718592,
     max_screenshot_bytes = 3145728,
@@ -136,6 +137,81 @@ function bridge.handle_request(request)
         return {id = request_id, ok = true, result = {address = address, bytes = bytes}}
     end
 
+    if request.operation == "read_memory_batch" then
+        local ranges = request.ranges
+        if type(ranges) ~= "table" or #ranges < 1 or #ranges > 64 then
+            return error_response(
+                request_id, "invalid_request", "ranges must contain 1 to 64 entries"
+            )
+        end
+        local total = 0
+        local results = {}
+        for index, range in ipairs(ranges) do
+            local address, length = range.address, range.length
+            if type(address) ~= "number" or address < 0 or address > 4294967295
+                or address % 1 ~= 0 or type(length) ~= "number" or length < 0
+                or length > 4096 or length % 1 ~= 0 or address + length > 4294967296 then
+                return error_response(request_id, "invalid_request", "invalid memory range")
+            end
+            total = total + length
+            if total > 4096 then
+                return error_response(
+                    request_id, "invalid_request", "combined read exceeds 4096 bytes"
+                )
+            end
+            results[index] = {
+                address = address,
+                bytes = {string.byte(emu:readRange(address, length), 1, length)},
+            }
+        end
+        return {id = request_id, ok = true, result = {ranges = results}}
+    end
+
+    if request.operation == "reset" then
+        emu:setKeys(0)
+        emu:reset()
+        return {id = request_id, ok = true, result = {frame = emu:currentFrame()}}
+    end
+
+    if request.operation == "save_state" or request.operation == "load_state" then
+        local filename = request.filename
+        if type(filename) ~= "string" or #filename == 0 or #filename > 4096 then
+            return error_response(
+                request_id, "invalid_request", "filename must be a non-empty path"
+            )
+        end
+        local ok, success = pcall(function()
+            if request.operation == "save_state" then
+                local state = emu:saveStateBuffer(C.SAVESTATE.ALL)
+                if type(state) ~= "string" or #state == 0 then
+                    return false
+                end
+                local file, open_error = io.open(filename, "wb")
+                if not file then error(open_error) end
+                local write_ok, write_error = file:write(state)
+                local close_ok, close_error = file:close()
+                if not write_ok then error(write_error) end
+                if not close_ok then error(close_error) end
+                return true
+            end
+            local file, open_error = io.open(filename, "rb")
+            if not file then error(open_error) end
+            local state = file:read("*a")
+            local close_ok, close_error = file:close()
+            if not close_ok then error(close_error) end
+            if type(state) ~= "string" or #state == 0 then return false end
+            return emu:loadStateBuffer(state, C.SAVESTATE.ALL)
+        end)
+        if not ok or not success then
+            return error_response(request_id, "state_operation_failed", tostring(success))
+        end
+        return {
+            id = request_id,
+            ok = true,
+            result = {frame = emu:currentFrame()},
+        }
+    end
+
     if request.operation == "screenshot" then
         local filename = request.filename
         if type(filename) ~= "string" or #filename == 0 or #filename > 4096 then
@@ -174,9 +250,14 @@ local function send_response(client, response)
     local message = encoded .. "\n"
     local offset = 1
     while offset <= #message do
-        local sent = client:send(message, offset)
-        if not sent or sent < offset then return false end
-        offset = sent + 1
+        local sent, _, partial = client:send(message, offset, #message)
+        if sent and sent >= offset then
+            offset = sent + 1
+        elseif partial and partial >= offset then
+            offset = partial + 1
+        else
+            return false
+        end
     end
     return true
 end
@@ -214,14 +295,20 @@ function bridge.poll()
         if not client then return end
     end
     if not client:hasdata() then return end
-    local chunk = client:receive(4096)
+    local chunk, receive_error, partial = client:receive(4096)
+    chunk = chunk or partial
     if not chunk then
-        client = nil
-        buffer = nil
+        if receive_error then
+            client = nil
+            buffer = nil
+        end
         return
     end
     buffer = buffer .. chunk
     if #buffer > bridge.max_message_bytes then
+        send_response(
+            client, error_response(nil, "message_too_large", "Request exceeds the size limit")
+        )
         client = nil
         buffer = nil
         return
@@ -231,6 +318,9 @@ function bridge.poll()
         local deferred = handle_line(client, buffer:sub(1, newline - 1))
         if deferred then return end
         -- The Python client uses one request per connection.
+        client = nil
+        buffer = nil
+    elseif receive_error and receive_error ~= "timeout" then
         client = nil
         buffer = nil
     end
