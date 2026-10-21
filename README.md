@@ -51,3 +51,14 @@ startup produced exactly one mapped game window on the X display, without a
 scripting console with the default setting. Server shutdown stopped each
 emulator and released the bridge port. These checks used temporary configuration
 and save directories outside the repository.
+
+The bridge supports direct key-mask control with `LuaBridgeClient.set_keys(mask)`;
+`set_keys(0)` releases every button. `press_keys(mask, frames)` applies the mask
+for the requested number of emulated frames and releases it before returning.
+Masks use mGBA's GBA key bit positions (`A=0`, `B=1`, `SELECT=2`, `START=3`,
+`RIGHT=4`, `LEFT=5`, `UP=6`, `DOWN=7`, `R=8`, `L=9`). For example, mask `1`
+holds A. A press is capped at 600 frames, matching bounded frame advancement.
+On 2026-10-20, a live headless check held A for three frames: mGBA reported a
+frame transition from 18574 to 18577 and confirmed that all keys were released.
+On 2026-10-21, the same three-frame A press passed in windowed mode, from frame
+259 to 262, with the bridge confirming release.

@@ -6,6 +6,8 @@ local active_client
 local frame_callback
 local frame = 100
 local keys = 0
+local frames_run = 0
+local input_samples = {}
 local screenshot_path
 
 local client = {}
@@ -17,6 +19,7 @@ function client.receive(_self)
 end
 function client.send(_self, data, first)
     sent_data = sent_data .. data:sub(first or 1)
+    active_client = nil
     return #data
 end
 
@@ -52,7 +55,9 @@ function _G.emu.getKeys(_self)
     return keys
 end
 function _G.emu.runFrame(_self)
+    input_samples[#input_samples + 1] = keys
     frame = frame + 1
+    frames_run = frames_run + 1
 end
 function _G.emu.currentFrame(_self)
     return frame
@@ -76,6 +81,8 @@ describe("mGBA Lua bridge", function()
         active_client = nil
         frame = 100
         keys = 0
+        frames_run = 0
+        input_samples = {}
         screenshot_path = nil
     end)
 
@@ -109,6 +116,42 @@ describe("mGBA Lua bridge", function()
         })
         assert.is_false(invalid.ok)
         assert.are.equal("invalid_request", invalid.error.code)
+
+        local fractional = _G.AW2Bridge.handle_request({
+            id = 10, version = 1, operation = "set_keys", keys = 1.5,
+        })
+        assert.is_false(fractional.ok)
+    end)
+
+    it("holds the requested mask for exact native frames and then releases it", function()
+        pending_chunks = {
+            '{"id":11,"version":1,"operation":"press_keys","keys":1,"frames":4}\n',
+        }
+        frame_callback() -- Accept and schedule the request at frame 100.
+        assert.are.equal(1, keys)
+
+        for _ = 1, 4 do
+            frame = frame + 1 -- Model mGBA completing one native frame.
+            input_samples[#input_samples + 1] = keys
+            frame_callback()
+        end
+
+        assert.are.equal(104, frame)
+        assert.are.equal(4, #input_samples)
+        assert.are.same({1, 1, 1, 1}, input_samples)
+        assert.are.equal(0, keys)
+        assert.is_truthy(sent_data:match('"frames_advanced":4'))
+        assert.is_truthy(sent_data:match('"released":true'))
+    end)
+
+    it("rejects invalid exact key presses without advancing frames", function()
+        pending_chunks = {
+            '{"id":12,"version":1,"operation":"press_keys","keys":1024,"frames":1}\n',
+        }
+        frame_callback()
+        assert.is_truthy(sent_data:match('"code":"invalid_request"'))
+        assert.are.equal(0, frames_run)
+        assert.are.equal(0, keys)
     end)
 
     it("advances the requested number of frames", function()
@@ -165,5 +208,18 @@ describe("mGBA Lua bridge", function()
         assert.is_truthy(sent_data:match("\n$"))
         assert.is_truthy(sent_data:match('"id":8'))
         assert.is_truthy(sent_data:match('"ok":true'))
+    end)
+
+    it("accepts another connection after replying to the prior request", function()
+        pending_chunks = {
+            '{"id":13,"version":1,"operation":"connect"}\n',
+            '{"id":14,"version":1,"operation":"connect"}\n',
+        }
+        frame_callback()
+        frame_callback()
+        frame_callback()
+        frame_callback()
+        assert.is_truthy(sent_data:match('"id":13'))
+        assert.is_truthy(sent_data:match('"id":14'))
     end)
 end)

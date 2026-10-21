@@ -85,6 +85,75 @@ async def test_client_turns_bridge_error_into_bridge_error(
 
 
 @pytest.mark.anyio
+async def test_set_keys_returns_confirmed_mask_and_zero_releases_buttons(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests, _ = mock_connection(
+        monkeypatch,
+        {"id": "$request", "ok": True, "result": {"keys": 0}},
+    )
+    client = LuaBridgeClient()
+
+    assert await client.set_keys(0) == 0
+    assert requests[0]["operation"] == "set_keys"
+    assert requests[0]["keys"] == 0
+
+
+@pytest.mark.anyio
+async def test_press_keys_requires_exact_frame_count_and_release(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mock_connection(
+        monkeypatch,
+        {
+            "id": "$request",
+            "ok": True,
+            "result": {
+                "keys": 1,
+                "frames": 3,
+                "start_frame": 100,
+                "frame": 103,
+                "frames_advanced": 3,
+                "released": True,
+            },
+        },
+    )
+
+    assert await LuaBridgeClient().press_keys(1, 3) == 103
+
+
+@pytest.mark.anyio
+async def test_press_keys_rejects_unconfirmed_release(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mock_connection(
+        monkeypatch,
+        {
+            "id": "$request",
+            "ok": True,
+            "result": {
+                "keys": 1,
+                "start_frame": 10,
+                "frame": 11,
+                "frames_advanced": 1,
+                "released": False,
+            },
+        },
+    )
+    with pytest.raises(BridgeError, match="final release"):
+        await LuaBridgeClient().press_keys(1, 1)
+
+
+@pytest.mark.anyio
+async def test_input_methods_reject_invalid_masks_and_frame_counts() -> None:
+    client = LuaBridgeClient()
+    with pytest.raises(ValueError, match="10-bit mask"):
+        await client.set_keys(1024)
+    with pytest.raises(ValueError, match="frames"):
+        await client.press_keys(1, 0)
+
+
+@pytest.mark.anyio
 async def test_client_rejects_response_for_another_request(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

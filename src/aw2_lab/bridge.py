@@ -33,7 +33,13 @@ class LuaBridgeClient:
         self._ids = count(1)
         self._lock = asyncio.Lock()
 
-    async def request(self, operation: str, **parameters: Any) -> dict[str, Any]:
+    async def request(
+        self,
+        operation: str,
+        *,
+        timeout: float | None = None,
+        **parameters: Any,
+    ) -> dict[str, Any]:
         """Send a request and return its result, raising BridgeError on failure."""
         request_id = next(self._ids)
         request = {"id": request_id, "version": 1, "operation": operation, **parameters}
@@ -43,7 +49,7 @@ class LuaBridgeClient:
 
         async with self._lock:
             try:
-                async with asyncio.timeout(self.timeout):
+                async with asyncio.timeout(self.timeout if timeout is None else timeout):
                     reader, writer = await asyncio.open_connection(self.host, self.port)
                     writer.write(payload)
                     await writer.drain()
@@ -76,6 +82,49 @@ class LuaBridgeClient:
     async def connect(self) -> dict[str, Any]:
         """Return protocol and capability information from the bridge."""
         return await self.request("connect")
+
+    async def set_keys(self, keys: int) -> int:
+        """Set the active GBA key mask; pass zero to release every button."""
+        self._validate_key_mask(keys)
+        result = await self.request("set_keys", keys=keys)
+        actual = result.get("keys")
+        if isinstance(actual, bool) or not isinstance(actual, int) or actual != keys:
+            raise BridgeError(f"Lua bridge did not apply key mask {keys}: {actual!r}")
+        return actual
+
+    async def press_keys(self, keys: int, frames: int) -> int:
+        """Hold a GBA key mask for exactly ``frames`` frames, then release all keys."""
+        self._validate_key_mask(keys)
+        if isinstance(frames, bool) or not isinstance(frames, int) or not 1 <= frames <= 600:
+            raise ValueError("frames must be an integer from 1 to 600")
+        result = await self.request(
+            "press_keys",
+            keys=keys,
+            frames=frames,
+            timeout=self.timeout + frames / 60,
+        )
+        try:
+            start_frame = result["start_frame"]
+            end_frame = result["frame"]
+            reported_frames = result["frames_advanced"]
+            if any(
+                isinstance(value, bool) or not isinstance(value, int)
+                for value in (start_frame, end_frame, reported_frames)
+            ):
+                raise TypeError("frame values must be integers")
+            actual_frames = (int(end_frame) - int(start_frame)) % (1 << 32)
+            if reported_frames != frames or actual_frames != frames:
+                raise ValueError(f"requested {frames} frames but bridge reported {actual_frames}")
+            if result.get("keys") != keys or result.get("released") is not True:
+                raise ValueError("bridge did not confirm the requested keys and final release")
+        except (KeyError, TypeError, ValueError) as error:
+            raise BridgeError(f"Lua bridge returned an invalid key press: {error}") from error
+        return int(end_frame)
+
+    @staticmethod
+    def _validate_key_mask(keys: int) -> None:
+        if isinstance(keys, bool) or not isinstance(keys, int) or not 0 <= keys <= 1023:
+            raise ValueError("keys must be an integer 10-bit mask")
 
     async def advance_frames(self, frames: int) -> int:
         """Advance exactly ``frames`` frames and return the ending frame number."""

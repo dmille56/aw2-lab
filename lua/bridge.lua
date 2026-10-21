@@ -5,7 +5,9 @@
 
 local bridge = {
     protocol_version = 1,
-    capabilities = {"connect", "set_keys", "advance_frames", "read_memory", "screenshot"},
+    capabilities = {
+        "connect", "set_keys", "press_keys", "advance_frames", "read_memory", "screenshot",
+    },
     max_message_bytes = 4718592,
     max_screenshot_bytes = 3145728,
     port = 43128,
@@ -66,11 +68,37 @@ function bridge.handle_request(request)
     end
 
     if request.operation == "set_keys" then
-        if type(request.keys) ~= "number" or request.keys < 0 or request.keys > 1023 then
+        if type(request.keys) ~= "number" or request.keys < 0 or request.keys > 1023
+            or request.keys % 1 ~= 0 then
             return error_response(request_id, "invalid_request", "keys must be a 10-bit mask")
         end
         emu:setKeys(request.keys)
         return {id = request_id, ok = true, result = {keys = emu:getKeys()}}
+    end
+
+    if request.operation == "press_keys" then
+        local keys, frames = request.keys, request.frames
+        if type(keys) ~= "number" or keys < 0 or keys > 1023 or keys % 1 ~= 0 then
+            return error_response(request_id, "invalid_request", "keys must be a 10-bit mask")
+        end
+        if type(frames) ~= "number" or frames < 1 or frames > 600 or frames % 1 ~= 0 then
+            return error_response(
+                request_id,
+                "invalid_request",
+                "frames must be an integer from 1 to 600"
+            )
+        end
+        emu:setKeys(keys)
+        return {
+            id = request_id,
+            ok = true,
+            result = {
+                keys = keys,
+                frames = frames,
+                start_frame = emu:currentFrame(),
+                deferred = true,
+            },
+        }
     end
 
     if request.operation == "advance_frames" then
@@ -137,6 +165,8 @@ function bridge.handle_request(request)
     return error_response(request_id, "unsupported_operation", "Operation is not implemented")
 end
 
+local pending_press
+
 local function handle_line(client, line)
     local ok, request = pcall(decode_json, line)
     local response
@@ -147,6 +177,17 @@ local function handle_line(client, line)
     else
         response = error_response(nil, "invalid_json", tostring(request))
     end
+    if response.ok and response.result and response.result.deferred then
+        pending_press = {
+            client = client,
+            id = response.id,
+            keys = response.result.keys,
+            frames = response.result.frames,
+            start_frame = response.result.start_frame,
+            advanced = 0,
+        }
+        return true, true
+    end
     local encoded_ok, encoded = pcall(json.encode, response)
     if encoded_ok then
         local message = encoded .. "\n"
@@ -156,9 +197,9 @@ local function handle_line(client, line)
             if not sent or sent < offset then return false end
             offset = sent + 1
         end
-        return true
+        return true, false
     end
-    return false
+    return false, false
 end
 
 local listener = socket.bind("127.0.0.1", bridge.port)
@@ -170,6 +211,39 @@ end
 -- request per frame callback so gameplay and UI callbacks remain schedulable.
 local client, buffer
 callbacks:add("frame", function()
+    if pending_press then
+        pending_press.advanced = pending_press.advanced + 1
+        if pending_press.advanced >= pending_press.frames then
+            emu:setKeys(0)
+            local completed = pending_press
+            pending_press = nil
+            local response = {
+                id = completed.id,
+                ok = true,
+                result = {
+                    keys = completed.keys,
+                    frames = completed.frames,
+                    start_frame = completed.start_frame,
+                    frame = emu:currentFrame(),
+                    frames_advanced = completed.advanced,
+                    released = emu:getKeys() == 0,
+                },
+            }
+            local encoded_ok, encoded = pcall(json.encode, response)
+            if encoded_ok then
+                local message = encoded .. "\n"
+                local offset = 1
+                while offset <= #message do
+                    local sent = completed.client:send(message, offset)
+                    if not sent or sent < offset then break end
+                    offset = sent + 1
+                end
+            end
+            client = nil
+            buffer = nil
+        end
+        return
+    end
     if not client then
         client = listener:accept()
         buffer = ""
@@ -190,8 +264,13 @@ callbacks:add("frame", function()
     end
     local newline = buffer:find("\n", 1, true)
     if newline then
-        if not handle_line(client, buffer:sub(1, newline - 1)) then client = nil end
+        local replied, deferred = handle_line(client, buffer:sub(1, newline - 1))
+        if deferred then return end
+        -- The Python client uses one request per connection. Drop the accepted
+        -- socket after replying so the next request can be accepted promptly.
+        client = nil
         buffer = ""
+        if not replied then buffer = nil end
     end
 end)
 
