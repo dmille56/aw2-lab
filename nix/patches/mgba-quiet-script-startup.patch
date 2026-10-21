@@ -6,17 +6,18 @@ diff --git a/src/platform/qt/Window.cpp b/src/platform/qt/Window.cpp
 +++ b/src/platform/qt/Window.cpp
 @@ -8,1 +8,2 @@
  #include <QKeyEvent>
-+#include <mgba/core/log.h>
-@@ -2352,7 +2352,17 @@
++#include <cstdio>
+@@ -2352,7 +2352,18 @@
  	if (!m_scripting) {
  		QStringList scripts = m_config->getArgvOption("script").toStringList();
  		if (!scripts.isEmpty()) {
-+			mLOG(
-+			    STATUS, INFO,
++			std::fprintf(
++			    stdout,
 +			    "AW2 mGBA patches: mgba-frame-gate.patch=%s; "
-+			    "mgba-quiet-script-startup.patch=enabled; scripting console=%s",
++			    "mgba-quiet-script-startup.patch=enabled; scripting console=%s\n",
 +			    qEnvironmentVariable("AW2_MGBA_FRAME_GATE") == "1" ? "enabled" : "disabled",
 +			    qEnvironmentVariable("AW2_MGBA_SCRIPTING_CONSOLE") == "1" ? "shown" : "hidden");
++			std::fflush(stdout);
 -			scriptingOpen();
 +			if (qEnvironmentVariable("AW2_MGBA_SCRIPTING_CONSOLE") == "1") {
 +				scriptingOpen();

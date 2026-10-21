@@ -90,17 +90,18 @@ while gated. Normal mGBA behavior is unchanged unless AW2_MGBA_FRAME_GATE=1.
  
 --- a/src/platform/headless-main.c
 +++ b/src/platform/headless-main.c
-@@ -28,6 +28,9 @@
+@@ -28,6 +28,10 @@
  
  #include <errno.h>
  #include <signal.h>
++#include <stdio.h>
 +#include <stdlib.h>
 +#include <string.h>
 +#include <time.h>
  
  #define HEADLESS_OPTIONS "S:R:"
  static const char* const headlessUsage =
-@@ -223,9 +226,22 @@
+@@ -223,9 +227,25 @@
  		} while (!_dispatchExiting && debugger.state != DEBUGGER_SHUTDOWN);
  	} else
  #endif
@@ -110,7 +111,10 @@ while gated. Normal mGBA behavior is unchanged unless AW2_MGBA_FRAME_GATE=1.
 +#ifdef ENABLE_SCRIPTING
 +	if (StringListSize(&headlessOpts.scripts) && getenv("AW2_MGBA_FRAME_GATE") &&
 +	    strcmp(getenv("AW2_MGBA_FRAME_GATE"), "1") == 0) {
-+		mLOG(STATUS, INFO, "AW2 mGBA patch enabled: mgba-frame-gate.patch");
++		fprintf(stdout,
++		        "AW2 mGBA patches: mgba-frame-gate.patch=enabled; "
++		        "mgba-quiet-script-startup.patch=loaded (Qt-only)\n");
++		fflush(stdout);
 +		const struct timespec pollInterval = { .tv_sec = 0, .tv_nsec = 5000000 };
 +		while (!_dispatchExiting) {
 +			mScriptContextPollBridge(&scriptContext);
