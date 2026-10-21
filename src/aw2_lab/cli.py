@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+from dataclasses import fields
 from pathlib import Path
 
 import uvicorn
@@ -59,7 +60,6 @@ def main() -> None:
     if not rom_path.is_file():
         parser.error(f"ROM path is not a file: {rom_path}")
     rom_path = rom_path.resolve()
-    print(f"Using AW2 ROM: {rom_path}")
 
     try:
         emulator_mode = args.emulator_mode or EmulatorMode(
@@ -67,8 +67,6 @@ def main() -> None:
         )
     except ValueError:
         parser.error("AW2_EMULATOR_MODE must be 'headless' or 'windowed'")
-    print(f"Starting mGBA in {emulator_mode.value} mode")
-
     console_env = os.environ.get("AW2_MGBA_SCRIPTING_CONSOLE", "false").lower()
     true_values = {"1", "true", "yes", "on"}
     false_values = {"0", "false", "no", "off"}
@@ -78,19 +76,22 @@ def main() -> None:
         args.scripting_console if args.scripting_console is not None else console_env in true_values
     )
 
+    settings = EmulatorSettings(
+        rom_path=rom_path,
+        mode=emulator_mode,
+        headless_executable=args.mgba_headless,
+        windowed_executable=args.mgba_windowed,
+        bridge_script=args.lua_bridge.expanduser().resolve() if args.lua_bridge else None,
+        show_scripting_console=show_scripting_console,
+    )
+    print("Emulator settings:")
+    for setting in fields(settings):
+        print(f"  {setting.name}: {getattr(settings, setting.name)}")
+
     from aw2_lab.api.app import create_app
 
     uvicorn.run(
-        create_app(
-            settings=EmulatorSettings(
-                rom_path=rom_path,
-                mode=emulator_mode,
-                headless_executable=args.mgba_headless,
-                windowed_executable=args.mgba_windowed,
-                bridge_script=args.lua_bridge.expanduser().resolve() if args.lua_bridge else None,
-                show_scripting_console=show_scripting_console,
-            )
-        ),
+        create_app(settings=settings),
         host=args.host,
         port=args.port,
     )

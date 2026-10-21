@@ -50,7 +50,14 @@ def test_rom_environment_variable_is_used(
     application, _ = invoke_cli(monkeypatch, rom, env_rom=str(rom))
 
     assert application.state.emulator_settings.rom_path == rom.resolve()
-    assert f"Using AW2 ROM: {rom.resolve()}" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "Emulator settings:" in output
+    assert f"rom_path: {rom.resolve()}" in output
+    assert "mode: headless" in output
+    assert "headless_executable: None" in output
+    assert "windowed_executable: None" in output
+    assert "bridge_script: None" in output
+    assert "show_scripting_console: False" in output
 
 
 def test_cli_rom_overrides_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -87,7 +94,7 @@ def test_emulator_mode_cli_overrides_environment(
     )
 
     assert application.state.emulator_settings.mode == "windowed"
-    assert "Starting mGBA in windowed mode" in capsys.readouterr().out
+    assert "mode: windowed" in capsys.readouterr().out
 
 
 def test_emulator_mode_uses_environment_then_default(
