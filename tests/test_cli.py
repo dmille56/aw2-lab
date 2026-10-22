@@ -3,6 +3,8 @@ from pathlib import Path
 import pytest
 
 from aw2_lab import cli
+from aw2_lab.api import app as api_app
+from aw2_lab.rom_profile import AW2_US_REVISION_0, UnsupportedRomError
 
 
 def invoke_cli(
@@ -27,6 +29,7 @@ def invoke_cli(
     monkeypatch.setattr(
         cli.uvicorn, "run", lambda application, **kwargs: captured.update(app=application, **kwargs)
     )
+    monkeypatch.setattr(api_app, "select_rom_profile", lambda _: AW2_US_REVISION_0)
     cli.main()
     return captured["app"], captured
 
@@ -79,6 +82,26 @@ def test_missing_rom_file_is_rejected(monkeypatch: pytest.MonkeyPatch, tmp_path:
         cli.main()
 
     assert error.value.code == 2
+
+
+def test_unsupported_rom_is_reported_as_cli_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rom = tmp_path / "unsupported.gba"
+    rom.touch()
+    monkeypatch.setenv("AW2_ROM_PATH", str(rom))
+    monkeypatch.setattr("sys.argv", ["aw2-lab"])
+
+    def reject_rom(_: Path) -> None:
+        raise UnsupportedRomError("ROM SHA-256 deadbeef is not supported")
+
+    monkeypatch.setattr(api_app, "select_rom_profile", reject_rom)
+
+    with pytest.raises(SystemExit) as error:
+        cli.main()
+
+    assert error.value.code == 2
+    assert "ROM SHA-256 deadbeef is not supported" in capsys.readouterr().err
 
 
 def test_emulator_mode_cli_overrides_environment(

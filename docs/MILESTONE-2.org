@@ -42,10 +42,13 @@
      checksum calculation are in =aw2_lab.rom_profile=; the initial layout and
      decoder versions are =aw2-us-v1= and =1=.
 
-** TODO Reject unsupported ROM images
-   - [ ] Verify ROM identity before selecting the profile or decoding game memory.
-   - [ ] Provide clear diagnostics for unsupported or modified images.
-   - [ ] Cover profile selection and rejection with ROM-independent checks.
+** DONE Reject unsupported ROM images
+   - [X] Verify ROM identity before selecting the profile or decoding game memory.
+   - [X] Provide clear diagnostics for unsupported or modified images.
+   - [X] Cover profile selection and rejection with ROM-independent checks.
+   - The application selects a profile by streaming SHA-256 before construction;
+     unsupported images report their checksum and readable GBA header identity.
+     The CLI formats this as an argument error, and app creation cannot proceed.
 
 * Memory research tools and documentation
 

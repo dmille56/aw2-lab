@@ -10,6 +10,7 @@ from starlette.types import ASGIApp
 
 from aw2_lab.emulator import EmulatorLauncher, EmulatorSettings
 from aw2_lab.mcp import server as mcp_server
+from aw2_lab.rom_profile import select_rom_profile
 
 
 class HealthResponse(BaseModel):
@@ -36,6 +37,7 @@ def create_app(
 ) -> FastAPI:
     """Create the API application and configure its emulator process."""
     emulator_launcher = launcher or EmulatorLauncher(settings)
+    rom_profile = select_rom_profile(settings.rom_path)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -50,6 +52,7 @@ def create_app(
     application = FastAPI(title="AW2 Lab API", version="0.1.0", lifespan=lifespan)
     application.state.emulator_settings = settings
     application.state.emulator_launcher = emulator_launcher
+    application.state.rom_profile = rom_profile
 
     @application.get("/health", response_model=HealthResponse, tags=["system"])
     async def health() -> HealthResponse:

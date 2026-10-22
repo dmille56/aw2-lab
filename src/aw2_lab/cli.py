@@ -10,6 +10,7 @@ from pathlib import Path
 import uvicorn
 
 from aw2_lab.emulator import EmulatorMode, EmulatorSettings
+from aw2_lab.rom_profile import UnsupportedRomError
 
 
 def main() -> None:
@@ -90,8 +91,13 @@ def main() -> None:
 
     from aw2_lab.api.app import create_app
 
+    try:
+        application = create_app(settings=settings)
+    except UnsupportedRomError as error:
+        parser.error(str(error))
+
     uvicorn.run(
-        create_app(settings=settings),
+        application,
         host=args.host,
         port=args.port,
     )
