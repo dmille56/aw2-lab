@@ -1,0 +1,145 @@
+#+TITLE: Milestone 2: Targeted AW2 Reverse Engineering
+#+TODO: TODO IN-PROGRESS | DONE BLOCKED
+
+* Prerequisites and research workflow
+
+** TODO Confirm Milestone 1 primitives are ready for AW2 research
+   - [ ] Confirm both pinned emulator frontends provide coherent memory reads, exact frame control, screenshots, and checkpoint restoration.
+   - [ ] Document commands for starting a research session with the local ROM and bridge.
+   - [ ] Keep ROMs, generated dumps, cartridge saves, and save states outside Git and the Nix store.
+
+** TODO Establish a repeatable evidence record
+   - [ ] Record ROM checksum, emulator build, checkpoint context, frame, and reproduction steps for each finding.
+   - [ ] Record candidate addresses separately from verified fields, with evidence and confidence.
+   - [ ] Reserve space in research notes for verification results and unresolved questions.
+
+* Supported ROM profile
+
+** TODO Identify and verify one unmodified US retail ROM
+   - [ ] Establish the supported ROM's identity and checksum using the local retail image.
+   - [ ] Document the checksum algorithm and supported revision without distributing ROM data.
+   - [ ] Define a Python ROM profile that associates the verified checksum with its memory layouts and decoder version.
+
+** TODO Reject unsupported ROM images
+   - [ ] Verify ROM identity before selecting the profile or decoding game memory.
+   - [ ] Provide clear diagnostics for unsupported or modified images.
+   - [ ] Cover profile selection and rejection with ROM-independent checks.
+
+* Memory research tools and documentation
+
+** TODO Add memory-dump tooling
+   - [ ] Read configurable memory ranges through the existing emulator bridge.
+   - [ ] Capture related ranges as a coherent batch without advancing emulation.
+   - [ ] Store dumps with the context needed to reproduce and compare observations.
+
+** TODO Add memory-diff tooling
+   - [ ] Compare captured dumps and identify changed addresses and values.
+   - [ ] Support focused comparisons around a controlled gameplay event.
+   - [ ] Retain address and range context so changes can be traced to candidate fields.
+
+** TODO Add memory-watch tooling
+   - [ ] Watch selected addresses or ranges across explicitly controlled frame steps.
+   - [ ] Record frame numbers and value changes for investigating transitions.
+   - [ ] Ensure watching idle memory does not advance the game implicitly.
+
+** TODO Investigate existing AW2 reverse-engineering references
+   - [ ] Review the decompilation and disassembly projects linked from [[file:PLAN.md]].
+   - [ ] Record source references and candidate structures as research leads.
+   - [ ] Verify every adopted address against the unmodified supported ROM.
+
+** TODO Document verified memory layouts
+   - [ ] Record addresses or address-resolution rules, field sizes, signedness, and byte order.
+   - [ ] Document pointer handling, table bounds, sentinels, and validity conditions.
+   - [ ] Attach evidence, confidence, and reproduction steps to each decoded field.
+   - [ ] Document unknown fields and unresolved interpretations explicitly.
+
+* Battle lifecycle and state research
+
+** TODO Recognize battle lifecycle safely
+   - [ ] Identify title screens, menus, battle states, and transitions.
+   - [ ] Establish when battle structures are valid to interpret.
+   - [ ] Identify battle completion and outcome when validated.
+   - [ ] Verify that non-battle and transitional memory is not interpreted as a valid battle.
+
+** TODO Decode map and property state
+   - [ ] Identify map dimensions and terrain layout.
+   - [ ] Decode property locations, types, and ownership.
+   - [ ] Decode capture progress and verify changes during capture.
+   - [ ] Use zero-based map coordinates and document memory-to-coordinate mapping.
+
+** TODO Decode players and turn state
+   - [ ] Identify players, armies, teams, and COs.
+   - [ ] Decode funds, day, and active player.
+   - [ ] Investigate weather, power meters, and active powers; expose only verified values.
+   - [ ] Verify player and turn changes against manually inspected game states.
+
+** TODO Decode unit records
+   - [ ] Identify unit table layout, bounds, occupancy, and slot reuse.
+   - [ ] Decode type, owner, position, and raw/displayed health.
+   - [ ] Decode fuel, ammo, and action status.
+   - [ ] Investigate cargo relationships and special status; expose only verified values.
+   - [ ] Verify movement, damage, destruction, purchasing, and relevant status changes.
+
+** TODO Define stable unit identity bookkeeping
+   - [ ] Preserve unit identity across movement.
+   - [ ] Distinguish a destroyed unit from a replacement reusing its internal slot.
+   - [ ] Define Python identity metadata needed for checkpoint restoration.
+   - [ ] Document identity behavior and verify destruction, slot reuse, and restoration scenarios.
+
+** TODO Decode UI state needed for future automation
+   - [ ] Identify UI phase and cursor position.
+   - [ ] Identify selected unit and relevant menu state.
+   - [ ] Document recognized transitions and their validity conditions.
+   - [ ] Represent unrecognized UI states explicitly.
+
+* Python state decoder
+
+** TODO Define a typed, versioned structured state
+   - [ ] Define the validated Milestone 2 subset of the planned =GameState=.
+   - [ ] Include emulator frame and the ROM/decoder context needed to interpret observations.
+   - [ ] Represent unknown or unavailable values explicitly rather than guessing.
+   - [ ] Keep future match identity, revision, and lifecycle integration requirements documented without implementing the Milestone 3 controller.
+
+** TODO Implement coherent state decoding
+   - [ ] Keep ROM profiles, decoding, emulator transport, and HTTP concerns separate.
+   - [ ] Gate battle decoding on recognized lifecycle state.
+   - [ ] Capture the required memory at one frame boundary without advancing emulation.
+   - [ ] Validate pointers and table bounds before interpreting records.
+   - [ ] Publish only fields supported by documented verification evidence.
+
+* Validation and acceptance
+
+** TODO Add ROM-independent research-tool and decoder checks
+   - [ ] Cover dump, diff, and watch behavior with synthetic memory data.
+   - [ ] Cover verified field decoding and explicit unknown values.
+   - [ ] Cover invalid pointers, bounds, unsupported profiles, and lifecycle guards.
+   - [ ] Cover unit identity across movement, destruction, slot reuse, and checkpoint metadata restoration.
+
+** TODO Verify structured snapshots against manually inspected states
+   - [ ] Compare snapshots before and after movement.
+   - [ ] Compare snapshots before and after combat damage and unit destruction.
+   - [ ] Compare snapshots before and after purchasing, including funds and slot reuse.
+   - [ ] Compare snapshots before and after capture, including progress and ownership.
+   - [ ] Compare snapshots before and after turn changes.
+   - [ ] Record screenshots or manual observations, reproduction steps, and results for each scenario outside tracked binary artifacts.
+
+** TODO Verify lifecycle safety and emulator-mode parity
+   - [ ] Exercise title screens, menus, battle entry, and transitional states.
+   - [ ] Restore the same checkpoint in headless and windowed modes and compare decoded observations.
+   - [ ] Compare decoded state hashes after the same recorded frame inputs under the pinned build.
+   - [ ] Confirm observations remain coherent and do not advance the emulator.
+
+** TODO Document and run the verification workflow
+   - [ ] Keep default checks ROM-independent and separate optional AW2 integration checks.
+   - [ ] Document local ROM/checkpoint configuration and commands for reproducing integration results.
+   - [ ] Record verified behavior, unresolved fields, and build/ROM-specific limitations.
+   - [ ] Run =pre-commit run --all-files=; if required tools are missing, retry with =nix develop -c pre-commit run --all-files=.
+
+** TODO Confirm all Milestone 2 deliverables and acceptance criteria in [[file:PLAN.md][PLAN.md]]
+   - [ ] One checksum-verified US retail ROM profile is available, and unsupported images are rejected.
+   - [ ] Memory-dump, diff, and watch tools support repeatable research.
+   - [ ] Memory layouts document field sizes, signedness, pointer handling, evidence, and confidence.
+   - [ ] A Python decoder exposes validated structured state.
+   - [ ] Structured snapshots match manually inspected states before and after movement, combat damage, purchasing, capture, and turn changes.
+   - [ ] Title screens and transitional states are recognized safely.
+   - [ ] Observations agree between emulator modes for the same checkpoint.
