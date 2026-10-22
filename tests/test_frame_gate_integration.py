@@ -99,6 +99,10 @@ def test_frame_gate_stays_idle_and_executes_exact_budgets(
             assert await bridge.advance_frames(1) == frame
             initial_batch = await bridge.read_memory_batch([(0x02000000, 16), (0x080000A0, 16)])
             assert await bridge.advance_frames(0) == frame
+            screenshot = await bridge.screenshot()
+            assert screenshot.startswith(b"\x89PNG\r\n\x1a\n"), "bridge screenshot is not a PNG"
+            await bridge.connect()
+            assert await bridge.advance_frames(0) == frame
             checkpoint = tmp_path / f"{mode.value}-checkpoint.ss0"
             assert await bridge.save_state(checkpoint) == frame
             await bridge.advance_frames(17)
@@ -130,6 +134,40 @@ def test_frame_gate_stays_idle_and_executes_exact_budgets(
                 )
                 windows = window_output.splitlines()
                 assert windows, "the Qt frontend did not map a game window"
+
+                # X maps to the GBA A button in mGBA's default Qt key bindings.
+                # A neutral bridge frame must stay neutral while that local key is held.
+                await asyncio.to_thread(
+                    subprocess.run,
+                    ["xdotool", "keydown", "--window", windows[0], "x"],
+                    check=True,
+                    timeout=5,
+                )
+                try:
+                    await asyncio.sleep(0.1)
+                    frame = (frame + 1) % (1 << 32)
+                    assert await bridge.advance_frames(1) == frame
+                    local_input = await bridge.read_memory_batch([(0x04000130, 2)])
+                    assert local_input == [b"\xff\x03"], (
+                        "Qt gameplay input reached the core while the frame gate was enabled"
+                    )
+
+                    # The same key is accepted when supplied through the bridge.
+                    await bridge.set_keys(1)
+                    frame = (frame + 1) % (1 << 32)
+                    assert await bridge.advance_frames(1) == frame
+                    bridge_input = await bridge.read_memory_batch([(0x04000130, 2)])
+                    assert bridge_input == [b"\xfe\x03"], (
+                        "bridge supplied A input did not reach the emulated core"
+                    )
+                    await bridge.set_keys(0)
+                finally:
+                    await asyncio.to_thread(
+                        subprocess.run,
+                        ["xdotool", "keyup", "--window", windows[0], "x"],
+                        check=True,
+                        timeout=5,
+                    )
                 for shortcut in ("ctrl+p", "ctrl+n"):
                     await asyncio.to_thread(
                         subprocess.run,

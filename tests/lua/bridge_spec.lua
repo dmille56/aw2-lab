@@ -12,6 +12,8 @@ local keys = 0
 local frames_run = 0
 local input_samples = {}
 local screenshot_path
+local screenshot_capture_failure
+local screenshot_save_failure
 local fail_state_operation
 local partial_sends
 
@@ -92,11 +94,19 @@ end
 function _G.emu.readRange(_self, address, length)
     return string.rep(string.char(address % 256), length)
 end
-function _G.emu.screenshot(_self, filename)
-    screenshot_path = filename
-    local file = assert(io.open(filename, "wb"))
-    file:write("png?")
-    file:close()
+function _G.emu.screenshotToImage(_self)
+    if screenshot_capture_failure then return nil end
+    return {
+        save = function(_image, filename, format)
+            screenshot_path = filename
+            assert.are.equal("PNG", format)
+            if screenshot_save_failure then return false end
+            local file = assert(io.open(filename, "wb"))
+            file:write("png?")
+            file:close()
+            return true
+        end,
+    }
 end
 local function assert_save_data_flag(flags)
     assert.are.equal(_G.C.SAVESTATE.ALL, flags)
@@ -148,6 +158,8 @@ describe("mGBA Lua bridge", function()
         frames_run = 0
         input_samples = {}
         screenshot_path = nil
+        screenshot_capture_failure = false
+        screenshot_save_failure = false
         fail_state_operation = false
         partial_sends = false
         queued_request = nil
@@ -413,6 +425,26 @@ describe("mGBA Lua bridge", function()
         assert.are.equal(filename, screenshot_path)
         assert.are.equal("cG5nPw==", response.result.png_base64)
         os.remove(filename)
+    end)
+
+    it("returns a structured error when no screenshot frame is available", function()
+        screenshot_capture_failure = true
+        local response = _G.AW2Bridge.handle_request({
+            id = 34, version = 1, operation = "screenshot", filename = os.tmpname(),
+        })
+        assert.is_false(response.ok)
+        assert.are.equal("screenshot_failed", response.error.code)
+        assert.are.equal("No video frame is available", response.error.message)
+    end)
+
+    it("returns a structured error when saving the screenshot fails", function()
+        screenshot_save_failure = true
+        local response = _G.AW2Bridge.handle_request({
+            id = 35, version = 1, operation = "screenshot", filename = os.tmpname(),
+        })
+        assert.is_false(response.ok)
+        assert.are.equal("screenshot_failed", response.error.code)
+        assert.are.equal("Could not save PNG image", response.error.message)
     end)
 
     it("returns structured errors for invalid versions and operations", function()

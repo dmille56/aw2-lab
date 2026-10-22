@@ -257,9 +257,20 @@ function bridge.handle_request(request)
                 "filename must be a non-empty path"
             )
         end
-        local ok, err = pcall(function() emu:screenshot(filename) end)
-        if not ok then
-            return error_response(request_id, "screenshot_failed", tostring(err))
+        local capture_ok, image = pcall(function() return emu:screenshotToImage() end)
+        if not capture_ok then
+            return error_response(request_id, "screenshot_failed", tostring(image))
+        end
+        if not image then
+            return error_response(request_id, "screenshot_failed", "No video frame is available")
+        end
+        local save_ok, saved, save_error = pcall(function() return image:save(filename, "PNG") end)
+        if not save_ok or not saved then
+            return error_response(
+                request_id,
+                "screenshot_failed",
+                tostring(save_ok and (save_error or "Could not save PNG image") or saved)
+            )
         end
         local file, open_error = io.open(filename, "rb")
         if not file then

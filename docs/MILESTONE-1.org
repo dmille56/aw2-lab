@@ -100,8 +100,22 @@
 
 ** TODO Confirm all acceptance criteria in [[file:PLAN.md::*1. Reproducible emulator-control spike][PLAN.md]]
    - [X] Headless and windowed startup work with bridge loading.
-   - [ ] Windowed mode presents the game and prevents competing local input.
-   - [ ] Python can control buttons, advance exact frame counts, read a coherent memory batch, capture screenshots, and save/restore state.
-   - [ ] Idle bridge responsiveness and non-advancing observation are verified.
-   - [ ] Failure cases produce clear diagnostics.
+   - [X] Windowed mode presents the game and prevents competing local input.
+     Runtime verification (2026-10-21): the opt-in frame-gate integration test
+     found the visible Qt window with =xdotool=, held the default A-button key
+     locally and confirmed the GBA key register stayed neutral, then sent A through
+     the bridge and confirmed it reached the core. Qt pause/next-frame shortcuts
+     also left the gated frame unchanged.
+   - [X] Python can control buttons, advance exact frame counts, read a coherent memory batch, capture screenshots, and save/restore state.
+     Runtime verification (2026-10-21): headless and windowed integration cases
+     confirmed bridge input, exact frame budgets, coherent batched reads, and file
+     and in-memory checkpoint restoration. Both modes returned a valid PNG
+     screenshot, and the bridge remained responsive after capture. The headless
+     frontend now attaches an offscreen video buffer when the scripted frame gate
+     is enabled so mGBA's image capture API has frame pixels available.
+   - [X] Idle bridge responsiveness and non-advancing observation are verified.
+     See the successful headless/windowed run recorded above.
+   - [X] Failure cases produce clear diagnostics.
+     See the startup and bridge failure unit coverage and no-display runtime check
+     recorded above.
    - [X] Checkpoint restoration reproduces observed state and shutdown is clean.
