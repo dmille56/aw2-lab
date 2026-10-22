@@ -166,7 +166,10 @@ function bridge.handle_request(request)
                 bytes = {string.byte(emu:readRange(address, length), 1, length)},
             }
         end
-        return {id = request_id, ok = true, result = {ranges = results}}
+        return {
+            id = request_id, ok = true,
+            result = {frame = emu:currentFrame(), ranges = results},
+        }
     end
 
     if request.operation == "reset" then

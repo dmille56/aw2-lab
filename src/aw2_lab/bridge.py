@@ -7,6 +7,7 @@ import base64
 import binascii
 import json
 import tempfile
+from dataclasses import dataclass
 from itertools import count
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,14 @@ _MAX_STATE_BYTES = 3 * 1024 * 1024
 
 class BridgeError(ConnectionError):
     """Raised when the Lua bridge is unavailable or rejects a request."""
+
+
+@dataclass(frozen=True, slots=True)
+class MemorySnapshot:
+    """Ordered memory bytes and their common emulator frame."""
+
+    frame: int
+    ranges: tuple[bytes, ...]
 
 
 class LuaBridgeClient:
@@ -98,6 +107,20 @@ class LuaBridgeClient:
 
     async def read_memory_batch(self, ranges: list[tuple[int, int]]) -> list[bytes]:
         """Read up to 64 address/length ranges at one paused frame boundary."""
+        _, decoded = await self._read_memory_batch(ranges)
+        return decoded
+
+    async def read_memory_snapshot(self, ranges: list[tuple[int, int]]) -> MemorySnapshot:
+        """Read a coherent batch with its frame from the same bridge response."""
+        result, decoded = await self._read_memory_batch(ranges)
+        frame = result.get("frame")
+        if isinstance(frame, bool) or not isinstance(frame, int) or not 0 <= frame < 1 << 32:
+            raise BridgeError("Lua bridge returned an invalid memory snapshot frame")
+        return MemorySnapshot(frame=frame, ranges=tuple(decoded))
+
+    async def _read_memory_batch(
+        self, ranges: list[tuple[int, int]]
+    ) -> tuple[dict[str, Any], list[bytes]]:
         if not 1 <= len(ranges) <= 64:
             raise ValueError("ranges must contain between 1 and 64 entries")
         total = 0
@@ -123,7 +146,12 @@ class LuaBridgeClient:
             raise BridgeError("Lua bridge returned an invalid batched memory read")
         decoded: list[bytes] = []
         for requested, item in zip(ranges, returned, strict=True):
-            if not isinstance(item, dict) or item.get("address") != requested[0]:
+            if (
+                not isinstance(item, dict)
+                or isinstance(item.get("address"), bool)
+                or not isinstance(item.get("address"), int)
+                or item.get("address") != requested[0]
+            ):
                 raise BridgeError("Lua bridge returned an invalid batched memory range")
             values = item.get("bytes")
             if (
@@ -136,7 +164,7 @@ class LuaBridgeClient:
             ):
                 raise BridgeError("Lua bridge returned invalid bytes in a batched memory read")
             decoded.append(bytes(values))
-        return decoded
+        return result, decoded
 
     @staticmethod
     def _validate_state_path(path: str | Path) -> str:

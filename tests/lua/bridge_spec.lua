@@ -339,11 +339,14 @@ describe("mGBA Lua bridge", function()
     end)
 
     it("reads multiple memory ranges in one request", function()
+        local starting_frame = frame
         local response = _G.AW2Bridge.handle_request({
             id = 24, version = 1, operation = "read_memory_batch",
             ranges = {{address = 0x02000001, length = 2}, {address = 0x03000002, length = 1}},
         })
         assert.is_true(response.ok)
+        assert.are.equal(starting_frame, response.result.frame)
+        assert.are.equal(starting_frame, frame)
         assert.are.equal(2, #response.result.ranges)
         assert.are.equal(1, response.result.ranges[1].bytes[1])
         assert.are.equal(2, response.result.ranges[2].bytes[1])

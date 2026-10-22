@@ -98,6 +98,9 @@ def test_frame_gate_stays_idle_and_executes_exact_budgets(
             frame = (frame + 1) % (1 << 32)
             assert await bridge.advance_frames(1) == frame
             initial_batch = await bridge.read_memory_batch([(0x02000000, 16), (0x080000A0, 16)])
+            snapshot = await bridge.read_memory_snapshot([(0x02000000, 16), (0x080000A0, 16)])
+            assert snapshot.frame == frame
+            assert list(snapshot.ranges) == initial_batch
             assert await bridge.advance_frames(0) == frame
             screenshot = await bridge.screenshot()
             assert screenshot.startswith(b"\x89PNG\r\n\x1a\n"), "bridge screenshot is not a PNG"

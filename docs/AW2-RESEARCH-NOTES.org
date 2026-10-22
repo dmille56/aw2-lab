@@ -65,3 +65,44 @@ stable identifier and checksum where useful for reproducing comparisons.
 *** Unresolved questions
 - 
 
+
+* Capture a memory dump
+
+Start a research session as described in [[file:MILESTONE-2.org][Milestone 2]], then run the
+following in another terminal with the same project environment. The command
+connects to the running loopback bridge on port 43128; it does not launch mGBA.
+Use the same local ROM file as the running emulator.
+
+#+begin_src sh
+aw2-lab dump-memory --rom /path/outside/repo/aw2.gba \
+  --range 0x02000000:0x100 --range 0x03000000:64 \
+  --output /path/outside/repo/aw2-research/dumps/before-move.json \
+  --emulator-mode headless \
+  --emulator-build 'mGBA fd9dc5c2cbf234365068855851107e762fc6211b with repository frame-gate patch' \
+  --checkpoint 'battle-start checkpoint; restored before observation' \
+  --reproduction 'Restore battle-start; advance 1 neutral frame; no further inputs'
+#+end_src
+
+=--rom= defaults to =AW2_ROM_PATH=. Each repeatable =--range ADDRESS:LENGTH=
+accepts decimal or hexadecimal integers. A capture supports 1–64 ranges and at
+most 4096 bytes combined; larger requests are rejected rather than split.
+Ranges retain their requested order, including overlaps and empty ranges. All
+bytes and the reported frame come from one paused bridge request. Capturing
+neither advances frames nor changes the held keys.
+
+Schema version 1 JSON contains =schema_version=, UTC =captured_at=,
+=tool_version=, =rom_profile= (including SHA-256 and layout/decoder versions),
+operator-supplied =context=, =frame=, and ordered =ranges=. Each range contains
+an integer =address=, =length= in bytes, and =bytes_hex=; decode the latter with
+Python's =bytes.fromhex()=. The context records =emulator_mode=,
+=emulator_build=, =checkpoint=, and =reproduction=. Supply an explicit starting
+state such as "initial boot, no checkpoint" when no checkpoint was restored.
+
+The supplied ROM file is checksum-verified. Its association with the running
+emulator, the frontend, build identity, checkpoint, and reproduction steps are
+operator assertions; the bridge does not independently attest them. Keep other
+research clients idle while recording reproduction context. Use a fresh output
+filename: existing files are never overwritten. The destination directory must
+already exist; write failures remove partial output. Keep dumps outside the
+repository and Nix store. This tool has ROM-independent checks; actual frontend
+parity remains covered by the optional emulator integration checks.

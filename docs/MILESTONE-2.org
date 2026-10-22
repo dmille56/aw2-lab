@@ -52,10 +52,16 @@
 
 * Memory research tools and documentation
 
-** TODO Add memory-dump tooling
-   - [ ] Read configurable memory ranges through the existing emulator bridge.
-   - [ ] Capture related ranges as a coherent batch without advancing emulation.
-   - [ ] Store dumps with the context needed to reproduce and compare observations.
+** DONE Add memory-dump tooling
+   - [X] Read configurable memory ranges through the existing emulator bridge.
+   - [X] Capture related ranges as a coherent batch without advancing emulation.
+   - [X] Store dumps with the context needed to reproduce and compare observations.
+   - =aw2-lab dump-memory= captures up to 64 ranges and 4096 bytes with their
+     common frame in one bridge response. JSON dumps include the verified ROM
+     profile and operator-supplied build, frontend, checkpoint, and reproduction
+     context. Commands and format: [[file:AW2-RESEARCH-NOTES.org::*Capture a memory dump][Capture a memory dump]].
+   - ROM-independent Python and Lua checks pass. Optional frontend integration
+     checks now assert snapshot bytes and frame; they were not run for this change.
 
 ** TODO Add memory-diff tooling
    - [ ] Compare captured dumps and identify changed addresses and values.

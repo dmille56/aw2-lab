@@ -209,7 +209,14 @@ async def test_read_memory_batch_returns_each_range_from_one_request(
 @pytest.mark.anyio
 async def test_read_memory_batch_rejects_invalid_ranges() -> None:
     client = LuaBridgeClient()
-    for ranges in ([], [(True, 1)], [(0, 4097)], [(0xFFFFFFFF, 2)], [(0, 4096), (1, 1)]):
+    for ranges in (
+        [],
+        [(True, 1)],
+        [(0, 4097)],
+        [(0xFFFFFFFF, 2)],
+        [(0, 4096), (1, 1)],
+        [(0, 0)] * 65,
+    ):
         with pytest.raises(ValueError):
             await client.read_memory_batch(ranges)
 

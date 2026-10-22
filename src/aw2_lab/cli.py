@@ -3,18 +3,28 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import os
+import sys
 from dataclasses import fields
 from pathlib import Path
 
 import uvicorn
 
+from aw2_lab.bridge import BridgeError, LuaBridgeClient
 from aw2_lab.emulator import EmulatorMode, EmulatorSettings
+from aw2_lab.research import ResearchContext, capture_memory_dump, write_memory_dump
 from aw2_lab.rom_profile import UnsupportedRomError
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="aw2-lab")
+    if sys.argv[1:2] == ["dump-memory"]:
+        _dump_memory(sys.argv[2:])
+        return
+    parser = argparse.ArgumentParser(
+        prog="aw2-lab",
+        epilog="Research tools: aw2-lab dump-memory --help",
+    )
     parser.add_argument("--host", default="127.0.0.1", help="HTTP bind address (default: loopback)")
     parser.add_argument("--port", default=43127, type=int, help="HTTP port (default: %(default)s)")
     parser.add_argument(
@@ -101,3 +111,54 @@ def main() -> None:
         host=args.host,
         port=args.port,
     )
+
+
+def _memory_range(value: str) -> tuple[int, int]:
+    try:
+        address, length = value.split(":")
+        return int(address, 0), int(length, 0)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "expected ADDRESS:LENGTH in decimal or hexadecimal"
+        ) from error
+
+
+def _dump_memory(arguments: list[str]) -> None:
+    parser = argparse.ArgumentParser(
+        prog="aw2-lab dump-memory",
+        description="Capture up to 4 KiB from the running local bridge without advancing frames.",
+    )
+    parser.add_argument("--rom", default=os.environ.get("AW2_ROM_PATH"), metavar="PATH")
+    parser.add_argument(
+        "--range", dest="ranges", action="append", type=_memory_range, required=True
+    )
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--emulator-mode", type=EmulatorMode, choices=tuple(EmulatorMode), required=True
+    )
+    parser.add_argument("--emulator-build", required=True)
+    parser.add_argument("--checkpoint", required=True)
+    parser.add_argument("--reproduction", required=True)
+    args = parser.parse_args(arguments)
+    if not args.rom:
+        parser.error("an AW2 ROM is required; provide --rom or set AW2_ROM_PATH")
+    context = ResearchContext(
+        emulator_mode=args.emulator_mode,
+        emulator_build=args.emulator_build,
+        checkpoint=args.checkpoint,
+        reproduction=args.reproduction,
+    )
+    try:
+        dump = asyncio.run(
+            capture_memory_dump(
+                LuaBridgeClient(),
+                rom_path=Path(args.rom).expanduser(),
+                ranges=args.ranges,
+                context=context,
+            )
+        )
+        destination = args.output.expanduser()
+        write_memory_dump(dump, destination)
+    except (ValueError, OSError, BridgeError) as error:
+        parser.error(str(error))
+    print(f"Saved {len(dump.ranges)} ranges at frame {dump.frame} to {destination}")

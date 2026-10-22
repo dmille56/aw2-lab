@@ -188,3 +188,103 @@ def test_invalid_scripting_console_environment_is_rejected(
         cli.main()
 
     assert error.value.code == 2
+
+
+def dump_arguments(output: Path) -> list[str]:
+    return [
+        "aw2-lab",
+        "dump-memory",
+        "--range",
+        "0x02000000:16",
+        "--output",
+        str(output),
+        "--emulator-mode",
+        "headless",
+        "--emulator-build",
+        "pinned build",
+        "--checkpoint",
+        "initial boot",
+        "--reproduction",
+        "No inputs",
+    ]
+
+
+def test_dump_cli_captures_without_starting_server(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import json
+
+    from aw2_lab import research
+    from aw2_lab.bridge import LuaBridgeClient, MemorySnapshot
+
+    async def snapshot(self: LuaBridgeClient, ranges: list[tuple[int, int]]) -> MemorySnapshot:
+        assert ranges == [(0x02000000, 16)]
+        return MemorySnapshot(5, (bytes(range(16)),))
+
+    monkeypatch.setattr(research, "select_rom_profile", lambda _: AW2_US_REVISION_0)
+    monkeypatch.setattr(LuaBridgeClient, "read_memory_snapshot", snapshot)
+    monkeypatch.setenv("AW2_ROM_PATH", "unused.gba")
+    monkeypatch.setenv("AW2_MGBA_SCRIPTING_CONSOLE", "invalid-for-server")
+    output = tmp_path / "dump.json"
+    monkeypatch.setattr("sys.argv", dump_arguments(output))
+    cli.main()
+    assert json.loads(output.read_text())["frame"] == 5
+    assert "frame 5" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("failure", [OSError("disk full"), ConnectionError("unused")])
+def test_dump_cli_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    failure: Exception,
+) -> None:
+    from aw2_lab.bridge import BridgeError
+
+    if isinstance(failure, ConnectionError):
+        failure = BridgeError("bridge unavailable")
+
+    async def capture(*args: object, **kwargs: object) -> None:
+        raise failure
+
+    monkeypatch.setattr(cli, "capture_memory_dump", capture)
+    monkeypatch.setenv("AW2_ROM_PATH", "unused.gba")
+    output = tmp_path / "dump.json"
+    monkeypatch.setattr("sys.argv", dump_arguments(output))
+    with pytest.raises(SystemExit) as error:
+        cli.main()
+    assert error.value.code == 2
+    assert str(failure) in capsys.readouterr().err
+    assert not output.exists()
+
+
+def test_dump_range_parser() -> None:
+    import argparse
+
+    assert cli._memory_range("0x02000000:16") == (0x02000000, 16)
+    assert cli._memory_range("32:0x10") == (32, 16)
+    with pytest.raises(argparse.ArgumentTypeError):
+        cli._memory_range("invalid")
+
+
+@pytest.mark.parametrize(
+    "missing",
+    [
+        "--emulator-build",
+        "--checkpoint",
+        "--reproduction",
+        "--emulator-mode",
+        "--range",
+        "--output",
+    ],
+)
+def test_dump_cli_requires_capture_context(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, missing: str
+) -> None:
+    arguments = dump_arguments(tmp_path / "dump.json")
+    index = arguments.index(missing)
+    del arguments[index : index + 2]
+    monkeypatch.setattr("sys.argv", arguments)
+    with pytest.raises(SystemExit) as error:
+        cli.main()
+    assert error.value.code == 2
