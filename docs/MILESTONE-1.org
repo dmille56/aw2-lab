@@ -81,17 +81,27 @@
      budget after its callback returns. The Qt frontend also blocks UI unpause/step
      and local gameplay input while the gate is enabled.
 
-** TODO Verify automatic startup and clean shutdown in both modes
-   - [ ] Confirm headless mode loads the ROM and bridge without manual interaction.
-   - [ ] Confirm windowed mode loads the ROM and bridge without manual interaction.
-   - [ ] Confirm both modes shut down the emulator cleanly.
+** DONE Verify automatic startup and clean shutdown in both modes
+   - [X] Confirm headless mode loads the ROM and bridge without manual interaction.
+   - [X] Confirm windowed mode loads the ROM and bridge without manual interaction.
+   - [X] Confirm both modes shut down the emulator cleanly.
+   - Runtime verification (2026-10-21): ran
+     =AW2_RUN_EMULATOR_TESTS=1 pytest -q tests/test_frame_gate_integration.py=.
+     The headless and windowed frame-gate integration cases passed. Each starts
+     mGBA with the ROM and Lua bridge, waits for bridge readiness, exercises bridge
+     requests, then stops the launcher and asserts that the emulator process is no
+     longer running. The windowed run also confirmed a visible game window through
+     =xdotool=.
+   - The two optional in-game save-data probe cases were skipped because their
+     local save-state and save-file inputs were not configured; this did not affect
+     the startup/shutdown checks.
 
 * Milestone 1 acceptance checklist
 
 ** TODO Confirm all acceptance criteria in [[file:PLAN.md::*1. Reproducible emulator-control spike][PLAN.md]]
-   - [ ] Headless and windowed startup work with bridge loading.
+   - [X] Headless and windowed startup work with bridge loading.
    - [ ] Windowed mode presents the game and prevents competing local input.
    - [ ] Python can control buttons, advance exact frame counts, read a coherent memory batch, capture screenshots, and save/restore state.
    - [ ] Idle bridge responsiveness and non-advancing observation are verified.
    - [ ] Failure cases produce clear diagnostics.
-   - [ ] Checkpoint restoration reproduces observed state and shutdown is clean.
+   - [X] Checkpoint restoration reproduces observed state and shutdown is clean.
