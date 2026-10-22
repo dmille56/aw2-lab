@@ -73,10 +73,13 @@
      [[file:AW2-RESEARCH-NOTES.org::*Compare memory dumps][Compare memory dumps]].
    - ROM-independent parsing, comparison, and CLI checks pass.
 
-** TODO Add memory-watch tooling
-   - [ ] Watch selected addresses or ranges across explicitly controlled frame steps.
-   - [ ] Record frame numbers and value changes for investigating transitions.
-   - [ ] Ensure watching idle memory does not advance the game implicitly.
+** DONE Add memory-watch tooling
+   - [X] Watch selected addresses or ranges across explicitly controlled frame steps.
+   - [X] Record frame numbers and value changes for investigating transitions.
+   - [X] Ensure watching idle memory does not advance the game implicitly.
+   - =aw2-lab watch-memory= captures an initial sample, explicitly advances
+     neutral frames, and records a coherent sample after each step to a versioned
+     JSON log. Usage: [[file:AW2-RESEARCH-NOTES.org::*Watch memory across frame steps][Watch memory across frame steps]].
 
 ** TODO Investigate existing AW2 reverse-engineering references
    - [ ] Review the decompilation and disassembly projects linked from [[file:PLAN.md]].

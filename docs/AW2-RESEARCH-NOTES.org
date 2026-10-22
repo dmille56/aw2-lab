@@ -126,3 +126,29 @@ and checkpoint/reproduction context, followed by each changed byte's address,
 before and after values, and range. No output file is created. A comparison
 with no changed bytes reports a zero count. Use these changes as candidates for
 further investigation; a byte change alone does not establish field meaning.
+
+* Watch memory across frame steps
+
+Use =watch-memory= to sample an initial state, advance explicitly requested
+neutral frames, and record one coherent sample after each step:
+
+#+begin_src sh
+aw2-lab watch-memory --rom /path/outside/repo/aw2.gba \
+  --range 0x02000000:0x100 --range 0x03000000:64 \
+  --steps 10 --frames-per-step 1 \
+  --output /path/outside/repo/aw2-research/dumps/property-capture-watch.json \
+  --emulator-mode headless \
+  --emulator-build 'pinned mGBA build with repository frame-gate patch' \
+  --checkpoint 'battle-start checkpoint' \
+  --reproduction 'Restore battle-start; observe 10 neutral frames'
+#+end_src
+
+Each sample records its emulator frame and the bytes for every requested range.
+The log also records every byte change between consecutive samples with the
+resulting frame and address. The command prints a readable summary and writes a
+schema version 1 JSON artifact. It takes 1–600 steps of 1–600 neutral frames
+each, with the same 64-range and 4096-byte limits as a memory dump. It captures
+once before stepping and once after each step. Reads do not advance frames; only
+the requested neutral frame steps do. The ROM profile is checksum-verified, but
+the operator remains responsible for ensuring the running emulator matches the
+supplied ROM and context. Existing output files are never overwritten.

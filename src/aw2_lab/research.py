@@ -59,6 +59,32 @@ class MemoryDiff:
     changes: tuple[ChangedByte, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class WatchSample:
+    frame: int
+    ranges: tuple[DumpRange, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class WatchedByteChange:
+    frame: int
+    address: int
+    before: int
+    after: int
+    range_index: int
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryWatch:
+    schema_version: int
+    captured_at: str
+    tool_version: str
+    rom_profile: RomProfile
+    context: ResearchContext
+    samples: tuple[WatchSample, ...]
+    changes: tuple[WatchedByteChange, ...]
+
+
 def read_memory_dump(source: Path) -> MemoryDump:
     """Load and validate a schema version 1 memory dump."""
     try:
@@ -201,6 +227,23 @@ def format_memory_diff(diff: MemoryDiff) -> str:
     return "\n".join(lines)
 
 
+def format_memory_watch(watch: MemoryWatch) -> str:
+    """Render each observed value change with its resulting frame and address."""
+    lines = [
+        f"Samples: {len(watch.samples)}",
+        f"Frame span: {watch.samples[0].frame}–{watch.samples[-1].frame}",
+        f"Changed bytes: {len(watch.changes)}",
+    ]
+    if watch.changes:
+        lines.append("FRAME  ADDRESS     BEFORE  AFTER")
+        lines.extend(
+            f"{change.frame:<6} 0x{change.address:08X}  0x{change.before:02X}    "
+            f"0x{change.after:02X}"
+            for change in watch.changes
+        )
+    return "\n".join(lines)
+
+
 def _required_string(data: dict[str, object], name: str) -> str:
     value = data.get(name)
     if not isinstance(value, str):
@@ -242,9 +285,100 @@ async def capture_memory_dump(
     )
 
 
+async def watch_memory(
+    bridge: LuaBridgeClient,
+    *,
+    rom_path: Path,
+    ranges: list[tuple[int, int]],
+    context: ResearchContext,
+    steps: int,
+    frames_per_step: int,
+) -> MemoryWatch:
+    """Capture an initial sample and then one sample after each explicit neutral step."""
+    for name in ("emulator_build", "checkpoint", "reproduction"):
+        if not getattr(context, name).strip():
+            raise ValueError(f"{name} must contain research context")
+    if isinstance(steps, bool) or not isinstance(steps, int) or not 1 <= steps <= 600:
+        raise ValueError("steps must be an integer from 1 to 600")
+    if (
+        isinstance(frames_per_step, bool)
+        or not isinstance(frames_per_step, int)
+        or not 1 <= frames_per_step <= 600
+    ):
+        raise ValueError("frames_per_step must be an integer from 1 to 600")
+
+    profile = select_rom_profile(rom_path)
+    samples: list[WatchSample] = []
+    changes: list[WatchedByteChange] = []
+
+    async def sample(expected_frame: int | None = None) -> WatchSample:
+        snapshot = await bridge.read_memory_snapshot(ranges)
+        if expected_frame is not None and snapshot.frame != expected_frame:
+            raise ValueError(
+                f"emulator frame changed unexpectedly: expected {expected_frame}, "
+                f"observed {snapshot.frame}"
+            )
+        return WatchSample(
+            frame=snapshot.frame,
+            ranges=tuple(
+                DumpRange(address, length, data.hex())
+                for (address, length), data in zip(ranges, snapshot.ranges, strict=True)
+            ),
+        )
+
+    samples.append(await sample())
+    for _ in range(steps):
+        frame = await bridge.press_keys(0, frames_per_step)
+        current = await sample(frame)
+        previous = samples[-1]
+        for range_index, (old_range, new_range) in enumerate(
+            zip(previous.ranges, current.ranges, strict=True)
+        ):
+            for offset, (old, new) in enumerate(
+                zip(
+                    bytes.fromhex(old_range.bytes_hex),
+                    bytes.fromhex(new_range.bytes_hex),
+                    strict=True,
+                )
+            ):
+                if old != new:
+                    changes.append(
+                        WatchedByteChange(
+                            frame=current.frame,
+                            address=old_range.address + offset,
+                            before=old,
+                            after=new,
+                            range_index=range_index,
+                        )
+                    )
+        samples.append(current)
+
+    return MemoryWatch(
+        schema_version=1,
+        captured_at=datetime.now(UTC).isoformat(),
+        tool_version=__version__,
+        rom_profile=profile,
+        context=context,
+        samples=tuple(samples),
+        changes=tuple(changes),
+    )
+
+
 def write_memory_dump(dump: MemoryDump, destination: Path) -> None:
     """Write a new JSON artifact, preserving existing files and cleaning failed writes."""
     payload = json.dumps(asdict(dump), indent=2) + "\n"
+    output = destination.open("x", encoding="utf-8")
+    try:
+        with output:
+            output.write(payload)
+    except BaseException:
+        destination.unlink(missing_ok=True)
+        raise
+
+
+def write_memory_watch(watch: MemoryWatch, destination: Path) -> None:
+    """Write a new watch JSON artifact, preserving existing files and cleaning failed writes."""
+    payload = json.dumps(asdict(watch), indent=2) + "\n"
     output = destination.open("x", encoding="utf-8")
     try:
         with output:

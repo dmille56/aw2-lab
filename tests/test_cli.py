@@ -345,3 +345,71 @@ def test_diff_memory_cli_reports_invalid_artifact(
 
     assert error.value.code == 2
     assert "invalid JSON memory dump" in capsys.readouterr().err
+
+
+def test_watch_memory_cli_writes_samples_and_summary(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import json
+
+    from aw2_lab import research
+    from aw2_lab.bridge import LuaBridgeClient, MemorySnapshot
+
+    snapshots = iter([MemorySnapshot(10, (b"\x01",)), MemorySnapshot(13, (b"\x01",))])
+
+    async def snapshot(self: LuaBridgeClient, ranges: list[tuple[int, int]]) -> MemorySnapshot:
+        assert ranges == [(0x02000000, 1)]
+        return next(snapshots)
+
+    async def press(self: LuaBridgeClient, keys: int, frames: int) -> int:
+        assert keys == 0
+        assert frames == 3
+        return 13
+
+    monkeypatch.setattr(research, "select_rom_profile", lambda _: AW2_US_REVISION_0)
+    monkeypatch.setattr(LuaBridgeClient, "read_memory_snapshot", snapshot)
+    monkeypatch.setattr(LuaBridgeClient, "press_keys", press)
+    monkeypatch.setenv("AW2_ROM_PATH", "unused.gba")
+    output = tmp_path / "watch.json"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "aw2-lab",
+            "watch-memory",
+            "--range",
+            "0x02000000:1",
+            "--steps",
+            "1",
+            "--frames-per-step",
+            "3",
+            "--output",
+            str(output),
+            "--emulator-mode",
+            "headless",
+            "--emulator-build",
+            "pinned build",
+            "--checkpoint",
+            "initial boot",
+            "--reproduction",
+            "No inputs",
+        ],
+    )
+
+    cli.main()
+
+    saved = json.loads(output.read_text())
+    assert saved["schema_version"] == 1
+    assert [sample["frame"] for sample in saved["samples"]] == [10, 13]
+    assert saved["samples"][0]["ranges"][0]["bytes_hex"] == "01"
+    assert "Samples: 2" in capsys.readouterr().out
+
+
+def test_watch_memory_cli_requires_explicit_step_options(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("sys.argv", ["aw2-lab", "watch-memory", "--range", "0:1"])
+    with pytest.raises(SystemExit) as error:
+        cli.main()
+    assert error.value.code == 2

@@ -17,7 +17,9 @@ from aw2_lab.research import (
     capture_memory_dump,
     compare_memory_dumps,
     format_memory_diff,
+    format_memory_watch,
     read_memory_dump,
+    watch_memory,
     write_memory_dump,
 )
 from aw2_lab.rom_profile import AW2_US_REVISION_0, UnsupportedRomError
@@ -186,6 +188,74 @@ async def test_blank_context_is_rejected_before_capture(monkeypatch: pytest.Monk
             context=ResearchContext(EmulatorMode.HEADLESS, "build", "   ", "No inputs"),
         )
     request.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_watch_samples_initial_and_explicit_steps(
+    monkeypatch: pytest.MonkeyPatch, context: ResearchContext
+) -> None:
+    from aw2_lab.bridge import MemorySnapshot
+
+    monkeypatch.setattr(research, "select_rom_profile", lambda _: AW2_US_REVISION_0)
+    bridge = LuaBridgeClient()
+    snapshots = iter(
+        [
+            MemorySnapshot(10, (b"\x00\x01",)),
+            MemorySnapshot(12, (b"\x02\x01",)),
+            MemorySnapshot(14, (b"\x02\x03",)),
+        ]
+    )
+    read = AsyncMock(side_effect=lambda _: next(snapshots))
+    press = AsyncMock(side_effect=[12, 14])
+    monkeypatch.setattr(bridge, "read_memory_snapshot", read)
+    monkeypatch.setattr(bridge, "press_keys", press)
+
+    watch = await watch_memory(
+        bridge,
+        rom_path=Path("unused.gba"),
+        ranges=[(0x02000000, 2)],
+        context=context,
+        steps=2,
+        frames_per_step=2,
+    )
+
+    assert [sample.frame for sample in watch.samples] == [10, 12, 14]
+    assert [sample.ranges[0].bytes_hex for sample in watch.samples] == ["0001", "0201", "0203"]
+    assert [
+        (change.frame, change.address, change.before, change.after) for change in watch.changes
+    ] == [
+        (12, 0x02000000, 0, 2),
+        (14, 0x02000001, 1, 3),
+    ]
+    assert [call.args for call in press.await_args_list] == [(0, 2), (0, 2)]
+    assert read.await_count == 3
+    assert "Changed bytes: 2" in format_memory_watch(watch)
+
+
+@pytest.mark.anyio
+async def test_watch_rejects_unrequested_frame_advance(
+    monkeypatch: pytest.MonkeyPatch, context: ResearchContext
+) -> None:
+    from aw2_lab.bridge import MemorySnapshot
+
+    monkeypatch.setattr(research, "select_rom_profile", lambda _: AW2_US_REVISION_0)
+    bridge = LuaBridgeClient()
+    monkeypatch.setattr(
+        bridge,
+        "read_memory_snapshot",
+        AsyncMock(side_effect=[MemorySnapshot(10, (b"\x00",)), MemorySnapshot(12, (b"\x01",))]),
+    )
+    monkeypatch.setattr(bridge, "press_keys", AsyncMock(return_value=11))
+
+    with pytest.raises(ValueError, match="changed unexpectedly"):
+        await watch_memory(
+            bridge,
+            rom_path=Path("unused.gba"),
+            ranges=[(0x02000000, 1)],
+            context=context,
+            steps=1,
+            frames_per_step=1,
+        )
 
 
 @pytest.mark.anyio

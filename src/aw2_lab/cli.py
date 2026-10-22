@@ -18,8 +18,11 @@ from aw2_lab.research import (
     capture_memory_dump,
     compare_memory_dumps,
     format_memory_diff,
+    format_memory_watch,
     read_memory_dump,
+    watch_memory,
     write_memory_dump,
+    write_memory_watch,
 )
 from aw2_lab.rom_profile import UnsupportedRomError
 
@@ -31,9 +34,15 @@ def main() -> None:
     if sys.argv[1:2] == ["diff-memory"]:
         _diff_memory(sys.argv[2:])
         return
+    if sys.argv[1:2] == ["watch-memory"]:
+        _watch_memory(sys.argv[2:])
+        return
     parser = argparse.ArgumentParser(
         prog="aw2-lab",
-        epilog="Research tools: aw2-lab dump-memory --help; aw2-lab diff-memory --help",
+        epilog=(
+            "Research tools: aw2-lab dump-memory --help; aw2-lab diff-memory --help; "
+            "aw2-lab watch-memory --help"
+        ),
     )
     parser.add_argument("--host", default="127.0.0.1", help="HTTP bind address (default: loopback)")
     parser.add_argument("--port", default=43127, type=int, help="HTTP port (default: %(default)s)")
@@ -190,3 +199,51 @@ def _diff_memory(arguments: list[str]) -> None:
     except (ValueError, OSError) as error:
         parser.error(str(error))
     print(format_memory_diff(diff))
+
+
+def _watch_memory(arguments: list[str]) -> None:
+    parser = argparse.ArgumentParser(
+        prog="aw2-lab watch-memory",
+        description="Watch selected memory ranges across explicit neutral frame steps.",
+    )
+    parser.add_argument("--rom", default=os.environ.get("AW2_ROM_PATH"), metavar="PATH")
+    parser.add_argument(
+        "--range", dest="ranges", action="append", type=_memory_range, required=True
+    )
+    parser.add_argument("--steps", type=int, required=True, help="number of frame steps (1–600)")
+    parser.add_argument(
+        "--frames-per-step", type=int, required=True, help="neutral frames per step (1–600)"
+    )
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--emulator-mode", type=EmulatorMode, choices=tuple(EmulatorMode), required=True
+    )
+    parser.add_argument("--emulator-build", required=True)
+    parser.add_argument("--checkpoint", required=True)
+    parser.add_argument("--reproduction", required=True)
+    args = parser.parse_args(arguments)
+    if not args.rom:
+        parser.error("an AW2 ROM is required; provide --rom or set AW2_ROM_PATH")
+    context = ResearchContext(
+        emulator_mode=args.emulator_mode,
+        emulator_build=args.emulator_build,
+        checkpoint=args.checkpoint,
+        reproduction=args.reproduction,
+    )
+    try:
+        watch = asyncio.run(
+            watch_memory(
+                LuaBridgeClient(),
+                rom_path=Path(args.rom).expanduser(),
+                ranges=args.ranges,
+                context=context,
+                steps=args.steps,
+                frames_per_step=args.frames_per_step,
+            )
+        )
+        destination = args.output.expanduser()
+        write_memory_watch(watch, destination)
+    except (ValueError, OSError, BridgeError) as error:
+        parser.error(str(error))
+    print(f"Saved {len(watch.samples)} samples to {destination}")
+    print(format_memory_watch(watch))
