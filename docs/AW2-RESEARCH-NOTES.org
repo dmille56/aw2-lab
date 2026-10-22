@@ -66,6 +66,53 @@ stable identifier and checksum where useful for reproducing comparisons.
 - 
 
 
+* Review of existing AW2 reverse-engineering references
+
+Reviewed the following source snapshots on 2026-10-22. These projects are
+research leads only; neither is a verified Python state-decoding interface.
+Keep every source-derived structure or address as a candidate until it is
+checked against the supported, unmodified US retail ROM with controlled
+observations.
+
+** Eebit/aw2bhr decompilation
+
+- Snapshot: commit =63a26942a9a1249fe4e02c4c2ec0b3d2ee6b16cb=.
+- Scope: this snapshot has a small amount of decompiled C alongside assembly
+  and data. [[https://github.com/Eebit/aw2bhr/blob/63a26942a9a1249fe4e02c4c2ec0b3d2ee6b16cb/src/title-screen.c][=src/title-screen.c=]] is a lead for title-screen and title-to-menu
+  transitions; its process scripts and =Proc_Start= calls show how screen
+  behavior is scheduled. [[https://github.com/Eebit/aw2bhr/blob/63a26942a9a1249fe4e02c4c2ec0b3d2ee6b16cb/src/proc.c][=src/proc.c=]] and
+  [[https://github.com/Eebit/aw2bhr/blob/63a26942a9a1249fe4e02c4c2ec0b3d2ee6b16cb/include/proc.h][=include/proc.h=]] are leads for understanding the process scheduler,
+  not proof that a particular process identifies a valid battle state.
+- Limit: the snapshot does not provide a complete battle-state decoder. Its
+  title/menu control flow does not establish runtime validity of battle data.
+  The README describes a rebuilt ROM target by SHA-1; that alone does not
+  validate any RAM address for this project's supported profile.
+
+** XenesisXenon/AW2-InfiniteCOs disassembly and mod
+
+- Snapshot: commit =5730d3dd58d82fc000bcc8449f245334fcc7d939=.
+- Scope: the [[https://github.com/XenesisXenon/AW2-InfiniteCOs/blob/5730d3dd58d82fc000bcc8449f245334fcc7d939/code/dyn_tilemaps/core_dynamictilemaps.asm][dynamic tile-map code]] and
+  [[https://github.com/XenesisXenon/AW2-InfiniteCOs/blob/5730d3dd58d82fc000bcc8449f245334fcc7d939/code/maps/hookmapsheader.asm][map-header hooks]] are leads for terrain-ID lookup and map-header
+  resolution. [[https://github.com/XenesisXenon/AW2-InfiniteCOs/blob/5730d3dd58d82fc000bcc8449f245334fcc7d939/code/gamemap_init/initram_campaignforce.asm][player RAM initialization]] and
+  [[https://github.com/XenesisXenon/AW2-InfiniteCOs/blob/5730d3dd58d82fc000bcc8449f245334fcc7d939/code/menucommands/maingame/onselect_end.asm][end-turn handling]] are leads for player and turn state. The
+  [[https://github.com/XenesisXenon/AW2-InfiniteCOs/blob/5730d3dd58d82fc000bcc8449f245334fcc7d939/code/damageformula/hook_unithpdisplayhidden.asm][unit HP display hook]] may help trace displayed-health behavior.
+- Limit: the README says the patch build expects an original US AW2 ROM with
+  CRC32 =5AD0E571=. The code includes modified behavior and patch-specific
+  hooks, so its constants and assumptions must not be copied directly into
+  the decoder. Trace each lead back to the original game and validate it
+  against this project's SHA-256-verified ROM.
+
+** Verification status and next checks
+
+- No runtime memory address or layout was adopted from either project in this
+  review. The source paths above remain candidate leads; there are therefore
+  no reference-derived addresses claimed as verified here.
+- When following a lead, record the exact ROM checksum, emulator build,
+  checkpoint, frame, controlled input, and before/after dumps. Promote a field
+  only after its value and validity conditions match the expected change in
+  the supported unmodified ROM. Keep unknown behavior explicit.
+
+
 * Capture a memory dump
 
 Start a research session as described in [[file:MILESTONE-2.org][Milestone 2]], then run the

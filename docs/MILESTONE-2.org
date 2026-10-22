@@ -81,10 +81,10 @@
      neutral frames, and records a coherent sample after each step to a versioned
      JSON log. Usage: [[file:AW2-RESEARCH-NOTES.org::*Watch memory across frame steps][Watch memory across frame steps]].
 
-** TODO Investigate existing AW2 reverse-engineering references
-   - [ ] Review the decompilation and disassembly projects linked from [[file:PLAN.md]].
-   - [ ] Record source references and candidate structures as research leads.
-   - [ ] Verify every adopted address against the unmodified supported ROM.
+** DONE Investigate existing AW2 reverse-engineering references
+   - [X] Review the decompilation and disassembly projects linked from [[file:PLAN.md]].
+   - [X] Record source references and candidate structures as research leads in [[file:AW2-RESEARCH-NOTES.org::*Review of existing AW2 reverse-engineering references][AW2 research notes]].
+   - [X] Verify every adopted address against the unmodified supported ROM; this review adopted no runtime addresses, and all source-derived leads remain candidates pending controlled ROM observations.
 
 ** TODO Document verified memory layouts
    - [ ] Record addresses or address-resolution rules, field sizes, signedness, and byte order.
