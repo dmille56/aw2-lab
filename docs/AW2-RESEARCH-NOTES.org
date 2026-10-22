@@ -106,3 +106,23 @@ filename: existing files are never overwritten. The destination directory must
 already exist; write failures remove partial output. Keep dumps outside the
 repository and Nix store. This tool has ROM-independent checks; actual frontend
 parity remains covered by the optional emulator integration checks.
+
+* Compare memory dumps
+
+Capture one dump immediately before a controlled gameplay event and another
+immediately after it. Keep the ROM and requested ranges the same, and record
+the event in each dump's reproduction context. Then compare the artifacts
+offline:
+
+#+begin_src sh
+aw2-lab diff-memory \
+  /path/outside/repo/aw2-research/dumps/before-capture.json \
+  /path/outside/repo/aw2-research/dumps/after-capture.json
+#+end_src
+
+The command checks that both files use schema version 1, have the same ROM
+profile, and contain identical ranges in the same order. It prints the frames
+and checkpoint/reproduction context, followed by each changed byte's address,
+before and after values, and range. No output file is created. A comparison
+with no changed bytes reports a zero count. Use these changes as candidates for
+further investigation; a byte change alone does not establish field meaning.

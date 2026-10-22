@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Self
 from unittest.mock import AsyncMock
@@ -9,7 +10,16 @@ from test_bridge import mock_connection
 from aw2_lab import research
 from aw2_lab.bridge import BridgeError, LuaBridgeClient
 from aw2_lab.emulator import EmulatorMode
-from aw2_lab.research import ResearchContext, capture_memory_dump, write_memory_dump
+from aw2_lab.research import (
+    DumpRange,
+    MemoryDump,
+    ResearchContext,
+    capture_memory_dump,
+    compare_memory_dumps,
+    format_memory_diff,
+    read_memory_dump,
+    write_memory_dump,
+)
 from aw2_lab.rom_profile import AW2_US_REVISION_0, UnsupportedRomError
 
 
@@ -199,3 +209,100 @@ async def test_snapshot_preserves_overlaps_and_empty_ranges(
     )
     snapshot = await LuaBridgeClient().read_memory_snapshot([(32, 2), (33, 1), (32, 0)])
     assert snapshot.ranges == (b"\x01\x02", b"\x02", b"")
+
+
+def _memory_dump(
+    context: ResearchContext,
+    *,
+    frame: int = 1,
+    ranges: tuple[DumpRange, ...] | None = None,
+) -> MemoryDump:
+    return MemoryDump(
+        schema_version=1,
+        captured_at="2026-10-21T00:00:00+00:00",
+        tool_version="test",
+        rom_profile=AW2_US_REVISION_0,
+        context=context,
+        frame=frame,
+        ranges=ranges or (DumpRange(0x02000000, 3, "000102"),),
+    )
+
+
+def test_memory_diff_reports_changed_values_and_range_context(
+    context: ResearchContext,
+) -> None:
+    before = _memory_dump(
+        context,
+        ranges=(DumpRange(0x02000000, 3, "000102"), DumpRange(0x03000000, 2, "AABB")),
+    )
+    after = _memory_dump(
+        replace(context, checkpoint="after event", reproduction="Capture unit"),
+        frame=4,
+        ranges=(DumpRange(0x02000000, 3, "000A02"), DumpRange(0x03000000, 2, "AACC")),
+    )
+    diff = compare_memory_dumps(before, after)
+
+    assert len(diff.changes) == 2
+    assert diff.changes[0].address == 0x02000001
+    assert (diff.changes[0].before, diff.changes[0].after) == (1, 10)
+    assert (diff.changes[0].range_index, diff.changes[0].range_address) == (0, 0x02000000)
+    assert diff.changes[1].address == 0x03000001
+    assert (diff.changes[1].range_index, diff.changes[1].range_address) == (1, 0x03000000)
+    output = format_memory_diff(diff)
+    assert "Before: frame 1" in output
+    assert "After:  frame 4" in output
+    assert "0x02000001  0x01    0x0A    #1 0x02000000:0x3" in output
+    assert "0x03000001  0xBB    0xCC    #2 0x03000000:0x2" in output
+
+
+def test_memory_diff_reports_zero_changes(context: ResearchContext) -> None:
+    dump = _memory_dump(context)
+    assert format_memory_diff(compare_memory_dumps(dump, dump)).endswith("Changed bytes: 0")
+
+
+def test_memory_diff_requires_matching_rom_and_ordered_ranges(
+    context: ResearchContext,
+) -> None:
+    before = _memory_dump(context)
+    different_rom = replace(
+        before,
+        rom_profile=replace(before.rom_profile, name="other"),
+    )
+    with pytest.raises(ValueError, match="different ROM profiles"):
+        compare_memory_dumps(before, different_rom)
+
+    different_ranges = _memory_dump(context, ranges=(DumpRange(0x02000001, 3, "000102"),))
+    with pytest.raises(ValueError, match="identical ranges"):
+        compare_memory_dumps(before, different_ranges)
+
+
+def test_read_memory_dump_loads_schema_version_1(tmp_path: Path, context: ResearchContext) -> None:
+    dump = _memory_dump(context)
+    output = tmp_path / "dump.json"
+    write_memory_dump(dump, output)
+    assert read_memory_dump(output) == dump
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda data: data.update(schema_version=2), "unsupported dump schema"),
+        (lambda data: data.update(schema_version=1.0), "unsupported dump schema"),
+        (lambda data: data.update(frame=True), "frame must be"),
+        (lambda data: data["ranges"][0].update(bytes_hex="xyz"), "valid hexadecimal"),
+        (lambda data: data["ranges"][0].update(length=4), "does not match"),
+    ],
+)
+def test_read_memory_dump_rejects_invalid_artifacts(
+    tmp_path: Path,
+    context: ResearchContext,
+    mutation: object,
+    message: str,
+) -> None:
+    output = tmp_path / "dump.json"
+    write_memory_dump(_memory_dump(context), output)
+    data = json.loads(output.read_text())
+    mutation(data)  # type: ignore[operator]
+    output.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match=message):
+        read_memory_dump(output)

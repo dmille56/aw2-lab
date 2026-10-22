@@ -63,10 +63,15 @@
    - ROM-independent Python and Lua checks pass. Optional frontend integration
      checks now assert snapshot bytes and frame; they were not run for this change.
 
-** TODO Add memory-diff tooling
-   - [ ] Compare captured dumps and identify changed addresses and values.
-   - [ ] Support focused comparisons around a controlled gameplay event.
-   - [ ] Retain address and range context so changes can be traced to candidate fields.
+** DONE Add memory-diff tooling
+   - [X] Compare captured dumps and identify changed addresses and values.
+   - [X] Support focused comparisons around a controlled gameplay event.
+   - [X] Retain address and range context so changes can be traced to candidate fields.
+   - =aw2-lab diff-memory BEFORE.json AFTER.json= compares schema version 1 dumps
+     offline, requiring the same ROM profile and ordered ranges. It reports frames,
+     reproduction context, and each changed byte with its source range. Usage:
+     [[file:AW2-RESEARCH-NOTES.org::*Compare memory dumps][Compare memory dumps]].
+   - ROM-independent parsing, comparison, and CLI checks pass.
 
 ** TODO Add memory-watch tooling
    - [ ] Watch selected addresses or ranges across explicitly controlled frame steps.

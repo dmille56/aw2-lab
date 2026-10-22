@@ -13,7 +13,14 @@ import uvicorn
 
 from aw2_lab.bridge import BridgeError, LuaBridgeClient
 from aw2_lab.emulator import EmulatorMode, EmulatorSettings
-from aw2_lab.research import ResearchContext, capture_memory_dump, write_memory_dump
+from aw2_lab.research import (
+    ResearchContext,
+    capture_memory_dump,
+    compare_memory_dumps,
+    format_memory_diff,
+    read_memory_dump,
+    write_memory_dump,
+)
 from aw2_lab.rom_profile import UnsupportedRomError
 
 
@@ -21,9 +28,12 @@ def main() -> None:
     if sys.argv[1:2] == ["dump-memory"]:
         _dump_memory(sys.argv[2:])
         return
+    if sys.argv[1:2] == ["diff-memory"]:
+        _diff_memory(sys.argv[2:])
+        return
     parser = argparse.ArgumentParser(
         prog="aw2-lab",
-        epilog="Research tools: aw2-lab dump-memory --help",
+        epilog="Research tools: aw2-lab dump-memory --help; aw2-lab diff-memory --help",
     )
     parser.add_argument("--host", default="127.0.0.1", help="HTTP bind address (default: loopback)")
     parser.add_argument("--port", default=43127, type=int, help="HTTP port (default: %(default)s)")
@@ -162,3 +172,21 @@ def _dump_memory(arguments: list[str]) -> None:
     except (ValueError, OSError, BridgeError) as error:
         parser.error(str(error))
     print(f"Saved {len(dump.ranges)} ranges at frame {dump.frame} to {destination}")
+
+
+def _diff_memory(arguments: list[str]) -> None:
+    parser = argparse.ArgumentParser(
+        prog="aw2-lab diff-memory",
+        description="Compare two saved memory dumps from a controlled gameplay event.",
+    )
+    parser.add_argument("before", type=Path, help="dump captured before the event")
+    parser.add_argument("after", type=Path, help="dump captured after the event")
+    args = parser.parse_args(arguments)
+    try:
+        diff = compare_memory_dumps(
+            read_memory_dump(args.before.expanduser()),
+            read_memory_dump(args.after.expanduser()),
+        )
+    except (ValueError, OSError) as error:
+        parser.error(str(error))
+    print(format_memory_diff(diff))

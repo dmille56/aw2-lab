@@ -288,3 +288,60 @@ def test_dump_cli_requires_capture_context(
     with pytest.raises(SystemExit) as error:
         cli.main()
     assert error.value.code == 2
+
+
+def test_diff_memory_cli_prints_controlled_comparison(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from dataclasses import replace
+
+    from aw2_lab.emulator import EmulatorMode
+    from aw2_lab.research import DumpRange, MemoryDump, ResearchContext, write_memory_dump
+
+    context = ResearchContext(EmulatorMode.HEADLESS, "build", "before", "No inputs")
+    before = MemoryDump(
+        1,
+        "2026-10-21T00:00:00+00:00",
+        "test",
+        AW2_US_REVISION_0,
+        context,
+        10,
+        (DumpRange(0x02000000, 2, "0001"),),
+    )
+    after = replace(
+        before,
+        frame=12,
+        context=replace(context, checkpoint="after", reproduction="Capture after event"),
+        ranges=(DumpRange(0x02000000, 2, "0002"),),
+    )
+    before_path = tmp_path / "before.json"
+    after_path = tmp_path / "after.json"
+    write_memory_dump(before, before_path)
+    write_memory_dump(after, after_path)
+    monkeypatch.setattr("sys.argv", ["aw2-lab", "diff-memory", str(before_path), str(after_path)])
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert "Changed bytes: 1" in output
+    assert "0x02000001  0x01    0x02" in output
+
+
+def test_diff_memory_cli_reports_invalid_artifact(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    before_path = tmp_path / "before.json"
+    before_path.write_text("not JSON")
+    after_path = tmp_path / "after.json"
+    after_path.write_text("{}")
+    monkeypatch.setattr("sys.argv", ["aw2-lab", "diff-memory", str(before_path), str(after_path)])
+
+    with pytest.raises(SystemExit) as error:
+        cli.main()
+
+    assert error.value.code == 2
+    assert "invalid JSON memory dump" in capsys.readouterr().err
