@@ -1,0 +1,67 @@
+#+TITLE: AW2 Research Notes
+
+Use one copy of the finding template for each observation or claim. Keep ROMs,
+dumps, saves, screenshots containing sensitive data, and save states outside the
+repository and Nix store. In each note, distinguish candidate addresses from
+verified fields; a candidate does not become verified until its interpretation
+has been checked against controlled observations.
+
+* Finding template
+
+Copy this subtree for each finding and replace the prompts. Keep unknown values
+explicit rather than inferring them.
+
+** Finding: <short title>
+
+*** Claim and status
+- Status: candidate / verified / unresolved / rejected
+- Claim:
+- Confidence: low / medium / high, with rationale
+
+*** Run context
+- Date and researcher:
+- ROM identity/revision:
+- ROM checksum (algorithm and full value):
+- Emulator frontend and build identity (version/source revision):
+- Checkpoint context (local label or path, and optional checkpoint checksum):
+- Frame number at observation:
+- Decoder/tool version, if applicable:
+
+*** Reproduction
+1. Starting game/UI state and how the checkpoint was reached:
+2. Inputs and exact frame advances, in order:
+3. Observation command or memory ranges captured:
+4. Expected and observed result:
+
+*** Candidate addresses
+Record hypotheses here, including the address/range, proposed meaning, raw
+observation, and what would confirm or reject each candidate. Do not list these
+as verified fields.
+
+| Address/range | Proposed meaning | Evidence | Confidence | Next check |
+|---------------+-----------------+----------+------------+-----------|
+|               |                 |          |            |           |
+
+*** Verified fields
+Only add a field after controlled verification. Record address or resolution
+rule, size, signedness, byte order, validity conditions, evidence, and confidence.
+
+| Address/rule | Field | Size/type | Validity | Verification evidence | Confidence |
+|--------------+-------+-----------+----------+-----------------------+------------|
+|              |       |           |          |                       |            |
+
+*** Evidence references
+List logs, dump filenames, screenshots, source references, or other artifacts.
+Keep generated binary artifacts outside the repository; include a local path or
+stable identifier and checksum where useful for reproducing comparisons.
+
+- 
+
+*** Verification results
+- Checks performed:
+- Results and comparison states:
+- Limitations/build-specific assumptions:
+
+*** Unresolved questions
+- 
+

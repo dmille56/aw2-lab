@@ -24,10 +24,11 @@
      run cover both frontends, coherent batched reads, non-advancing observations,
      exact frame budgets, PNG screenshots, checkpoint restoration, and clean shutdown.
 
-** TODO Establish a repeatable evidence record
-   - [ ] Record ROM checksum, emulator build, checkpoint context, frame, and reproduction steps for each finding.
-   - [ ] Record candidate addresses separately from verified fields, with evidence and confidence.
-   - [ ] Reserve space in research notes for verification results and unresolved questions.
+** DONE Establish a repeatable evidence record
+   - [X] Record ROM checksum, emulator build, checkpoint context, frame, and reproduction steps for each finding.
+   - [X] Record candidate addresses separately from verified fields, with evidence and confidence.
+   - [X] Reserve space in research notes for verification results and unresolved questions.
+   - Reusable finding template: [[file:AW2-RESEARCH-NOTES.org][AW2 research notes]]. Keep ROMs and generated binary artifacts outside the repository and Nix store.
 
 * Supported ROM profile
 
