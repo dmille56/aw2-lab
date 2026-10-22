@@ -112,6 +112,15 @@ observations.
   only after its value and validity conditions match the expected change in
   the supported unmodified ROM. Keep unknown behavior explicit.
 
+* Research findings
+
+- [[file:AW2-LIFECYCLE-RESEARCH.org][Battle lifecycle research]]: startup/title/setup observations, engine and
+  process signals, entry transitions, result/save/menu paths, power activation,
+  retained battle data, and remaining validity gaps.
+- [[file:AW2-MAP-RESEARCH.org][Map and property research]]: verified layouts, controlled comparisons,
+  reproduction steps, evidence references, unresolved questions, and the initial
+  historical probe.
+
 
 * Capture a memory dump
 

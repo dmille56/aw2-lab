@@ -1,0 +1,696 @@
+#+TITLE: AW2 Map and Property Research
+
+Map and property findings, verified memory layouts, reproduction steps, evidence,
+and unresolved questions for Milestone 2. The general research workflow and
+finding template are in [[file:AW2-RESEARCH-NOTES.org][AW2 research notes]]. Keep ROMs, dumps, saves,
+screenshots, and save states outside the repository and Nix store.
+
+The [[*Finding: Five additional initial Versus maps][five-map comparison]] identifies airports, ports, shoals, and stale data
+at and beyond property-list terminators. The [[*Finding: Royal Channel height and lower rows][Royal Channel comparison]] extends
+geometry verification to height 30 and 88 properties. The latest [[*Finding: Four-army ownership and city captures][Four Corners comparison]]
+adds green/yellow ownership, city-capture completions for three armies, and a
+damaged-infantry Capture/Wait control. Together, nine maps cover widths 15, 16,
+32, 39, and 42 and heights 10, 15, and 30; these are observed sizes, not allocation
+limits. Earlier findings retain their original scope.
+
+* Map and property layout verification
+
+** Historical finding: Initial map/property probe established no fields
+
+*** Claim and status
+- Status: unresolved
+- Claim: The initial probe established no map dimensions, terrain, property,
+  ownership, or capture-progress fields. Its captured bytes are raw observations only.
+- Confidence: high that no field interpretation is supported by this evidence;
+  no confidence is assigned to a map/property interpretation.
+
+*** Run context
+- Date and researcher: 2026-10-22; aw2-lab research session
+- ROM identity/revision: =ADVANCEWARS2=, game code =AW2E=, maker code =01=,
+  revision =0= (US retail)
+- ROM checksum (SHA-256):
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=
+- Emulator frontend and build identity: headless mGBA
+  =fd9dc5c2cbf234365068855851107e762fc6211b= with repository frame-gate patch
+- Checkpoint context: local sibling =.ss1= state, restored in an isolated
+  temporary mGBA configuration and save directory; source checkpoint was not
+  modified
+- Frame number at observation: =4728=
+- Decoder/tool version: aw2-lab memory research tooling, schema version =1=
+
+*** Reproduction
+1. Start headless mGBA through =EmulatorLauncher= with the repository bridge,
+   frame gate enabled, and temporary XDG configuration/data/cache directories.
+2. Restore the local sibling =.ss1= checkpoint; send no game inputs and do not
+   advance frames before the capture.
+3. Capture =0x02000000:0x100= and =0x03000000:0x80= in one coherent memory
+   snapshot at frame =4728=.
+4. A screenshot request failed with =No video frame is available= after restore,
+   including after an attempted 30 neutral frames. The checkpoint's visible
+   game state therefore could not be manually identified for comparison.
+
+*** Candidate addresses
+No map/property address candidates were tested in this probe. Existing source
+references remain candidate leads only.
+
+*** Verified fields
+None.
+
+*** Evidence references
+- External dump: =/tmp/aw2-research/dumps/map-property-layout-probe.json=
+- Dump SHA-256:
+  =c30862ab235841a3d3f7b470d308dab796e0f02b3e332a09d99026e72d678a02=
+- The dump is outside the repository and Nix store; preserve it with the local
+  checkpoint if reproducing this raw capture.
+
+*** Verification results
+- Checks performed: verified the ROM profile; restored the checkpoint; captured
+  both RAM ranges coherently at the restored frame; attempted screenshot capture.
+- Results and comparison states: RAM capture succeeded. No before/after gameplay
+  comparison or manual map comparison was possible, so no bytes were decoded.
+- Limitations/build-specific assumptions: this headless run did not expose a
+  video frame after checkpoint restoration. The checkpoint's battle/map state
+  is not established by this observation.
+
+*** Unresolved questions
+- Which map and game state does this local checkpoint represent?
+- What addresses or resolution rules hold map dimensions and terrain/property
+  records in the supported unmodified ROM?
+- What pointer, table-bound, sentinel, and validity rules govern those records?
+- Which controlled observations can distinguish property ownership and capture
+  progress from unrelated changes?
+
+** Finding: Initial Versus map and property layout
+
+*** Claim and status
+- Status: verified within the comparison states and limits below
+- Claim: Map dimensions, graphical tile IDs, terrain/owner bytes, property-list
+  entries, and infantry capture accumulation can be read using the rules below.
+- Confidence: high for the observed fields and transitions. Runtime comparisons
+  agree with screenshots and access patterns in the supported original ROM.
+  Other map sizes, property classes, player configurations, and lifecycle states
+  require further observations.
+
+*** Run context
+- Date and researcher: 2026-10-22; aw2-lab research session
+- ROM: =ADVANCEWARS2=, =AW2E=, maker =01=, revision =0=; SHA-256
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=
+- Emulator: pinned headless mGBA =fd9dc5c2cbf234365068855851107e762fc6211b=,
+  selected by =nix develop=; frame-gate patch SHA-256
+  =7062afbc1b1af8aefa599f82c68c44fd3807604d2e935009b028d573c94771cb=.
+  This build captures screenshots successfully before and after restoration;
+  the earlier screenshot failure does not block these observations.
+- Tool: aw2-lab =0.1.0= research dump schema =1=; Capstone =5.0.9= for inspecting
+  original-ROM Thumb access patterns. No Python game-state decoder was added.
+- Checkpoints supplied locally as =aw2.ss1= and =aw2.ss2=. ROM/save copies and
+  temporary XDG directories isolated all emulator writes from the supplied files.
+
+| State | Map | Original map ID | Frame | Dimensions | Property entries |
+|-------+-----+-----------------+-------+------------+------------------|
+| =aw2.ss1= | Bean Island | =1= | =1288= | =16 x 15= | =28= |
+| =aw2.ss2= | Crater Isle | =2= | =2928= | =16 x 15= | =31= |
+
+- State SHA-256, =aw2.ss1=:
+  =ceb56e473a6c53f7d37abf94c09bfe6766a6eb5c211d5c420f6b112ba10ebd69=
+- State SHA-256, =aw2.ss2=:
+  =77ee0f72902af79d530e9d5fb4cb828f362b07bdb62868e6ee98026e5e33ec4a=
+- Original-ROM header entries at =0x085C77A0 + map_id * 0x5C= point to the two
+  compressed maps at =0x081BA084= and =0x081BA18C=. Their decompressed headers
+  both contain byte dimensions =16, 15=, followed by 240 little-endian tile IDs.
+  All 240 IDs per map match the runtime graphical array. Original-ROM name IDs
+  =2612= and =2613= resolve to Bean Island and Crater Isle; map names were not
+  inferred from appearance alone.
+
+*** Verified fields and resolution rules
+Read =LE16= and =LE32= as unsigned little-endian integers. Byte fields below
+are unsigned; byte order does not apply to a single byte.
+
+Let =B = LE32(0x08499590) = 0x0201E450= for this exact ROM profile. For a valid
+zero-based coordinate, let =i = LE16(B + 0x417A + 2*y) + x=.
+
+| Address/rule | Field | Size/type | Evidence and confidence |
+|--------------+-------+-----------+-------------------------|
+| =B + 0= | Map width | =u16 LE= | 16 in both states; right edge clamps at x=15; high |
+| =B + 2= | Map height | =u16 LE= | 15 in both states; bottom edge clamps at y=14; high |
+| =B + 0x417A + 2*y= | Row offset in cells | =u16 LE= | All 15 entries equal y*16 in both states; original code uses this lookup; high |
+| =B + 0x0A22 + 2*i= | Graphical tile ID | =u16 LE= | 240 cells per map match decompressed original-ROM data; city capture changes the ID; high |
+| =B + 0x1432 + i= | Terrain class and encoded owner | =u8= | Distinct terrain landmarks, both maps' buildings, and capture transition agree; high |
+| =0x03003150 + 4*n + 0= | Property terrain/owner byte | =u8= | Every listed property matches the terrain grid; capture changes the matching entry; high |
+| =0x03003150 + 4*n + 1= | Property x coordinate | =u8= | All 28/31 entries match zero-based map locations; high |
+| =0x03003150 + 4*n + 2= | Property y coordinate | =u8= | All 28/31 entries match zero-based map locations; high |
+| =U + 5=, bits 3..7 | Infantry's accumulated capture points | =u8 >> 3= | Wait gives 0; partial capture gives 10; completion resets to 0; original capture routine agrees; high within this experiment |
+
+For the terrain/owner byte, =raw & 0x1F= gives the terrain class and =raw >> 5=
+gives an owner code. Verified classes are plain =1=, mountain =3=, wood =4=,
+road =5=, city =6=, sea =7=, HQ =8=, and base =14=. Observed owner codes are
+=0= for neutral, =1= for red, and =2= for blue in these checkpoints. Mapping
+these codes to player slots or army colors in other configurations is unresolved.
+For example, neutral/red/blue cities are =0x06=, =0x26=, and =0x46=.
+
+The capture field belongs to a unit record, not to the four-byte property entry.
+During confirmed infantry selection/capture actions, =U = LE32(0x030040D8)=
+was =0x02022690=. The original capture routine resolves this pointer through
+the literal at =0x08091354= and uses the upper five bits at unit offset =5=.
+This is accumulated progress; the city UI shows =20 - progress= in this test.
+The lower three bits are not interpreted here.
+
+*** Pointer handling, bounds, sentinels, and validity
+- Select the exact supported ROM before using =B= or the other address rules.
+  =B= comes from a 32-bit ROM literal, not an assumed host pointer. The original
+  routines at =0x08009B38= and =0x08024058= corroborate unsigned row-offset and
+  terrain reads; =0x080240B4= corroborates the halfword tile array.
+- Validate =0 <= x < width= and =0 <= y < height= before reading the row offset;
+  require =i < width*height=. Both observed arrays contain exactly 240 active
+  cells, with no border cells in coordinate indexing. Read only the =height=
+  active row offsets. Maximum dimensions/allocation capacity remain unresolved;
+  this finding validates only the observed 16-by-15 geometry.
+- The property list has four-byte stride. Stop when its first byte is =0xFF=;
+  do not interpret the remaining bytes of that sentinel as a property. Sentinels
+  occur at =0x030031C0= and =0x030031CC= in the initial states. Original-ROM
+  enumeration/readers at =0x08021B48=, =0x08021CB4=, and =0x0800C608= bound
+  indexes to =0..0x5B= (92 slots); cap traversal at 92 even without a sentinel.
+  The original reader skips inactive entries with first byte zero; deletion and
+  a full 92-slot list were not exercised at runtime.
+- The property entry's fourth byte was zero throughout this experiment and
+  remains unknown. Do not identify it as capture progress.
+- The current-unit pointer can be stale: after the AI turn, it still referenced
+  an AI infantry at =(8,13)= while the cursor was over the red infantry. Resolve
+  it only in an independently confirmed unit-selection/action context, check
+  alignment and that the required record bytes lie inside EWRAM, and corroborate
+  the unit's coordinates. General unit-table bounds/identity are future research.
+- All interpretations assume a manually confirmed active battle. These fields
+  do not yet provide a battle-lifecycle validity detector, and are not validated
+  at title screens, menus, transitions, or in windowed-mode parity comparisons.
+
+*** Controlled comparisons and original-ROM corroboration
+- Nine cursor samples per map cover baseline, one Right, one Down, the right,
+  bottom, left, and top edges, plus repeated attempts beyond the bottom/top.
+  Coordinates clamp at =(15,14)= and =(0,0)=; dimensions, tiles, terrain bytes,
+  row offsets, and the property list remain unchanged across all 18 samples.
+- Both maps' entire property lists match the corresponding terrain grid in
+  coordinate order. Bean Island has 28 entries; Crater Isle has 31. The tile-class
+  lookup at =LE32(0x0849959C)= also agrees with all 480 initial tile/terrain pairs;
+  its complete capacity and unobserved IDs are not established by this check.
+- On Crater Isle, a purchased infantry moves from the red base at =(6,2)= to
+  =(9,2)=, then to neutral city =(11,2)= on its next turn. A Wait branch from the
+  same action menu is the control for the first capture.
+
+| Comparison | Frame | City UI remaining points | Terrain byte | Graphical tile ID | Property entry | Unit capture bits |
+|------------+-------+--------------------------+--------------+-------------------+----------------+-------------------|
+| Wait control | =5161= | 20 | =0x06= | =0x01C2= | =06 0B 02 00= | 0 |
+| First capture, settled | =5155= | 10 | =0x06= | =0x01C2= | =06 0B 02 00= | 10 |
+| Second capture, settled | =6959= | 20, city now red | =0x26= | =0x01C7= | =26 0B 02 00= | 0 |
+
+- Wait versus partial capture differs at just =0x02022695= within the examined
+  unit-table region: =0x00= versus =0x50=. This isolates capture accumulation
+  from the movement, fuel, and acted-state changes shared by both branches.
+  Original-ROM =0x08042650= reads bits 3..7, adds capture strength and caps at
+  20; =0x080427C6= stores those bits and clears them when capture completes.
+  Terrain/owner masks are independently used by =0x08024984=.
+- Source leads: [[https://github.com/XenesisXenon/AW2-InfiniteCOs/blob/5730d3dd58d82fc000bcc8449f245334fcc7d939/common/definitions_ramallocation.asm][RAM definitions]], [[https://github.com/XenesisXenon/AW2-InfiniteCOs/blob/5730d3dd58d82fc000bcc8449f245334fcc7d939/code/maps/hookmapsheader.asm][map-header hooks]], and [[https://github.com/XenesisXenon/AW2-InfiniteCOs/blob/5730d3dd58d82fc000bcc8449f245334fcc7d939/code/captureexpansion/corecaptureexpansion.asm][capture expansion]]. All adopted rules above were checked against
+  the supported original ROM and controlled runtime observations; mod code alone
+  is not the verification evidence.
+
+*** Reproduction
+Use the supplied state fingerprints, exact ROM/build, and isolated emulator
+configuration described above. Through =LuaBridgeClient=, restore a checkpoint
+with =load_state=, execute each =keys:frames= pair with =press_keys=, and capture
+the ranges through =capture_memory_dump=. A zero key mask advances neutral frames.
+Each step starts from the result of the preceding step unless a branch is named.
+
+For cursor checks on each original state: =(16:1, 0:10)=, then
+=(128:1, 0:10)=, then =(16:180, 0:1)=, =(128:180, 0:1)=,
+=(128:30, 0:1)=, =(32:180, 0:1)=, =(64:180, 0:1)=, =(64:30, 0:1)=.
+Take a baseline before those steps and a coherent sample after each.
+
+For the capture experiment, let =End= mean
+=(4:1, 0:15, (128:1, 0:5) repeated four times, 1:1)=. Masks are A =1=,
+Select =4=, Right =16=, Left =32=, Up =64=, and Down =128=.
+
+| Step/result checkpoint label | Inputs after restoring parent |
+|------------------------------+-------------------------------|
+| =aw2.ss2 -> buy-menu= | =16:1, 0:10, 1:1, 0:20= |
+| =buy-menu -> infantry-bought= | =1:1, 0:30= |
+| =infantry-bought -> blue-turn= | =End, 0:120= |
+| =blue-turn -> after-blue-wait= | =1:1, 0:90, 0:600= |
+| =after-blue-wait -> infantry-move-menu= | =1:1, 0:10, (16:1, 0:5) x3, 1:1, 0:30= |
+| =infantry-move-menu -> infantry-next-turn= | =1:1, 0:15, End, 0:600, 0:300= |
+| =infantry-next-turn -> capture-menu= | =1:1, 0:10, (16:1, 0:5) x2, 1:1, 0:30= |
+| =capture-menu -> wait-control= (branch) | =128:1, 0:5, 1:1, 0:240= |
+| =capture-menu -> partial-settled= (branch) | =1:1, 0:90, 0:150= |
+| =partial-settled -> red-capture-ready= | =End, 0:600, 0:300, 0:600= |
+| =red-capture-ready -> captured-city= | =1:1, 0:10, 1:1, 0:10, 1:1, 0:240= |
+
+Compare the city at =(11,2)= and the confirmed selected infantry. Focused capture
+ranges are =0x030040D8:4=, =0x02022690:12=, =0x0201F8AD:1=,
+=0x0201EEC8:2=, and =0x03003168:4=. The first two are action-context-specific;
+do not treat the fixed infantry address as a general unit resolver.
+
+*** Evidence references and checks
+All generated states, screenshots, dumps, research scripts, and verification
+results are outside the repository at =/tmp/aw2-map-research/=. Preserve this
+directory with the source states before cleaning temporary files. The manifest
+records individual artifact SHA-256 values; no ROM or memory dump is tracked.
+
+| Artifact | Frame | SHA-256 |
+|----------+-------+---------|
+| =state1-baseline.json= | 1288 | =006f6bb263a08517f3edc6fc267d90df1a93f1307007062a774ceb9c285567c3= |
+| =state2-baseline.json= | 2928 | =11608335caae0db04cd504cb0b7479eada631378c836028cd464f28024b3482e= |
+| =wait-control-focused.json= | 5161 | =cfc60a9f7fc3df219ad10ed450c34971f38c571b511fd0759439fe634d2511be= |
+| =partial-settled-focused.json= | 5155 | =5f4979f7be5a43cfce1108fc62c169a36df3fee0536266d68815ae66907dc0f7= |
+| =captured-city-focused.json= | 6959 | =72e98592117ef2c7d248f3e8a6d1d3e04d79b4123763be005b9d10945ad4ffbc= |
+| =evidence-manifest.json= | n/a | =c46599606a6a792f66bfa67242c9813671917761ac734e2f064f2ea6eb8d1e54= |
+
+- =verification-results.json=: two maps, 480 tile/terrain comparisons, all 59
+  property entries, 18 cursor controls, and the Wait/partial/completed capture
+  assertions passed. Focused capture dumps were recaptured after checkpoint
+  restoration without advancing frames. Supplied state fingerprints stayed unchanged.
+- Initial exploratory full-RAM sampling used successive 4 KiB batches and checked
+  the frame on every batch. The focused evidence dumps use single coherent batches.
+
+*** Unresolved questions and next checks
+- Use a third map with different dimensions to test row-offset and geometry rules
+  beyond 16-by-15; establish allocation limits rather than inferring them from
+  spacing between arrays.
+- Verify airports, ports, labs, other owner configurations, and property changes
+  beyond the tested neutral-city-to-red transition.
+- Test capture interruption/reset, damaged infantry, Mechs, CO capture modifiers,
+  and general unit-record resolution. Do not infer those behaviors from this
+  full-health Andy infantry experiment.
+- Identify the property entry's fourth byte and the capture byte's lower bits.
+  Establish battle validity and frontend parity in their separate milestone tasks.
+
+** Finding: Five additional initial Versus maps
+
+*** Claim and status
+- Status: verified within the supplied initial battles and cursor comparisons.
+- Confidence: high for geometry, active terrain/property records, the three
+  additional terrain classes, and property-list termination described below.
+- The existing address rules hold across all five additional maps, including
+  widths 32 and 42. Airport =10=, port =11=, and shoal =13= extend the verified
+  terrain classes. Unused property-list memory can retain an earlier map.
+
+*** Run context and checkpoint identity
+- Date: 2026-10-22. Same supported US revision-0 ROM, SHA-256
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- Same headless mGBA commit and frame-gate patch as the initial verified finding;
+  aw2-lab research schema =1=. Temporary ROM/save copies and XDG directories
+  isolated emulator writes. Screenshots succeeded at every observation.
+- These newly supplied =aw2.ss1= through =aw2.ss5= replace the earlier filenames.
+  Identify checkpoints by the fingerprints below; the earlier Bean Island and
+  Crater Isle checkpoints have different hashes.
+
+| Checkpoint | Map | Original map ID | Restored frame | Dimensions | Cells | Properties | First-byte sentinel address |
+|------------+-----+-----------------+----------------+------------+-------+------------+-----------------------------|
+| =aw2.ss1= | Triangles | 3 | 2057 | 16 x 15 | 240 | 32 | =0x030031D0= |
+| =aw2.ss2= | Ball Islands | 4 | 4079 | 42 x 15 | 630 | 49 | =0x03003214= |
+| =aw2.ss3= | Coral Lagoon | 5 | 5735 | 16 x 15 | 240 | 22 | =0x030031A8= |
+| =aw2.ss4= | Puzzle Trio | 6 | 7652 | 32 x 15 | 480 | 52 | =0x03003220= |
+| =aw2.ss5= | Fist Peninsula | 7 | 9218 | 16 x 15 | 240 | 28 | =0x030031C0= |
+
+| Checkpoint | SHA-256 |
+|------------+---------|
+| =aw2.ss1= | =b876cef42c2fe23880f3ccf7ccf285dc4a16895a4a979c0e7969f78e98a3db35= |
+| =aw2.ss2= | =cbe2eb1a040fa2233683bf32a2d3c7482bba0148a6fed73f027c5fe729681ce5= |
+| =aw2.ss3= | =2e52d9cec75426a5f639b17478b86a901d7cd54f4ce060d6a19db13454954087= |
+| =aw2.ss4= | =c0903b4d45fe63327fd584c9edba83ccd5c7a6f869e8883d6b3a7990dfc95c93= |
+| =aw2.ss5= | =38c88321ee0704cf8b8cd399484f1bef3243a4367d0556aae01b247db60e3746= |
+
+*** Geometry and original-map identity
+- The same =B = LE32(0x08499590) = 0x0201E450= resolves all five maps.
+  Width/height remain unsigned halfwords at =B= and =B+2=. All active row offsets
+  at =B+0x417A+2*y= equal =y*width=. Graphical halfwords at =B+0x0A22+2*i=
+  and terrain bytes at =B+0x1432+i= use =i=row_offset[y]+x= without border cells.
+- Ball Islands has row offsets =0,42,...,588=; Puzzle Trio has
+  =0,32,...,448=. Offsets exceed 255, providing runtime evidence that the row
+  lookup requires =u16 LE= rather than a byte. Read the active dimensions and
+  arrays dynamically; a fixed 240-cell read would truncate these maps.
+- Nine cursor observations per map establish one-cell Right/Down changes,
+  right-edge clamps at =width-1=, bottom-edge clamps at =14=, and top/left
+  clamps at =0=. Repeated attempts beyond the bottom/top leave the cursor
+  clamped. All geometry, active tiles, terrain, row offsets, and the complete
+  92-slot property-table region stay unchanged across these 45 observations
+  and seven additional landmark observations.
+- The current map ID at =0x03003FC2= is a =u8= for this original ROM. Values
+  =3..7= select headers at =0x085C77A0 + id*0x5C=. Original code at
+  =0x0802498C= uses =ldrb= and then multiplies by =0x5C=; do not adopt the
+  source mod's expanded halfword map IDs.
+- Header offset =0= points to compressed maps =0x081BA2A4=, =0x081BA3B0=,
+  =0x081BA57C=, =0x081BA6A8=, and =0x081BA824= respectively. Each GBA LZ77
+  payload starts with byte width/height, followed by =width*height= little-endian
+  graphical halfwords. All 1,830 runtime tile IDs match these original payloads.
+  Header =u16 LE= name IDs at offset =0x14= are =2614..2618=; resolving them
+  through the original string table at =0x08610A38= gives the map names above.
+- The existing tile-class lookup at =0x020233B0= agrees with all 1,830
+  tile/terrain pairs. Its entire capacity remains unverified.
+
+*** Additional terrain and property classes
+The masks remain =class = raw & 0x1F= and =owner_code = raw >> 5=.
+On Ball Islands, normal cursor movement to the following zero-based coordinates
+exposes the game's =Aprt=, =Port=, and =Shoal= labels in screenshots. Building
+colors distinguish neutral, red, and blue. Grid bytes, graphical IDs, and the
+matching property entries agree at every building below.
+
+| Landmark | Coordinate | Terrain/owner byte | Class | Graphical tile ID |
+|----------+------------+--------------------+-------+-------------------|
+| Neutral airport | (21,4) | =0x0A= | 10 | =0x01C3= |
+| Red airport | (3,8) | =0x2A= | 10 | =0x01C8= |
+| Blue airport | (38,7) | =0x4A= | 10 | =0x01CD= |
+| Neutral port | (13,12) | =0x0B= | 11 | =0x01C4= |
+| Red port | (2,7) | =0x2B= | 11 | =0x01C9= |
+| Blue port | (39,6) | =0x4B= | 11 | =0x01CE= |
+| Shoal | (4,2) | =0x0D= | 13 | =0x006D= |
+
+- Airports occur on Triangles (4), Ball Islands (6), and Puzzle Trio (6).
+  Ports occur on Ball Islands (5) and Puzzle Trio (7). Shoals occur on Ball
+  Islands (101 cells) and Puzzle Trio (14 cells); they are absent from the
+  property lists.
+- All 183 active property records exactly match the grid's city, HQ, airport,
+  port, and base cells in row-major coordinate order. The existing four-byte
+  stride and =raw,x,y,unknown= fields hold. Every active fourth byte remains
+  zero. This supplies no interpretation for that byte.
+- Owner codes remain =0= neutral, =1= red, and =2= blue in these two-army
+  configurations. This comparison does not establish other armies or remapping
+  between owner codes and player slots. Airport/port capture transitions were
+  not exercised.
+
+*** Terminators and residual records
+The first byte alone marks termination. Later bytes in that entry and records
+beyond it can contain plausible coordinates and ownership from an earlier map.
+
+| Current map | Terminator bytes | Corresponding record in preceding supplied map | Unchanged following records, including older terminator |
+|-------------+------------------+------------------------------------------------+---------------------------------------------------------|
+| Coral Lagoon | =FF 0C 07 00= | Ball Islands: =06 0C 07 00= | 27 |
+| Fist Peninsula | =FF 1D 07 00= | Puzzle Trio: =48 1D 07 00= | 24 |
+
+For Fist Peninsula, the terminator retains x=29 and the next entry is
+=4E 1E 07 00=, although the current map width is only 16. Respect the first-byte
+sentinel before interpreting coordinates. Do not scan all 92 slots as active
+properties or require a zero-filled terminator/tail. Each state was restored
+independently; the matching tails are present in the supplied states, rather
+than generated by loading maps sequentially in this experiment. The original
+reader at =0x08021CB4= independently compares only the first byte to =0xFF=.
+Retain the 92-slot hard traversal cap from the initial finding.
+
+*** Reproduction and evidence
+All artifacts are external at =/tmp/aw2-map-research-five/=. Preserve that
+directory and the fingerprinted source states before removing temporary files.
+The scripts =capture.py=, =session.py=, =analyze.py=, =controls.py=, and =verify.py=
+record isolation, capture, ROM decompression, controller sequences, and checks.
+
+1. Restore each fingerprinted state in the isolated headless emulator and take
+   a baseline before advancing any frames. Full EWRAM/IWRAM captures check the
+   paused frame on every 4 KiB batch. Focused dumps use one coherent snapshot.
+2. For width =w= and height =h=, focused ranges are =0x0201E450:4=,
+   =0x0201EE72:2*w*h=, =0x0201F882:w*h=, =0x020225CA:2*h=,
+   =0x03003150:368=, =0x03003140:2= (cursor), and =0x03003FC0:4=.
+   All fit within the bridge's combined 4 KiB limit for these five maps.
+3. Capture after each cursor step: =(16:1,0:10)=, =(128:1,0:10)=,
+   =(16:480,0:1)=, =(128:240,0:1)=, =(128:30,0:1)=,
+   =(32:480,0:1)=, =(64:240,0:1)=, =(64:30,0:1)=.
+   Masks are Right=16, Left=32, Up=64, Down=128; zero is neutral.
+4. For each Ball Islands landmark, independently restore its source state.
+   Reach (0,0) with =(32:480,0:1,64:240,0:1)=. Repeat =(16:1,0:5)=
+   x times, then =(128:1,0:5)= y times. Capture the coherent ranges and a
+   screenshot; verify cursor coordinates and the visible terrain label/color.
+5. Compare every tile to the decompressed original map, every terrain byte to
+   the tile lookup, every active property to the grid, and every controlled
+   snapshot to its baseline. Verify source-file hashes stayed unchanged.
+
+| Artifact | SHA-256 |
+|----------+---------|
+| =new1-baseline.json= | =c6fe346cbb19b274f52a1ba109d754110a3995135b13b06fe5e73279a25d2649= |
+| =new2-baseline.json= | =73542ba63cf56434ae649b6760abbdc55f0be9fe8aaa210d28a4b9b3d41d42a3= |
+| =new3-baseline.json= | =5a71ee70b648191bdd62816debe93881211ce0fb91726ad7e2ace4af1b14c9f1= |
+| =new4-baseline.json= | =49ced1e49ba5bbed5a8ef4082ce1bc6ac5c3c469d6d86b80de1805cd036f8630= |
+| =new5-baseline.json= | =ad0ef1678cc5da196b31350a5a2ae0ed7efdd258eb3f37e8861c6826cfd2121f= |
+| =verification-results.json= | =b0de8cc5bb3b687339b730ae6bb5005d25f3a2a39b3573b82f4e080e574245cf= |
+| =evidence-manifest.json= | =2b3a50d4ee4bee3213a5a4779e9215f33c461374061f9652444f49ee0460da4f= |
+
+Verification passed for 1,830 tiles, 183 properties, 45 cursor controls, seven
+visually checked landmarks, and unchanged map structures across all 52 focused
+samples. All supplied files retained their original SHA-256 values.
+
+*** Remaining questions and next checks
+- All seven maps researched so far have height 15. Obtain a differently sized
+  height, and establish actual allocation limits. Width 42 is an observed width,
+  not a maximum-size claim.
+- Labs, reefs, rivers/bridges, pipes/seams, silos, other unobserved terrain,
+  additional owner codes, and alternate army/player configurations need evidence.
+- The property fourth byte, capture low bits, inactive/deleted entries, and
+  behavior with 92 active slots remain unresolved. This work adds no new capture
+  experiment beyond the earlier city experiment.
+- Battle-lifecycle validity, frontend parity, general unit resolution, and Python
+  decoder implementation remain separate work.
+
+** Finding: Royal Channel height and lower rows
+
+*** Claim and status
+- Status: verified within this restored battle and controlled cursor comparisons.
+- Confidence: high that the existing geometry, terrain, and property rules hold
+  for this 39-by-30 map, including rows beyond 15 and all 88 property records.
+  This closes the earlier height-15-only evidence gap; allocation limits remain
+  unresolved.
+
+*** Run context and checkpoint identity
+- Date: 2026-10-22. Same supported US revision-0 ROM, headless mGBA commit,
+  frame-gate patch, isolated configuration/save copies, and research schema =1=
+  as the earlier verified findings. ROM SHA-256:
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- New =aw2.ss1= SHA-256:
+  =8790e93648e2119f767a25f003c2c30e7b16f106132abf970e267f02e53e357a=.
+  This filename replaces earlier checkpoints; identify it by this fingerprint.
+- Restored frame =3138=; map ID byte =17= at =0x03003FC2=; dimensions
+  =39 x 30= at =0x0201E450=; cursor =(7,19)=. Screenshots confirm an active
+  battle and succeed at every observation.
+- Original-ROM header =0x085C77A0 + 17*0x5C= points to compressed terrain at
+  =0x081BBB4C=. Its 2,342-byte decompressed payload contains byte dimensions
+  =39,30= and 1,170 graphical halfwords. Name ID =2628= resolves through the
+  original string table to =Royal Channel=.
+
+*** Verified geometry and properties
+- All 1,170 graphical tiles match the original decompressed map exactly. The
+  tile-class lookup agrees with every runtime terrain/owner byte. No new
+  terrain classes or owner codes appear in this map.
+- All 30 =u16 LE= row offsets at =0x020225CA+2*y= equal =39*y=, ending at
+  =1131= for y=29. Rows 14, 15, and 16 have offsets =546=, =585=, and =624=.
+  The existing =i=row_offset[y]+x= rule resolves every cell through row 29;
+  there is no indexing discontinuity at row 15 in this map.
+- Graphical tiles remain at =0x0201EE72+2*i= and terrain/owner bytes at
+  =0x0201F882+i=. Width/height remain unsigned little-endian halfwords.
+  Cursor controls clamp at =(38,29)= and =(0,0)=, including repeated attempts
+  beyond the bottom and top. One Right/Down changes exactly one coordinate.
+- The four-byte property list at =0x03003150= contains 88 active records:
+  59 cities, 10 bases, 9 airports, 8 ports, and 2 HQs. All match the grid in
+  row-major order; 47 records have y>=15. The fourth byte remains zero.
+  Owner-code counts are 44 neutral, 23 red, and 21 blue in this configuration.
+- The next entry at =0x030032B0= starts =FF 00 00 00=. This exercises a longer
+  list than earlier samples, while still leaving the 92-slot cap unexercised.
+  Keep the first-byte sentinel and hard-cap rules from the earlier findings.
+- Independent cursor visits confirm visible =Base=, =Port=, and =Cty= labels
+  and owner colors at these landmarks. The zero-based property index refers
+  to its four-byte entry in this checkpoint.
+
+| Landmark | Coordinate | Cell index | Terrain byte | Graphical tile ID | Property index | Frame |
+|----------+------------+------------+--------------+-------------------+----------------+-------|
+| Blue base, row 14 | (35,14) | 581 | =0x4E= | =0x01CB= | 40 | 4394 |
+| Blue base, row 15 | (33,15) | 618 | =0x4E= | =0x01CB= | 41 | 4388 |
+| Red port, row 16 | (18,16) | 642 | =0x2B= | =0x01C9= | 43 | 4304 |
+| Neutral port, row 25 | (17,25) | 992 | =0x0B= | =0x01C4= | 74 | 4352 |
+| Neutral city, row 28 | (34,28) | 1126 | =0x06= | =0x01C2= | 87 | 4472 |
+
+*** Reproduction and evidence
+Artifacts are external at =/tmp/aw2-map-research-tall/=. Preserve them with the
+fingerprinted state. =capture.py= and =session.py= record isolated restoration
+and full RAM capture; =controls.py= records inputs; =rom_tools.py= and =verify.py=
+record ROM decompression and verification. Source-file SHA-256 values remained
+unchanged after capture and all controller comparisons.
+
+1. Restore the fingerprinted state without advancing frames. Capture baseline
+   RAM and a screenshot at frame 3138. Full RAM capture checks the paused frame
+   on every 4 KiB batch.
+2. Take coherent snapshots of =0x0201E450:4=, =0x0201EE72:2340=,
+   =0x0201F882:1170=, =0x020225CA:60=, =0x03003150:368=,
+   =0x03003140:2=, and =0x03003FC0:4=. These total 3,948 bytes, within the
+   bridge's 4 KiB combined read limit. The property range includes all 92 slots.
+3. Observe after each step: =(16:1,0:10)=, =(128:1,0:10)=,
+   =(16:480,0:1)=, =(128:480,0:1)=, =(128:30,0:1)=,
+   =(32:480,0:1)=, =(64:480,0:1)=, =(64:30,0:1)=.
+   Masks remain Right=16, Left=32, Up=64, Down=128; zero advances neutral frames.
+4. For each landmark independently, restore the source state, reach (0,0) using
+   =(32:480,0:1,64:480,0:1)=, then repeat =(16:1,0:5)= x times and
+   =(128:1,0:5)= y times. Capture a coherent snapshot and screenshot.
+5. Compare all active rows, tiles, terrain, and the complete property-table
+   region across the baseline, eight cursor controls, and five landmarks.
+   These structures remain unchanged across all 14 focused observations.
+
+| Artifact | SHA-256 |
+|----------+---------|
+| =tall-baseline.json= | =5da8ad2fe24c4966de447bc938387eaffb24c1c978871b5b641d1ae2f61f7feb= |
+| =verification-results.json= | =68edf35b52734f099ff3690dad68f6ac1df65a07c97f17f91dd02889dfae34b0= |
+| =evidence-manifest.json= | =14fa371e38cd48575d6d356652fd7a8e69ee35c1f0cb474a63f2bbb7f511df84= |
+
+Checks passed for 1,170 tiles, 88 properties, all 30 row offsets, nine cursor
+observations, and five visually checked landmarks. Across all eight researched
+maps, the initial tile/property comparisons now cover 3,480 cells and 330 records.
+
+*** Remaining questions
+- Actual allocation limits, maximum map dimensions, and a full 92-property
+  table remain unresolved. This state establishes one 30-row map, not all
+  possible heights or geometries.
+- Unobserved terrain/owner codes, other player/army configurations, unknown
+  property/capture bits, capture variants, lifecycle validity, frontend parity,
+  and general unit resolution retain the earlier limitations. No new capture
+  experiment or Python decoder implementation is included.
+
+** Finding: Four-army ownership and city captures
+
+*** Claim and status
+- Status: verified within the supplied active battle, recorded turn sequence,
+  and paired Capture/Wait branches. Confidence: high within that scope.
+- Owner codes =3= and =4= identify green and yellow properties in this battle.
+  Blue, green, and yellow city-capture completions update all three property
+  representations and clear the observed unit capture bits. A red infantry
+  displaying 4 HP accumulates four capture points in the controlled branch.
+- Army/player-slot remapping, other building capture types, and capture
+  interruption/reset remain unresolved.
+
+*** Run context and checkpoint identity
+- Date: 2026-10-22. Same supported US revision-0 ROM, headless mGBA commit,
+  frame-gate patch, isolated temporary ROM/save/configuration copies, and dump
+  schema =1= as the previous verified findings. ROM SHA-256:
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- Supplied =aw2.ss1= SHA-256:
+  =8c4d1e7a534bd4ebc8de6e2e5a5eecc02d04a7272a6f0a98f1a9893c17a06e81=.
+  The reused filename is distinct from all earlier checkpoint fingerprints.
+- Restored frame =13860=, cursor =(1,7)=, map ID =83=, name ID =2686=,
+  =Four Corners=, dimensions =15 x 10=, and 29 properties. Original header
+  =0x085C77A0+83*0x5C= resolves terrain pointer =0x081C0EF4= and the name
+  through the original string table. All 10 row offsets equal =15*y=.
+- This is an ongoing battle, with owned cities and partial captures already
+  present. Of 150 tiles, 142 match the original map exactly; the other eight
+  are original neutral cities now using the appropriate owned-city graphical
+  IDs. Their earlier capture actions were not observed in this experiment.
+
+*** Four-army property encoding
+All 150 tile/terrain pairs match the runtime lookup, and all 29 active records
+match the grid in row-major order. The list contains 16 cities, 8 bases, 4 HQs,
+and 1 airport. Initial owner counts are 9 neutral and 5 for each army; every
+active fourth byte remains zero. The first-byte sentinel is at =0x030031C4=.
+
+The existing unsigned =u8= and masks =class=raw&0x1F=, =owner=raw>>5= hold.
+Yellow values exceed 127, so interpreting this byte as signed would be wrong.
+Independent cursor visits and screenshots confirm these landmarks:
+
+| Property/color | Coordinate | Raw byte | Graphical tile ID | Owner code |
+|----------------+------------+----------+-------------------+------------|
+| Red city | (3,8) | =0x26= | =0x01C7= | 1 |
+| Blue city | (12,7) | =0x46= | =0x01CC= | 2 |
+| Green HQ | (0,0) | =0x68= | =0x01CF= | 3 |
+| Green base | (1,0) | =0x6E= | =0x01D0= | 3 |
+| Green city | (3,1) | =0x66= | =0x01D1= | 3 |
+| Yellow HQ | (14,0) | =0x88= | =0x01D4= | 4 |
+| Yellow base | (13,0) | =0x8E= | =0x01D5= | 4 |
+| Yellow city | (11,1) | =0x86= | =0x01D6= | 4 |
+
+These observations establish the colors in this configuration, not a general
+mapping to player slots, COs, alliances, or reassigned armies. Cursor edge
+checks clamp at =(14,9)= and =(0,0)=. All map arrays and property bytes remain
+unchanged across 22 static observations, including eight edge/movement controls.
+
+*** Partial captures and observed completion
+At restoration, screenshots show capture points remaining of 5, 10, and 10.
+The corresponding infantry records have accumulated values 15, 10, and 10
+under the existing =unit[5] >> 3= rule. The following fixed unit addresses are
+checkpoint-specific evidence, not a general unit-table resolver.
+
+| Army | City | Unit address | Byte +5 before | Accumulated / UI remaining | Property index |
+|------+------+--------------+----------------+----------------------------+----------------|
+| Green | (1,4) | =0x02022C9C= | =0x78= | 15 / 5 | 11 |
+| Blue | (13,5) | =0x02022990= | =0x50= | 10 / 10 | 18 |
+| Yellow | (13,4) | =0x02022FA8= | =0x50= | 10 / 10 | 15 |
+
+After ending red's turn and allowing the AI turns to run, the settled observation
+at frame =19421= shows all three cities owned by their capturing armies:
+green =0x66/0x01D1=, blue =0x46/0x01CC=, yellow =0x86/0x01D6= (terrain byte /
+graphical tile). Each matching four-byte property entry changes its first byte
+to the same terrain/owner value. Coordinates and fourth bytes remain unchanged.
+The three unit records retain their positions and clear accumulated capture
+bits to zero. Only those three terrain-grid cells change ownership in this run.
+
+Green's infantry displays 5 HP before completion, but completing a nearly
+finished capture alone cannot establish how much capture strength it adds.
+The paired experiment below isolates reduced-health capture accumulation.
+
+*** Damaged-infantry Capture/Wait control
+During the AI turns, the red infantry at =(4,4)= is damaged. At frame =19421=
+it displays 4 HP, with observed record byte =U+4= equal to =0x25=; this finding
+does not establish a general health decoder. Normal inputs select that infantry,
+move it to neutral city =(6,4)=, and open the Capture/Wait menu at frame =19511=.
+Confirmed action-context pointer =LE32(0x030040D8)= resolves =U=0x02022690=.
+
+| Branch | Settled frame | Displayed HP | Byte U+5 | Accumulated points | City UI remaining |
+|--------+---------------+--------------+----------+--------------------+-------------------|
+| Wait | 19758 | 4 | =0x00= | 0 | 20 |
+| Capture | 19752 | 4 | =0x20= | 4 | 16 |
+
+Both branches finish with the infantry at =(6,4)=, the same observed health,
+and identical map/property arrays. The city stays neutral (=0x06=, tile
+=0x01C2=), and its property entry remains =06 06 04 00=. Within the entire
+sampled =0x02022684:3072= unit region, the sole differing byte is
+=0x02022695=: zero for Wait, =0x20= for Capture. This isolates four accumulated
+capture points from the movement, fuel, and action changes shared by both
+branches. It verifies this displayed-4-HP infantry case; Mechs, other CO capture
+modifiers, interruptions, and a general damage-to-capture formula need more checks.
+
+*** Reproduction and evidence
+All scripts, checkpoints, screenshots, RAM, and results are external at
+=/tmp/aw2-map-research-four/=. Preserve that directory with the fingerprinted
+source state. =capture.py= and =session.py= isolate restoration and writes;
+=observe.py= records independent cursor visits; =edges.py= records clamp checks;
+=step.py= records each gameplay chain and checkpoint hash; =rom_tools.py= and
+=verify.py= record original-ROM comparisons and assertions.
+
+1. Restore without advancing frames and capture the baseline at frame 13860.
+   Focused observations read =0x0201E450:4=, =0x0201EE72:300=,
+   =0x0201F882:150=, =0x020225CA:20=, =0x03003150:368=,
+   =0x03003140:2=, =0x03003FC0:4=, =0x030040D8:4=, and
+   =0x02022684:3072= in one coherent 3,924-byte batch.
+2. For each static landmark independently, restore, reach (0,0) using
+   =(32:240,0:1,64:240,0:1)=, and repeat =(16:1,0:5)= x times then
+   =(128:1,0:5)= y times. Record screenshots and focused dumps.
+3. From the original state, end red's turn using
+   =(4:1,0:15,(128:1,0:5) repeated four times,1:1,0:120)=.
+   Advance nine neutral batches of 600 frames. Intermediate checkpoints after
+   batches 1, 4, and 7 are =after-red-settled=, =after-ai-1=, and =after-ai-2=;
+   batch 9 gives =red-ready= at frame 19421. The AI sequence includes combat;
+   the partial-capture observations and controlled red branches are separate.
+4. From =red-ready=, repeat =(16:1,0:5)= three times and =(64:1,0:5)= three
+   times; then =1:1,0:10,(16:1,0:5) repeated twice,1:1,0:30=.
+   Save =damaged-capture-menu= at frame 19511.
+5. Branch from that same checkpoint: Wait uses =128:1,0:5,1:1,0:240=;
+   Capture uses =1:1,0:240=. Compare coherent snapshots and city/infantry UI.
+
+| Artifact | SHA-256 |
+|----------+---------|
+| =four-baseline.json= | =6753c60c8a877d8a88063b35f77a04efc96f637f65a075dad6be42cd6cd9e5b5= |
+| =red-ready.json= | =0f4064d21b477b50c7bf3d6f804335991a7b446ec92245e5390bf3db895b2d8d= |
+| =damaged-wait.json= | =3f48243519253d9762db365db8aada2a313647f0f18373de5e88f2b440dbab0a= |
+| =damaged-capture.json= | =608214431322cbef98343826c00717164fc53cc62227fb9e9828313b2a1d2624= |
+| =verification-results.json= | =08b5e65e8743f7439b82db1afece64048d040f9a3ba1e169a26272789e25702a= |
+| =evidence-manifest.json= | =42e45db673e4f52eb28071d20f9146ae6fbf5b0fa361bf6ca00d7a4c6488c186= |
+
+All assertions passed, including source-file fingerprints remaining unchanged,
+29 grid/property matches, 150 tile-lookup matches, eight prior owned-city
+differences from original terrain, cursor clamps, three observed capture
+completions, and the one-byte Capture/Wait unit-region difference.
+
+*** Remaining questions
+- Resolve army/player-slot reassignment and teams separately; this default
+  four-army configuration does not establish those mappings.
+- Verify interrupted/reset capture, Mechs, other capture modifiers, and
+  airport/port/base/HQ/lab capture variants. Green/yellow airport and port
+  encodings have not been directly observed here.
+- Unknown property/capture bits, allocation limits, inactive/deleted records,
+  full 92-slot behavior, general unit identity/resolution, lifecycle validity,
+  frontend parity, and Python decoder implementation retain their earlier gaps.

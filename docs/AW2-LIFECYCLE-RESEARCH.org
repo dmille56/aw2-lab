@@ -1,0 +1,413 @@
+#+TITLE: AW2 Battle Lifecycle Research
+
+Verified observations, candidate lifecycle signals, counterexamples, and remaining
+checks for Milestone 2. General methods are in [[file:AW2-RESEARCH-NOTES.org][AW2 research notes]]; battle
+field layouts are in [[file:AW2-MAP-RESEARCH.org][map/property research]]. Keep ROMs, save states, screenshots,
+and memory artifacts outside the repository and Nix store.
+
+Confirming Rules starts the battle automatically. The fade and day banner are
+battle-entry animations; there is no additional Ready screen or confirmation.
+Memory-field validity and whether the UI accepts a command are separate research
+questions, not extra gameplay steps. The latest [[*Finding: Results, save-progress exit, and powers][result and power comparison]]
+extends the initial observations below through victory/defeat, the save-progress
+prompt, and return to map selection.
+
+* Finding: Startup, title, Versus setup, and battle entry
+
+** Claim and status
+- Status: partial lifecycle verification. High confidence in the screen
+  associations and counterexamples observed below; a universal positive
+  memory-only lifecycle classifier is unresolved.
+- Screen-process identifiers distinguish the supplied startup/title/mode/menu
+  states. Two engine callbacks distinguish the screen engine from the battle
+  engine in these observations. Both structures are corroborated in the original
+  supported ROM.
+- Valid dimensions, nonzero day, populated properties, the battle callback pair,
+  and an empty screen-process pool are each insufficient to establish a settled
+  battle UI. Several become true during battle entry.
+- This research adds documentation and external evidence, not a runtime decoder.
+  The lifecycle milestone remains TODO. This initial comparison had no result
+  checkpoints; the later finding verifies supplied victory/defeat paths.
+
+** Run context and supplied checkpoints
+- Date: 2026-10-22. Supported US retail =ADVANCEWARS2=, =AW2E=, maker =01=,
+  revision =0=; ROM SHA-256:
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- Headless mGBA =fd9dc5c2cbf234365068855851107e762fc6211b=; repository frame-gate
+  patch SHA-256:
+  =7062afbc1b1af8aefa599f82c68c44fd3807604d2e935009b028d573c94771cb=.
+  Temporary ROM/save copies and XDG directories isolate emulator writes.
+- aw2-lab research schema =1=; Capstone =5.0.9= for original-ROM Thumb inspection.
+  Screenshots succeeded at every observation. Source-file hashes stayed unchanged.
+- Filenames are reused across research sessions; identify states by fingerprints.
+
+| State | Restored frame | Visually confirmed screen | Dimensions in map memory | Day field |
+|-------+----------------+---------------------------+--------------------------+-----------|
+| =aw2.ss1= | 158 | Startup ADVANCE WARS logo | 0 x 0 | 0 |
+| =aw2.ss2= | 510 | Title / Press Start | 0 x 0 | 0 |
+| =aw2.ss3= | 726 | Select Mode, Campaign highlighted | 0 x 0 | 0 |
+| =aw2.ss4= | 917 | Select Mode, Versus highlighted | 0 x 0 | 0 |
+| =aw2.ss5= | 1372 | Versus Select Map | 0 x 0 | 0 |
+| =aw2.ss6= | 1815 | Teams / CO setup | 16 x 15 | 0 |
+| =aw2.ss7= | 2125 | Rules setup | 16 x 15 | 0 |
+| =aw2.ss8= | 2761 | Active battle with cursor and HUD | 16 x 15 | 1 |
+
+| State | SHA-256 |
+|-------+---------|
+| =aw2.ss1= | =3402996715e1dfdecb9b508ed5f45209888ab39355bff30f717eb2f42c367072= |
+| =aw2.ss2= | =f5422c82ed54fde1bbd41e70193075a8275f1a6c4a30bd9ebfa30471cec019bd= |
+| =aw2.ss3= | =ebb777733a0f1d4f6bf64d7b66dd02138e88f30b76fcb881a77d96eb89036f1d= |
+| =aw2.ss4= | =85f2e3cba3e0b9035316867269f42428853801e3c798a1a40f94e936006f5700= |
+| =aw2.ss5= | =343b476d5209e368fe6b2198e98366c0465e724bbdc774e98584033672e614a4= |
+| =aw2.ss6= | =b4744d808683f25634adcdeb83940e4bcc1ad459900c05b3f5d7d8ac7929c960= |
+| =aw2.ss7= | =8382698f018e34374824740d8879e9a1f5e4af818d531dd3001b78dbdd252dd5= |
+| =aw2.ss8= | =17b7db42940a55de0d35d93a64ceff8831ba54c14cab587256db12b10d313900= |
+
+** Verified structures and bounded screen associations
+All multi-byte values below are unsigned little-endian integers. Match this
+exact ROM profile before using any addresses or script identifiers.
+
+| Address/rule | Interpretation | Type and bounds | Corroboration |
+|--------------+----------------+-----------------+---------------|
+| =LE32(0x0801CB38)= | Screen-process pool base, =0x0200D610= | ROM literal =u32 LE= | Original search routine =0x0801CB28= |
+| =0x0200D610 + 0x6C*n= | Process script identifier | =u32 LE=, n=0..31, zero means no script | Original search advances 0x6C and bounds index at 0x1F |
+| =0x030040D0= | Engine callback A | =u32 LE=, Thumb function pointer | Setter =0x080366D0=, getter =0x080366E8= |
+| =0x030040EC= | Engine callback B | =u32 LE=, Thumb function pointer | Setter =0x080366C4=, getter =0x080366DC= |
+
+Read the 32-slot pool as a bounded 3,456-byte region. Check each slot's first
+word; do not infer activity from leftover callbacks or payload bytes in a slot
+whose script word is zero. Match known script values; unrecognized values have
+no lifecycle meaning established here. Pool absence is not a positive battle
+signal. No linked-list traversal or unbounded pointer following is needed for
+these presence checks.
+
+| Observed screen family | Script identifier present in pool | Scope |
+|------------------------+-----------------------------------+-------|
+| Startup logo | =0x08581500= | State 1 and neutral controls |
+| Title / Press Start | =0x08581C68= | State 2 and neutral controls |
+| Select Mode | =0x0849E818= | Both Campaign and Versus highlights |
+| Versus map selection | =0x08616C54= | State 5 and return from setup |
+| Versus setup parent | =0x0849ECE0= | Map selection, Teams, and Rules; does not distinguish those children alone |
+
+The two callback pairs, preserving their Thumb low bits, are:
+- Screen engine: =(0x08036885, 0x080368E9)= in all seven non-battle source states.
+- Battle engine: =(0x08036945, 0x080369BD)= in the active-battle source state,
+  the battle-entry fade, turn-start sequence, battle menu, and save prompt.
+
+Original =0x0803662C= installs the battle pair; =0x080366A4= installs the screen
+pair through the setters above. This verifies engine selection, not battle/UI
+  phase or input availability. Never execute or dereference these values as host pointers.
+
+Every supplied state was sampled at restore, after 10 neutral frames, and after
+60 total neutral frames. Callback pairs and the associated screen script remain
+consistent in all 24 observations. Campaign and Versus highlights share the
+same parent process; Teams and Rules also share their parent. A finer phase
+decoder needs additional verified child state. The byte at =0x02017C76= is 0
+in Teams and 2 in Rules, but remains 2 in battle; it is only a candidate setup
+subphase lead, with no standalone validity interpretation.
+
+Source leads: pinned [[https://github.com/Eebit/aw2bhr/blob/63a26942a9a1249fe4e02c4c2ec0b3d2ee6b16cb/src/title-screen.c][title-screen code]], [[https://github.com/Eebit/aw2bhr/blob/63a26942a9a1249fe4e02c4c2ec0b3d2ee6b16cb/src/proc.c][process code]], and
+[[https://github.com/Eebit/aw2bhr/blob/63a26942a9a1249fe4e02c4c2ec0b3d2ee6b16cb/include/proc.h][process structure]]. Pool placement, stride, bounds, callback literals, and
+setters were independently checked against this session's original ROM;
+source names alone do not establish lifecycle safety.
+
+** Controlled entry: limits of phase and input-availability heuristics
+Starting at Rules, one A press followed by neutral frames enters the battle.
+Screenshots and coherent snapshots establish these observations:
+
+| Frame | Visual/context | Memory observations | Rejected inference |
+|-------+----------------+---------------------+--------------------|
+| 1815 / 2125 | Teams / Rules | Width 16, height 15; no initialized property list | Valid dimensions imply battle |
+| 2165 | Black entry screen | Day 1 and property entry =26 01 04 00= already populated; screen callback pair | Day/properties identify the current UI phase |
+| 2175 | Fade in progress | Battle callback pair; transition process =0x084892C4= present | Battle engine implies settled battle |
+| 2235 | Map visible, HUD/cursor not yet settled | Battle callback pair; screen-process pool empty | Battle engine plus empty pool implies settled battle |
+| 2345 | Turn-start sequence before HUD appears | Battle callback pair; screen-process pool empty | An empty pool excludes all entry transitions |
+| 2415 | Cursor and HUD visible | Battle callback pair; screen-process pool empty | Visually confirmed battle sample only |
+
+These are sampled frames, not exact transition boundaries. Other observed
+entry processes include =0x0848927C=, =0x0848929C=, =0x0849E750=, and
+=0x08499E18=. They are transition leads; this is not a complete blacklist.
+In particular, process-free gaps occur during entry.
+
+Additional controls:
+- Press Start from the supplied title state reaches Select Mode and the
+  =0x0849E818= parent process.
+- Back from Rules reaches Teams; further Back navigation passes through a black
+  transition and returns to map selection with =0x08616C54= present.
+- Select opens the in-battle command menu. Choosing Save opens its Yes/No
+  prompt. Both preserve the battle callback pair and sampled dimensions, day,
+  and property data. No save confirmation was issued.
+- Right plus 10 neutral frames in the supplied active battle produces visible
+  cursor movement. This verifies that particular interactive sample, not a
+  general memory-only input-availability predicate.
+
+** Decoder implications and unresolved work
+- Reject battle decoding in recognized title/mode/map-selection/setup contexts.
+  The screen-engine pair is a conservative exclusion signal for the observed
+  Versus path. Unknown or conflicting signals must remain unknown.
+- A matching battle-engine pair supports an engine-family observation. Classify
+  battle entry, power activation, and known result sequences separately; it is
+  not an unconditional ongoing-battle or command-availability flag. Validate
+  individual fields in their observed phases. An animation does not by itself
+  invalidate already initialized map data or introduce another confirmation.
+- Keep map-data validity, lifecycle phase, and whether the UI accepts commands
+  separate. These observations demonstrate that their transitions need not
+  coincide, without establishing their complete validity intervals.
+- Victory/defeat, post-result prompts, and retained map/day/property data after
+  returning to menus were missing from this initial run. The later result finding
+  supplies those observations for the tested two-army paths.
+- Check Campaign, resumed battles, AI turns, combat, powers/dialogues, and more
+  menu/transition paths before generalizing these associations. Verify windowed
+  parity separately. The title timer can eventually enter other behavior; these
+  neutral controls cover only the first 60 frames after each source state.
+
+** Reproduction and evidence
+All evidence is external at =/tmp/aw2-lifecycle-research/=. Preserve this directory
+and the source checkpoints. =capture.py= and =session.py= capture full RAM at a
+paused frame; =observe.py= captures the 24 static controls; =probe.py= records
+gameplay branches; =verify.py= records assertions. =original-resolution.txt= and
+the pinned sources record address corroboration.
+
+1. Restore each fingerprinted state and capture without advancing frames.
+   Then sample after =0:10= and another =0:50=. Focused ranges are
+   =0x030040C0:64=, =0x03003FC0:64=, =0x03004080:4=, =0x0201E450:4=,
+   =0x03003150:368=, =0x0200D610:3456=, and =0x02017C76:1=.
+   Combined size is 3,961 bytes, within one coherent bridge snapshot.
+2. The entry trace restores =aw2.ss7= and captures a baseline, then executes
+   =1:1=, four =0:1= steps, three =0:5= steps, and twenty-seven =0:10= steps,
+   capturing after each. It ends at frame 2415. Probe ranges omit the last
+   setup-byte range above and total 3,960 bytes. Every sample includes a screenshot.
+3. Title exit restores =aw2.ss2= and executes
+   =8:1,0:1,0:5,0:10,0:15,0:30=. Setup-back restores =aw2.ss7= and executes
+   =2:1,0:30,2:1,0:30,2:1,0:60=.
+4. Battle menu restores =aw2.ss8= and executes =4:1,0:30=. From that generated
+   checkpoint, the save prompt uses =(128:1,0:5) repeated three times,1:1,0:60=.
+   Independent cursor control restores =aw2.ss8= and uses =16:1,0:10=.
+   A=1, B=2, Select=4, Start=8, Right=16, Down=128; zero is neutral.
+
+| Artifact | SHA-256 |
+|----------+---------|
+| =state2-baseline.json= | =0134d2bc104653c73dcb54481f16cc0a3a5ceb42b30575f7da4a620898e0679d= |
+| =state6-baseline.json= | =996fc3f79194c02d6c4b40b8020897cb557b19de2390f33928b172c766d14b50= |
+| =state7-baseline.json= | =1461bc93e14e4e7103d1f7d227f6efe3383b187d011cd4d35ebf578c2c8e5780= |
+| =state8-baseline.json= | =aa2803519be9f5d772a829324c9fbdf660eea8128acd27a7d04f391588b7acc7= |
+| =entry-9.json= | =ae9b3f11de1b3f38a3e362fcf833a13e5265da50427493f5bf567f73fed2871d= |
+| =entry-10.json= | =e868f0775e23c977c8fcfdb7c5c78e46c7c2137958ab240e3bc63feef3cc8e7c= |
+| =entry-16.json= | =ba4ae03e0edc11ae66df6c601ff1c39dc668fb4aab18d61dc9b2d37f3830e02f= |
+| =entry-27.json= | =d908d1c67512674a8b74469544a479a001d0023879511bf72127178518e9b332= |
+| =verification-results.json= | =532b6c0e934a399d8196bb3a7619a310bc3de79db334add6eb45522150a91073= |
+| =evidence-manifest.json= | =e4b979298fb0a3f535822a2fe95145298172205e2704cdae8ec4b4b630632a6d= |
+
+Checks passed across 89 focused observations: 24 static controls, 36 entry
+samples, and 29 other control samples. Assertions cover baseline/full-RAM
+agreement, original-ROM literals and pool bounds, screen-script presence,
+callback pairs, entry counterexamples, menu preservation of sampled battle data,
+and unchanged source-file fingerprints. Screenshot classifications are manual
+observations, not an automated image classifier.
+
+* Finding: Results, save-progress exit, and powers
+
+** Claim and status
+- Status: verified within the nine supplied checkpoints and controlled
+  continuations below. High confidence in the observed result/prompt/menu
+  associations, retained battle data, and the normal-power activation sequence.
+- Confirming Rules starts a battle without another Ready screen. The tested
+  completed-battle paths are battle -> victory or defeat -> result screens as
+  applicable -> save-progress prompt -> normal Versus map-selection menu.
+- The defeat banner can coexist with the battle callback pair. The subsequent
+  save prompt and map-selection menu retain complete battle map/property data.
+  Neither engine selection nor plausible map data establishes an ongoing battle.
+- Player records contain an unsigned halfword defeated marker and an active-power
+  byte. Normal Power activation and a visible SUPER-active checkpoint support
+  the limited values below. General teams/outcome rules and other CO effects
+  are not established by these two-army cases.
+
+** Run context and checkpoint identity
+- Date: 2026-10-22. Same supported original US ROM, mGBA commit, frame-gate patch,
+  dump schema, and isolated emulator configuration as the initial finding.
+  ROM SHA-256:
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- All nine states contain map ID 1 and dimensions 16 x 15. Source-state filenames
+  are reused; use the fingerprints below. Every supplied file retained its
+  SHA-256 after the continuations and final verification.
+
+| State | Frame | Day field | Visually confirmed context |
+|-------+-------+-----------+----------------------------|
+| =aw2.ss1= | 133029 | 1 | Save-current-data prompt after defeat |
+| =aw2.ss2= | 93438 | 12 | Red battle, POWER label visible after 10 neutral frames |
+| =aw2.ss3= | 78362 | 11 | Red battle, SUPER label visible |
+| =aw2.ss4= | 115957 | 13 | Blue battle action; sampled active-power byte is zero |
+| =aw2.ss5= | 128156 | 15 | Red battle, Power menu command available |
+| =aw2.ss6= | 130060 | 15 | VICTORY banner |
+| =aw2.ss7= | 130754 | 15 | Andy winner quote |
+| =aw2.ss8= | 131137 | 15 | Red WIN / blue LOSE summary |
+| =aw2.ss9= | 132707 | 1 | DEFEAT banner over the map |
+
+| State | SHA-256 |
+|-------+---------|
+| =aw2.ss1= | =5c74a023b40560a3b2a206e966ecebd0d408cc063f64ad79cf308503eb7d73ca= |
+| =aw2.ss2= | =2f149351001014d4435860cfe2fe6022c33cd009c666654dfb3cdbd9f693597c= |
+| =aw2.ss3= | =ed1736df2905731585d63648d999437d6c4fb7e8aa80f238e4e3e725587c94c2= |
+| =aw2.ss4= | =af855f0a7f0993cf93e02b52c92cf1c5175503d5fd9d78c60b174716b714df83= |
+| =aw2.ss5= | =7bf4818d8c7707a2cb95094f456fa265463577beb1d70599f7957670e5380656= |
+| =aw2.ss6= | =b4328f5e5e27412f9b1b258eca369e0f130f7bbecbcd348fdae96e99475bd640= |
+| =aw2.ss7= | =88a8228224d7dd03d10e112eb2b612e6e803af47e7ec77bd3f768efb82da76ee= |
+| =aw2.ss8= | =68fbb0207274fd32e088277f0328a25dddb417f4219d124758e46a8b26c18b64= |
+| =aw2.ss9= | =4976a4dcd5140241d27589d621f77c104eabcc2faec418be1f605858ee881123= |
+
+** Result and prompt process associations
+Use the bounded 32-slot screen-process pool from the initial finding. These
+are observed associations for the exact ROM; unknown combinations remain unknown.
+
+| Script identifier | Observed context and limits |
+|-------------------+-----------------------------|
+| =0x0849D56C= | Result-sequence parent, present during both victory and defeat; does not identify the winner alone |
+| =0x08615CB0= | Victory presentation parent in states 6/7 |
+| =0x08615DD8= | Victory banner/quote child; script identity alone does not distinguish those two screens |
+| =0x08615FB4= | WIN/LOSE summary parent in state 8 |
+| =0x084C327C= | Defeat presentation in state 9 and its continuation |
+| =0x0849F330= | Save-progress prompt in both observed completed-battle paths; other uses of this dialog are not exhaustively classified |
+| =0x08616C54= | Versus map selection after declining the save prompt |
+
+Original-ROM =0x08037F80= starts =0x0849D56C=. Its script branches through
+victory presentation via =0x08037F94= or defeat presentation via =0x08037FB4=;
+the latter starts =0x084C327C= through =0x08049F08=. =0x0803D73C= starts the
+save dialog =0x0849F330=. These corroborate the observed sequence, rather than
+identifying results from screen colors or map bytes alone.
+
+The battle callback pair remains selected during the defeat banner. Victory,
+winner quote, summary, and save-progress prompt use the screen callback pair in
+these checkpoints. Result-process checks therefore take precedence over treating
+the battle pair as evidence of an ongoing match. A nonzero defeated marker for
+one army is also insufficient to establish game completion in a multi-army match.
+
+** Player-record fields verified for these observations
+Let =P = LE32(0x08499598) = 0x02023284=, and =R(k) = P + 0x3C*k=.
+The original routines use this 60-byte stride. Records k=1 and k=2 correspond
+to the observed red and blue armies in these checkpoints. This does not resolve
+army/player-slot reassignment or teams. Validate k within 1..4 and ensure the
+record lies within EWRAM; the preceding k=0 record is not a player in this finding.
+
+| Rule | Field | Type | Verification and limits |
+|------+-------+------+-------------------------|
+| =R(k)+0x14= | Defeated marker | =u16 LE= | Zero before loss, 15 for blue in the day-15 victory path, 1 for red in the day-1 defeat path |
+| =R(k)+0x1E= | Active power status | =u8= | 0 inactive, 1 normal Power, 2 SUPER in the observed Andy cases |
+
+Original =0x080266DC= reads the defeated halfword and treats nonzero as not
+alive; it additionally requires a nonzero participation/control byte at offset
+=0x1B=. Preserve the raw marker rather than assuming a one-byte Boolean. Its
+observed values coincide with the defeat day, but a general defeat-date field
+has not been separately established. The displayed result establishes red WIN
+and blue LOSE for the victory path; the other path visibly establishes red's
+defeat. Do not infer a universal winning-team algorithm from these samples.
+
+Original =0x0804415C= checks the active-power byte for nonzero.
+=0x08044144= copies the neighboring byte at offset =0x1F= into =0x1E=;
+=0x08044178= clears =0x1E=. The adjacent byte can stay 1 or 2 when active
+status is zero: red has =(0,1)= in state 5 and blue has =(0,2)= in state 4.
+It must not be used as the active-power flag. Other player fields, power-meter
+scaling/thresholds, and the adjacent byte's complete lifecycle remain unverified.
+
+** Controlled power activation
+From state 5, Select opens the command menu with Power available. Selecting that
+command produces Andy's quote, the visible Hyper Repair animation, repair effects,
+and finally the POWER status. The battle engine remains selected throughout.
+
+| Frame | Context | Red R(1)+0x1E | Neighbor +0x1F | Process evidence |
+|-------+---------+----------------+----------------+------------------|
+| 128177 | Command menu | 0 | 1 | No screen-pool processes |
+| 128196..128296 | Power quote | 0 | 1 | =0x0849D77C= |
+| 128416 | Visible Hyper Repair animation | 0 | 1 | =0x0849D77C= plus =0x08616794/0x086167BC/0x086167EC= |
+| 128656..128896 | Repair effects | 0 | 1 | =0x0849D77C= and effect children |
+| 129016..129616 | Effects settled; POWER visible | 1 | 1 | Screen-process pool empty |
+
+The supplied state 2 independently shows active byte 1 with the POWER label;
+state 3 shows active byte 2 with SUPER. The latter validates an active SUPER
+snapshot, not a separately recreated Super Power activation sequence. State 4
+has no active power in the sampled bytes and does not establish an ongoing
+power animation, even though its neighboring byte retains 2.
+
+Animation phase and active-power status are distinct. A zero active byte does
+not prove that no power activation is running, and an empty process pool does
+not prove that a power is inactive after its effects finish.
+
+** Controlled completion and stale battle data
+- Restoring state 9 and advancing neutral frames reaches the save-progress prompt
+  by frame 132947, without another input. The supplied state 1 is a later prompt
+  in this same observed defeat context.
+- Continuing the victory banner reaches the winner quote; A advances to the
+  WIN/LOSE summary. Continuing the supplied summary reaches the save-progress
+  prompt at frame 131379. This verifies the user's described final result screen.
+- Selecting No at the defeat prompt reaches normal Versus map selection at frame
+  133262. Selecting No at the generated victory prompt reaches map selection at
+  frame 131596. A separate Yes-confirmation continuation also reached map selection
+  at frame 131740; any emulator save writes used isolated temporary save copies.
+- Full RAM recaptured after these continuations shows unchanged map dimensions,
+  all 240 graphical tiles, all 240 terrain bytes, 15 row offsets, the entire
+  92-slot property region, and the day field compared with the corresponding
+  result checkpoint. Day 15 persists after victory; day 1 persists after defeat.
+  A decoder must reject current-battle interpretation in these menu contexts
+  even when every researched map/property invariant still passes.
+
+** Reproduction and evidence
+All artifacts are external at =/tmp/aw2-lifecycle-results/=. Preserve them with
+the fingerprinted source states. =capture.py= records nine full RAM baselines;
+=observe.py= records baseline/+10/+60 controls; =phase.py= records each continuation
+and generated checkpoint; =recapture.py= re-reads final checkpoint RAM;
+=verify.py= checks fields, process associations, and retained data.
+
+Focused phase ranges are =0x030040C0:64=, =0x03003FC0:64=, =0x03004080:4=,
+=0x0201E450:4=, =0x02023284:300=, and =0x0200D610:3456=, totaling 3,892
+bytes in one coherent snapshot. Static controls additionally read =0x02017C76:1=.
+The 300-byte player region includes the preceding neutral record. Full RAM
+captures check the paused frame on every 4 KiB batch.
+
+Masks are A=1, Select=4, Right=16, Down=128, zero=neutral. Capture a baseline
+and a snapshot/screenshot after each listed pair. Each row starts from the named
+source or generated checkpoint; repeated groups retain their literal timing.
+
+| Path | Input sequence |
+|------+----------------|
+| State 9 -> defeat prompt | =0:10,0:20,0:30,0:60,0:120,0:240= |
+| State 1 -> menu, No | =16:1,0:5,1:1,0:1,0:5,0:10,0:30,0:60,0:120= |
+| State 6 -> victory/quote/summary | =0:60,0:120,0:240,1:1,0:120,1:1,0:120,1:1,0:120= |
+| State 8 -> victory save prompt | =0:60,1:1,0:60,1:1,0:120= |
+| Generated victory prompt -> menu, No | =16:1,0:5,1:1,0:30,0:60,0:120= |
+| State 5 -> Power menu | =4:1,0:20= |
+| Power menu -> activation/effects | =(128:1,0:5) repeated twice,1:1,0:1,0:5,0:10,0:30,0:60,0:120,0:240,0:240= |
+| Effects checkpoint -> settled POWER | =0:120,0:120,0:240,0:240= |
+
+Source leads: the pinned [[https://github.com/XenesisXenon/AW2-InfiniteCOs/blob/5730d3dd58d82fc000bcc8449f245334fcc7d939/common/definitions_ramallocation_player.asm][player definitions]] suggest the player stride and fields.
+Adopted reads were independently verified against original-ROM routines and the
+controlled observations above; other definitions remain leads.
+
+| Artifact | SHA-256 |
+|----------+---------|
+| =static-state1-baseline.json= | =14f2253fc8a2e38ced42b2ba9d3697eefe65d2773c4a58a2774c351ebbf45244= |
+| =static-state3-baseline.json= | =c6f6da21d06953df392bf6aceef999692115accccae00ae0f86a0a5ddd6af3be= |
+| =static-state6-baseline.json= | =48a90b9c561a20f7691a73a319ee9f6eb521616056f7bced13f194c9ee319d26= |
+| =static-state8-baseline.json= | =5097d43831233935ccfcc8e6b14f25ef6911f7d0e4ff9e4f35e173d3741b25de= |
+| =static-state9-baseline.json= | =a89fdb31a36da94fbb15bbdf5713e47542007afbf71580ae3d89635dbc32756a= |
+| =prompt-exit-8.json= | =6543dbcbc450c059cd47e5354b59f26d8e53ecc4cf72edb94a43fb468122adf2= |
+| =victory-prompt-no-5.json= | =968e92b7e0159e43f6732cd74e0f5280c512b89fcb2604a45afa4a445f21df5a= |
+| =power-activate-10.json= | =f316b1a2412ac1c9b15b7063b74e79b344dd1601194b4862ee417c3addcca93b= |
+| =power-settled-0.json= | =6d11a9aec9ecf84c3e37dc2caa9efd50cf3f35fbac7083fae0c9c29a12aa3e2f= |
+| =verification-results.json= | =f625051219edac969e49941fe4fdc4942f61a42eb2028bab6f64c5f42bd39388= |
+| =evidence-manifest.json= | =6aaad5660e7bb8aedbcd7f655e14f7b5d549c294be61228ad4c9e5e40420bec8= |
+
+Verification passed for 107 focused observations: 27 restored-state controls and
+80 continuation samples, plus nine full RAM baselines and five final-checkpoint
+RAM recaptures. Checks cover original-ROM literals/accesses, result/prompt/menu
+paths, retained battle data, normal-power activation, active SUPER association,
+and unchanged source files. Screen/power names and visible outcomes were checked
+manually against screenshots.
+
+** Remaining gaps
+- Generalize results to three/four armies, teams, reassigned colors, draws, and
+  other loss mechanisms. A per-army defeat field is not a global winner field.
+- Recreate Super Power activation from its menu and verify more CO effects,
+  durations/resets, power-meter scaling, and command availability during powers.
+- Establish field availability and finer UI phases across additional entry,
+  combat, dialogue, resumed-battle, and Campaign paths. There is no missing Ready
+  confirmation after Rules; these are memory/UI interpretation questions.
+- Implement and check the runtime classifier/decoder and windowed parity.
