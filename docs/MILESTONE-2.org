@@ -32,10 +32,15 @@
 
 * Supported ROM profile
 
-** TODO Identify and verify one unmodified US retail ROM
-   - [ ] Establish the supported ROM's identity and checksum using the local retail image.
-   - [ ] Document the checksum algorithm and supported revision without distributing ROM data.
-   - [ ] Define a Python ROM profile that associates the verified checksum with its memory layouts and decoder version.
+** DONE Identify and verify one unmodified US retail ROM
+   - [X] Establish the supported ROM's identity and checksum using the local retail image.
+   - [X] Document the checksum algorithm and supported revision without distributing ROM data.
+   - [X] Define a Python ROM profile that associates the verified checksum with its memory layouts and decoder version.
+   - Supported image: =ADVANCEWARS2=, game code =AW2E=, maker code =01=, revision =0= (US retail, 8 MiB).
+   - Checksum: SHA-256 =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+     No ROM data or machine-specific path is tracked. Profile metadata and streaming
+     checksum calculation are in =aw2_lab.rom_profile=; the initial layout and
+     decoder versions are =aw2-us-v1= and =1=.
 
 ** TODO Reject unsupported ROM images
    - [ ] Verify ROM identity before selecting the profile or decoding game memory.
