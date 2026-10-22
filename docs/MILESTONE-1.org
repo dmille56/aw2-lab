@@ -98,7 +98,7 @@
 
 * Milestone 1 acceptance checklist
 
-** TODO Confirm all acceptance criteria in [[file:PLAN.md::*1. Reproducible emulator-control spike][PLAN.md]]
+** DONE Confirm all acceptance criteria in [[file:PLAN.md::*1. Reproducible emulator-control spike][PLAN.md]]
    - [X] Headless and windowed startup work with bridge loading.
    - [X] Windowed mode presents the game and prevents competing local input.
      Runtime verification (2026-10-21): the opt-in frame-gate integration test
