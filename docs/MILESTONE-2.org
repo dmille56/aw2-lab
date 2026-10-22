@@ -3,10 +3,26 @@
 
 * Prerequisites and research workflow
 
-** TODO Confirm Milestone 1 primitives are ready for AW2 research
-   - [ ] Confirm both pinned emulator frontends provide coherent memory reads, exact frame control, screenshots, and checkpoint restoration.
-   - [ ] Document commands for starting a research session with the local ROM and bridge.
-   - [ ] Keep ROMs, generated dumps, cartridge saves, and save states outside Git and the Nix store.
+** DONE Confirm Milestone 1 primitives are ready for AW2 research
+   - [X] Confirm both pinned emulator frontends provide coherent memory reads, exact frame control, screenshots, and checkpoint restoration.
+   - [X] Document commands for starting a research session with the local ROM and bridge.
+   - [X] Keep ROMs, generated dumps, cartridge saves, and save states outside Git and the Nix store.
+   - Research session setup: keep the ROM and research artifacts in directories outside
+     the repository and Nix store. From the repository, enter the development shell
+     and start the local API; it launches mGBA and loads the Lua bridge automatically.
+     The bridge listens on loopback port 43128.
+     #+begin_src sh
+     nix develop
+     export AW2_ROM_PATH=/path/outside/repo/aw2.gba
+     mkdir -p /path/outside/repo/aw2-research/{dumps,saves,states}
+     python -m aw2_lab --emulator-mode headless
+     #+end_src
+     Use =--emulator-mode windowed= to start the windowed frontend. The server
+     defaults to =127.0.0.1:43127=; emulator observations and frame advancement go
+     through the local bridge, with no manual mGBA or bridge startup required.
+   - Verification: [[file:MILESTONE-1.org::*Milestone 1 acceptance checklist][Milestone 1 acceptance checklist]] and the recorded opt-in integration
+     run cover both frontends, coherent batched reads, non-advancing observations,
+     exact frame budgets, PNG screenshots, checkpoint restoration, and clean shutdown.
 
 ** TODO Establish a repeatable evidence record
    - [ ] Record ROM checksum, emulator build, checkpoint context, frame, and reproduction steps for each finding.
