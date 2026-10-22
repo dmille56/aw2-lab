@@ -64,7 +64,9 @@ Expose input masks, bounded frame advancement, batched memory reads, screenshots
 
 Use a versioned request/response protocol over loopback TCP, with request IDs, explicit framing, bounded message sizes, structured errors, and base64 encoding for binary payloads initially. Handle partial reads/writes and disconnects. Restrict the bridge to the server process's local connection.
 
-The server controls when emulation advances. Idle emulation must remain responsive without advancing the game, and batched observations must capture memory at one frame boundary. Do not assume that Lua callback, socket, and frame-control APIs can be combined safely until the first milestone proves it. If necessary, add a narrowly scoped frame gate to the pinned mGBA frontend; retain game-specific logic in Python.
+The server controls when emulation advances. Idle emulation must remain responsive without advancing the game, and batched observations must capture memory at one frame boundary. The Milestone 1 decision is to use the narrowly scoped `mgba-frame-gate.patch` with both pinned mGBA frontends. The selected unpatched executables exposed the Lua bridge listener but did not invoke its polling callback, so Lua alone could not provide responsive bridge requests or exact frame control in those builds. With the patch, headless and windowed integration checks verified idle responsiveness, non-advancing observations, and exact bounded frame budgets.
+
+The patch polls the bridge while the frontend is idle and runs queued frame budgets only after the Lua callback returns, avoiding recursive core execution. In headless mode it replaces the normal run loop with periodic bridge polling. In Qt it polls through a timer, disables synchronization waits, and blocks UI unpause/step and local gameplay input while the gate is enabled. The change is opt-in through `AW2_MGBA_FRAME_GATE=1`; game-specific logic remains in Python.
 
 ## Interfaces and game behavior
 
@@ -137,7 +139,7 @@ Provide an MCP adapter that calls the Python SDK and is hosted at `/mcp` alongsi
 - Bridge disconnects, emulator failures, invalid modes, and missing display/capabilities produce clear errors.
 - Checkpoint restoration reproduces the observed state, and the emulator shuts down cleanly.
 
-Record any required frontend frame-gate patch and its rationale before continuing.
+The required frontend frame-gate patch and its rationale are recorded in the Emulator bridge section above.
 
 ### 2. Targeted AW2 reverse engineering
 

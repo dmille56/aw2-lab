@@ -66,10 +66,20 @@
      trip, not by this menu-driven save-data probe. Save states remain build- and
      ROM-specific.
 
-** TODO Record the frame-gate decision
-   - [ ] Determine whether Lua alone safely provides responsive exact frame control in both frontends.
-   - [ ] If a frontend frame-gate patch is required, document its scope and rationale in the project documentation.
-   - [ ] If no patch is required, record the evidence supporting that conclusion.
+** DONE Record the frame-gate decision
+   - [X] Determine whether Lua alone safely provides responsive exact frame control in both frontends.
+   - [X] Document the required frontend frame-gate patch, its scope, and rationale in the project documentation.
+   - [X] Record the evidence supporting the decision.
+   - Decision: the pinned headless and windowed builds require the opt-in
+     =mgba-frame-gate.patch=. The selected unpatched executables opened the bridge
+     listener but did not invoke =bridgePoll=, so requests stalled and exact frame
+     control was unavailable. With the patch, the frame-gate integration checks
+     passed in both modes, verifying idle responsiveness, observations that do not
+     advance emulation, and exact frame budgets. See the Emulator bridge section in
+     [[file:PLAN.md]].
+   - Patch scope: frontends poll the Lua bridge while idle and run a bounded frame
+     budget after its callback returns. The Qt frontend also blocks UI unpause/step
+     and local gameplay input while the gate is enabled.
 
 ** TODO Verify automatic startup and clean shutdown in both modes
    - [ ] Confirm headless mode loads the ROM and bridge without manual interaction.
