@@ -42,10 +42,29 @@
      headless/windowed emulator integration suite also passed with the flake-built
      mGBA. The test runs used a local AW2 ROM and the pinned patched frontends.
 
-** TODO Verify checkpoint round-trip completeness
-   - [ ] Confirm save-state flags include the required save RAM.
-   - [ ] Save and restore a checkpoint, then compare the observed state.
-   - [ ] Record any limitations or build-specific assumptions.
+** DONE Verify checkpoint round-trip completeness
+   - [X] Confirm save-state flags include the required save RAM.
+   - [X] Save and restore a checkpoint, then compare the observed state.
+   - [X] Record any limitations or build-specific assumptions.
+   - Flag verification: the Lua bridge passes =C.SAVESTATE.ALL= on file and
+     in-memory save/load operations. Lua bridge tests now assert that this includes
+     =C.SAVESTATE.SAVEDATA=, the mGBA save-data flag.
+   - Runtime verification (2026-10-21): the opt-in integration test saves and
+     restores file and in-memory checkpoints in headless and windowed modes,
+     comparing the restored frame and gameplay memory ranges. A second opt-in probe
+     loads a supplied in-mission state, uses AW2's map-menu Save command to change
+     cartridge save data, restores the checkpoint, and compares the resulting save
+     file with a clean-load baseline. Both checkpoint storage paths passed with the
+     pinned windowed frontend; the test writes only to temporary copies of the
+     supplied cartridge save.
+   - Assumptions and limits: the in-game probe requires matching local
+     =AW2_TEST_SAVE_STATE_PATH= and =AW2_TEST_SAVE_PATH= files, a local ROM, and a
+     display. When the state path is unset, the test looks for the ignored local
+     fixture =tests/fixtures/save_states/aw2-in-game-save-test.ss1=. Its UI save flow
+     was verified with the pinned patched windowed mGBA;
+     headless mode is covered by the frame and gameplay-memory checkpoint round
+     trip, not by this menu-driven save-data probe. Save states remain build- and
+     ROM-specific.
 
 ** TODO Record the frame-gate decision
    - [ ] Determine whether Lua alone safely provides responsive exact frame control in both frontends.

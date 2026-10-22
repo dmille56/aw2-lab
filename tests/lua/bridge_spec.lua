@@ -71,7 +71,7 @@ function _G.callbacks.add(_self, name, callback)
 end
 
 _G.emu = {}
-_G.C = {SAVESTATE = {ALL = 31}}
+_G.C = {SAVESTATE = {ALL = 31, SAVEDATA = 2}}
 function _G.emu.setKeys(_self, value)
     keys = value
 end
@@ -98,13 +98,21 @@ function _G.emu.screenshot(_self, filename)
     file:write("png?")
     file:close()
 end
+local function assert_save_data_flag(flags)
+    assert.are.equal(_G.C.SAVESTATE.ALL, flags)
+    assert.is_true(
+        flags % (_G.C.SAVESTATE.SAVEDATA * 2) >= _G.C.SAVESTATE.SAVEDATA,
+        "savestate flags must include cartridge save data"
+    )
+end
+
 function _G.emu.saveStateBuffer(_self, flags)
-    assert.are.equal(31, flags)
+    assert_save_data_flag(flags)
     if fail_state_operation then return false end
     return tostring(frame) .. ":" .. tostring(keys)
 end
 function _G.emu.loadStateBuffer(_self, state, flags)
-    assert.are.equal(31, flags)
+    assert_save_data_flag(flags)
     if fail_state_operation then return false end
     local restored_frame, restored_keys = state:match("^(%d+):(%d+)$")
     frame = tonumber(restored_frame)

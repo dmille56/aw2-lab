@@ -163,6 +163,131 @@ def test_frame_gate_stays_idle_and_executes_exact_budgets(
     asyncio.run(check())
 
 
+@pytest.mark.parametrize("storage", ["file", "buffer"])
+def test_checkpoint_restores_in_game_save_data(
+    storage: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify checkpoint save-data restoration from a local in-mission state."""
+    mode = EmulatorMode.WINDOWED
+    rom = Path(os.environ.get("AW2_ROM_PATH", ""))
+    default_state_path = (
+        Path(__file__).parent / "fixtures" / "save_states" / "aw2-in-game-save-test.ss1"
+    )
+    state_path = Path(os.environ.get("AW2_TEST_SAVE_STATE_PATH", default_state_path))
+    save_path = Path(os.environ.get("AW2_TEST_SAVE_PATH", ""))
+    if not rom.is_file():
+        pytest.fail("AW2_ROM_PATH must name a local ROM file")
+    if not state_path.is_file() or not save_path.is_file():
+        pytest.skip(
+            "set AW2_TEST_SAVE_STATE_PATH and AW2_TEST_SAVE_PATH to a matching local "
+            "in-mission state and cartridge save"
+        )
+    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+        pytest.skip("windowed mode requires a display")
+    executable = os.environ.get(
+        f"AW2_TEST_MGBA_{mode.name}",
+        "mgba-headless" if mode is EmulatorMode.HEADLESS else "mgba-qt",
+    )
+    if shutil.which(executable) is None:
+        pytest.fail(f"mGBA executable is unavailable: {executable}")
+    with socket.socket() as probe:
+        if probe.connect_ex(("127.0.0.1", 43128)) == 0:
+            pytest.fail("bridge port 43128 is occupied; stop the existing emulator first")
+
+    async def run_session(directory: Path, *, save_and_restore: bool) -> bytes:
+        config = directory / "config" / "mgba"
+        config.mkdir(parents=True)
+        saves = directory / "saves"
+        saves.mkdir()
+        cartridge_save = saves / f"{rom.stem}.sav"
+        shutil.copyfile(save_path, cartridge_save)
+        (config / "config.ini").write_text(
+            "".join(
+                f"[ports.{frontend}]\nsavegamePath={saves}\nsavestatePath={directory}\n"
+                for frontend in ("headless", "qt")
+            )
+        )
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(directory / "config"))
+        monkeypatch.setenv("XDG_DATA_HOME", str(directory / "data"))
+        monkeypatch.setenv("XDG_CACHE_HOME", str(directory / "cache"))
+        (directory / "data").mkdir()
+        (directory / "cache").mkdir()
+
+        launcher = EmulatorLauncher(
+            EmulatorSettings(
+                rom_path=rom.resolve(),
+                mode=mode,
+                headless_executable=executable,
+                windowed_executable=executable,
+                bridge_script=Path(__file__).resolve().parents[1] / "lua" / "bridge.lua",
+            )
+        )
+        bridge = LuaBridgeClient(timeout=1)
+        await launcher.start()
+        try:
+            deadline = asyncio.get_running_loop().time() + 15
+            while True:
+                assert launcher.is_running, "mGBA exited before the bridge became ready"
+                try:
+                    await bridge.connect()
+                    break
+                except BridgeError:
+                    if asyncio.get_running_loop().time() >= deadline:
+                        raise
+                    await asyncio.sleep(0.05)
+
+            await bridge.load_state(state_path)
+            if save_and_restore:
+                before = cartridge_save.read_bytes()
+                memory_before = await bridge.read_memory_batch([(0x02000000, 16), (0x080000A0, 16)])
+                if storage == "file":
+                    checkpoint = directory / "checkpoint.ss0"
+                    saved_frame = await bridge.save_state(checkpoint)
+                else:
+                    checkpoint = await bridge.save_state_buffer()
+                    saved_frame = await bridge.advance_frames(0)
+
+                # The fixture is in a battle. Open the map menu, choose Save, and
+                # confirm the game's save prompt. Neutral frames separate repeated
+                # D-pad presses so AW2 observes distinct button edges.
+                await bridge.set_keys(4)  # Select: open the map menu.
+                await bridge.advance_frames(15)
+                await bridge.set_keys(0)
+                await bridge.advance_frames(10)
+                for _ in range(3):  # CO, Intel, Options, then Save.
+                    await bridge.press_keys(128, 1)
+                    await bridge.advance_frames(10)
+                await bridge.press_keys(1, 1)  # Open Save.
+                await bridge.advance_frames(60)
+                await bridge.press_keys(1, 1)  # Confirm the in-game save.
+                await bridge.advance_frames(60)
+
+                changed = cartridge_save.read_bytes()
+                assert changed != before, "the fixture's in-game Save command changed no data"
+                if storage == "file":
+                    restored_frame = await bridge.load_state(checkpoint)
+                else:
+                    restored_frame = await bridge.load_state_buffer(checkpoint)
+                assert restored_frame == saved_frame
+                assert (
+                    await bridge.read_memory_batch([(0x02000000, 16), (0x080000A0, 16)])
+                    == memory_before
+                )
+        finally:
+            await launcher.stop()
+            assert not launcher.is_running
+        return cartridge_save.read_bytes()
+
+    async def check() -> None:
+        baseline = await run_session(tmp_path / "baseline", save_and_restore=False)
+        restored = await run_session(tmp_path / "round-trip", save_and_restore=True)
+        assert restored == baseline, "restoring the checkpoint did not restore cartridge save data"
+
+    asyncio.run(check())
+
+
 def test_windowed_startup_without_display_reports_actionable_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
