@@ -581,14 +581,14 @@ source hashes. Its SHA-256 is
 - Reproduce the same Power and SUPER sequences for different COs, including
   settled effects and any unit changes, before generalizing the field values.
 
-* Finding: HQ capture through victory and return to Versus maps
+* Finding: two-player HQ capture through victory and return to Versus maps
 
 ** Claim and scope
 - Date: 2026-10-23. Nine supplied checkpoints show the final HQ-capture
   progress on Sun Canal, completed capture, victory presentation, winner quote,
   WIN/LOSE summary, save-progress prompt, and return to Versus map selection.
   The exact map/property and capture-field changes are documented in the
-  [[file:AW2-MAP-RESEARCH.org::*Finding: HQ capture completes the battle and changes ownership][HQ capture finding]].
+  [[file:AW2-MAP-RESEARCH.org::*Finding: two-player HQ capture completes the battle and changes ownership][HQ capture finding]].
 - Before completion, the opponent defeated marker at =R(2)+0x14= is zero. In
   the post-capture map checkpoint it is =22=, the displayed day. That
   checkpoint still has the battle callback pair =(0x08036945,0x080369BD)=.
@@ -620,6 +620,212 @@ Source save hashes remained unchanged.
 
 ** Remaining questions
 - Check HQ-capture victories for another army/color setup and compare their
-  defeated markers, callback transitions, and result labels.
+  defeated markers, callback transitions, and result labels; see the supplied
+  three-player comparison below for one additional configuration.
 - Verify how other win conditions and matches with more than two armies select
   the winner and mark defeated players.
+
+* Finding: three-player HQ eliminations and final victory
+
+** Claim and scope
+- Date: 2026-10-23. Nine Pyramid Cape checkpoints show two HQ captures in a
+  three-player battle. Capturing the first HQ sets player slot 2's defeated
+  marker to day 13 while the battle callback pair remains active and the match
+  continues. The second HQ capture changes its owner on the map while the
+  defeated marker for player slot 1 is still zero; the later result sequence
+  sets it to 13.
+- The first eliminated player's HQ changes to a City and its observed base
+  transfers to player slot 3. The final captured HQ remains an HQ owned by
+  player slot 3, while the other owner-1 properties remain unchanged in the
+  result states. Detailed property bytes and capture records are in the
+  [[file:AW2-MAP-RESEARCH.org::*Finding: three-player battle with sequential HQ eliminations][map finding]].
+- The battle callback pair =(0x08036945,0x080369BD)= remains in post-capture
+  map checkpoints, including after player slot 2 has a nonzero defeated
+  marker and after the final HQ ownership change. The WIN/LOSE summary and
+  later presentation use the screen callback pair =(0x08036885,0x080368E9)=.
+  Therefore, neither an individual defeated marker nor the battle callbacks
+  alone determine whether a three-player match is still underway or has
+  finished.
+- The supplied screen order is: partial capture snapshots (=aw2.ss1-ss3=),
+  first elimination dialogue/map (=aw2.ss4-ss5=), final HQ-capture map
+  (=aw2.ss6=), VICTORY banner (=aw2.ss8=), winner quote (=aw2.ss9=), and
+  WIN/LOSE summary (=aw2.ss7=). The summary is the terminal result checkpoint
+  in this batch; no save-progress prompt was supplied.
+- These observations cover one three-player arrangement on one map. They do
+  not establish general team assignment, other win conditions, or four-player
+  result rules.
+
+** Reproduction and evidence
+All nine source states, RAM dumps, screenshots, and capture metadata are
+external at =/tmp/aw2-three-player-hq-research/=. =focused-findings.json=
+records exact HQ/property changes, defeated markers, callbacks, screen contexts,
+and screenshot hashes; SHA-256
+=864a773b8f00e7474f74a2d1144f47b0965b2d3a213d294bc74976168cc85da8=.
+Source save hashes remained unchanged.
+
+** Remaining questions
+- Repeat the sequence with different players/colors and verify which player
+  wins after the remaining opponents are eliminated.
+- Test other end conditions and four-player matches; retain lifecycle guards
+  for transitional states between the final capture and result screen.
+
+* Finding: three-player victory by routing both opponents
+
+** Claim and scope
+- Date: 2026-10-23. Eight Pyramid Cape checkpoints follow a three-player
+  match through both opponents losing all active unit records and the result
+  summary. At day 12, observed roster counts in the first three 0x300-byte
+  army blocks go from =4/4/28= (=aw2.ss1=), to =1/4/28= (=aw2.ss2=),
+  =0/4/28= (=aw2.ss3=), then =0/2/28= (=aw2.ss4=), =0/1/28=
+  (=aw2.ss5=), and =0/0/28= (=aw2.ss6=). These are counts of records with
+  nonzero first bytes in the observed 64-record windows, not a claim about
+  total allocated capacity or transported-unit semantics.
+- At the first opponent's elimination, player record index 1's defeated
+  halfword at =0x020232D4= changes from 0 to 12 (=aw2.ss3=). At the next
+  elimination, record index 2's halfword at =0x02023310= changes from 0 to
+  12 (=aw2.ss6=). Both remain 12 through the result summary (=aw2.ss8=).
+  The surviving third block retains 28 active records in the supplied states.
+- Screens show an opponent-defeat dialogue after the first elimination, then
+  the VICTORY presentation, a winner quote, and the WIN/LOSE summary. The
+  battle callback pair =(0x08036945,0x080369BD)= remains through the first
+  defeat and while the second opponent is reduced to one observed active
+  record. It changes to the screen callback pair =(0x08036885,0x080368E9)=
+  at the checkpoint where the second army block has no active records and its
+  defeated marker is set. This supplies direct evidence that a three-player
+  match can finish by routing both opponents, without an HQ-capture sequence
+  in the supplied checkpoints.
+- This demonstrates one three-player match's sequence, not the game's
+  complete routing condition (including cargo), all player/color mappings,
+  or every result-transition timing. The terminal WIN/LOSE screen is present;
+  no later save-progress prompt is included.
+
+** Reproduction and evidence
+The eight source states, RAM dumps, and screenshots are external at
+=/tmp/aw2-three-player-routing-research/=. =focused-findings.json= records
+source and screenshot hashes, frames, day, roster counts/records, defeated
+markers, and callbacks; SHA-256
+=e7628d5599b8f550f04666d9443368c11915d61a4ce2962744e91ed634be9aec=.
+Source save hashes remained unchanged.
+
+** Remaining questions
+- Determine whether cargo independently contributes to surviving-unit status
+  while its carrier remains alive, and whether defeated-marker updates occur
+  on the last unit's destruction or on a later transition.
+- Compare routing with HQ capture for another player/color arrangement and
+  inspect the save-progress prompt and return to menus for this match.
+
+* Finding: APC and loaded infantry are lost together during routing
+
+** Claim and scope
+- Date: 2026-10-23. Nine Pyramid Cape checkpoints show two three-player
+  armies reduced to a single APC and one loaded infantry each, then both
+  records disappearing when each APC is destroyed. At =aw2.ss2= the first
+  army has only records at =0x02022690= (Infantry) and =0x020226A8= (APC);
+  the second has only =0x02022990= (Infantry) and =0x0202299C= (APC). Each
+  infantry record is co-located with its APC, and the APC byte +7 points to
+  the infantry slot (=0x01= for block 0; =0x41= for block 1, consistent with
+  the one-based slot reference across the observed 64-slot block boundary).
+- The first pair disappears between =aw2.ss2= and =aw2.ss3=, and player
+  record index 1's defeated marker becomes day 14. The second APC is still
+  present at =aw2.ss5= with its linked infantry record; both records are
+  absent at =aw2.ss6=. Its defeated marker is still zero at that checkpoint,
+  then becomes day 14 at =aw2.ss7=. The battle callbacks persist through
+  =aw2.ss7= and change to the screen callbacks at =aw2.ss8=, which shows the
+  VICTORY presentation; =aw2.ss9= shows the WIN/LOSE summary.
+- This verifies that the loaded infantry record is removed along with its
+  APC in these examples, and that the routed player's marker follows the
+  final APC/cargo loss. Because the carrier itself remains alive until that
+  same event, these states do not isolate whether cargo independently counts
+  as a surviving unit while the APC is alive. They also do not establish
+  handling of more than one passenger in a carrier during routing.
+
+** Reproduction and evidence
+The nine source states, full RAM dumps, and screenshots are external at
+=/tmp/aw2-routing-cargo-research/=. =focused-findings.json= records source
+and screenshot hashes, frames, army records, defeated markers, and callbacks;
+SHA-256 =6d90d6a6e3cb747edbf38fdec6a5cb587d3304affb14493068e1d57e6a1f7787=.
+Source save hashes remained unchanged.
+
+** Remaining questions
+- Check a carrier destruction with two passengers, if a two-passenger
+  transport is available, and determine whether every linked record is
+  cleared in the same transition.
+- Compare the defeated-marker and callback timing at finer intervals around
+  the last unit's loss; these checkpoints show the marker lagging the empty
+  army records and the callback change occurring later.
+
+* Finding: a surviving APC prevents routing until it is destroyed
+
+** Claim and scope
+- Date: 2026-10-23. Five Pyramid Cape checkpoints isolate one opponent's last
+  unit as an APC. At =aw2.ss2= and =aw2.ss3=, the opponent's observed army
+  block contains exactly one active record: the APC at =0x020226A8=; its two
+  Infantry records are gone. Player record index 1's defeated marker at
+  =0x020232D4= remains zero in both states, so the player is not yet marked
+  defeated while this sole APC record remains.
+- Between =aw2.ss3= and =aw2.ss4=, the APC record disappears. The marker is
+  still zero at =aw2.ss4=, then changes to day 13 at =aw2.ss5=, where the
+  screen shows “The Orange Star Army has lost!” This confirms the supplied
+  sequence: the lone APC keeps the player from being routed until destroyed.
+- The battle callback pair =(0x08036945,0x080369BD)= remains through all five
+  checkpoints, including the defeated dialogue. The sample therefore
+  confirms the defeat marker and dialogue, not the terminal result transition
+  for the whole match. The zero marker in =aw2.ss4= also shows that defeat
+  bookkeeping can lag the empty observed unit block by at least one supplied
+  checkpoint; the exact update frame is not captured.
+- This single case verifies an APC as a last surviving unit. It does not
+  independently test whether cargo inside a still-living APC prevents
+  routing; the earlier loaded-APC sequence showed cargo and carrier lost
+  together.
+
+** Reproduction and evidence
+The five source states, full RAM dumps, and screenshots are external at
+=/tmp/aw2-apc-only-routing-research/=. =focused-findings.json= records source
+and screenshot hashes, frames, active records, defeated markers, and
+callbacks; SHA-256
+=4ab4e9c2981b33ef3dbdb9aa662e7af83be1d10973081ff8bdd2ec0077846cd2=.
+Source save hashes remained unchanged.
+
+** Remaining questions
+- Capture more closely spaced checkpoints between the APC's removal and the
+  defeated dialogue to locate the marker update within that transition.
+- Keep cargo survival as a separate question from an APC surviving on its
+  own; this test establishes the latter only.
+
+* Finding: game-ending attack and result-transition checkpoints
+
+** Claim and scope
+- Date: 2026-10-23. The user identifies =aw2.ss2= as immediately before an
+  attack on an Infantry that ends the match. That checkpoint is day 13 and
+  shows active-record counts =1/3/31= across the first three army blocks;
+  all four sampled defeated markers are zero, and the battle callback pair is
+  active.
+- The first supplied post-attack checkpoint, =aw2.ss3=, is day 14. The two
+  opponent blocks are empty (=0/0/31=), and player record indices 1 and 2
+  already have defeated markers 14 and 13 respectively. The battle callbacks
+  still remain at this point. The state does not isolate the exact attack
+  frame or show when either marker changed; =ss2= and =ss3= are checkpoints
+  separated by many emulator frames, not a frame-by-frame capture.
+- At =aw2.ss4=, 34 frames after =ss3=, the callbacks have changed from
+  =(0x08036945,0x080369BD)= to =(0x08036885,0x080368E9)=. The screenshots in
+  =ss4=, =ss5=, and =ss6= show successive VICTORY-banner animation stages.
+  This pins the battle-to-result callback transition to the interval between
+  these supplied checkpoints, while confirming that both defeated markers
+  are already set before the result callbacks begin.
+- This adds a useful bracket for the presentation transition, but it does not
+  resolve the precise defeated-marker timing relative to the attack or the
+  disappearance of the final unit records.
+
+** Reproduction and evidence
+The five source states, full RAM dumps, and screenshots are external at
+=/tmp/aw2-defeat-timing-research/=. =focused-findings.json= records source and
+screenshot hashes, frames, roster counts/records, defeated markers, and
+callbacks; SHA-256
+=45b69933aa7acd6c9d2385b79801a4f55dad338cffe4d81bcfa9ab6f186095b7=.
+Source save hashes remained unchanged.
+
+** Remaining questions
+- A frame-by-frame replay from the pre-attack checkpoint would be needed to
+  locate the exact hit, unit-record removal, and defeated-marker updates.
+- Compare the post-attack army-block changes with a controlled single-army
+  elimination to explain why both opponent blocks are empty in =ss3=.

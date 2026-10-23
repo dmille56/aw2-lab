@@ -123,17 +123,39 @@
      A new HQ-capture sequence follows the post-capture map through victory,
      winner quote, result summary, save prompt, and map selection; it also shows
      the defeated marker and battle callback pair can coexist before the
-     victory presentation begins.
+     victory presentation begins. A three-player sequence shows one defeated
+     marker while battle continues, then a second elimination followed by the
+     final result; lifecycle callbacks change at the presentation transition.
+     [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: three-player victory by routing both opponents][A routing sequence]] now verifies two
+     sequential three-player eliminations without an observed HQ capture: the
+     two opponent roster blocks empty, both defeated markers become day 12,
+     and the screen callback begins with the final result transition. Cargo
+     handling and universal result timing remain unresolved.
+     [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: APC and loaded infantry are lost together during routing][New APC routing states]] show
+     the carrier and linked infantry records disappear together, followed by
+     the defeated marker and later callback transition; they do not isolate
+     cargo's independent contribution while its APC survives.
+     [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: a surviving APC prevents routing until it is destroyed][A separate singleton-APC test]] verifies
+     that one surviving APC keeps its player unmarked as defeated; after its
+     destruction the army block empties, then the defeated marker and loss
+     dialogue appear in later checkpoints.
+     [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: game-ending attack and result-transition checkpoints][New game-ending attack states]] place
+     both defeated markers before the result callback transition and bracket
+     that callback change to 34 frames after the first post-attack checkpoint.
+     They still do not timestamp the marker update relative to the attack.
    - [ ] Identify title screens, menus, battle states, and transitions.
    - [ ] Establish when battle structures are valid to interpret.
    - [ ] Identify battle completion and outcome when validated.
    - [ ] Verify that non-battle and transitional memory is not interpreted as a valid battle.
 
 ** TODO Decode map and property state
-   - Research progress: [[file:AW2-MAP-RESEARCH.org::*Finding: HQ capture completes the battle and changes ownership][HQ capture comparison]] verifies an
+   - Research progress: [[file:AW2-MAP-RESEARCH.org::*Finding: two-player HQ capture completes the battle and changes ownership][HQ capture comparison]] verifies an
      HQ owner change from Blue to Red in both the terrain grid and property
      table, capture progress reset, and the opponent defeated marker set at
-     victory. Alternate armies, colors, and win conditions remain unverified.
+     victory. A three-player comparison also shows the first eliminated
+     player's HQ becoming a City and its listed properties transferring to
+     the capturer; the final HQ stays an HQ after its owner changes. Other
+     player/color arrangements and win conditions remain unverified.
    - [ ] Identify map dimensions and terrain layout.
    - [ ] Decode property locations, types, and ownership.
    - [ ] Decode capture progress and verify changes during capture.
@@ -146,8 +168,15 @@
      active state. [[file:AW2-LIFECYCLE-RESEARCH.org::*Paired regular Power and SUPER checkpoints][paired power states]] add a
      before/after SUPER comparison and unit changes. [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: Kita Straight turn changes and funds][Kita Straight turn comparisons]] verify day/turn halfwords and
      player-record funds in the default two-army setup, including both turn
-     directions and a transitional selector counterexample. Other player fields,
-     team mappings, and power-meter semantics remain research.
+     directions and a transitional selector counterexample. [[file:AW2-MAP-RESEARCH.org::*Finding: four-player army blocks, player slots, and colors][Four-player identity comparison]] maps
+     the observed four army blocks to player slots, colors, and property owner
+     codes and confirms Andy/Max/Sami/Flak by slot. The
+     [[file:AW2-MAP-RESEARCH.org::*Finding: controlled CO selection and settled player-record field][controlled CO comparison]]
+     verifies the settled CO byte for slot 1 and its values for Andy, Nell, and
+     Max. The [[file:AW2-MAP-RESEARCH.org::*Finding: team assignment bytes on the Teams setup screen][team setup comparison]] identifies one assignment byte per player
+     at =0x02017C61..0x02017C64=, encoding teams A–D as 0–3 in the tested
+     configurations. Confirm its runtime representation, the CO byte for other
+     slots, reassigned colors, other player fields, and power-meter semantics.
    - [ ] Identify players, armies, teams, and COs.
    - [ ] Decode funds, day, and active player.
    - [ ] Investigate weather, power meters, and active powers; expose only verified values.

@@ -284,7 +284,7 @@ records individual artifact SHA-256 values; no ROM or memory dump is tracked.
 - Identify the property entry's fourth byte and the capture byte's lower bits.
   Establish battle validity and frontend parity in their separate milestone tasks.
 
-** Finding: HQ capture completes the battle and changes ownership
+** Finding: two-player HQ capture completes the battle and changes ownership
 
 *** Claim and scope
 - Date: 2026-10-23. Two checkpoints bracket completion of an HQ capture on
@@ -303,7 +303,7 @@ records individual artifact SHA-256 values; no ROM or memory dump is tracked.
   at the same transition. The subsequent WIN/LOSE screen confirms Red's win
   and Blue's loss for this match. The map/property change and marker are
   directly observed; this single case does not establish every HQ-win rule.
-- See [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: HQ capture through victory and return to Versus maps][the lifecycle sequence]] for the
+- See [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: two-player HQ capture through victory and return to Versus maps][the lifecycle sequence]] for the
   victory banner, winner quote, result summary, save prompt, and return to map
   selection. Map and property arrays persist through those later screens.
 
@@ -319,6 +319,56 @@ SHA-256
 - Repeat on another map and army/color configuration. Check whether captures
   of other players' HQs, properties, or other win conditions produce the same
   defeated-marker and transition sequence.
+
+** Finding: three-player battle with sequential HQ eliminations
+
+*** Claim and scope
+- Date: 2026-10-23. Nine checkpoints from Pyramid Cape (21-by-18) cover two
+  HQ captures in a three-player battle. Initially the three HQs are at
+  =(10,2)= with owner code 1, =(2,14)= with owner code 2, and =(18,14)= with
+  owner code 3.
+- First, a type =0x02= unit record at =0x02022D98= is on the owner-2 HQ at
+  =(2,14)= with byte +5 =0x79= (15 capture points in the established upper-bit
+  interpretation). After the capture completes, that tile changes from
+  =0x48= (HQ, owner 2) to =0x66= (City, owner 3); its property entry at
+  =0x030031B4= changes from =48 02 0E 00= to =66 02 0E 00=. The owner-2 base
+  at =(1,13)= also transfers to owner 3 (=0x4E -> 0x6E=) at
+  =0x0300319C=. The captured unit's byte +5 resets to =0x01= (zero upper-bit
+  capture points).
+- At that first elimination, player slot 2's defeated marker at
+  =0x02023310= changes from 0 to 13, while player slots 1 and 3 remain at 0.
+  The battle continues. In this snapshot, the eliminated player's two active
+  property entries (its HQ and base) are both transferred to owner 3; the HQ
+  becomes a City. This is evidence for this match's elimination cleanup, not a
+  rule for every configuration.
+- Next, the type =0x01= unit record at =0x02022CC0= captures the owner-1 HQ at
+  =(10,2)=. Its byte +5 resets from =0x78= (15 capture points) to =0x00=, and
+  the HQ remains terrain class 8 while its owner changes from 1 to 3
+  (=0x28 -> 0x68=); property entry =0x03003158= changes in step. At this map
+  checkpoint, slot 1's defeated marker is still zero. It becomes 13 in the
+  later result checkpoint; slot 2 remains 13 and slot 3 remains zero.
+- The final result sequence ends with a WIN/LOSE summary. Unlike the first
+  elimination, the final HQ remains an HQ owned by player slot 3, and the
+  other still-listed owner-1 properties remain unchanged in the result,
+  banner, and quote states. This reflects the supplied checkpoints; it does
+  not establish post-result cleanup behavior for other matches.
+- Both a type =0x02= unit and a type =0x01= unit show the capture field reset
+  at HQ completion. This supports the shared capture-progress interpretation
+  for these two units, but does not establish every unit/CO modifier.
+
+*** Reproduction and evidence
+The nine source states, full RAM dumps, and screenshots are external at
+=/tmp/aw2-three-player-hq-research/=. =metadata.json= records source hashes,
+ROM/build/patch fingerprints, and frames. =focused-findings.json= contains
+the HQ/property transitions, unit records, player defeated markers, callback
+pairs, and screenshot hashes; SHA-256
+=864a773b8f00e7474f74a2d1144f47b0965b2d3a213d294bc74976168cc85da8=.
+
+*** Remaining questions
+- Repeat with a different player/color arrangement and verify how eliminated
+  players' remaining property types and units are handled.
+- Determine whether other win conditions and matches with more than three
+  players use the same defeat markers and property cleanup.
 
 ** Finding: Five additional initial Versus maps
 
@@ -1283,3 +1333,255 @@ and screenshot hashes; SHA-256
   a no-move control, to isolate the supply trigger and range.
 - Verify whether byte +5 is ammunition and whether supply restores it to a
   unit-specific maximum. Check whether other eligibility conditions apply.
+
+* Finding: three-player routing outcome and army records
+
+** Claim and scope
+- Date: 2026-10-23. The supplied eight Pyramid Cape states show three
+  contiguous observed army blocks at =0x02022690=, =0x02022990=, and
+  =0x02022C90= (12-byte records, 0x300-byte block spacing). Across the
+  checkpoints, active record counts change =4/4/28 -> 1/4/28 -> 0/4/28 ->
+  0/2/28 -> 0/1/28 -> 0/0/28=. The first two blocks are empty in the victory
+  presentation and result checkpoints, while the third retains 28 active
+  records. This extends the observed unit-record comparison to two sequential
+  routing eliminations; it does not establish table bounds or record validity
+  for transported units.
+- The map visible in the checkpoints is Pyramid Cape, 21 by 18. These states
+  add no controlled terrain or property-array comparison, so they do not
+  verify changes to map ownership or property state during routing.
+- See [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: three-player victory by routing both opponents][the lifecycle finding]] for defeated markers,
+  callbacks, screen progression, and the limits of this single example.
+
+** Reproduction and evidence
+The eight source states, full memory dumps, and screenshots are external at
+=/tmp/aw2-three-player-routing-research/=. =focused-findings.json= records
+each observed active unit record and checkpoint metadata; SHA-256
+=e7628d5599b8f550f04666d9443368c11915d61a4ce2962744e91ed634be9aec=.
+Source save hashes remained unchanged.
+
+** Remaining questions
+- Check whether a transport with cargo counts as an active unit for routing,
+  and verify all army-block-to-player mappings across additional configurations.
+
+* Finding: APC cargo records during three-player routing
+
+** Claim and scope
+- Date: 2026-10-23. The routing checkpoints show two APCs (=unit type 0x07=)
+  with one linked infantry each. In block 0, the APC at =0x020226A8= has byte
+  +7 =0x01=, matching the infantry at slot 0 (=0x02022690=). In block 1, the
+  APC at =0x0202299C= has byte +7 =0x41=; this is consistent with the
+  one-based reference to slot 0 after accounting for the block's 64-slot
+  offset. Both infantry records share their carrier's coordinates in the
+  loaded checkpoint (=aw2.ss2=).
+- At the checkpoint before destruction, the two opposing blocks contain only
+  their respective APC and linked infantry records. After each APC is
+  destroyed, both records in that block are absent. This directly supports
+  APC destruction clearing its observed linked cargo during routing. It does
+  not isolate cargo survival independently from the still-alive APC.
+- The unit record layout and prior transport link evidence are described in
+  [[*Finding: APC and Lander cargo relationships][the cargo relationship finding]]; the lifecycle transition and defeat-marker
+  sequence are in
+  [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: APC and loaded infantry are lost together during routing][the routing lifecycle finding]].
+
+** Reproduction and evidence
+The nine source states and full dumps are external at
+=/tmp/aw2-routing-cargo-research/=. =focused-findings.json= records all active
+unit records for each checkpoint and their hashes; SHA-256
+=6d90d6a6e3cb747edbf38fdec6a5cb587d3304affb14493068e1d57e6a1f7787=.
+
+** Remaining questions
+- Verify the second block's byte +7 interpretation with a controlled
+  cross-block cargo load/unload comparison, and check whether a carrier with
+  multiple passengers clears every link when destroyed.
+
+* Finding: lone APC as the final surviving unit
+
+** Claim and scope
+- Date: 2026-10-23. In five Pyramid Cape states, the first observed army
+  block falls from three active records to one APC record at
+  =0x020226A8=, then to zero. The player's defeated marker remains zero while
+  the APC is the sole active record. After its record disappears, the marker
+  is still zero in the next checkpoint and becomes day 13 in the following
+  defeated-dialogue checkpoint. This confirms that a lone APC keeps this
+  player from being routed until it is destroyed.
+- No controlled terrain/property comparison was part of this sequence. For
+  the player marker, screen, and callback details, see
+  [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: a surviving APC prevents routing until it is destroyed][the lifecycle finding]].
+
+** Reproduction and evidence
+The five source states and dumps are external at
+=/tmp/aw2-apc-only-routing-research/=. =focused-findings.json= contains all
+observed active records, marker values, and checkpoint hashes; SHA-256
+=4ab4e9c2981b33ef3dbdb9aa662e7af83be1d10973081ff8bdd2ec0077846cd2=.
+
+** Remaining questions
+- Capture tighter checkpoints around the APC's destruction to locate the
+  exact defeated-marker update.
+
+* Finding: four-player army blocks, player slots, and colors
+
+** Claim and scope
+- Status: verified within the supplied four-player battle and its visible
+  setup. The settled-battle CO byte is isolated for slot 1 in the controlled
+  comparison below; the team setup field is identified in a later finding,
+  while its runtime battle representation remains unresolved.
+- In the supplied battle, player slots map in order to the four observed army
+  blocks: slot 1 / block 0 / red / owner 1 / Andy; slot 2 / block 1 / blue /
+  owner 2 / Max; slot 3 / block 2 / green / owner 3 / Sami; slot 4 / block 3 /
+  yellow / owner 4 / Flak. The CO names are confirmed by the user. Property
+  owner colors are corroborated by the four HQ locations and the visible map.
+  At the first settled battle checkpoint, active records in each block are in
+  the matching HQ quadrant. The player-slot byte at =R(k)+0x1A= is =k=, and
+  the settled turn selector at =0x030033EC= ranges across these same slot
+  numbers in the supplied checkpoints.
+- The team setup screen assigns A, B, C, and D to 1P, 2P, 3P, and CP
+  respectively, so this is a four-way free-for-all. The team assignment bytes
+  are identified in a later finding; their battle-side representation remains
+  unresolved.
+- In the original settled battle states, =R(k)+0x1D= contains =1/2/4/11= for
+  Andy/Max/Sami/Flak. The controlled comparison below maps this byte to the
+  selected CO for slot 1. Setup-screen copies of the same player record retain
+  stale values and must not be used as the selected-CO field.
+
+** Run context and checkpoint identity
+- Date: 2026-10-23. Same supported US revision-0 ROM and pinned headless mGBA
+  build used in the preceding findings. ROM SHA-256:
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- The seven supplied states progress from the four-player team screen
+  (=aw2.ss1=), through rules (=aw2.ss2=), to the active four-player battle
+  (=aw2.ss3= through =aw2.ss7=). Their unchanged source hashes, restored
+  frames, memory hashes, and screenshots are recorded in the external report.
+- Map geometry is 15 by 10 with 29 property entries. HQ owner codes and
+  coordinates are: green =3= at =(0,0)=, yellow =4= at =(14,0)=, red =1= at
+  =(0,9)=, and blue =2= at =(14,9)=.
+
+| Player slot | CO | Army block | Block start | Color / owner code | =ss3= active records |
+|-------------+----+------------+-------------+--------------------+------------------------|
+| 1 | Andy | 0 | =0x02022690= | red / 1 | 10 |
+| 2 | Max | 1 | =0x02022990= | blue / 2 | 10 |
+| 3 | Sami | 2 | =0x02022C90= | green / 3 | 10 |
+| 4 | Flak | 3 | =0x02022F90= | yellow / 4 | 7 |
+
+Each observed block uses the established 12-byte record stride and =0x300=
+spacing. Counts use a nonzero first record byte as the active-record test and
+are limited to these checkpoints. Across =ss3= through =ss7=, counts are
+=10/10/10/7=, =14/13/12/7=, =16/15/17/6=, =18/17/21/4=, and
+=20/19/24/6= in block order. The field remains a unit-type byte candidate as
+described in the unit-record research; raw per-type counts are preserved in
+the report.
+
+** Evidence and limitations
+The seven source states, RAM captures, screenshots, and =focused-findings.json=
+are external at =/tmp/aw2-four-player-research/=. The report SHA-256 is
+=e791d10f87253356b488e6a38acb87b60f1f23efef497ce3f312617b201abd8c=.
+The supplied save files were not modified. The evidence verifies this
+four-player color/order arrangement, but does not test reordered player slots,
+reassigned colors, shared teams, other maps, or a general CO-ID mapping.
+
+** Remaining questions
+- Compare another setup with swapped colors to determine whether block order
+  follows player slot or army color under reassignment.
+- Compare the battle-side team/alliance fields in more matched states, including
+  different slots assigned to the same team, to establish how the setup values
+  are represented after battle initialization.
+- Confirm the selected-CO byte in a controlled alternate-CO comparison for
+  another player slot, and resolve the setup-side CO-selection rule for all
+  four slots.
+
+* Finding: controlled CO selection and settled player-record field
+
+** Claim and scope
+- Status: verified for a controlled CO change in player slot 1 and consistent
+  with the four previously identified COs.
+- The settled player-record byte at =R(k)+0x1D= is the selected CO ID in the
+  observed four-player battle. For slot 1, it changes with the CO while the
+  other player records remain unchanged: Andy =1=, Nell =0=, and Max =2=.
+  In the baseline four-player state, the other slots contain Max =2=, Sami
+  =4=, and Flak =11=, matching the visible selections confirmed by the user.
+- The setup screen has a separate slot-1 candidate at =0x02017C6C=, which
+  holds =1/0/2= for the same Andy/Nell/Max sequence. The record byte
+  =R(1)+0x1D= stays =1= in all three setup checkpoints, including Nell and Max;
+  it reflects the selected CO after battle initialization in these samples.
+- Team assignments remain A/B/C/D across this CO-selection batch. The separate
+  team-assignment comparison below identifies the setup-screen array.
+
+** Controlled states and comparisons
+The six source states form three setup/battle pairs. Slot 1 is Andy in
+=ss1/ss2=, Nell in =ss3/ss4=, and Max in =ss5/ss6=. The other players retain
+Max, Sami, and Flak; colors, teams, and rules remain the same. The three settled
+battle states all show day 2, turn selector 1, and funds =7000/1000/1000/1000=.
+
+| State | Screen | Slot-1 CO | Setup byte =0x02017C6C= | =R(1)+0x1D= | Other CO bytes |
+|-------+--------+-----------+--------------------------+-------------+----------------|
+| =ss1= | Teams setup | Andy | 1 | 1 (unchanged) | — |
+| =ss2= | Battle | Andy | 1 | 1 | =2/4/11= |
+| =ss3= | Teams setup | Nell | 0 | 1 (unchanged) | — |
+| =ss4= | Battle | Nell | 0 | 0 | =2/4/11= |
+| =ss5= | Teams setup | Max | 2 | 1 (unchanged) | — |
+| =ss6= | Battle | Max | 2 | 2 | =2/4/11= |
+
+For slot 1, =R(1)= resolves to =0x020232C0=, so the settled CO byte is at
+=0x020232DD=. Other player records follow the established 60-byte stride
+from =0x02023284=. In the Andy-to-Nell comparison, player 1
+bytes +0x2F and +0x30 also change (=0x0C/0x05= to =0x0B/0x04=); their meanings
+remain unknown.
+
+** Evidence and limitations
+The six source states, full RAM captures, screenshots, and =focused-findings.json=
+are external at =/tmp/aw2-four-player-co-research/=. The report SHA-256 is
+=85f7717ba4a739eaf274f72645601fbcfe4bea2c6f1f50824473a2e6fdd31780=.
+The source states were not modified. This verifies the settled CO byte for
+slot 1 and supports the four observed CO IDs; setup-side fields for slots 2–4
+and all other player slots remain unverified. The setup team field is identified
+in the next finding, while its battle-side representation remains unverified.
+
+* Finding: team assignment bytes on the Teams setup screen
+
+** Claim and scope
+- Status: verified for the four player slots and four visible team
+  configurations in the supplied save states.
+- The Teams screen stores one byte per player at
+  =0x02017C61..0x02017C64= (EWRAM offsets =0x17C61..0x17C64=). In player order,
+  the bytes encode the displayed team letter as =A= -> =0=, =B= -> =1=,
+  =C= -> =2=, and =D= -> =3=. Players assigned to the same displayed team have
+  the same byte.
+- This identifies the setup-screen assignment array. It does not establish
+  whether battle player records preserve these IDs directly or how allied
+  teams are represented by runtime fields.
+
+** Controlled configurations
+The four setup checkpoints preserve the same player order, CO selections,
+colors, map, and rules. Only the team assignments differ. Values below are
+read from =0x02017C61..0x02017C64= and correspond to the visible letters.
+
+| State | Visible teams (slots 1–4) | Bytes (slots 1–4) |
+|-------+---------------------------+-------------------|
+| =ss1= | A / B / C / D | =0 / 1 / 2 / 3= |
+| =ss3= | A / A / C / D | =0 / 0 / 2 / 3= |
+| =ss5= | B / B / C / D | =1 / 1 / 2 / 3= |
+| =ss7= | A / A / B / B | =0 / 0 / 1 / 1= |
+
+The matching battle checkpoints are =ss2=, =ss4=, =ss6=, and =ss8=. Across
+each setup comparison, the bytes for reassigned players track the changed
+letters. The full dumps also contain unrelated changes in UI/cursor and
+match-state data, which are not treated as part of this four-byte array.
+
+** Reproduction and evidence
+- Date: 2026-10-23. ROM SHA-256:
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- All eight source states were restored and dumped through the pinned headless
+  mGBA bridge. Screenshots, full EWRAM/IWRAM captures, and the manifest are in
+  =/tmp/aw2-team-research/=. Source states were left unchanged.
+- Source state SHA-256 values: =ss1= =417ae68b611b412d2dfcdbf02f98bef23c2bfc306c6b8f8a43c3f33e384b2a59=;
+  =ss2= =98984423d93d73bdbe5ca0c0fe20f56896ef3b39fc1a48f57de71aacb8a47079=;
+  =ss3= =08d1ba621ea287a36b7d09813de21ade6548f1ff8e548c362e26afc17d885107=;
+  =ss4= =784c2ab92c6b92c103c04e9a43ce415cf01e280d3f64a79818c86d34185287dc=;
+  =ss5= =d816e4f11b376e60d08c6a62db4fa60e3a649063f7ead4050208a4b8383ca457=;
+  =ss6= =61e2fc6fc2fa9166e9f80f86e584bd7485571398ea35a6f477ae52893c079ed6=;
+  =ss7= =006d4f5c6d6f3578e85cd32ef88b5fe8196bc13388ee6dd2e84ba779a71ddb77=;
+  =ss8= =66bdd75eb8a2bf3199a81a2384d18dffaf10136c6c4b2549b7b1f20b089d455c=.
+
+** Remaining questions
+- Establish the runtime team/alliance field and its encoding in battle state.
+- Test whether the setup array uses the same player-slot ordering under
+  reordered colors or fewer active players.
