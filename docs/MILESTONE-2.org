@@ -135,7 +135,8 @@
    - Research progress: [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: Results, save-progress exit, and powers][result/power observations]] verify the player-record stride,
      a defeated halfword, and active-power values 0/1/2 within the tested contexts.
      Normal Power activation is reproduced; SUPER is verified in a supplied
-     active state. [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: Kita Straight turn changes and funds][Kita Straight turn comparisons]] verify day/turn halfwords and
+     active state. [[file:AW2-LIFECYCLE-RESEARCH.org::*Paired regular Power and SUPER checkpoints][paired power states]] add a
+     before/after SUPER comparison and unit changes. [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: Kita Straight turn changes and funds][Kita Straight turn comparisons]] verify day/turn halfwords and
      player-record funds in the default two-army setup, including both turn
      directions and a transitional selector counterexample. Other player fields,
      team mappings, and power-meter semantics remain research.
@@ -145,6 +146,26 @@
    - [ ] Verify player and turn changes against manually inspected game states.
 
 ** TODO Decode unit records
+   - Research progress: [[file:AW2-MAP-RESEARCH.org::*Finding: unit movement menu and combat damage snapshots][new movement/combat snapshots]] support a 12-byte record stride,
+     a =0x300= separation between observed red and blue record blocks, and
+     combat-linked changes in raw unit fields. A destruction/purchase sequence
+     shows a destroyed unit's slot becoming empty, then a same-type purchase
+     occupying an earlier empty slot while the destroyed slot stays empty.
+     This supports first-available-slot allocation in that example; full table
+     bounds, general reuse order, and coordinate/action/fuel fields remain
+     unresolved.
+   - Cargo progress: [[file:AW2-MAP-RESEARCH.org::*Finding: APC and Lander cargo relationships][APC/Lander snapshots]] support a one-based passenger slot reference in
+     byte +7 for one red APC and one red Lander, including Lander unload/link
+     clearing. A two-passenger Lander snapshot supports a second one-based
+     reference at byte +8. Loading and drop order, other armies, and field
+     reuse remain unverified.
+   - Supply progress: [[file:AW2-MAP-RESEARCH.org::*Finding: APC supply and paired unit-fuel changes][APC supply pair]] matches the
+     selected APC's HUD fuel to record byte +6 and shows three other records
+     rise to 99. Supply range, eligibility, and other replenished fields remain
+     unverified. A controlled move pair shows two adjacent units gain five
+     fuel while the APC moves one tile and loses one fuel; a nearby Md Tank's
+     raw byte +5 also rises by two, consistent with ammunition replenishment.
+     Supply radius/trigger and byte +5 semantics still need controlled checks.
    - [ ] Identify unit table layout, bounds, occupancy, and slot reuse.
    - [ ] Decode type, owner, position, and raw/displayed health.
    - [ ] Decode fuel, ammo, and action status.

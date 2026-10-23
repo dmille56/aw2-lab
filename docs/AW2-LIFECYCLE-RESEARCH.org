@@ -541,3 +541,42 @@ Remaining work includes alternate army/team mappings, other turn orders and
 COs, purchases/repairs and funds boundaries, power-meter/weather semantics,
 unit action resets, resumed/Campaign paths, runtime decoding, and frontend
 parity. No unit-status interpretation is adopted from incidental RAM changes.
+
+* Finding: paired regular Power and SUPER checkpoints
+
+** Claim and scope
+- Date: 2026-10-22. Nine new checkpoints were restored independently with the
+  supported US ROM, pinned mGBA build, and frame-gate patch. Source files were
+  unchanged. The records use the established =R(k)= player stride and active
+  power byte at =R(k)+0x1E=.
+- In the regular Power pair, the Max cut-in checkpoint has player 2 active
+  power =0=; the following POWER display has it at =1=. Its neighbor at
+  =R(2)+0x1F= remains =1=. This independently reproduces the normal-power
+  status transition. Player 2's byte at =R(2)+0x28= also changes from =0= to
+  =10=, but its meaning is not established.
+- In the SUPER pair, the before checkpoint has player 1 active-power byte =0=;
+  the checkpoint with the visible SUPER label has it at =2=. Player 1's
+  neighbor changes from =0= to =2= in this pair, but the active flag remains
+  =+0x1E= as established by the original-code check. Player 2 remains at
+  active-power value =1= across the pair.
+- The SUPER pair preserves the map's graphical tiles, terrain, row offsets,
+  properties, and player 1 funds. Four unit records with type byte =0x01= or
+  =0x17= have byte +4 values rise to =0x64=, consistent with those units
+  reaching the observed full-health encoding. A fifth changed record has type
+  =0x0A= and a different +4 value change (=0xB2 -> 0xE4=); its field meaning
+  remains unresolved. These states support a before/after SUPER effect, but
+  do not establish its general repair formula, power-meter threshold, or the
+  full lifecycle of neighboring player-record bytes.
+
+** Reproduction and evidence
+All nine source checkpoints, full RAM dumps, screenshots, and metadata are
+external at =/tmp/aw2-power-supply-research/=. =focused-findings.json= includes
+the player and unit record excerpts, map/property equality checks, frames, and
+source hashes. Its SHA-256 is
+=b2c48b075dd14f4cc15786ff4d8754e791be3964c8b22c161226be36f4544c2b=.
+
+** Remaining questions
+- Verify power-meter scaling and thresholds, what the +0x28 player byte means,
+  and the complete lifecycle of +0x1F for more COs and turn transitions.
+- Reproduce the same Power and SUPER sequences for different COs, including
+  settled effects and any unit changes, before generalizing the field values.
