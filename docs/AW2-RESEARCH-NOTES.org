@@ -112,6 +112,31 @@ observations.
   only after its value and validity conditions match the expected change in
   the supported unmodified ROM. Keep unknown behavior explicit.
 
+* Gameplay references
+
+** Wars Wiki: units and Commanding Officers
+
+Reviewed on 2026-10-22: [[https://warswiki.org/wiki/Advance_Wars_2:_Black_Hole_Rising][Wars Wiki's Advance Wars 2 overview]]
+([[https://warswiki.org/w/index.php?title=Advance_Wars_2:_Black_Hole_Rising&oldid=32228][reviewed revision]]).
+Its [[https://warswiki.org/wiki/Advance_Wars_2:_Black_Hole_Rising#Units][unit table]] lists costs, movement, range, fuel, ammunition, and vision.
+Its [[https://warswiki.org/wiki/Advance_Wars_2:_Black_Hole_Rising#Commanding_Officers][CO table]] lists officers and their normal/Super powers, with links to
+individual officers for detailed descriptions. Use the AW2-specific sections
+of those articles when planning observations.
+
+Use these gameplay references to define expected results before collecting
+new states:
+
+- Unit research: compare purchases, movement, firing, and resupply with the
+  documented base stats; record the selected CO and any active modifiers.
+- CO research: compare the same situation before activation, during the
+  effect, after it settles, and after the turn changes. Record the expected
+  effect from the relevant officer's AW2 description alongside observations.
+
+The remaining runtime work is to establish numeric ID mappings, field
+addresses and packing, table bounds, slot reuse, and update/validity timing.
+Wiki descriptions supply gameplay expectations; promote memory-layout claims
+only with evidence from the supported ROM. Record any disagreement explicitly.
+
 * Research findings
 
 - [[file:AW2-LIFECYCLE-RESEARCH.org][Battle lifecycle research]]: startup/title/setup observations, engine and

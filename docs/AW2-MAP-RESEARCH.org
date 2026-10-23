@@ -7,11 +7,15 @@ screenshots, and save states outside the repository and Nix store.
 
 The [[*Finding: Five additional initial Versus maps][five-map comparison]] identifies airports, ports, shoals, and stale data
 at and beyond property-list terminators. The [[*Finding: Royal Channel height and lower rows][Royal Channel comparison]] extends
-geometry verification to height 30 and 88 properties. The latest [[*Finding: Four-army ownership and city captures][Four Corners comparison]]
+geometry verification to height 30 and 88 properties. The [[*Finding: Four-army ownership and city captures][Four Corners comparison]]
 adds green/yellow ownership, city-capture completions for three armies, and a
-damaged-infantry Capture/Wait control. Together, nine maps cover widths 15, 16,
-32, 39, and 42 and heights 10, 15, and 30; these are observed sizes, not allocation
-limits. Earlier findings retain their original scope.
+damaged-infantry Capture/Wait control. The [[*Finding: Pipes, seams, silos, rivers, and bridges][Pipe Maze / Hourglass Isle comparison]]
+verifies additional terrain, silo consumption, and separate seam health. The
+[[*Finding: Kita Straight reefs and map stability across turns][Kita Straight comparison]] verifies reefs and map stability across turns.
+Together, twelve maps cover widths 15, 16, 22, 27, 32, 39, and 42 and heights
+10, 15, 22, 24, 30, and 35; these are observed sizes, not allocation limits. Earlier findings retain
+their original scope. Labs remain a Campaign-specific follow-up per the user's
+scenario guidance; no lab layout is claimed without a Campaign observation.
 
 * Map and property layout verification
 
@@ -694,3 +698,227 @@ completions, and the one-byte Capture/Wait unit-region difference.
 - Unknown property/capture bits, allocation limits, inactive/deleted records,
   full 92-slot behavior, general unit identity/resolution, lifecycle validity,
   frontend parity, and Python decoder implementation retain their earlier gaps.
+
+** Finding: Pipes, seams, silos, rivers, and bridges
+
+*** Claim and status
+- Status: verified within the supplied maps, cursor landmarks, and controlled
+  Launch/Wait and Fire/Wait branches. Confidence: high within those cases.
+- Terrain classes extend to river =2=, bridge =12=, pipe =15=, seam =16=,
+  unused silo =17=, and spent silo =18=. Seams have a separate cell-indexed
+  health array. Launch consumes a silo while retaining its list entry.
+- The previously named property list also contains strategic silo features;
+  membership is not sufficient to identify a capturable building.
+
+*** Run context and checkpoint identity
+- Date: 2026-10-22. Same supported original US revision-0 ROM, headless mGBA
+  commit, frame-gate patch, isolated configuration/save copies, and dump schema
+  as the earlier findings. ROM SHA-256:
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- =aw2.ss1= SHA-256:
+  =74337af5a5379dc1042c55f23317d8ef7fcca30d43c025567c64a62d577c9686=.
+- =aw2.ss3= SHA-256:
+  =3fb52b50dd3bcc58310ac0c9ffab70ca7c2752d11ce42bbbd8f7ddae2f9a3106=.
+- The intervening =aw2.ss2= is a gold-colored mode menu, documented in
+  [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: Gold menu and supplied unlocked profile][lifecycle research]]. It is not a third battle map.
+
+| State | Map | Map ID / name ID | Frame | Dimensions | Cells | Property/feature records | Sentinel |
+|-------+-----+------------------+-------+------------+-------+--------------------------+----------|
+| =aw2.ss1= | Pipe Maze | 104 / 2738 | 10771 | 22 x 22 | 484 | 50 | =0x03003218= |
+| =aw2.ss3= | Hourglass Isle | 38 / 2737 | 3743 | 16 x 24 | 384 | 22 | =0x030031A8= |
+
+Original header entries resolve compressed map pointers =0x081C36BC= and
+=0x081BD5CC=. All 868 graphical tiles match the decompressed original maps;
+all tile-class lookup values match runtime terrain/owner bytes. The existing
+dimension, row-offset, graphical-array, and terrain-array rules hold. Active row
+offsets equal =22*y= and =16*y= respectively. These states add evidence for
+22- and 24-row geometry, without establishing allocation limits.
+
+*** Verified terrain landmarks
+Normal cursor visits expose =Pipe=, =Silo=, =River=, and =Brdg= labels. Seam
+cells also use the =Pipe= label but show health, unlike ordinary pipe segments.
+Coordinates are zero-based; raw terrain values below have owner code zero.
+
+| Map / landmark | Coordinate | Terrain class | Graphical tile ID | Visible distinction |
+|----------------+------------+---------------+-------------------+---------------------|
+| Pipe Maze, pipe | (3,1) | 15 | =0x0143= | Pipe, no seam-health value |
+| Pipe Maze, seam | (3,2) | 16 | =0x0163= | Pipe, 99 HP |
+| Pipe Maze, other seam orientation | (1,12) | 16 | =0x0162= | Pipe, 99 HP |
+| Pipe Maze, unused silo | (1,20) | 17 | =0x0180= | Silo, Launch available to infantry |
+| Pipe Maze, river | (10,8) | 2 | =0x0018= | River |
+| Pipe Maze, bridge | (10,9) | 12 | =0x0013= | Brdg |
+| Hourglass Isle, horizontal bridge | (2,5) | 12 | =0x0015= | Brdg |
+| Hourglass Isle, vertical bridge | (1,3) | 12 | =0x0016= | Brdg |
+
+Pipe Maze contains 76 ordinary pipe cells, 12 seams, 4 unused silos, 20 river
+cells, and 2 bridge cells. Hourglass Isle adds 42 bridge cells. All 72 active
+property/feature records match their grids in row-major order. Pipe Maze's list
+includes its four silos; neither map lists rivers, bridges, pipes, or seams.
+Every active record's fourth byte remains zero.
+
+*** Silo Launch/Wait comparison
+An infantry moves from =(2,20)= to the silo at =(1,20)= and opens Launch/Wait.
+Both branches start from the same generated =silo-action-menu= checkpoint.
+Launch encounters a first-use tutorial, then accepts target =(11,11)=. Wait is
+the control. Source states and original save data are never modified.
+
+| Branch | Frame | Silo terrain byte | Graphical tile | List entry, index 43 |
+|--------+-------+-------------------+----------------+---------------------|
+| Wait | 12040 | =0x11= (17) | =0x0180= | =11 01 14 00= |
+| Launch, settled | 13291 | =0x12= (18) | =0x01A0= | =12 01 14 00= |
+
+Only that cell changes in the terrain and graphical arrays; only the corresponding
+entry's first byte changes in the complete 92-slot list region. Record order,
+coordinates, fourth byte, count 50, and sentinel remain unchanged. The sampled
+red-unit region and seam-health array match between these branches. Thus spent
+silos remain listed, and silo records must not be treated as capturable properties
+or removed merely because their missile has been used. Missile damage/range rules
+and a second launch attempt from the spent silo were not tested.
+
+*** Seam health resolution and damage control
+For =i = LE16(0x020225CA+2*y)+x=, read seam HP as
+=u8(0x020288B4+i)=, only at an in-bounds cell whose terrain class is 16.
+Byte order does not apply to this single byte. The same cell index
+is used by the terrain grid. This is not the unit-health field or a property-list
+byte.
+
+At baseline, precisely the 12 seam indices contain 99; all other active cells
+contain zero in this array. Hourglass Isle's active cells all contain zero.
+Original-ROM =0x080455CC= loops over width/height and row offsets, setting
+=0x020288B4+i= to 99 for terrain byte =0x10= and zero otherwise. The literal
+at =0x0804561C= resolves this base. This corroborates both the indexing and
+initial values independently of matching byte patterns.
+
+Normal gameplay advances the copied battle, then an infantry moves adjacent to
+the seam at =(1,12)=. Fire and Wait branch from the same action menu:
+
+| Branch | Frame | Cell index | HP address | HP byte / displayed HP | Terrain / graphical tile |
+|--------+-------+------------+------------+-------------------------+--------------------------|
+| Wait | 24177 | 265 | =0x020289BD= | 99 / 99 | =0x10 / 0x0162= |
+| Fire, settled | 24682 | 265 | =0x020289BD= | 98 / 98 | =0x10 / 0x0162= |
+
+Only index 265 changes in the 484-byte health sample. Other seams remain at 99;
+map dimensions, row offsets, graphical tiles, terrain, and property records match
+between branches. This verifies partial seam damage while the seam remains
+intact. Do not infer a damage formula from the one-point change. Destruction,
+the replacement terrain/tile, and health-reset semantics still need a comparison.
+Read only active =width*height= cells; the array's total allocation capacity is
+not established by this finding.
+
+*** Reproduction and evidence
+All artifacts are external at =/tmp/aw2-pipe-silo-research/=. Preserve this
+directory with the fingerprinted sources. =capture.py= and =session.py= capture
+three source states and isolate writes; =observe.py= records 11 baseline/landmark
+samples; =step.py= and each =*-meta.json= record exact parent checkpoint hashes
+and =keys:frames= sequences; =verify.py= records comparisons. Exploratory movement
+checkpoints are retained but do not establish new movement rules.
+
+- Static landmarks: restore independently, reach (0,0) using
+  =32:480,0:1,64:480,0:1=, then repeat =16:1,0:5= x times and
+  =128:1,0:5= y times. Capture the map arrays, row offsets, and list coherently.
+- Silo action menu: start from =state1-silo.ss0=, then
+  =16:1,0:5,1:1,0:10,32:1,0:5,1:1,0:30=.
+  Wait uses =128:1,0:5,1:1,0:120=. Launch uses =1:1,0:30=, then
+  =1:1,0:600=, then =1:1,0:30= to finish the observed tutorial. Target with
+  =(16:1,0:5) repeated 10 times= and =(64:1,0:5) repeated 9 times=;
+  confirm using =1:1,0:600=.
+- Seam comparison: the metadata chain records moving an infantry off a base,
+  purchasing a tank, advancing two AI turn cycles, and moving the infantry
+  adjacent to the seam. Replay the exact parent/action records through
+  =seam-attack-menu.ss0=; the preparation includes exploratory attempted moves.
+  Wait uses =128:1,0:5,1:1,0:120=. Fire uses =1:1,0:30= then =1:1,0:600=.
+  Recording the AI timing matters; do not replace these frames with a new run
+  and assume identical damage or random state.
+- Gameplay samples read dimensions, 968 graphical bytes, 484 terrain bytes,
+  44 row-offset bytes, 368 property bytes, cursor, engine context, current-unit
+  pointer, and =0x02022684:768=. Later samples add =0x020288B4:484= for a
+  combined 3,190-byte coherent read. The earlier action-menu capture uses
+  =step-initial.py= without the final HP range. Fixed unit ranges are specific
+  to these experiments, not a general unit resolver.
+
+| Artifact | SHA-256 |
+|----------+---------|
+| =state1-baseline.json= | =b79b47909f7ff48ba106dc965731212331960929bde49b39cec82e4f80c80769= |
+| =state3-baseline.json= | =decd5a7d7ebb1963d33847f98f2a425ed91f90d7819662ad0477e7f0eb6a1a4e= |
+| =silo-wait.json= | =8c1a29995443659cfdd712472ea5af69be4619f2600de4cec8925248127f9bb3= |
+| =silo-fired.json= | =040f751222c2100159664574b4c3ce8aacfc6bdf0a7179fb1b536e6b59a054a0= |
+| =seam-attack-control.json= | =a46c8a034bebd3a9bc8e2383dfd2c8383d50d1975d2b5541d9962d42fc974467= |
+| =seam-damaged.json= | =4bd255f09e4651bac2dd7ab0d15d127255735101fc6bd471b0b3d7350dce7f60= |
+| =verification-results.json= | =6bd3075169815df495b0966cac1963e90bd337cb47f46364249ec531833b75b8= |
+| =evidence-manifest.json= | =fd4c7a8a9b8726d0dcdba1110868a37140620f437422672913bee3652bb57919= |
+
+Checks passed for 868 original/runtime tile comparisons, all 72 feature records,
+eight visually checked terrain landmarks, silo consumption, and the isolated seam
+HP change. There are 25 generated gameplay checkpoints with verified parent
+hashes, including exploratory branches. All supplied files stayed unchanged.
+
+*** Remaining questions
+- Destroy a seam and verify its replacement terrain/tile and HP semantics.
+  Establish missile targeting/damage behavior and spent-silo action restrictions.
+- Obtain a Campaign checkpoint containing labs, per the user's Campaign-only
+  scenario guidance; lab classes and capture behavior remain unverified here.
+  Reef labels also still need an observation.
+- Retain the earlier allocation, unknown-field, capture-variant, player/team,
+  unit-resolution, lifecycle-generalization, frontend-parity, and decoder gaps.
+
+** Finding: Kita Straight reefs and map stability across turns
+
+*** Claim and scope
+- Date: 2026-10-22. Same supported US ROM, pinned mGBA build, and frame-gate
+  patch as the preceding findings. Original ROM/save/state files stayed unchanged;
+  emulator writes used temporary copies and isolated configuration/save paths.
+- Four newly supplied battle states show Kita Straight, map ID =114=, name ID
+  =2713=, ROM compressed-map pointer =0x081C48FC=, dimensions =27 x 35=.
+  The established geometry, row-offset, graphical-tile, terrain, and property
+  rules all hold. All 945 graphical tiles match the decompressed original ROM
+  map; every terrain byte matches the runtime tile lookup.
+- All four states have identical active map arrays and 49 property records.
+  The first-byte =0xFF= sentinel is at =0x03003214=. All active records match
+  the grid, have fourth byte zero, and exclude reefs. There are 10 red-owned,
+  19 blue-owned, and 20 neutral records in this configuration.
+
+*** Reef encoding
+- Verified class =19= (=0x13=), owner zero, graphical tile =0x0168= in this
+  map. All 14 occurrences have this class/tile pairing. This does not establish
+  that every possible reef graphic must use the same tile ID.
+- Controlled cursor observations at =(17,3)= and =(2,33)= show the UI label
+  =Reef= and one defense star. A neighboring control at =(16,3)= shows =Sea=,
+  zero stars, and terrain class =7=. Coordinates are zero-based.
+- The reef indices use the existing =i = row_offset[y] + x= rule; terrain is
+  =u8(0x0201F882 + i)= and the graphical tile is
+  =u16 LE(0x0201EE72 + 2*i)=. Reefs occur from row 3 through row 33.
+  No movement, concealment, or combat behavior is inferred from these samples.
+
+*** Reproduction and evidence
+The new source fingerprints are shared with the
+[[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: Kita Straight turn changes and funds][turn-change finding]]. Restore the fingerprinted =aw2.ss7= at frame 7038,
+cursor =(2,3)=. For the northern reef, apply =(16:1,0:10) x15=; for the sea
+control, restore and apply that pair 14 times. For the southern reef, restore,
+apply =32:480,0:1,64:480,0:1=, then =(16:1,0:5) x2= and
+=(128:1,0:5) x33=. Confirm the sampled cursor coordinates before interpreting
+the label. Earlier exploratory northern cursor inputs landed on row 2 and are
+retained as exploratory artifacts, not reef observations.
+
+Each controlled dump captures 3,655 bytes at one unchanged frame: dimensions,
+active tiles/terrain/rows, bounded property table, cursor, turn/day, player
+records, callback neighborhood, and map ID. Full baseline RAM dumps and
+screenshots accompany the supplied states. Across 51 controlled observations,
+the captured map arrays and bounded property table stay identical.
+
+Artifacts and scripts are external at =/tmp/aw2-turn-reef-research/=:
+=capture.py=, =observe.py=, =timing.py=, =reef.py=, =verify.py=,
+=metadata.json=, =observations.json=, =timing-observations.json=, and
+=reef-confirm-observations.json=. The verification script checks source hashes,
+ROM/map agreement, all property entries, cursor positions, and turn/funds samples.
+
+| Artifact | SHA-256 |
+|----------+---------|
+| =metadata.json= | =222cb04f793f9e220c9ff21c21a95a123feb86acc8a3c9b4b8d1394504de54dc= |
+| =verification-results.json= | =0996ac57597f98b1adada5921fc79c23c0e2d2d3d3fa59fdf9fb9f11dbb21a88= |
+| =evidence-manifest.json= | =33f336c3e8e3be54cf30349f2a40ed30d0b7d39832284c311b71961231547bac= |
+
+*** Remaining questions
+- Campaign labs remain unobserved. Seam destruction, silo damage/reuse,
+  capture variants, allocation limits, unknown fields, unit resolution,
+  lifecycle generalization, and frontend parity retain their earlier gaps.
+- This finding adds verified observations, without implementing the Python decoder.

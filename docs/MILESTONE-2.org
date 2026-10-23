@@ -92,15 +92,20 @@
    - [X] Attach evidence, confidence, and reproduction steps to each decoded field.
    - [X] Document unknown fields and unresolved interpretations explicitly in [[file:AW2-MAP-RESEARCH.org::*Map and property layout verification][the map/property research record]].
    - Verified subset: [[file:AW2-MAP-RESEARCH.org::*Finding: Initial Versus map and property layout][initial Versus map/property layout]], [[file:AW2-MAP-RESEARCH.org::*Finding: Five additional initial Versus maps][five additional maps]],
-     [[file:AW2-MAP-RESEARCH.org::*Finding: Royal Channel height and lower rows][Royal Channel]], and [[file:AW2-MAP-RESEARCH.org::*Finding: Four-army ownership and city captures][Four Corners]], covering nine maps with widths 15, 16,
-     32, 39, and 42 and heights 10, 15, and 30. Controlled
+     [[file:AW2-MAP-RESEARCH.org::*Finding: Royal Channel height and lower rows][Royal Channel]], [[file:AW2-MAP-RESEARCH.org::*Finding: Four-army ownership and city captures][Four Corners]], and [[file:AW2-MAP-RESEARCH.org::*Finding: Pipes, seams, silos, rivers, and bridges][Pipe Maze / Hourglass Isle]], covering
+     twelve maps including [[file:AW2-MAP-RESEARCH.org::*Finding: Kita Straight reefs and map stability across turns][Kita Straight]], with widths 15, 16, 22, 27, 32, 39,
+     and 42 and heights 10, 15, 22, 24, 30, and 35. Controlled
      cursor, Wait, partial-capture, and completed-capture comparisons establish
      geometry, terrain/owner bytes, property entries, and infantry capture
      accumulation. Additional states verify airports, ports, shoals, and residual
      property-table data after the first-byte sentinel. Royal Channel verifies
      30 row offsets and 88 properties, including 47 on rows 15 and later. Four
      Corners verifies green/yellow owners, three further city-capture completions,
-     and a displayed-4-HP infantry accumulating four capture points. Allocation
+     and a displayed-4-HP infantry accumulating four capture points.
+     Pipe Maze / Hourglass Isle verify rivers, bridges, pipes, seams, unused/spent
+     silos, and a separate seam-health array. Silo features remain listed after
+     launch, so list membership does not imply a capturable building. Kita
+     Straight verifies reef class 19 and unchanged map/property arrays across turns. Allocation
      limits, unobserved types/owners, lifecycle validity, and unit resolution remain
      unresolved; this item does not implement the later Python decoder tasks.
 
@@ -130,7 +135,10 @@
    - Research progress: [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: Results, save-progress exit, and powers][result/power observations]] verify the player-record stride,
      a defeated halfword, and active-power values 0/1/2 within the tested contexts.
      Normal Power activation is reproduced; SUPER is verified in a supplied
-     active state. Other player fields and power-meter semantics remain research.
+     active state. [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: Kita Straight turn changes and funds][Kita Straight turn comparisons]] verify day/turn halfwords and
+     player-record funds in the default two-army setup, including both turn
+     directions and a transitional selector counterexample. Other player fields,
+     team mappings, and power-meter semantics remain research.
    - [ ] Identify players, armies, teams, and COs.
    - [ ] Decode funds, day, and active player.
    - [ ] Investigate weather, power meters, and active powers; expose only verified values.

@@ -411,3 +411,133 @@ manually against screenshots.
   combat, dialogue, resumed-battle, and Campaign paths. There is no missing Ready
   confirmation after Rules; these are memory/UI interpretation questions.
 - Implement and check the runtime classifier/decoder and windowed parity.
+
+* Finding: Gold menu and supplied unlocked profile
+
+- Status: verified menu-family observation and local save-container comparison.
+  The user identifies this as an all-unlocked profile. Individual unlock bits
+  and exhaustive content availability were not decoded or verified.
+- Date: 2026-10-22; same original ROM, emulator build, patch, and isolated-write
+  configuration as the other findings. ROM SHA-256 remains
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- Source =aw2.ss2=, frame 912, SHA-256:
+  =b3f6292e656d7cc7e79bcf8da94bb7ddde1d95b789b0b4fbd47fb20650ee8c48=.
+  The screenshot shows the gold mode menu, Campaign highlighted, and the
+  instruction for Hard Campaign. Map dimensions are zero; a map ID of 1 in
+  retained options is not evidence of an active battle.
+- The bounded screen-process pool contains =0x0849E818=, the same Select Mode
+  parent seen in the earlier ordinary menu. After 60 neutral frames and navigation
+  to Versus/New, map selection contains =0x08616C54= and =0x0849ECE0= at frame
+  1161. The screen callback pair persists throughout. Menu coloring is therefore
+  an observed profile/presentation variant, not a separate lifecycle enum or ROM
+  revision. Do not classify lifecycle from gold versus ordinary colors.
+- The supplied =advance-wars-2-black-hole-rising.5719.sps= is a 65,638-byte
+  container with the =SharkPortSave= signature. In this particular file, the
+  65,536 bytes at offset 98 exactly match the current =aw2.sav=. No import or
+  replacement of the user's files was needed. This observation is not a general
+  SPS parser or a verification of its trailing metadata/checksum.
+  Container SHA-256:
+  =b7cff54d1e06baaf79bf4a416f2e080243ba31d514e48d1d0d29be1d83ecedea=.
+  Raw-save SHA-256:
+  =f596b04b096de3a3b89615cf0ea2c3b6d2904bee26ff7b84fcbd0215e483e42a=.
+- Progress bytes at =0x02028030= differ from the earlier ordinary-menu state,
+  but a broad profile difference does not isolate an all-unlocked flag or prove
+  why the palette is gold. Treat those byte meanings as unresolved.
+
+Reproduce by restoring the fingerprinted state, sampling baseline and =0:60=,
+then =128:1,0:30,1:1,0:30,128:1,0:5,1:1,0:120=. Ten coherent snapshots and
+screenshots record the path. Ranges are =0x0200D610:3456=,
+=0x02028030:128=, =0x030040C0:64=, and =0x0201E450:4= (3,652 bytes total).
+Evidence and =gold.py= are external at =/tmp/aw2-pipe-silo-research/=, sharing
+the manifest and verification results linked from the new map finding.
+
+| Artifact | SHA-256 |
+|----------+---------|
+| =gold-baseline.json= | =bbf675707be20c21f0852851cc314124c4ef1c2d48fffa53a1ffbf3fb11fe7c1= |
+| =gold-map-selection-settled.json= | =3f55f4568e3f5ab8f4f9baec01de18f29c24c176b0f1f097b8c550ffeab064d0= |
+
+All supplied state, raw-save, SPS, ROM, and archive fingerprints stayed unchanged.
+Future unlock research should compare controlled purchases/completions and visible
+availability, rather than assigning meanings to all profile differences at once.
+
+* Finding: Kita Straight turn changes and funds
+
+** Scope and supplied states
+Reviewed 2026-10-22 using the same checksum-verified US ROM, pinned emulator,
+patch, isolated save/config paths, and coherent reads as the preceding findings.
+The new states show the default red/blue Kita Straight battle. Army indices
+below apply to this configuration; reassigned slots and teams remain unresolved.
+
+| State | Frame | Observed context | SHA-256 |
+|-------+-------+------------------+---------|
+| =aw2.ss4= | 6270 | Blue day 1, command menu | =bbc62e9ca0566d7b22f3666cb26cbee532ecc03f0a3b411431bdf09d8850ba35= |
+| =aw2.ss5= | 6489 | Blue day 1, funds 15,000 | =fdccc96ae503b0079348e5a91b099668d1b2389ca528d20449de61c58f9515bc= |
+| =aw2.ss6= | 6852 | Red day 2 | =abb9dc9f63c8c463441e7fd807913b17aa719c8a21e39cc31caa0566fa9611ce= |
+| =aw2.ss7= | 7038 | Red day 2, funds 16,000 | =68dc3a19b2bd2a5da038b8d20021dbe896a7e3b92c8790f2c6538152e66b0347= |
+
+** Fields and settled observations
+- Turn selector: =u16 LE= at =0x030033EC=, observed =1= for red and =2= for
+  blue in settled battle UI. This is not a universal player/color mapping or
+  an independent indication that commands are currently available.
+- Day: =u16 LE= at =0x03004080=, observed =1 -> 2= at blue-to-red wrap and
+  unchanged at =2= for red-to-blue. Higher values, overflow, and eliminated-slot
+  turn ordering were not exercised here.
+- Original ROM code supports the halfword widths: =0x08016F7A= and
+  =0x08016F80= are =ldrh r0,[r0]= using day/turn literals at
+  =0x08017198= / =0x0801719C=. Stores at =0x08017250= (=strh r0,[r1]=)
+  and =0x08017256= (=strh r2,[r3]=) use corresponding literals at
+  =0x08017514= / =0x08017518=. Other routines sometimes read the low byte;
+  do not conclude that the field is only one byte from such a reader.
+- Funds match the HUD when reading the first four bytes of player record
+  =R(k) = LE32(ROM 0x08499598) + 60*k= as an unsigned little-endian value.
+  The base is =0x02023284=; red =R(1)= is =0x020232C0= and blue =R(2)=
+  is =0x020232FC=. Observed balances are nonnegative; maximum balance,
+  overflow, spending, and any signed arithmetic remain untested in this finding.
+
+| Settled checkpoint | Turn selector | Day | Red funds | Blue funds |
+|--------------------+---------------+-----+-----------+------------|
+| Supplied blue states / restored command menu | 2 | 1 | 6,000 | 15,000 |
+| Reproduced blue End, frame 6625 | 1 | 2 | 16,000 | 15,000 |
+| Reproduced red End, frame 7341 | 2 | 2 | 16,000 | 34,000 |
+
+The increases are consistent with 10 red-owned and 19 blue-owned property
+records at 1,000 each in this battle. This comparison does not establish a
+general income formula for other rules or COs. Active map arrays and property
+records remain identical throughout; see the
+[[file:AW2-MAP-RESEARCH.org::*Finding: Kita Straight reefs and map stability across turns][map/reef finding]].
+
+** Transition counterexample
+After accepting blue End at frame 6295, the sampled turn/day/funds tuple is:
+
+| Frame | Turn selector | Day | Red funds | Blue funds |
+|-------+---------------+-----+-----------+------------|
+| 6310 | 1 | 2 | 16,000 | 15,000 |
+| 6325 | 2 | 2 | 16,000 | 15,000 |
+| 6340 | 1 | 2 | 16,000 | 15,000 |
+
+After red End, frame 6966 still has selector =1= while blue's funds have
+already increased to 34,000; frame 6981 has selector =2=. These are coherent
+single-frame observations, so the mismatch is an actual transitional memory
+state. The turn selector alone cannot establish the actionable player. Require
+recognized battle/UI validity before publishing that interpretation; the
+runtime classifier and its precise transition guards remain unfinished.
+
+** Reproduction, evidence, and remaining work
+Restore =aw2.ss4=. From the command menu's initial CO row, apply
+=(128:1,0:5) x4= to select End, then =1:1=. Sample every 15 neutral frames
+for 14 samples; frame 6505 is the last sample. The longer branch samples
+=0:30,0:300= after acceptance, reaching settled red at 6625, then
+=1:1,0:120,0:180= opens and retains red's command menu at 6926.
+From that generated checkpoint, repeat the four Down/release pairs and
+=1:1=, sample every 15 frames for 14 samples, then advance 180 neutral frames
+to reach blue at 7341.
+
+Scripts, screenshots, generated checkpoints, full baseline RAM, 51 coherent
+controlled dumps, verification report, and hashed manifest are external at
+=/tmp/aw2-turn-reef-research/=. Fingerprints and shared capture ranges are in
+the linked map finding. All source fingerprints stayed unchanged.
+
+Remaining work includes alternate army/team mappings, other turn orders and
+COs, purchases/repairs and funds boundaries, power-meter/weather semantics,
+unit action resets, resumed/Campaign paths, runtime decoding, and frontend
+parity. No unit-status interpretation is adopted from incidental RAM changes.
