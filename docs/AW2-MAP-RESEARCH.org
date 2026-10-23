@@ -125,6 +125,42 @@ None.
   =2612= and =2613= resolve to Bean Island and Crater Isle; map names were not
   inferred from appearance alone.
 
+*** Fresh initial-map checkpoints (2026-10-23)
+The five states newly supplied in =~/Downloads/aw2= restore to the first five
+Classic map IDs. Their names agree with the Wars World News map gallery entries
+for [Bean Island](https://www.warsworldnews.com/wp/aw2/maps-aw2/bean-island/),
+[Crater Isle](https://www.warsworldnews.com/wp/aw2/maps-aw2/crater-isle/),
+[Triangles](https://www.warsworldnews.com/wp/aw2/maps-aw2/triangles/),
+[Ball Islands](https://www.warsworldnews.com/wp/aw2/maps-aw2/ball-islands/), and
+[Coral Lagoon](https://www.warsworldnews.com/wp/aw2/maps-aw2/coral-lagoon/).
+The site images are useful visual references; dimensions and property counts
+below were read from the restored game state, not estimated from those images.
+
+| State | Map | ID | Frame | Dimensions | Active cells | Properties |
+|-------+-----+----+-------+------------+--------------+------------|
+| =aw2.ss1= | Bean Island | 1 | 120151 | 16 x 15 | 240 | 28 |
+| =aw2.ss2= | Crater Isle | 2 | 121289 | 16 x 15 | 240 | 31 |
+| =aw2.ss3= | Triangles | 3 | 122416 | 16 x 15 | 240 | 32 |
+| =aw2.ss4= | Ball Islands | 4 | 123581 | 42 x 15 | 630 | 49 |
+| =aw2.ss5= | Coral Lagoon | 5 | 124779 | 16 x 15 | 240 | 22 |
+
+| State | SHA-256 |
+|-------+---------|
+| =aw2.ss1= | =97013f6ab3cb1a8b8f2d7799b8aa0629d6e76ddc15f2a9b4d7a536834b8772cd= |
+| =aw2.ss2= | =c680e3a3f2563ad9d756cae88ea6aa5b3cd3338247d7962f81a60e41aed6f96c= |
+| =aw2.ss3= | =83319cd01706ab56eb79de7bced267f4769b7d0e6716ddc01378b151549c5d09= |
+| =aw2.ss4= | =c1d3d4dd74b0dc3e4a30438429e387c937364abb10fc894958ed9cd102294e4e= |
+| =aw2.ss5= | =2f16c1d58d3351f10afd915795b9c680c894ec913b47d2d428b3bb01d13be180= |
+
+All five were restored in isolated headless sessions at the recorded frames.
+For each, the active dimensions and map ID match the expected map, property
+entries terminate with the =0xFF= first-byte sentinel, and every active record's
+fourth byte is zero. The latter is only an observation for these five initial
+states; the byte's meaning and behavior remain unknown. Ball Islands' 42-column
+map reconfirms that row offsets and active cell arrays must be read dynamically.
+This sample does not establish a maximum map width/height or the game's property
+table capacity.
+
 *** Verified fields and resolution rules
 Read =LE16= and =LE32= as unsigned little-endian integers. Byte fields below
 are unsigned; byte order does not apply to a single byte.
@@ -644,10 +680,21 @@ Checks passed for 1,170 tiles, 88 properties, all 30 row offsets, nine cursor
 observations, and five visually checked landmarks. Across all eight researched
 maps, the initial tile/property comparisons now cover 3,480 cells and 330 records.
 
+*** User-reported editor and campaign map dimensions
+- The user reports that the inbuilt map designer allows maps up to =30 x 20=.
+  This is an editor limit, not a proven engine/runtime array limit; for example,
+  runtime map ID 4, Ball Islands, is =42 x 15=.
+- The user reports the largest Campaign maps as Great Sea Battle at =38 x 26=
+  and Final Front at =33 x 38=. These are user-provided map dimensions and have
+  not been independently read from Campaign save states in this research.
+- The tallest runtime map independently measured here is Kita Straight at
+  =27 x 35=; the widest measured here is Ball Islands at =42 x 15=. Those are
+  observed sample extrema, not proof of the engine's maximum dimensions.
+
 *** Remaining questions
-- Actual allocation limits, maximum map dimensions, and a full 92-property
-  table remain unresolved. This state establishes one 30-row map, not all
-  possible heights or geometries.
+- Actual runtime allocation limits, the complete possible dimension range, and
+  a full 92-property table remain unresolved. Existing checkpoints establish
+  observed maps only, not all possible heights, widths, or property counts.
 - Other player/army configurations, unknown property/capture bits, lifecycle
   validity, frontend parity, and general unit resolution retain the earlier
   limitations. User-confirmed capture rules are documented above; Sami's power
