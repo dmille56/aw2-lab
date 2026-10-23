@@ -1423,8 +1423,8 @@ observed active records, marker values, and checkpoint hashes; SHA-256
 ** Claim and scope
 - Status: verified within the supplied four-player battle and its visible
   setup. The settled-battle CO byte is isolated for slot 1 in the controlled
-  comparison below; the team setup field is identified in a later finding,
-  while its runtime battle representation remains unresolved.
+  comparison below; both setup and settled battle team fields are identified
+  in the team findings below.
 - In the supplied battle, player slots map in order to the four observed army
   blocks: slot 1 / block 0 / red / owner 1 / Andy; slot 2 / block 1 / blue /
   owner 2 / Max; slot 3 / block 2 / green / owner 3 / Sami; slot 4 / block 3 /
@@ -1435,9 +1435,8 @@ observed active records, marker values, and checkpoint hashes; SHA-256
   the settled turn selector at =0x030033EC= ranges across these same slot
   numbers in the supplied checkpoints.
 - The team setup screen assigns A, B, C, and D to 1P, 2P, 3P, and CP
-  respectively, so this is a four-way free-for-all. The team assignment bytes
-  are identified in a later finding; their battle-side representation remains
-  unresolved.
+  respectively, so this is a four-way free-for-all. Setup and battle team
+  assignment bytes are identified in the team findings below.
 - In the original settled battle states, =R(k)+0x1D= contains =1/2/4/11= for
   Andy/Max/Sami/Flak. The controlled comparison below maps this byte to the
   selected CO for slot 1. Setup-screen copies of the same player record retain
@@ -1475,15 +1474,14 @@ The seven source states, RAM captures, screenshots, and =focused-findings.json=
 are external at =/tmp/aw2-four-player-research/=. The report SHA-256 is
 =e791d10f87253356b488e6a38acb87b60f1f23efef497ce3f312617b201abd8c=.
 The supplied save files were not modified. The evidence verifies this
-four-player color/order arrangement, but does not test reordered player slots,
-reassigned colors, shared teams, other maps, or a general CO-ID mapping.
+four-player color/order arrangement. The user confirms that Teams setup fixes
+each color to its player slot and provides no color reassignment control;
+therefore, color reordering is not an available test. Shared teams, three-player
+behavior, and the full CO roster are covered by later findings.
 
 ** Remaining questions
-- Compare another setup with swapped colors to determine whether block order
-  follows player slot or army color under reassignment.
-- Compare the battle-side team/alliance fields in more matched states, including
-  different slots assigned to the same team, to establish how the setup values
-  are represented after battle initialization.
+- Test player/army mapping on other maps only if a map-specific discrepancy is
+  observed.
 - Confirm the selected-CO byte in a controlled alternate-CO comparison for
   another player slot, and resolve the setup-side CO-selection rule for all
   four slots.
@@ -1537,7 +1535,7 @@ are external at =/tmp/aw2-four-player-co-research/=. The report SHA-256 is
 The source states were not modified. This verifies the settled CO byte for
 slot 1 and supports the four observed CO IDs. Other slots are tested in the
 controlled comparison below. The setup team field is identified in the next
-finding, while its battle-side representation remains unverified.
+two findings, along with the settled-battle team field.
 
 * Finding: team assignment bytes on the Teams setup screen
 
@@ -1586,9 +1584,88 @@ match-state data, which are not treated as part of this four-byte array.
   =ss8= =66bdd75eb8a2bf3199a81a2384d18dffaf10136c6c4b2549b7b1f20b089d455c=.
 
 ** Remaining questions
-- Establish the runtime team/alliance field and its encoding in battle state.
-- Test whether the setup array uses the same player-slot ordering under
-  reordered colors or fewer active players.
+- No additional color-order test is applicable because colors are fixed to
+  player slots in the Teams setup.
+
+* Finding: per-player team IDs in settled battle records
+
+** Claim and scope
+- Status: verified for all four player slots across five four-player team
+  configurations.
+- Each settled player record stores its team ID as a =u8= at =R(k)+0x2A=,
+  where =R(k)=0x02023284 + 60*k=. Values match the Teams-screen array at
+  =0x02017C61..0x02017C64=: A =0=, B =1=, C =2=, D =3=.
+- Addresses for slots 1–4 are =0x020232EA=, =0x02023326=, =0x02023362=, and
+  =0x0202339E= respectively.
+
+** Controlled configurations
+Five setup/battle comparisons preserve player order, COs, colors, map, and
+rules while varying the team groupings. For each row, the settled player-record
+bytes at =R(k)+0x2A= match the visible team assignment and the setup array.
+
+| Checkpoint | Visible teams (slots 1–4) | Setup bytes | Battle bytes at =R(k)+0x2A= |
+|------------+---------------------------+-------------+-----------------------------|
+| Original =ss1/ss2= | A / B / C / D | =0/1/2/3= | =0/1/2/3= |
+| Original =ss3/ss4= | A / A / C / D | =0/0/2/3= | =0/0/2/3= |
+| Original =ss5/ss6= | B / B / C / D | =1/1/2/3= | =1/1/2/3= |
+| Original =ss7/ss8= | A / A / B / B | =0/0/1/1= | =0/0/1/1= |
+| New =ss1/ss2= | A / B / C / C | =0/1/2/2= | =0/1/2/2= |
+
+The A/B/C/C comparison is especially useful because slots 3 and 4 share a
+team while slots 1 and 2 remain separate; their battle bytes both read =2=.
+This shows that the runtime field stores the team label directly, including
+alliances that do not involve player slot 1.
+
+** Reproduction and evidence
+- Date: 2026-10-23. ROM SHA-256:
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- The first four setup/battle pairs and full RAM dumps are in
+  =/tmp/aw2-team-research/=. The A/B/C/C setup and battle captures are in
+  =/tmp/aw2-team34-allied-research/=. Source files were not modified.
+- New A/B/C/C source SHA-256: setup =ss1= =ca7b2d0d5935a888c393ef8dd447c56994c26086e2570f1231b6540b56609d55=;
+  battle =ss2= =9df9cac28185d88dc7bfbd1368fe35cdaec3b632cde1140eff7a1c0b42a5c6cf=.
+
+** Remaining questions
+- Three-player coverage is added in the next finding. Colors cannot be
+  reassigned from their player slots in setup.
+
+* Finding: team IDs with three active players
+
+** Claim and scope
+- Status: verified for the three visible player slots in the supplied
+  three-player setup and settled battle.
+- The setup shows slots 1–3 with teams A/B/B. Their settled player-record
+  bytes at =R(k)+0x2A= are =0/1/1=, matching the setup assignments and the
+  previously verified A=0, B=1, C=2, D=3 encoding.
+- The setup and battle still contain a fourth reserved player-record slot; it
+  is not displayed as a player in the Teams screen. Its byte at
+  =R(4)+0x2A= remains =3= and is excluded from the active-player comparison.
+
+** State comparison
+The setup and battle states use a three-player map and retain Andy, Max, and
+Sami in slots 1–3. The screenshots show only these three players. Their CO IDs
+in battle are =1/2/4= and their team bytes are =0/1/1=.
+
+| State | Screen | Visible teams | Setup bytes | Battle team bytes |
+|-------+--------+---------------+-------------+-------------------|
+| =ss1= | Teams setup | A / B / B | =0/1/1= (active slots) | — |
+| =ss2= | Settled battle | A / B / B | — | =0/1/1= (slots 1–3) |
+
+The fourth record retains team byte =3= in battle, matching the fourth
+setup-array byte but not a visible player. It should be treated as an inactive
+or reserved slot for this sample, not as evidence of a fourth active army.
+
+** Reproduction and evidence
+- Date: 2026-10-23. ROM SHA-256:
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- RAM captures, screenshots, and manifest are in
+  =/tmp/aw2-three-player-teams-research/=. The source states were not modified.
+- Source state SHA-256: setup =ss1= =6e11a4842c7ab8dd9238e335ec69dcfe352c6e3b7afb5603b8200ddc532941a5=;
+  battle =ss2= =c75dc06d41af1b13179ddfc817c9cde9073cadb6a8623b31eda7e3b5cc4e36f3=.
+
+** Remaining questions
+- Colors are fixed to player slots and cannot be reassigned in the Teams setup;
+  no color-reordering test is needed.
 
 * Finding: CO selection fields for player slots 2–4
 
@@ -1643,10 +1720,10 @@ three CO bytes unchanged, isolating the changed slot's =+0x1D= byte.
   =ss8= =54c132c0f7675dc89b5d5e6e7ac086b339c7ece9ffac6d92f7712c3a4c2012ba=.
 
 ** Remaining questions
-- The full CO roster is now mapped in slot 1. Additional selections in slots
-  2–4 are only needed to test for slot-specific setup-value conversions.
-- Repeat the controlled changes for other slots or configurations if the
-  player-record stride or selection-array layout differs outside this battle.
+- The full CO roster is now mapped across the tested slots. Slot 1 covers 15
+  COs; the remaining four (Sami, Flak, Hachi, and Grit) are covered in the
+  baseline or controlled states for slots 2–4. Exhaustive CO-by-slot testing is
+  deferred; revisit it only if a slot-specific issue appears.
 
 * Finding: Hachi selection values in player slots 2–4
 
@@ -1779,9 +1856,8 @@ changed byte in the relevant selection-array region is slot 1's byte at
   =ss8= =7c146e210081e16d0d880ee894cf69132fb483653944685cc6f86967a1fa3b72=.
 
 ** Remaining questions
-- All COs are now mapped in slot 1; the current other-slot tests cover Nell,
-  Hachi, and Grit. More other-slot checks are optional unless they show a
-  different setup-value conversion.
+- These states sample Hachi in slots 2–4. Exhaustive CO-by-slot testing is
+  deferred; revisit it only if a slot-specific issue appears.
 
 * Finding: Sensei, Eagle, Drake, and Jess CO values in slot 1
 
@@ -1824,9 +1900,11 @@ remain =2/3/14=.
   =ss8= =a44d24152e4e345f1f60ca9f6c19d33c3806e22018610687e0a831931d1172eb=.
 
 ** Remaining questions
-- The complete roster's setup and settled-battle IDs are mapped in slot 1.
-- Test additional slots only if fuller cross-slot coverage is desired or a
-  slot-specific CO selection conversion is suspected.
+- The complete roster's setup and settled-battle IDs are mapped across the
+  tested slots. Slot 1 covers 15 COs; Sami and Flak are in baseline slots 3–4,
+  and Hachi and Grit are controlled in slots 2–4.
+- Exhaustive CO-by-slot testing is deferred; revisit it only if a slot-specific
+  issue appears.
 
 * Finding: Lash, Adder, Hawke, and Sturm CO values in slot 1
 
@@ -1868,5 +1946,7 @@ Across each battle comparison, only the slot-1 player-record CO byte at
   =ss8= =404d6e08cf79a580f0e35cce4c5706524230adbabc2c472dd49ee22e623e46a6=.
 
 ** Remaining questions
-- The slot-1 setup-to-battle mapping is now recorded for all 19 COs. Additional
-  checks in slots 2–4 would test whether every CO uses the same mapping there.
+- The full roster has setup-to-battle mappings across the tested slots. This
+  finding covers the final four COs in slot 1; other-slot mapping for those
+  COs is not tested. Defer those checks unless an issue suggests slot-specific
+  behavior.

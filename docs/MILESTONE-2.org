@@ -179,10 +179,16 @@
      =R(k)+0x1D= and identify setup selection bytes at =0x02017C6D..0x02017C6F=;
      Hachi and Grit comparisons map setup values =4= and =6= to settled IDs
      =15= and =5= respectively in slots 2–4. Slot-1 comparisons now map setup
-     values to settled IDs for all 19 COs. Confirm the team's
-     runtime representation, reassigned colors, other player fields, and
-     power-meter semantics.
-   - [ ] Identify players, armies, teams, and COs.
+     values to settled IDs for 15 COs; baseline and controlled states cover the
+     other four (Sami, Flak, Hachi, and Grit) in slots 2–4. Together these map
+     all 19 COs across tested slots. Exhaustive CO-by-slot checks are deferred
+     unless an issue suggests slot-specific behavior. The
+     [[file:AW2-MAP-RESEARCH.org::*Finding: per-player team IDs in settled battle records][team battle comparison]] verifies a =u8= at =R(k)+0x2A= matching team IDs
+     A–D across five four-player configurations; a three-player state also
+     confirms A/B/B values for its active slots. Colors are fixed to player
+     slots in setup. Other player fields and power-meter semantics remain to
+     be checked.
+   - [X] Identify players, armies, teams, and COs.
    - [ ] Decode funds, day, and active player.
    - [ ] Investigate weather, power meters, and active powers; expose only verified values.
    - [ ] Verify player and turn changes against manually inspected game states.
