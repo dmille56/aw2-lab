@@ -154,8 +154,14 @@
      table, capture progress reset, and the opponent defeated marker set at
      victory. A three-player comparison also shows the first eliminated
      player's HQ becoming a City and its listed properties transferring to
-     the capturer; the final HQ stays an HQ after its owner changes. Other
-     player/color arrangements and win conditions remain unverified.
+     the capturer; the final HQ stays an HQ after its owner changes. Later
+     map comparisons verify Red/Blue ownership transitions for cities, factories,
+     HQs, airports, ports, and bases in both directions. User-confirmed capture rules
+     cover the 20-point threshold, Infantry/Mech HP-based progress, move/fire
+     reset, and Sami's capture modifiers. Geometry/allocation limits, the
+     property fourth byte, capture-field low bits, and Campaign labs remain
+     unresolved; the gameplay rules and evidence are documented in the map
+     research file.
    - [ ] Identify map dimensions and terrain layout.
    - [ ] Decode property locations, types, and ownership.
    - [ ] Decode capture progress and verify changes during capture.

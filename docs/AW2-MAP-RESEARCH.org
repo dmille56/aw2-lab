@@ -158,6 +158,25 @@ the literal at =0x08091354= and uses the upper five bits at unit offset =5=.
 This is accumulated progress; the city UI shows =20 - progress= in this test.
 The lower three bits are not interpreted here.
 
+*** User-confirmed capture rules
+The user reports the following gameplay rules from direct play. These general
+rules are recorded separately from the RAM-controlled cases below:
+- Capturing a property requires 20 points. An Infantry or Mech adds points
+  equal to its current HP when it completes a Capture action while on the
+  property.
+- If that unit moves or fires from the property, its accumulated capture
+  points reset.
+- Sami's Infantry and Mechs add 1.5 points per HP when capturing.
+- While Sami's Super CO Power is active, her Infantry and Mechs can capture
+  any property in one turn.
+
+The controlled 4-HP Infantry Capture/Wait comparison independently agrees with
+the reported normal rate: it records four added points. The supplied property
+capture checkpoints also show partial progress in the unit record and zero
+progress after completion. The Sami modifiers and move/fire reset rule are
+user-confirmed gameplay observations; no isolated RAM comparison has yet
+correlated those cases with the memory fields.
+
 *** Pointer handling, bounds, sentinels, and validity
 - Select the exact supported ROM before using =B= or the other address rules.
   =B= comes from a 32-bit ROM literal, not an assumed host pointer. The original
@@ -276,11 +295,12 @@ records individual artifact SHA-256 values; no ROM or memory dump is tracked.
 - Use a third map with different dimensions to test row-offset and geometry rules
   beyond 16-by-15; establish allocation limits rather than inferring them from
   spacing between arrays.
-- Verify airports, ports, labs, other owner configurations, and property changes
-  beyond the tested neutral-city-to-red transition.
-- Test capture interruption/reset, damaged infantry, Mechs, CO capture modifiers,
-  and general unit-record resolution. Do not infer those behaviors from this
-  full-health Andy infantry experiment.
+- Later map comparisons now verify airports and ports, and city/factory/HQ/
+  airport/port/base ownership transitions for Red and Blue. Campaign labs remain
+  unobserved, as requested for Campaign-only scenarios.
+- The user has confirmed capture interruption/reset, damaged Infantry/Mech
+  rates, and Sami's CO and Super CO Power modifiers. Their specific RAM encoding
+  has not been isolated. General unit-record resolution remains open.
 - Identify the property entry's fourth byte and the capture byte's lower bits.
   Establish battle validity and frontend parity in their separate milestone tasks.
 
@@ -461,8 +481,8 @@ matching property entries agree at every building below.
   zero. This supplies no interpretation for that byte.
 - Owner codes remain =0= neutral, =1= red, and =2= blue in these two-army
   configurations. This comparison does not establish other armies or remapping
-  between owner codes and player slots. Airport/port capture transitions were
-  not exercised.
+  between owner codes and player slots. Later controlled comparisons verify
+  airport and port capture transitions for Red and Blue.
 
 *** Terminators and residual records
 The first byte alone marks termination. Later bytes in that entry and records
@@ -628,10 +648,11 @@ maps, the initial tile/property comparisons now cover 3,480 cells and 330 record
 - Actual allocation limits, maximum map dimensions, and a full 92-property
   table remain unresolved. This state establishes one 30-row map, not all
   possible heights or geometries.
-- Unobserved terrain/owner codes, other player/army configurations, unknown
-  property/capture bits, capture variants, lifecycle validity, frontend parity,
-  and general unit resolution retain the earlier limitations. No new capture
-  experiment or Python decoder implementation is included.
+- Other player/army configurations, unknown property/capture bits, lifecycle
+  validity, frontend parity, and general unit resolution retain the earlier
+  limitations. User-confirmed capture rules are documented above; Sami's power
+  modifiers have not been independently correlated to RAM. No Python decoder
+  implementation is included.
 
 ** Finding: Four-army ownership and city captures
 
@@ -688,6 +709,203 @@ mapping to player slots, COs, alliances, or reassigned armies. Cursor edge
 checks clamp at =(14,9)= and =(0,0)=. All map arrays and property bytes remain
 unchanged across 22 static observations, including eight edge/movement controls.
 
+*** Red and Blue city-capture checkpoints
+Six save states on the same =19x10= Versus map show Red and Blue infantry at
+different city-capture phases. Their four-byte property records and terrain
+grid agree. Red's capture completes in this set; Blue's does not.
+
+| State | Frame | Army/unit | City coordinate | Unit byte +5 / points | Property raw / owner | Tile ID | Phase |
+|-------+-------+-----------+-----------------+-----------------------+---------------------+---------+-------|
+| =aw2.ss1= | 555911 | Red, =0x02022690= | infantry at =(1,6)=, not yet on city | =0x00= / 0 | city =(4,6)=: =0x06= / neutral | =450= | Before capture |
+| =aw2.ss2= | 556146 | Red, =0x02022690= | =(4,6)= | =0x78= / 15 | =0x06= / neutral | =450= | Capture in progress; 5 points remain |
+| =aw2.ss3= | 557051 | Blue unit records include =0x02022990= | blue infantry at =(15,1)= before capture | =0x00= / 0 | city =(14,3)=: =0x06= / neutral | =450= | Before Blue capture |
+| =aw2.ss4= | 557670 | Blue, =0x02022990= | =(14,3)= | =0x50= / 10 | =0x06= / neutral | =450= | Capture in progress; 10 points remain |
+| =aw2.ss5= | 558136 | Blue, =0x02022990= | =(14,3)= | =0x50= / 10 | =0x06= / neutral | =450= | Still in progress |
+| =aw2.ss6= | 558361 | Red, =0x02022690= | =(4,6)= | =0x00= / 0 | =0x26= / Red (owner code 1) | =455= | Capture complete |
+
+The property entries are index 9 at =(4,6)= and index 4 at =(14,3)=. Red's
+completed capture changes the terrain/owner byte at =B + 0x1432 + row_offset[6]
++ 4= and property byte =0x03003150 + 4*9= from =0x06= to =0x26=; its graphical
+tile changes from =450= to =455=. The x/y bytes remain =(4,6)=. This independently
+confirms the property-list and terrain-grid owner update for a city. Blue's
+unit record at =0x02022990= carries 10 capture points at =(14,3)= in states 4
+and 5, while both representations of that city remain neutral. No Blue
+completion checkpoint was supplied, so its completion transition remains to
+be verified in this map.
+
+The displayed remaining values (5 for Red in state 2, 10 for Blue in states 4
+and 5) agree with =20 - (unit[5] >> 3)=. The state 2 record bytes at
+=0x02022690= begin =01 01 04 06 64 78=; states 4/5 record bytes at
+=0x02022990= begin =01 01 0E 03 64 50=. State 6 Red's byte +5 is zero after
+completion. State 1 shows the same Red infantry before moving onto the city;
+state 3 shows the Blue infantry before moving onto its city. Source save-state
+hashes and coherent RAM/screenshot capture hashes are retained in the research
+session manifest at =/tmp/aw2-city-red-blue-research/manifest.json=; the source
+save states remain outside the repository.
+
+*** Red/Blue city transfers and Red factory capture
+Seven newer states on the same =19x10= map show Red taking a Blue city, Blue
+taking a Red city, and Red taking a Blue factory. The sampled property-list
+records and terrain/owner grid agree at every checkpoint, and each completed
+capture also changes the graphical tile ID. The states are successive turns;
+checkpoints between a partial capture and completion are not all adjacent.
+
+| Target property | States and unit record | Capture progress | Property/grid before -> after | Tile ID before -> after |
+|-----------------+-----------------------+------------------+-----------------------------+-------------------------|
+| Blue city =(14,3)=, entry 4 | =ss2= -> =ss3=; Red =0x0202269C= | 15 points (=0x78=) -> 0 on completion | Blue =0x46= -> Red =0x26= | 460 -> 455 |
+| Red city =(4,6)=, entry 9 | =ss4= -> =ss6=; Blue =0x02022990= | 10 points (=0x50=) -> 0 on completion | Red =0x26= -> Blue =0x46= | 455 -> 460 |
+| Blue factory =(15,1)=, entry 0 | =ss5/ss6= -> =ss7=; Red =0x0202269C= | 15 points (=0x78=) -> 0 on completion | Blue =0x4E= -> Red =0x2E= | 459 -> 454 |
+
+The Red infantry is already standing on the Blue city with 15 points in =ss2=;
+the ownership transfer is present in =ss3=. The Blue infantry is at the Red
+city with 10 points in =ss4=; by =ss6= the property is Blue-owned and its unit
+capture value has reset. Red's factory capture is at 15 points in both =ss5=
+and =ss6=, with the factory still Blue-owned, then completes in =ss7=. For all
+three captures, the matching property's first byte and map terrain/owner byte
+change together while the property coordinates remain fixed. These samples
+verify city ownership transfer in both directions and one factory transfer;
+they do not establish that every property class uses identical capture rules.
+
+The source-state hashes, frames, and coherent EWRAM/IWRAM and screenshot hashes
+are recorded in =/tmp/aw2-red-blue-factory-research/manifest.json=. The save
+states and captured memory artifacts remain outside the repository.
+
+*** Blue factory capture and Red HQ capture
+Seven checkpoints show Blue capturing a Red factory, then Red capturing the
+Blue HQ and winning the battle. The city/factory/HQ property entries and map
+terrain/owner bytes remain in agreement.
+
+| State | Frame | Capture target and unit | Unit byte +5 / points | Property raw / owner | Tile ID | Observation |
+|-------+-------+------------------------+-----------------------+---------------------+---------+-------------|
+| =ss1= | 578389 | Blue infantry at =(4,6)= before moving to Red factory =(3,8)= | =0x00= / 0 | =0x2E= / Red | 454 | Before Blue capture |
+| =ss2= | 579049 | Blue, =0x02022990=, at =(3,8)= | =0x50= / 10 | =0x2E= / Red | 454 | Partial capture |
+| =ss3= | 579697 | Blue, =0x02022990=, capture complete | =0x00= / 0 | =0x4E= / Blue | 459 | Factory ownership changes |
+| =ss4= | 580401 | Red infantry, =0x0202269C=, at Blue HQ =(16,2)= | =0x78= / 15 | =0x48= / Blue | 458 | HQ capture in progress |
+| =ss5= | 581151 | Red HQ capture completes | =0x00= / 0 | =0x28= / Red | 453 | HQ ownership changes |
+| =ss6= | 581207 | Post-capture map view | — | =0x28= / Red | 453 | Ownership remains Red |
+| =ss7= | 581304 | Victory screen | — | =0x28= / Red | 453 | Red wins after HQ capture |
+
+The Blue factory is property entry 13. Its first byte changes from =0x2E= to
+=0x4E= at state 3; both values encode factory terrain (=0x0E=), with owner
+changing Red (1) to Blue (2). Its tile ID changes from 454 to 459. Blue's
+infantry record at =0x02022990= shows 10 capture points (byte +5 = =0x50=) in
+state 2, then resets at completion.
+
+The Blue HQ is property entry 2 at =(16,2)=. Its byte changes from =0x48= to
+=0x28= at state 5, changing the owner from Blue (2) to Red (1) while retaining
+HQ terrain (=0x08=); the tile ID changes from 458 to 453. Red's infantry record
+at =0x0202269C= has 15 capture points (byte +5 = =0x78=) in state 4 and zero
+after the ownership change. The final three checkpoints show the captured HQ
+persisting through the post-capture map view and into the Victory screen. This
+confirms the observed ordering of HQ ownership update before the result screen;
+the checkpoints do not resolve the exact intervening frame or victory callback.
+
+Source-state hashes, frame numbers, and coherent EWRAM/IWRAM and screenshot
+hashes are recorded in =/tmp/aw2-blue-factory-red-hq-research/manifest.json=.
+Save states and memory artifacts remain outside the repository.
+
+*** Blue captures Red HQ
+Six additional checkpoints show Blue taking Red's HQ at =(2,7)= and winning.
+The HQ is property entry 11. At frame =591098=, Blue infantry record
+=0x02022990= is on the HQ with byte +5 = =0x50= (10 accumulated capture
+points); the property and terrain/owner bytes are still Red's =0x28= and the
+tile is 453. At frame =591606=, the record's capture points have reset to zero,
+both property and terrain/owner bytes are Blue's =0x48=, and the tile is 458.
+The HQ terrain class stays =0x08=, while its owner changes from 1 (Red) to 2
+(Blue). This is direct evidence that the property list and terrain grid update
+together for Blue capturing Red's HQ.
+
+The remaining checkpoints at frames =591660= and =591712= keep the HQ Blue-owned
+through the capture animation. The Victory screen appears at frame =591778=,
+172 frames after the first captured-state checkpoint. Thus the snapshots bound
+the ownership update before the Victory screen, but do not identify the exact
+frame or routine that triggers the result.
+
+Source-state hashes, frames, and coherent RAM/screenshot hashes for this
+comparison are in =/tmp/aw2-blue-hq-capture-research/manifest.json=.
+
+*** Red and Blue airport and port captures
+Nine save states from one =31x16= map show each army capturing a neutral airport
+and a neutral port. At partial capture, the property and terrain/owner bytes
+remain neutral; on completion, both change to the capturing army's owner code.
+The corresponding graphical tile changes to that army's variant.
+
+| Army/property | Coordinate; property index | Unit record | Partial checkpoint | Completion checkpoint | Neutral -> owned byte; tile |
+|---------------+--------------------------+-------------+--------------------+------------------------+---------------------------|
+| Red port | =(13,8)=; 23 | =0x020226B4= | =ss2=, frame 42979, =0x50= / 10 points | =ss7=, frame 45659, zero progress | =0x0B -> 0x2B=; 452 -> 457 |
+| Red airport | =(13,10)=; 33 | =0x020226F0= | =ss3=, frame 43153, =0x50= / 10 points | =ss6=, frame 45451, zero progress | =0x0A -> 0x2A=; 451 -> 456 |
+| Blue port | =(18,5)=; 16 | =0x020229E4= | =ss4=, frame 43755, =0x50= / 10 points | =ss8=, frame 46292, zero progress | =0x0B -> 0x4B=; 452 -> 462 |
+| Blue airport | =(19,3)=; 5 | =0x0202299C= | =ss5=, frame 43945, =0x50= / 10 points | =ss9=, frame 46459, zero progress | =0x0A -> 0x4A=; 451 -> 461 |
+
+The partial checkpoints retain the neutral property byte and neutral tile
+variant; at completion the four-byte entry's first byte equals the terrain
+grid byte, and the coordinates remain unchanged. Low five bits identify the
+terrain class (airport =10=, port =11=); upper bits encode owner (neutral =0=,
+Red =1=, Blue =2=). This extends observed owner transitions beyond cities,
+factories, and HQs to both airports and ports, for both Red and Blue.
+
+Frames, source-state hashes, and coherent RAM/screenshot hashes are recorded
+in =/tmp/aw2-airport-port-capture-research/manifest.json=.
+
+*** Blue captures Red-owned airport and port
+Five further states on the same =31x16= map show Blue capturing Red's airport
+and port. Unlike the preceding neutral-property captures, these transitions
+start with owner code 1 and finish with owner code 2.
+
+| Property | Coordinate; entry | Unit record | Partial state/frame/progress | Completion state/frame | Owner byte; tile change |
+|----------+------------------+-------------+------------------------------+------------------------+------------------------|
+| Red airport -> Blue | =(6,12)=; 41 | =0x020229C0= | =ss2= / 53083 / =0x50= (10) | =ss3= / 54116 / zero | =0x2A -> 0x4A=; 456 -> 461 |
+| Red port -> Blue | =(7,11)=; 35 | =0x020229C0= | =ss4= / 52967 / =0x50= (10) | =ss5= / 53755 / zero | =0x2B -> 0x4B=; 457 -> 462 |
+
+At the partial checkpoints the property entries and terrain grid still contain
+the Red-owned bytes, and the Red graphical variants remain. At completion both
+representations change to Blue ownership and the tile ID changes; terrain class
+and coordinates are preserved. These results verify airport and port capture
+transitions from an opponent owner as well as from neutral ownership.
+
+The source-state hashes, frames, and coherent RAM/screenshot hashes are recorded
+in =/tmp/aw2-blue-red-airport-port-research/manifest.json=.
+
+*** Red captures Blue-owned airport and port
+Five more states from the same =31x16= map show Red capturing a Blue-owned
+airport and port. Both transitions start with owner code 2 and complete with
+owner code 1, complementing the Blue captures of Red-owned properties above.
+
+| Property | Coordinate; entry | Unit record | Partial state/frame/progress | Completion state/frame | Owner byte; tile change |
+|----------+------------------+-------------+------------------------------+------------------------+------------------------|
+| Blue airport -> Red | =(26,9)=; 30 | =0x020226E4= | =ss2= / 54092 / =0x50= (10) | =ss3= / 54759 / zero | =0x4A -> 0x2A=; 461 -> 456 |
+| Blue port -> Red | =(23,10)=; 34 | =0x020226E4= | =ss4= / 54130 / =0x50= (10) | =ss5= / 54848 / zero | =0x4B -> 0x2B=; 462 -> 457 |
+
+The property table and terrain grid retain the Blue-owned byte at each partial
+checkpoint. On completion they both change to the Red-owned byte, the terrain
+class and coordinates stay fixed, and the graphical tile changes to Red's
+variant. This completes the observed bidirectional Red/Blue ownership
+transitions for airports and ports on this map.
+
+Source-state hashes, frames, and coherent RAM/screenshot hashes are recorded
+in =/tmp/aw2-red-blue-airport-port-research/manifest.json=.
+
+*** Red and Blue base captures
+Six states on the =31x16= map show Red capturing a Blue-owned base and Blue
+capturing a Red-owned base. Each has a partial checkpoint at 10 points and a
+completion checkpoint. Property-list and terrain-grid owner bytes agree before
+and after each transition.
+
+| Capturer/property | Coordinate; entry | Unit record | Partial state/frame/progress | Completion state/frame | Owner byte; tile change |
+|-------------------+------------------+-------------+------------------------------+------------------------+------------------------|
+| Red captures Blue base | =(25,9)=; 29 | =0x020226E4= | =ss2= / 101317 / =0x50= (10) | =ss3= / 102060 / zero | =0x4E -> 0x2E=; 459 -> 454 |
+| Blue captures Red base | =(6,8)=; 22 | =0x020229C0= | =ss5= / 102443 / =0x50= (10) | =ss6= / 103098 / zero | =0x2E -> 0x4E=; 454 -> 459 |
+
+At each partial checkpoint, the base remains owned by its original army and
+the tile retains that army's variant. At completion, both the property entry's
+first byte and the terrain grid byte switch to the capturing army, the tile ID
+switches to its variant, and unit byte +5 clears. The base terrain class remains
+=14= and its coordinates remain unchanged. This verifies bidirectional Red/Blue
+base ownership transitions in addition to the other capturable property types.
+
+Source-state hashes, frames, and coherent RAM/screenshot hashes are recorded
+in =/tmp/aw2-base-capture-research/manifest.json=.
+
 *** Partial captures and observed completion
 At restoration, screenshots show capture points remaining of 5, 10, and 10.
 The corresponding infantry records have accumulated values 15, 10, and 10
@@ -730,8 +948,11 @@ and identical map/property arrays. The city stays neutral (=0x06=, tile
 sampled =0x02022684:3072= unit region, the sole differing byte is
 =0x02022695=: zero for Wait, =0x20= for Capture. This isolates four accumulated
 capture points from the movement, fuel, and action changes shared by both
-branches. It verifies this displayed-4-HP infantry case; Mechs, other CO capture
-modifiers, interruptions, and a general damage-to-capture formula need more checks.
+branches. It verifies this displayed-4-HP Infantry case and independently
+agrees with the user's reported one-point-per-HP rule. The user also confirms
+the Mech rate, Sami's 1.5 multiplier and Super CO Power capture behavior, and
+that moving or firing resets progress. Those additional rules are gameplay
+observations, not results of this paired RAM experiment.
 
 *** Reproduction and evidence
 All scripts, checkpoints, screenshots, RAM, and results are external at
@@ -778,9 +999,11 @@ completions, and the one-byte Capture/Wait unit-region difference.
 *** Remaining questions
 - Resolve army/player-slot reassignment and teams separately; this default
   four-army configuration does not establish those mappings.
-- Verify interrupted/reset capture, Mechs, other capture modifiers, and
-  airport/port/base/HQ/lab capture variants. Green/yellow airport and port
-  encodings have not been directly observed here.
+- Capture rate, Mech behavior, CO modifiers, move/fire reset, and airport/port
+  and base transitions are now covered by user-confirmed gameplay rules and/or
+  later controlled property captures. Labs remain Campaign-only and unobserved.
+  Green/yellow airport and port encodings were not observed in this four-army
+  dataset.
 - Unknown property/capture bits, allocation limits, inactive/deleted records,
   full 92-slot behavior, general unit identity/resolution, lifecycle validity,
   frontend parity, and Python decoder implementation retain their earlier gaps.
@@ -1005,7 +1228,7 @@ ROM/map agreement, all property entries, cursor positions, and turn/funds sample
 
 *** Remaining questions
 - Campaign labs remain unobserved. Seam destruction, silo damage/reuse,
-  capture variants, allocation limits, unknown fields, unit resolution,
+  allocation limits, unknown fields, unit resolution,
   lifecycle generalization, and frontend parity retain their earlier gaps.
 - This finding adds verified observations, without implementing the Python decoder.
 
