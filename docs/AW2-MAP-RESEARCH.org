@@ -1502,6 +1502,10 @@ reassigned colors, shared teams, other maps, or a general CO-ID mapping.
   holds =1/0/2= for the same Andy/Nell/Max sequence. The record byte
   =R(1)+0x1D= stays =1= in all three setup checkpoints, including Nell and Max;
   it reflects the selected CO after battle initialization in these samples.
+- Controlled changes for slots 2–4 verify the same settled-battle offset
+  =R(k)+0x1D= for each slot. Their setup-screen selection bytes also follow a
+  one-byte-per-slot pattern at =0x02017C6C + (k-1)=, but their values do not
+  all match the settled CO IDs; see the slot comparison finding below.
 - Team assignments remain A/B/C/D across this CO-selection batch. The separate
   team-assignment comparison below identifies the setup-screen array.
 
@@ -1531,9 +1535,9 @@ The six source states, full RAM captures, screenshots, and =focused-findings.jso
 are external at =/tmp/aw2-four-player-co-research/=. The report SHA-256 is
 =85f7717ba4a739eaf274f72645601fbcfe4bea2c6f1f50824473a2e6fdd31780=.
 The source states were not modified. This verifies the settled CO byte for
-slot 1 and supports the four observed CO IDs; setup-side fields for slots 2–4
-and all other player slots remain unverified. The setup team field is identified
-in the next finding, while its battle-side representation remains unverified.
+slot 1 and supports the four observed CO IDs. Other slots are tested in the
+controlled comparison below. The setup team field is identified in the next
+finding, while its battle-side representation remains unverified.
 
 * Finding: team assignment bytes on the Teams setup screen
 
@@ -1585,3 +1589,284 @@ match-state data, which are not treated as part of this four-byte array.
 - Establish the runtime team/alliance field and its encoding in battle state.
 - Test whether the setup array uses the same player-slot ordering under
   reordered colors or fewer active players.
+
+* Finding: CO selection fields for player slots 2–4
+
+** Claim and scope
+- Status: settled-battle CO field verified for slots 2–4 in a controlled
+  selection change to Nell; setup-side per-slot candidate bytes are identified
+  and verified to change with those selections.
+- In the settled battle, the selected CO ID is stored at =R(k)+0x1D= for each
+  tested slot, where =R(k)=0x02023284 + 60*k=. The resulting addresses are
+  slot 2 =0x02023319=, slot 3 =0x02023355=, and slot 4 =0x02023391=.
+- On the Teams setup screen, changing only slot 2, 3, or 4 to Nell changes
+  respectively =0x02017C6D=, =0x02017C6E=, or =0x02017C6F= from its original
+  value to =0=. Together with the previously identified slot-1 byte at
+  =0x02017C6C=, this supports a four-byte per-slot setup selection array.
+- Setup values should not yet be treated as universal settled CO IDs. In these
+  baseline selections, setup values for Sami and Flak are =3= and =14=, while
+  their settled battle CO IDs are =4= and =11=. A follow-up Hachi comparison
+  below also observes setup value =4= mapping to battle ID =15= in slots 2–4,
+  confirming that setup values are not a universal copy of the battle ID.
+
+** Controlled states and results
+The eight states form a baseline setup/battle pair and three controlled
+setup/battle pairs. Each controlled setup changes one player's CO to Nell;
+the other CO selections, teams A/B/C/D, colors, map, and rules remain fixed.
+In each battle pair, only the changed player's settled CO byte changes to =0=.
+
+| Slot | State pair | CO change | Setup byte before → after | Battle byte before → after | Other settled CO IDs |
+|------+------------+-----------+---------------------------+----------------------------+----------------------|
+| 2 | =ss1/ss2= → =ss3/ss4= | Max → Nell | =0x02017C6D: 2 → 0= | =0x02023319: 2 → 0= | =1/4/11= |
+| 3 | =ss1/ss2= → =ss5/ss6= | Sami → Nell | =0x02017C6E: 3 → 0= | =0x02023355: 4 → 0= | =1/2/11= |
+| 4 | =ss1/ss2= → =ss7/ss8= | Flak → Nell | =0x02017C6F: 14 → 0= | =0x02023391: 11 → 0= | =1/2/4= |
+
+The setup comparisons also change =0x02017C82=, which tracks the focused
+player selection (values =1/2/3= in the slot-2/3/4 Nell states); it is not
+part of the per-slot CO array. The matched battle records leave the other
+three CO bytes unchanged, isolating the changed slot's =+0x1D= byte.
+
+** Reproduction and evidence
+- Date: 2026-10-23. ROM SHA-256:
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- Eight states were restored and dumped using the pinned headless mGBA bridge.
+  Screenshots, full EWRAM/IWRAM captures, and the manifest are in
+  =/tmp/aw2-co-other-slots-research/=. The supplied save states were not
+  modified.
+- Source state SHA-256 values: =ss1= =01dcd001108c68baedffdcc13bfc44a7f675ab27a0d3c65c1c8564096a731d72=;
+  =ss2= =38ca7f60d45649faba500859b7acbc8cc6d52562611af9ad2b959c60119d254a=;
+  =ss3= =75fce988bdec77ded1c1cfbb7977d03ed29a9dd58946e0e363bab24da6e4e00e=;
+  =ss4= =bb57e2a5e30dc405264e2b5f95d7fca13f196a7ebfa8d189d523cfbaf934e210=;
+  =ss5= =86e8205348159de7fb83ff245d3994efac8f2f601017701c05e59a673bd31bb2=;
+  =ss6= =34062f2ae9c7d2e759b2f849560fa510dd1b1d4cc1aa7418f7ef9b5176c38290=;
+  =ss7= =10ad3d4c1e651e1bb600ee09f2397f62889003154a47479c17edc5c500a18462=;
+  =ss8= =54c132c0f7675dc89b5d5e6e7ac086b339c7ece9ffac6d92f7712c3a4c2012ba=.
+
+** Remaining questions
+- The full CO roster is now mapped in slot 1. Additional selections in slots
+  2–4 are only needed to test for slot-specific setup-value conversions.
+- Repeat the controlled changes for other slots or configurations if the
+  player-record stride or selection-array layout differs outside this battle.
+
+* Finding: Hachi selection values in player slots 2–4
+
+** Claim and scope
+- Status: verified for the same selected CO in slots 2, 3, and 4 across three
+  matched setup/battle pairs.
+- The selected portrait/name is Hachi in each setup checkpoint. The per-slot
+  setup byte is =4=, while the settled battle record byte at =R(k)+0x1D= is
+  =15=. Other slots retain their baseline CO IDs. This confirms that the
+  per-slot setup array at =0x02017C6C..0x02017C6F= and settled battle CO bytes
+  use different numeric values for this CO.
+
+** Controlled states and results
+Baseline =ss1/ss2= has Andy, Max, Sami, and Flak. Each later pair changes only
+one selected CO to Hachi, with the same A/B/C/D teams, colors, map, and rules.
+
+| Slot | State pair | Setup byte | Settled byte | Other settled CO IDs |
+|------+------------+------------+--------------+----------------------|
+| 2 | =ss3/ss4= | =0x02017C6D= =4= | =0x02023319= =15= | =1/4/11= |
+| 3 | =ss5/ss6= | =0x02017C6E= =4= | =0x02023355= =15= | =1/2/11= |
+| 4 | =ss7/ss8= | =0x02017C6F= =4= | =0x02023391= =15= | =1/2/4= |
+
+The selected-player cursor byte at =0x02017C82= is =1/2/3= in the slot-2/3/4
+setup checkpoints and is separate from the selection array. Across each battle
+pair, the other three settled CO bytes remain at their baseline values.
+
+** Reproduction and evidence
+- Date: 2026-10-23. ROM SHA-256:
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- Eight states were restored and dumped using the pinned headless mGBA bridge.
+  Screenshots, full EWRAM/IWRAM captures, and the manifest are in
+  =/tmp/aw2-co-more-choices-research/=. The source states were not modified.
+- Source state SHA-256 values: =ss1= =01dcd001108c68baedffdcc13bfc44a7f675ab27a0d3c65c1c8564096a731d72=;
+  =ss2= =38ca7f60d45649faba500859b7acbc8cc6d52562611af9ad2b959c60119d254a=;
+  =ss3= =7a7bbb15019e01846f7c86f7990d615220a6d6eff1ae3dbf8ed04d84c9310be4=;
+  =ss4= =67835660589ddf16913943ef2ea30d2c76327a358d2063b889ca40abea1e4cb6=;
+  =ss5= =e1d2f0095a42578d0dc67d0ccbb05b0c3e7589cfad825890e6a9d7fa25f0edda=;
+  =ss6= =5006822e5fff725e8ce583bfb10525cf75d5961a0ff707d98a3076ed147ba022=;
+  =ss7= =dde1b0a70e94269f3fbe6a5d000f706e8fe0f35f4f3160985cfe26e2fa9782a1=;
+  =ss8= =7eaccd4d8f6784bbe94dc1ef1253519612b0fff90d7ccf553f4b231c24daf73f=.
+
+** Remaining questions
+- Compare more COs in slots 2–4 to map setup selection values to settled CO
+  IDs and determine whether the conversion depends on player slot.
+
+* Finding: Grit selection values in player slots 2–4
+
+** Claim and scope
+- Status: verified for Grit in slots 2, 3, and 4 across three matched
+  setup/battle pairs.
+- In each setup checkpoint the selected player's byte in the per-slot setup
+  array is =6=. In the corresponding settled battle, that player's CO byte at
+  =R(k)+0x1D= is =5=. Other slots retain their baseline CO IDs. Combined with
+  the Hachi comparison above, this further confirms that setup selection
+  values are not copies of settled battle CO IDs.
+
+** Controlled states and results
+Baseline =ss1/ss2= has Andy, Max, Sami, and Flak. Each later pair changes only
+one selected CO to Grit, with the same A/B/C/D teams, colors, map, and rules.
+
+| Slot | State pair | Setup byte | Settled byte | Other settled CO IDs |
+|------+------------+------------+--------------+----------------------|
+| 2 | =ss3/ss4= | =0x02017C6D= =6= | =0x02023319= =5= | =1/4/11= |
+| 3 | =ss5/ss6= | =0x02017C6E= =6= | =0x02023355= =5= | =1/2/11= |
+| 4 | =ss7/ss8= | =0x02017C6F= =6= | =0x02023391= =5= | =1/2/4= |
+
+The setup cursor byte at =0x02017C82= is =1/2/3= in the slot-2/3/4 states
+and is separate from the per-slot CO selection bytes. The other three settled
+CO bytes remain at baseline values in each corresponding battle comparison.
+
+** Reproduction and evidence
+- Date: 2026-10-23. ROM SHA-256:
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- Eight states were restored and dumped using the pinned headless mGBA bridge.
+  Screenshots, full EWRAM/IWRAM captures, and the manifest are in
+  =/tmp/aw2-grit-research/=. The supplied save states were not modified.
+- Source state SHA-256 values: =ss1= =01dcd001108c68baedffdcc13bfc44a7f675ab27a0d3c65c1c8564096a731d72=;
+  =ss2= =38ca7f60d45649faba500859b7acbc8cc6d52562611af9ad2b959c60119d254a=;
+  =ss3= =7023276aa5da6b68a2efcd7d1a7034a5f916b9426a02c517024c37264d78c96a=;
+  =ss4= =8aa38843f7555ecca9bec90968ba0c497873a284f73ba481ed42446015582832=;
+  =ss5= =524bcb183b996404afca38ae6e82ec2f3828851f70c1d6bbb8cf74d0cfc1557a=;
+  =ss6= =29a615037cf4333565e47277b9616b6c6d28f253a5f0dedfe89d93fb9aec38a2=;
+  =ss7= =2045b23841f188948052ca336063cb06185c44c0dce031e28d89afdaac13b63a=;
+  =ss8= =3eacbd7215ca29ea42609548cef6195599b8721a3a268ce179ead7ba2fa09e1e=.
+
+** Remaining questions
+- Compare additional COs in slots 2–4 to map more setup values to settled
+  battle IDs and determine whether the conversion depends on player slot.
+
+* Finding: additional CO setup and battle IDs in slot 1
+
+** Claim and scope
+- Status: verified for Olaf, Colin, Kanbei, and Sonja in player slot 1 using
+  four matched setup/battle states.
+- The setup selection byte at =0x02017C6C= and the settled battle CO byte at
+  =0x020232DD= change together with the visible selected CO. The other three
+  player records retain their CO bytes. These results add four more
+  setup-value-to-battle-ID mappings for slot 1.
+
+** Controlled states and results
+All states preserve slots 2–4 as Max, Sami, and Flak, with the same A/B/C/D
+teams, colors, map, and rules. =ss1/ss2= is the Olaf baseline; each later pair
+changes only slot 1's selected CO.
+
+| State pair | CO | Setup byte =0x02017C6C= | Battle byte =0x020232DD= | Other settled CO IDs |
+|------------+----+--------------------------+-------------------------+----------------------|
+| =ss1/ss2= | Olaf | =5= | =3= | =2/4/11= |
+| =ss3/ss4= | Colin | =7= | =16= | =2/4/11= |
+| =ss5/ss6= | Kanbei | =8= | =6= | =2/4/11= |
+| =ss7/ss8= | Sonja | =9= | =7= | =2/4/11= |
+
+Across each battle comparison, the only changed byte in the four player
+records is slot 1's =+0x1D= CO byte. Across the setup comparisons, the only
+changed byte in the relevant selection-array region is slot 1's byte at
+=0x02017C6C=.
+
+** Reproduction and evidence
+- Date: 2026-10-23. ROM SHA-256:
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- Eight states were restored and dumped using the pinned headless mGBA bridge.
+  Screenshots, full EWRAM/IWRAM captures, and the manifest are in
+  =/tmp/aw2-four-co-research/=. The source states were not modified.
+- Source state SHA-256 values: =ss1= =b73cc72d72bce51332e7fdbc3d03f324a755ba2fa6a659877bf051811ab81ad4=;
+  =ss2= =6a74acd0d1cbdbd28de4b386a451c3f43c0709dec4061df60acd7ac6e31be098=;
+  =ss3= =40a0e4ca765e001ce9615e650f59104a05e5cd1ebc49922976493ce89d8181a9=;
+  =ss4= =eafad748651e1f3c983175eebb28225bd076a662829b972fca0b2365531995ee=;
+  =ss5= =f46a852ae0248f5a3bfff16880e2a4dd80a69cc4b97fe385b062916851eb9212=;
+  =ss6= =2c6b2577ac51146348c97188596490c2268009ccff1bd64885740ade24af3ee3=;
+  =ss7= =662709fc6a27b0fd909e31d40c8ed0b1f4265e16669a15ab13d8b1dbf079a8ed=;
+  =ss8= =7c146e210081e16d0d880ee894cf69132fb483653944685cc6f86967a1fa3b72=.
+
+** Remaining questions
+- All COs are now mapped in slot 1; the current other-slot tests cover Nell,
+  Hachi, and Grit. More other-slot checks are optional unless they show a
+  different setup-value conversion.
+
+* Finding: Sensei, Eagle, Drake, and Jess CO values in slot 1
+
+** Claim and scope
+- Status: verified for four additional COs in player slot 1 with matched
+  Teams-screen and settled-battle states.
+- Each selected CO changes slot 1's setup byte at =0x02017C6C= and settled
+  battle byte at =0x020232DD=. Slots 2–4 remain Max, Sami, and Flak, and their
+  settled CO bytes remain =2/4/11= in all four battles.
+
+** Controlled states and results
+The four setup/battle pairs retain the same teams, colors, map, rules, and
+other CO selections; only slot 1's CO changes.
+
+| State pair | CO | Setup byte =0x02017C6C= | Battle byte =0x020232DD= | Other settled CO IDs |
+|------------+----+--------------------------+-------------------------+----------------------|
+| =ss1/ss2= | Sensei | =10= | =18= | =2/4/11= |
+| =ss3/ss4= | Eagle | =11= | =8= | =2/4/11= |
+| =ss5/ss6= | Drake | =12= | =9= | =2/4/11= |
+| =ss7/ss8= | Jess | =13= | =17= | =2/4/11= |
+
+Compared with the Sensei battle, the only changed byte in the slot-1 player
+record is =+0x1D= for Eagle, Drake, and Jess. The setup comparison changes
+slot 1's selection byte while the other three bytes in the per-slot CO array
+remain =2/3/14=.
+
+** Reproduction and evidence
+- Date: 2026-10-23. ROM SHA-256:
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- Eight states were restored and dumped using the pinned headless mGBA bridge.
+  Screenshots, full EWRAM/IWRAM captures, and the manifest are in
+  =/tmp/aw2-ge-yc-co-research/=. Source states were not modified.
+- Source state SHA-256 values: =ss1= =92c518d2953e05f73a947f9769f789e484382baab893a799ccc5666c404b7b34=;
+  =ss2= =205e9b55aee5245cee08390fc6148a6d16cfd8b5e70c4fdf41d900aa013a64d0=;
+  =ss3= =7bc68564a25b401f349628a2239e94c0b4c33d07145dd372e4087be0bdbca931=;
+  =ss4= =933faf390a7bfea03f38cdf4497f425b552d4f3c96557f117f123db3a74e0d62=;
+  =ss5= =f355c89b6c6cccb659e32140a28a798fc134aed8e503c78086ce61cb12a2f447=;
+  =ss6= =e33779fbef2b9cf7c31beff3b7a2c0704e11f25df446e66e70d168a977a1a67d=;
+  =ss7= =6292e95b3690a9185fd5a6b7165c0db340fdd3d2ed7694cbe553439015fc8290=;
+  =ss8= =a44d24152e4e345f1f60ca9f6c19d33c3806e22018610687e0a831931d1172eb=.
+
+** Remaining questions
+- The complete roster's setup and settled-battle IDs are mapped in slot 1.
+- Test additional slots only if fuller cross-slot coverage is desired or a
+  slot-specific CO selection conversion is suspected.
+
+* Finding: Lash, Adder, Hawke, and Sturm CO values in slot 1
+
+** Claim and scope
+- Status: verified for the four remaining COs in player slot 1 using matched
+  Teams-screen and settled-battle states.
+- Their setup bytes at =0x02017C6C= and settled CO IDs at =0x020232DD= are
+  respectively Lash =15 -> 12=, Adder =16 -> 13=, Hawke =17 -> 14=, and
+  Sturm =18 -> 10=. Slots 2–4 remain Max, Sami, and Flak, with settled CO IDs
+  =2/4/11= in each battle.
+
+** Controlled states and results
+The four setup/battle pairs preserve slot order, teams, colors, map, rules,
+and the other CO selections. Only slot 1's CO changes.
+
+| State pair | CO | Setup byte =0x02017C6C= | Battle byte =0x020232DD= | Other settled CO IDs |
+|------------+-----+--------------------------+-------------------------+----------------------|
+| =ss1/ss2= | Lash | =15= | =12= | =2/4/11= |
+| =ss3/ss4= | Adder | =16= | =13= | =2/4/11= |
+| =ss5/ss6= | Hawke | =17= | =14= | =2/4/11= |
+| =ss7/ss8= | Sturm | =18= | =10= | =2/4/11= |
+
+Across each battle comparison, only the slot-1 player-record CO byte at
+=+0x1D= changes; the other player CO bytes remain fixed.
+
+** Reproduction and evidence
+- Date: 2026-10-23. ROM SHA-256:
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- Eight states were restored and dumped using the pinned headless mGBA bridge.
+  Screenshots, full EWRAM/IWRAM captures, and the manifest are in
+  =/tmp/aw2-blackhole-co-research/=. Source states were not modified.
+- Source state SHA-256 values: =ss1= =a9a9bd470b89de2dade5546ae62e26b5531730b7eaabe9c1286706e4cdccc998=;
+  =ss2= =a412d0ef417b74a521e273d21258c6331f3a878d2d455cb790d40cbc4980a593=;
+  =ss3= =877dceef320082a22581d5f6dffe6c6df8ae6f4cb6ce1eaf148b5c565c3e49a8=;
+  =ss4= =086eb28b23581dc50f61b3fc0f9a07c23e1d2469bf0bd390ba220cc485d2eb5d=;
+  =ss5= =50a7c03f03844f480463f807dfc901b450250c86aabef34e1051ae569b1547af=;
+  =ss6= =fd9ca66a08e49d6a8e5be8e05b8bc7b411e2787fac92274eecdce88644951deb=;
+  =ss7= =a8f606352d82debc853f9f3a3fcfcba2ca87b525eb8110ae41c0114e5a57c8c5=;
+  =ss8= =404d6e08cf79a580f0e35cce4c5706524230adbabc2c472dd49ee22e623e46a6=.
+
+** Remaining questions
+- The slot-1 setup-to-battle mapping is now recorded for all 19 COs. Additional
+  checks in slots 2–4 would test whether every CO uses the same mapping there.

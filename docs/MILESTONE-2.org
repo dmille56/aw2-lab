@@ -175,8 +175,13 @@
      verifies the settled CO byte for slot 1 and its values for Andy, Nell, and
      Max. The [[file:AW2-MAP-RESEARCH.org::*Finding: team assignment bytes on the Teams setup screen][team setup comparison]] identifies one assignment byte per player
      at =0x02017C61..0x02017C64=, encoding teams A–D as 0–3 in the tested
-     configurations. Confirm its runtime representation, the CO byte for other
-     slots, reassigned colors, other player fields, and power-meter semantics.
+     configurations. [[file:AW2-MAP-RESEARCH.org::*Finding: CO selection fields for player slots 2–4][Controlled CO changes for slots 2–4]] verify the settled CO field at
+     =R(k)+0x1D= and identify setup selection bytes at =0x02017C6D..0x02017C6F=;
+     Hachi and Grit comparisons map setup values =4= and =6= to settled IDs
+     =15= and =5= respectively in slots 2–4. Slot-1 comparisons now map setup
+     values to settled IDs for all 19 COs. Confirm the team's
+     runtime representation, reassigned colors, other player fields, and
+     power-meter semantics.
    - [ ] Identify players, armies, teams, and COs.
    - [ ] Decode funds, day, and active player.
    - [ ] Investigate weather, power meters, and active powers; expose only verified values.
