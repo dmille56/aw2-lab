@@ -120,12 +120,20 @@
      add 107 observations covering two-army results, power activation, the
      save-progress prompt, and return to menus with retained battle data.
      General outcome/team rules and runtime classification remain unfinished.
+     A new HQ-capture sequence follows the post-capture map through victory,
+     winner quote, result summary, save prompt, and map selection; it also shows
+     the defeated marker and battle callback pair can coexist before the
+     victory presentation begins.
    - [ ] Identify title screens, menus, battle states, and transitions.
    - [ ] Establish when battle structures are valid to interpret.
    - [ ] Identify battle completion and outcome when validated.
    - [ ] Verify that non-battle and transitional memory is not interpreted as a valid battle.
 
 ** TODO Decode map and property state
+   - Research progress: [[file:AW2-MAP-RESEARCH.org::*Finding: HQ capture completes the battle and changes ownership][HQ capture comparison]] verifies an
+     HQ owner change from Blue to Red in both the terrain grid and property
+     table, capture progress reset, and the opponent defeated marker set at
+     victory. Alternate armies, colors, and win conditions remain unverified.
    - [ ] Identify map dimensions and terrain layout.
    - [ ] Decode property locations, types, and ownership.
    - [ ] Decode capture progress and verify changes during capture.
@@ -151,9 +159,10 @@
      combat-linked changes in raw unit fields. A destruction/purchase sequence
      shows a destroyed unit's slot becoming empty, then a same-type purchase
      occupying an earlier empty slot while the destroyed slot stays empty.
-     This supports first-available-slot allocation in that example; full table
-     bounds, general reuse order, and coordinate/action/fuel fields remain
-     unresolved.
+     A second sequence reuses the newly freed slot while a later empty slot
+     remains unused. Together the cases support lowest-numbered empty-slot
+     allocation in the observed red block; full table bounds, other army
+     blocks, and coordinate/action/fuel fields remain unresolved.
    - Cargo progress: [[file:AW2-MAP-RESEARCH.org::*Finding: APC and Lander cargo relationships][APC/Lander snapshots]] support a one-based passenger slot reference in
      byte +7 for one red APC and one red Lander, including Lander unload/link
      clearing. A two-passenger Lander snapshot supports a second one-based

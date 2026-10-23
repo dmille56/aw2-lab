@@ -284,6 +284,42 @@ records individual artifact SHA-256 values; no ROM or memory dump is tracked.
 - Identify the property entry's fourth byte and the capture byte's lower bits.
   Establish battle validity and frontend parity in their separate milestone tasks.
 
+** Finding: HQ capture completes the battle and changes ownership
+
+*** Claim and scope
+- Date: 2026-10-23. Two checkpoints bracket completion of an HQ capture on
+  Sun Canal, a 15-by-13 map. At coordinate =(13,11)=, the terrain/owner byte
+  changes =0x48 -> 0x28=: terrain class 8 remains HQ while the owner code
+  changes from blue (2) to red (1). The matching property entry at
+  =0x030031B4= changes from =48 0D 0B 00= to =28 0D 0B 00=, and the graphical
+  tile ID changes =0x01CA -> 0x01C5=.
+- The unit record at =0x02022780= is type =0x02= at candidate coordinates
+  =(13,11)= in both checkpoints. Its byte +5 changes =0x51 -> 0x01=; the upper
+  five bits change from 10 capture points to zero, consistent with the
+  previously verified capture-progress field resetting on completion. This
+  extends that observation to the unit in this HQ capture, without establishing
+  all Mech/capture modifiers.
+- The opponent's defeated-marker halfword at =0x02023310= changes =0 -> 22=
+  at the same transition. The subsequent WIN/LOSE screen confirms Red's win
+  and Blue's loss for this match. The map/property change and marker are
+  directly observed; this single case does not establish every HQ-win rule.
+- See [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: HQ capture through victory and return to Versus maps][the lifecycle sequence]] for the
+  victory banner, winner quote, result summary, save prompt, and return to map
+  selection. Map and property arrays persist through those later screens.
+
+*** Reproduction and evidence
+The nine source states, full RAM dumps, and screenshots are external at
+=/tmp/aw2-hq-victory-research/=. =metadata.json= records state hashes,
+ROM/build/patch fingerprints, and sample frames. =focused-findings.json=
+contains the exact HQ, unit, player-marker, callback, and screenshot evidence;
+SHA-256
+=5dc7ad6f919324d4810c96e9c3f6320e9ab8491155d3078ed1bbb30da7a20265=.
+
+*** Remaining questions
+- Repeat on another map and army/color configuration. Check whether captures
+  of other players' HQs, properties, or other win conditions produce the same
+  defeated-marker and transition sequence.
+
 ** Finding: Five additional initial Versus maps
 
 *** Claim and status
@@ -1018,6 +1054,41 @@ screenshot hashes; SHA-256
 - Repeat with multiple destroyed units and purchases to determine slot
   selection order, whether an exact freed slot is reused when no earlier slot
   is free, and whether armies share or partition the record pool.
+
+** Finding: repeat destruction/purchase reuses the freed unit slot
+
+*** Claim and scope
+- Date: 2026-10-23. Three further checkpoints show an Infantry before combat,
+  after destruction, and after purchasing an Infantry. The red Infantry
+  record at =0x02022714= changes from
+  =01 00 0E 05 19 20 61 00 00 00 00 00= to
+  =00 01 0C 06 00 00 5E 00 00 00 00 00= after destruction, then to
+  =01 01 02 01 64 00 63 00 00 00 00 00= after purchase. The screenshots show
+  the Infantry disappear and a new Infantry appear at a base. Funds go from
+  =27500= to =26500= between the destruction and purchase checkpoints.
+- Slot 22 was already empty before the purchase and remains empty afterward.
+  The purchase uses slot 11, which had just been freed. In the earlier
+  destruction/purchase sequence above, slot 4 was the lowest empty slot and
+  was chosen over the newly freed slot 12. Across these two observed cases,
+  allocation is consistent with choosing the lowest-numbered empty record in
+  the observed red block. This is evidence for an ascending first-empty scan,
+  not proof of the policy for all armies, table bounds, or unusual states.
+- During the destruction transition, the enemy record at =0x020229A8= changes
+  at byte +4 from =0xBC= to =0xB2=, consistent with combat damage to the
+  target.
+
+*** Reproduction and evidence
+The three source states, full RAM dumps, and screenshots are external at
+=/tmp/aw2-unit-reuse-followup/=. =metadata.json= records source hashes,
+ROM/build/patch fingerprints, and sample frames. =focused-findings.json=
+contains exact records, the still-empty slot, funds shown in the screenshots,
+and screenshot hashes; SHA-256
+=42742f89916f329f493393482737b3bac35e66cd2a8aef0e39309cca5310d42a=.
+
+*** Remaining questions
+- Confirm the allocation rule with more occupied/empty slot patterns and the
+  other army blocks; determine whether a slot is ever reserved or reused under
+  special unit states.
 
 ** Finding: APC and Lander cargo relationships
 

@@ -580,3 +580,46 @@ source hashes. Its SHA-256 is
   and the complete lifecycle of +0x1F for more COs and turn transitions.
 - Reproduce the same Power and SUPER sequences for different COs, including
   settled effects and any unit changes, before generalizing the field values.
+
+* Finding: HQ capture through victory and return to Versus maps
+
+** Claim and scope
+- Date: 2026-10-23. Nine supplied checkpoints show the final HQ-capture
+  progress on Sun Canal, completed capture, victory presentation, winner quote,
+  WIN/LOSE summary, save-progress prompt, and return to Versus map selection.
+  The exact map/property and capture-field changes are documented in the
+  [[file:AW2-MAP-RESEARCH.org::*Finding: HQ capture completes the battle and changes ownership][HQ capture finding]].
+- Before completion, the opponent defeated marker at =R(2)+0x14= is zero. In
+  the post-capture map checkpoint it is =22=, the displayed day. That
+  checkpoint still has the battle callback pair =(0x08036945,0x080369BD)=.
+  The following victory banner, quote, result summary, save prompt, and
+  map-selection states use the screen callback pair
+  =(0x08036885,0x080368E9)=. The defeated marker and battle callbacks can both
+  be present before the victory presentation transition; neither field alone
+  identifies the visible phase.
+- The screenshots place the checkpoints in this order: map before HQ
+  ownership completes (=aw2.ss1=); post-capture map (=aw2.ss3=); VICTORY banner
+  (=aw2.ss4/ss5=); winner quote (=aw2.ss6/ss7=); WIN/LOSE summary
+  (=aw2.ss2=); save-progress prompt (=aw2.ss8=); Versus map selection
+  (=aw2.ss9=). The summary names Sun Canal and 22 days and displays Orange
+  Star WIN / Blue Moon LOSE.
+- Map arrays and the full sampled property table remain identical from the
+  post-capture map checkpoint through the later result, prompt, and menu
+  states. These bytes persist after the match has ended and must not be used
+  alone to classify an active battle.
+- This is one HQ-capture victory for one two-army Versus match. It does not
+  establish general team, multi-army, or alternate win-condition rules.
+
+** Reproduction and evidence
+All nine source states, RAM dumps, screenshots, and capture metadata are
+external at =/tmp/aw2-hq-victory-research/=. =focused-findings.json= records
+the ordered screen contexts, exact HQ/property/unit/player changes, callbacks,
+and screenshot hashes; SHA-256
+=5dc7ad6f919324d4810c96e9c3f6320e9ab8491155d3078ed1bbb30da7a20265=.
+Source save hashes remained unchanged.
+
+** Remaining questions
+- Check HQ-capture victories for another army/color setup and compare their
+  defeated markers, callback transitions, and result labels.
+- Verify how other win conditions and matches with more than two armies select
+  the winner and mark defeated players.
