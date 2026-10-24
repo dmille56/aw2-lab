@@ -228,8 +228,11 @@ correlated those cases with the memory fields.
   occur at =0x030031C0= and =0x030031CC= in the initial states. Original-ROM
   enumeration/readers at =0x08021B48=, =0x08021CB4=, and =0x0800C608= bound
   indexes to =0..0x5B= (92 slots); cap traversal at 92 even without a sentinel.
-  The original reader skips inactive entries with first byte zero; deletion and
-  a full 92-slot list were not exercised at runtime.
+  The original reader skips inactive entries whose first byte is zero. No
+  internal zero-valued entries were observed in the active portion of these
+  runtime tables. The user confirms that properties do not disappear during a
+  battle, so battle-time deletion/reuse is not an appropriate test. Ring Islands
+  has 85 active records followed by the sentinel and six zeroed slots.
 - The property entry's fourth byte was zero throughout this experiment and
   remains unknown. Do not identify it as capture progress.
 - The current-unit pointer can be stale: after the AI turn, it still referenced
@@ -583,9 +586,10 @@ samples. All supplied files retained their original SHA-256 values.
   not a maximum-size claim.
 - Labs, reefs, rivers/bridges, pipes/seams, silos, other unobserved terrain,
   additional owner codes, and alternate army/player configurations need evidence.
-- The property fourth byte, capture low bits, inactive/deleted entries, and
-  behavior with 92 active slots remain unresolved. This work adds no new capture
-  experiment beyond the earlier city experiment.
+- The property fourth byte, capture low bits, and behavior at the runtime table
+  bound remain unresolved. Properties persist during battle, so no deletion or
+  slot-reuse experiment is planned. This work adds no new capture experiment
+  beyond the earlier city experiment.
 - Battle-lifecycle validity, frontend parity, general unit resolution, and Python
   decoder implementation remain separate work.
 
@@ -680,16 +684,37 @@ Checks passed for 1,170 tiles, 88 properties, all 30 row offsets, nine cursor
 observations, and five visually checked landmarks. Across all eight researched
 maps, the initial tile/property comparisons now cover 3,480 cells and 330 records.
 
-*** User-reported editor and campaign map dimensions
+*** User-reported editor limits and campaign map dimensions
 - The user reports that the inbuilt map designer allows maps up to =30 x 20=.
   This is an editor limit, not a proven engine/runtime array limit; for example,
   runtime map ID 4, Ball Islands, is =42 x 15=.
+- The user reports that Design Mode allows at most 60 properties on a map. This
+  authoring limit is distinct from the runtime property table's 92 slots. It
+  does not establish how custom maps with more than 60 properties behave when
+  loaded.
 - The user reports the largest Campaign maps as Great Sea Battle at =38 x 26=
   and Final Front at =33 x 38=. These are user-provided map dimensions and have
   not been independently read from Campaign save states in this research.
 - The tallest runtime map independently measured here is Kita Straight at
   =27 x 35=; the widest measured here is Ball Islands at =42 x 15=. Those are
   observed sample extrema, not proof of the engine's maximum dimensions.
+
+*** Runtime property table test: Ring Islands
+- The user supplied =~/Downloads/aw2/aw2.ss1= on 2026-10-23. SHA-256:
+  =28250ec6e8b5652f4e4510c564c41bb33e76cf03fcee66c07bfe736ae7687968=.
+  It restored in an isolated headless mGBA session at frame =236823=; source
+  ROM and save-state files remained unchanged.
+- Runtime map ID =126= resolves to Ring Islands (name ID =2725=), map payload
+  pointer =0x081C62D8=, and dimensions =33 x 35= (=1,155= cells). All runtime
+  tile IDs match the decompressed ROM map, terrain bytes agree with the tile
+  class lookup, and all 35 row offsets equal =y*33=.
+- The property table at =0x03003150= has =85= active records in slots =0..84=.
+  Every coordinate is unique and agrees with a property in the terrain grid.
+  The =0xFF= sentinel is in slot =85= at =0x030032A4=; slots =86..91= are zero.
+  All 85 fourth bytes are zero. This verifies that the runtime loads at least
+  85 active properties on Ring Islands, above the user's reported 60-property
+  Design Mode limit. It does not establish the maximum runtime count or behavior
+  for custom maps above 60.
 
 *** Retail ROM map-catalog and buffer-bound review
 - ROM: the supported unmodified US revision-0 image, SHA-256
@@ -747,9 +772,12 @@ maps, the initial tile/property comparisons now cover 3,480 cells and 330 record
 
 *** Remaining questions
 - Enforced arbitrary width/height limits and oversized-map handling remain
-  unresolved despite the catalog census and 1,288-cell buffer inference. A full
-  92-property table also remains unresolved. Existing checkpoints establish
-  observed maps only, not all possible geometry or property counts.
+  unresolved despite the catalog census and 1,288-cell buffer inference. The
+  runtime property's 92-slot traversal bound is known, and 85 active properties
+  are verified in Ring Islands. The maximum usable property count and behavior
+  for custom maps above the Design Mode limit of 60 remain untested. Existing
+  checkpoints establish observed maps only, not all possible geometry or
+  property counts.
 - Other player/army configurations, unknown property/capture bits, lifecycle
   validity, frontend parity, and general unit resolution retain the earlier
   limitations. User-confirmed capture rules are documented above; Sami's power
