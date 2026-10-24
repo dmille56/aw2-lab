@@ -691,10 +691,65 @@ maps, the initial tile/property comparisons now cover 3,480 cells and 330 record
   =27 x 35=; the widest measured here is Ball Islands at =42 x 15=. Those are
   observed sample extrema, not proof of the engine's maximum dimensions.
 
+*** Retail ROM map-catalog and buffer-bound review
+- ROM: the supported unmodified US revision-0 image, SHA-256
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- Catalog scan: read =u32 LE= data pointers at
+  =0x085C77A0 + map_id * 0x5C=, then followed each pointer into the GBA LZ77
+  payload. IDs =1..179= each have a valid map payload; IDs =180..190= have
+  null map-data pointers in this ROM. Decompressed byte 0 and byte 1 are width
+  and height; the following =width*height= little-endian tile IDs fit the
+  decompressed payload for every valid entry.
+- Largest catalog dimensions are separate extrema: map ID =13=, Squash Island,
+  is =48 x 15=; map ID =102=, South Cape, is =32 x 39=. The largest area is
+  map ID =100=, Traitor River, at =46 x 28= = 1,288 cells. The user-reported
+  Campaign dimensions also agree with the ROM catalog: Great Sea Battle is map
+  ID =169= at =38 x 26=; Final Front is map ID =171= at =33 x 38=.
+- Runtime buffer layout suggests a 1,288-cell backing capacity: the verified
+  graphical tile array starts at
+  =0x0201EE72= and terrain array at =0x0201F882=, a separation of =0xA10=
+  bytes (=1,288= halfwords). The partial reverse-engineering project's RAM map
+  places the next terrain-related array at =0x0201FD8A=, exactly =0x508= bytes
+  (=1,288= bytes) after the terrain base, and fog data at =0x0202079A=. This
+  layout suggests fixed backing arrays for 1,288 map cells. Runtime validation
+  below confirms those arrays can hold all 1,288 cells of Traitor River. The
+  project's allocation labels are a lead, not by themselves proof of a retail-ROM
+  bounds check.
+
+**** Runtime validation at 1,288 cells
+- The user supplied =~/Downloads/aw2/aw2.ss1= on 2026-10-23. SHA-256:
+  =e0518bf01cb859d4a496abeaa70fa54add3f298c7670c5e9769f9c920df40cef=.
+  It restored in an isolated headless mGBA session at frame =202840=; the source
+  ROM and save-state files remained unchanged.
+- Runtime map ID =100= resolves to Traitor River, name ID =2703=, and map payload
+  pointer =0x081C2C34=. Its decompressed payload is exactly =2 + 46*28*2 = 2578=
+  bytes. Runtime dimensions are =46 x 28= and the full =1,288=-cell tile array
+  exactly matches the ROM payload, including the far-right, bottom-right, and
+  complete final row. All terrain bytes agree with the runtime tile-class table;
+  all 28 row offsets equal =y*46=, ending at =1242= for row 27. The property list
+  contains 54 active entries followed by the =0xFF= sentinel, and their
+  coordinates agree with the map grid.
+- This verifies at least 1,288 usable cells in this map layout and that the
+  catalog's largest-area map loads intact. It does not demonstrate how the game
+  handles a map with more than 1,288 cells.
+
+- This establishes the largest maps present in the retail catalog and a runtime
+  capacity of at least 1,288 cells, but not the largest safe arbitrary width and
+  height or whether oversized maps are rejected before writing past arrays.
+  The map payload stores dimensions as bytes, and no explicit runtime width,
+  height, or product guard has yet been verified in the retail code. Keep the
+  hard engine maximum unresolved until the loader and all cell-array consumers
+  are traced or controlled boundary tests establish rejection/safety.
+- Source lead for RAM addresses (partial disassembly/reimplementation, pinned
+  revision): [[https://github.com/XenesisXenon/AW2-InfiniteCOs/blob/5730d3dd58d82fc000bcc8449f245334fcc7d939/common/definitions_ramallocation.asm#L410-L416][AW2-InfiniteCOs map array definitions]].
+  Its supported-ROM claim is checked here against the local ROM checksum and
+  the already verified runtime field addresses.
+
 *** Remaining questions
-- Actual runtime allocation limits, the complete possible dimension range, and
-  a full 92-property table remain unresolved. Existing checkpoints establish
-  observed maps only, not all possible heights, widths, or property counts.
+- Enforced arbitrary width/height limits and oversized-map handling remain
+  unresolved despite the catalog census and 1,288-cell buffer inference. A full
+  92-property table also remains unresolved. Existing checkpoints establish
+  observed maps only, not all possible geometry or property counts.
 - Other player/army configurations, unknown property/capture bits, lifecycle
   validity, frontend parity, and general unit resolution retain the earlier
   limitations. User-confirmed capture rules are documented above; Sami's power
