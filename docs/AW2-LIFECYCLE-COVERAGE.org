@@ -128,6 +128,48 @@ the 250 ms idle check.
 The machine-readable comparison, per-mode records, paired RAM, and screenshots
 are preserved at =/tmp/aw2-lifecycle-phase-parity/=.
 
+** Combat, Powers, and results
+
+The same procedure now covers retained combat, Power, and final-elimination
+checkpoints. Each state was loaded by both pinned frontends using isolated ROM,
+SRAM, and XDG copies. The bridge advanced one neutral frame after restore so
+the screenshot represented the rendered frame; the map-selection state was
+advanced 120 frames from frame 8319 to its documented visible screen at frame
+8439. Memory, screenshot, lifecycle, and structure data were captured from
+that exact frame.
+
+Across all eleven checkpoint pairs, the source-state hashes, loaded and
+observed frame numbers, full 256 KiB EWRAM and 32 KiB IWRAM hashes, rendered
+screenshots, lifecycle assessments, structure validations, and live-decoding
+decisions match exactly. This verifies frontend parity for these retained
+checkpoints; it does not add lifecycle coverage beyond their tested paths.
+
+| Frame | Checkpoint | Lifecycle | Structures | Live decode |
+|-------+------------+-----------+------------+-------------|
+| 19916 | Combat damage / zero-health record | =BATTLE_COMBAT= | Geometry, properties, players valid; units invalid | No |
+| 19932 | Combat cleanup after resolver | =BATTLE_ENGINE_UNRESOLVED= | All valid | No |
+| 128192 | Regular Power opening | =BATTLE_POWER= | All valid | No |
+| 128877 | Regular Power late effects | =BATTLE_POWER= | All valid | No |
+| 10977 | Super Power opening | =BATTLE_POWER= | All valid | No |
+| 11626 | Super Power settled | =BATTLE_PLAYER_TURN= | All valid | Yes |
+| 6203 | Victory presentation | =VICTORY_PRESENTATION= | All valid | No |
+| 7410 | Winner quote | =VICTORY_PRESENTATION= | All valid | No |
+| 7953 | Result summary | =RESULT_SUMMARY= | All valid | No |
+| 8164 | Save-progress prompt | =SAVE_PROGRESS_PROMPT= | All valid | No |
+| 8439 | Returned Versus map selection | =VERSUS_MAP_SELECT= | All valid | No |
+
+The paired source checkpoints are =destroy-423.ss0= and =damage-tail-173.ss0=
+for combat; =power-2.ss0=, =power-687.ss0=, =super-1.ss0=, and
+=super-650.ss0= for regular and Super Power; and =victory-start-6202.ss0=,
+=winner-quote-7409.ss0=, =after-summary-7952.ss0=, =prompt-display-8163.ss0=,
+and =map-select-8319.ss0= for the result flow. Their complete paths and
+SHA-256 hashes are in the per-frontend JSON records.
+
+The comparison JSON, per-frontend RAM dumps, and PNG screenshots are retained
+outside Git at =/tmp/aw2-cross-mode-behavior-parity/=. The ROM SHA-256 is
+=ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=, and the
+pinned mGBA revision is =fd9dc5c2cbf234365068855851107e762fc6211b=.
+
 Older retained save-dialogue checkpoints contained uninitialized Flash headers.
 Those experiments, wrong menu selections, and attempts without explicitly loaded
 SRAM are excluded from successful resume evidence. All emulator ROM/save/XDG
@@ -222,4 +264,5 @@ full repository pre-commit checks pass.
   blocked at map selection. Campaign elimination dialogues remain unverified.
 - Additional combat types, animation shortcuts, and allowing reads during busy
   phases. All unrecognized contexts remain unavailable.
-- Headless/windowed parity for combat animations, powers, and result/dialogue flows.
+- Additional parity coverage for combat animation variants, other CO Powers,
+  defeat/dialogue outcomes, and Campaign event flows.
