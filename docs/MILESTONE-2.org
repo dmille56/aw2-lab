@@ -145,10 +145,13 @@
      They still do not timestamp the marker update relative to the attack.
      A first conservative runtime classifier now lives in
      [[file:../src/aw2_lab/lifecycle.py][lifecycle.py]]. It recognizes the verified front-end and result
-     associations and known battle-entry scripts, but leaves battle-callback
-     states without a known process unresolved. No state is marked safe for
-     active-battle decoding yet: a positive settled-battle marker and field
-     validity intervals still need verification. See the classifier notes in
+     associations and known battle-transition scripts. A controlled frame trace
+     and ROM checks now verify a human-input controller state, allowing
+     =BATTLE_PLAYER_TURN= when its mode, locks, input state, and engine agree.
+     Entry gaps, a command menu, and an AI turn provide negative controls.
+     No state is marked safe for active-battle decoding yet: field validity
+     intervals and wider path coverage still need verification. See the classifier
+     notes in
      [[file:AW2-LIFECYCLE-RESEARCH.org::*Conservative runtime classifier][lifecycle research]].
    - [ ] Identify title screens, menus, battle states, and transitions.
    - [ ] Establish when battle structures are valid to interpret.

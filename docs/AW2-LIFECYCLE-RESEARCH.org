@@ -162,11 +162,11 @@ Additional controls:
   neutral controls cover only the first 60 frames after each source state.
 
 ** Conservative runtime classifier
-The first implementation is in =src/aw2_lab/lifecycle.py=. It accepts the two
-callback words and script IDs read from the bounded process pool and returns a
-phase, engine family, matching scripts, and a battle-decode safety status.
-Callers must supply a coherent snapshot and must only pass a slot's first word
-when nonzero.
+The implementation is in =src/aw2_lab/lifecycle.py=. It accepts the two callback
+words, script IDs read from the bounded process pool, and optional battle-control
+fields. It returns a phase, engine family, matching scripts, and a battle-decode
+safety status. All fields must come from one coherent snapshot; zero script
+words are ignored.
 
 - Exact screen and battle callback pairs identify the engine family only;
   Thumb low bits are significant.
@@ -174,23 +174,149 @@ when nonzero.
   processes classify the observed front-end phases. The shared setup parent
   cannot distinguish Teams from Rules. Results take precedence over retained
   battle callbacks and stale battle data.
-- Known battle-entry processes classify as =BATTLE_ENTRY=. Because the list is
-  explicitly incomplete and process-free entry gaps were observed, a battle
-  callback without a known process is =BATTLE_ENGINE_UNRESOLVED=, not a
-  confirmed active battle.
+- Known transition processes classify as =BATTLE_TRANSITION= with either
+  observed callback pair. These effects also occur during ordinary turn changes;
+  their presence alone cannot identify the beginning of a match. Earlier replay
+  tables below retain the former =BATTLE_ENTRY= label used when collected.
+- Optional =BattleControlObservation= fields identify the tested human map-input
+  mode as =BATTLE_PLAYER_TURN=. The battle callback pair, controller mode 1,
+  state 13, zero controller lock/input gate, input state 0, and no active screen
+  scripts must all agree. Without these controls, process-free states remain
+  =BATTLE_ENGINE_UNRESOLVED=. See [[*Finding: battle-controller state and human player turns][the controller finding]] for evidence and limits.
 - A simultaneous victory and defeat presentation signal is treated as
   conflicting evidence and classified =UNKNOWN=.
 - =BattleDecodeSafety.BLOCKED= means do not interpret data as a live active
   battle; =UNKNOWN= means the classifier cannot establish safety. No observation
   currently yields a positive safe-to-decode result. This is deliberate: a
-  verified settled-battle marker and its validity interval are still missing.
+  per-field validity intervals and broader lifecycle coverage remain unfinished.
 
 This is a conservative exclusion/classification aid, not a complete lifecycle
 decoder. Result and process associations are verified only in supplied paths;
-Campaign, resumed battles, AI turns, combat, powers, dialogues, other map/setup
-flows, and windowed parity need more coverage. Preserve the distinction between
-phase classification and per-field validity: some battle data is initialized
+Campaign, resumed battles, AI turns beyond the tested path, combat, powers,
+dialogues, other map/setup flows, and windowed parity need more coverage.
+Preserve the distinction between phase classification and per-field validity:
+some battle data is initialized
 during entry and retained after results and menu return.
+
+** Replay check: current user-supplied front-end states
+The current =~/Downloads/aw2/aw2.ss1= through =aw2.ss9= files were loaded in
+headless mGBA with the supported ROM. Their screenshots were captured alongside
+one coherent read of both callback words and all 32 process script words. The
+visible labels below are the user's supplied state descriptions; the classifier
+output is computed from memory:
+
+| State | SHA-256 prefix | Frame | Supplied visible phase | Classifier phase / decode safety |
+|-------+----------------+-------+------------------------+----------------------------------|
+| =aw2.ss1= | =8b59fd97f6df= | 99 | Startup | =STARTUP / BLOCKED= |
+| =aw2.ss2= | =dbc950323113= | 467 | Startup screen | =TITLE / BLOCKED= |
+| =aw2.ss3= | =d73ca79a049e= | 824 | Select mode | =MODE_SELECT / BLOCKED= |
+| =aw2.ss4= | =309699ed08a9= | 956 | Select Versus mode | =MODE_SELECT / BLOCKED= |
+| =aw2.ss5= | =9cace02604ca= | 1115 | Select new Versus mode | =MODE_SELECT / BLOCKED= |
+| =aw2.ss6= | =da246317dd7d= | 1406 | Versus map selection | =VERSUS_MAP_SELECT / BLOCKED= |
+| =aw2.ss7= | =ee0931d82a11= | 1590 | CO/team selection | =VERSUS_SETUP / BLOCKED= |
+| =aw2.ss8= | =4489ee9903bc= | 1848 | Rules selection | =VERSUS_SETUP / BLOCKED= |
+| =aw2.ss9= | =0300746b2ff0= | 2339 | Active battle | =BATTLE_ENGINE_UNRESOLVED / UNKNOWN= |
+
+All nine results agree with the information represented by the current rules:
+the two Versus submenus share a mode-select process, CO/team and Rules screens
+share a setup parent, and the active battle is kept unresolved even though the
+battle callback pair is present. This replay validates known front-end
+classification and conservative gating; it does not establish a positive
+settled-battle signal. Full state hashes and screenshots are in
+=/tmp/aw2-lifecycle-current/results.json= and the adjacent PNG files. The
+existing =aw2.ss1= through =aw2.ss8= fingerprints above describe an older set;
+use the prefixes in this table to distinguish these newer files.
+
+** Replay check: battle-entry transitions
+Four new states show the automatic transition from Rules into the battle. The
+first screenshot is black; the next two show the map and day-entry presentation;
+the fourth shows the battle map and HUD. The first transition process is present
+while the screen callback pair is still active, so battle-entry recognition must
+not require the battle callback pair.
+
+| State | SHA-256 prefix | Frame | Callback pair | Active scripts | Classifier phase / decode safety |
+|-------+----------------+-------+---------------+----------------+----------------------------------|
+| =aw2.ss1= | =d08089d75d4a= | 9991 | Screen | =0x0849E750= | =BATTLE_ENTRY / BLOCKED= |
+| =aw2.ss2= | =6e8cd7feb15b= | 10032 | Battle | =0x0848927C=, =0x084892C4= | =BATTLE_ENTRY / BLOCKED= |
+| =aw2.ss3= | =a014f8892b23= | 10097 | Battle | =0x08499E18= (three slots) | =BATTLE_ENTRY / BLOCKED= |
+| =aw2.ss4= | =bc78b8a3f55d= | 10196 | Battle | none | =BATTLE_ENGINE_UNRESOLVED / UNKNOWN= |
+
+The fourth image appears to be the settled, playable battle, but its memory
+signals are indistinguishable from observed process-free entry gaps. This
+supports the existing conservative result and confirms that the next research
+step is to compare candidate state fields across these closely spaced
+checkpoints, especially the last entry state and the first settled HUD state.
+Full state hashes and screenshots are in =/tmp/aw2-lifecycle-transitions/=.
+
+** Replay check: settled battle and results
+I replayed the current classifier against the archived coherent observations
+and their screenshots. The current =~/Downloads/aw2= directory no longer has
+the root result-state files, so these results use the prior captured observations
+under =/tmp/aw2-lifecycle-research/= and =/tmp/aw2-lifecycle-results/=. They
+cover each requested result phase:
+
+| Checkpoint | Frame | Visible phase | Classifier phase / decode safety |
+|------------+-------+---------------+----------------------------------|
+| =aw2.ss8= | 2761 | Playable battle, HUD and cursor | =BATTLE_ENGINE_UNRESOLVED / UNKNOWN= |
+| =power-settled= follow-up | 129016 | Battle after neutral frames | =BATTLE_ENGINE_UNRESOLVED / UNKNOWN= |
+| Victory sequence | 130060 | Victory presentation | =VICTORY_PRESENTATION / BLOCKED= |
+| Defeat sequence | 132707 | Defeat presentation | =DEFEAT_PRESENTATION / BLOCKED= |
+| Victory sequence | 130722 | WIN/LOSE summary | =RESULT_SUMMARY / BLOCKED= |
+| Defeat sequence | 132827 | Save-progress prompt | =SAVE_PROGRESS_PROMPT / BLOCKED= |
+| Victory to menu | 131740 | Versus map selection after declining save | =VERSUS_MAP_SELECT / BLOCKED= |
+
+The classifier distinguishes all sampled result screens and correctly excludes
+them from active-battle decoding. The settled, playable battle remains
+unresolved, which is the intended conservative behavior until a positive
+battle-validity signal is verified. Screenshots and machine observations are
+the corresponding =state8-baseline.png=, =power-settled-0.png=,
+=victory-sequence-baseline.png=, =defeat-sequence-baseline.png=,
+=victory-sequence-6.png=, =defeat-sequence-3.png=, and
+=victory-to-menu-0.png= files in those evidence directories.
+
+** Replay check: current HQ-capture victory sequence
+The latest nine =aw2.ss1= through =aw2.ss9= files were loaded and sampled at
+their restored frames. Screenshots confirm the pre-capture battle, the =CAPT!=
+animation, victory presentation/quote, WIN/LOSE result, and save prompt. The
+classifier output is:
+
+| State | SHA-256 prefix | Frame | Observed screen | Classifier phase / decode safety |
+|-------+----------------+-------+-----------------+----------------------------------|
+| =aw2.ss1= | =1b7916f4db39= | 36718 | Battle before capture | =BATTLE_ENGINE_UNRESOLVED / UNKNOWN= |
+| =aw2.ss2= | =9e3bfd704252= | 41124 | Battle before capture | =BATTLE_ENGINE_UNRESOLVED / UNKNOWN= |
+| =aw2.ss3= | =3689110dc624= | 41388 | =CAPT!= capture animation | =BATTLE_ENGINE_UNRESOLVED / UNKNOWN= |
+| =aw2.ss4= | =0cdf62ab5c25= | 41466 | Victory banner | =VICTORY_PRESENTATION / BLOCKED= |
+| =aw2.ss5= | =7e28239a8f15= | 41494 | Victory banner | =VICTORY_PRESENTATION / BLOCKED= |
+| =aw2.ss6= | =24dff7668a2a= | 41561 | Victory banner | =VICTORY_PRESENTATION / BLOCKED= |
+| =aw2.ss7= | =3ce4a768e635= | 41856 | Winner quote | =VICTORY_PRESENTATION / BLOCKED= |
+| =aw2.ss8= | =796ea09b182a= | 42171 | WIN/LOSE results | =RESULT_SUMMARY / BLOCKED= |
+| =aw2.ss9= | =0856fc82b9f3= | 42444 | Save-progress prompt | =SAVE_PROGRESS_PROMPT / BLOCKED= |
+
+The battle and capture animation remain separate from the known result phases,
+but cannot yet be distinguished from a non-actionable transition on memory
+signals alone. The victory banner/quote, summary, and save prompt all classify
+as expected. This batch ends at the prompt; return to map selection is verified
+by the earlier archived observation at frame 131740. Screenshots and full
+hashes for this batch are in =/tmp/aw2-lifecycle-results-batch2/=.
+
+** Replay check: current defeat sequence
+The six latest =aw2.ss1= through =aw2.ss6= states cover the playable battle,
+defeat banner, result summary, save-progress prompt, and Versus map selection.
+They were loaded and sampled at their restored frames:
+
+| State | SHA-256 prefix | Frame | Observed screen | Classifier phase / decode safety |
+|-------+----------------+-------+-----------------+----------------------------------|
+| =aw2.ss1= | =dbaa5f9e81b1= | 60274 | Battle before defeat | =BATTLE_ENGINE_UNRESOLVED / UNKNOWN= |
+| =aw2.ss2= | =d844c4072c7b= | 61205 | Defeat banner | =DEFEAT_PRESENTATION / BLOCKED= |
+| =aw2.ss3= | =9f81baf68392= | 61444 | WIN/LOSE results | =RESULT_SUMMARY / BLOCKED= |
+| =aw2.ss4= | =a4fbe49b8f5d= | 61539 | Result detail screen | =RESULT_SUMMARY / BLOCKED= |
+| =aw2.ss5= | =858c04498e04= | 61754 | Save-progress prompt | =SAVE_PROGRESS_PROMPT / BLOCKED= |
+| =aw2.ss6= | =bbbc5c54ef22= | 61924 | Versus map selection | =VERSUS_MAP_SELECT / BLOCKED= |
+
+All defeat and post-defeat screens classify as expected, including the defeat
+banner while the battle callback pair remains selected. The playable battle
+remains unresolved, matching the victory-path check. Full hashes, callbacks,
+process IDs, and screenshots are in =/tmp/aw2-lifecycle-defeat-batch/=.
 
 ** Reproduction and evidence
 All evidence is external at =/tmp/aw2-lifecycle-research/=. Preserve this directory
@@ -860,3 +986,131 @@ Source save hashes remained unchanged.
   locate the exact hit, unit-record removal, and defeated-marker updates.
 - Compare the post-attack army-block changes with a controlled single-army
   elimination to explain why both opponent blocks are empty in =ss3=.
+
+* Finding: battle-controller state and human player turns
+
+** Claim and scope
+- Date: 2026-10-25. The five new states cover map selection, CO/team setup,
+  Rules, the day banner, and a settled human turn. The supported ROM profile
+  is unchanged. Source-state hashes remained unchanged during the experiments.
+- The original battle dispatcher checks a controller state and two execution
+  gates. State 13 dispatches human input; state 14 dispatches computer control.
+  A 401-frame entry trace and a 459-frame End/computer/next-human-turn trace
+  verify these distinctions in the supplied Bean Island Versus configuration.
+- The controller fields distinguish the observed process-free entry gaps from
+  human map input. Right pulses are ignored at sampled entry states 5, 9, 10,
+  and 12, but move the cursor on the first frame after state 13 is reached.
+- Controller state 13 alone is insufficient: it remains in the supplied menu
+  states, and a command menu retains state 13 while raising the controller lock.
+  Combine the fields with the engine pair and screen-process evidence.
+- This establishes a bounded human-turn classification. It does not certify
+  every decoded structure, every command, or all game modes. The classifier's
+  =battle_decode_safety= remains =UNKNOWN= for a recognized player turn.
+
+** Supplied checkpoints
+The filenames replace earlier batches; full hashes are recorded in the external
+=metadata.json=. All values below were read without advancing the restored frame.
+
+| State | SHA-256 prefix | Frame | Visible screen | Controller state / lock |
+|-------+----------------+-------+----------------+-------------------------|
+| =aw2.ss1= | =14ad77be32d0= | 72500 | Versus map selection | 13 / 0 |
+| =aw2.ss2= | =b59c1c2bc307= | 72695 | CO/team selection | 13 / 0 |
+| =aw2.ss3= | =c48eb85e731a= | 73056 | Rules | 13 / 0 |
+| =aw2.ss4= | =f1b88831fc08= | 73208 | Day banner | 9 / 1 |
+| =aw2.ss5= | =4f6b5bf963aa= | 73342 | Human turn, HUD and cursor | 13 / 0 |
+
+** Verified controller fields and ROM relationships
+All fields are little endian; addresses apply only to the supported ROM profile.
+
+| Address | Type | Meaning established here |
+|---------+------+--------------------------|
+| =0x03003F3C= | =u32= | Engine mode; the tested battle callback invokes the controller for mode 1 |
+| =0x030032D8= | =u16= | Controller dispatch state; 13 selects human input, 14 computer control |
+| =0x030030F0= | =u8= | Controller lock counter; a nonzero value blocks the dispatch in tested controls |
+| =0x030040E4= | =i16= | Additional dispatcher gate; nonzero skips controller dispatch |
+| =0x03003334= | =u16= | Human-input substate; 0 is the tested ordinary map-input branch |
+
+The local assembly reference was followed and key literal loads, Thumb branch
+targets, and the state-13 store were independently checked in the original ROM:
+- =LE32(0x08090D88)= is =0x030032D8=. Dispatcher =0x080345C8= first calls
+  =0x08034F6C= (reads =0x030030F0=), then tests =0x030040E4=.
+- Its jump table at =0x080345FC= selects =0x0802DC2C= for state 13 and
+  =0x0806171C= for state 14. =0x0802DC2C= reads =0x03003334= and selects
+  =0x0802DCB4= for substate 0; this branch handles map input including Select/A/B.
+- =0x08034D18= selects the human/computer path using the current player's
+  control byte at player-record offset =0x1B=. The human path stores 13;
+  the computer path stores 14.
+- Battle callback =0x080369BC= invokes =0x080345C8= through mode 1 at
+  =0x03003F3C=. The callback also has scheduling gates, so the controller
+  fields alone are not a guarantee that a command executes on the next frame.
+
+** Controlled entry and input probes
+From Rules at frame 73056, A for one frame followed by neutral frames produces:
+
+| Frame | State | Lock | Screen scripts | Observation |
+|-------+-------+------+----------------+-------------|
+| 73162 | 5 | 1 | none | Early entry gap |
+| 73163 | 5 | 0 | none | Still not human input despite an empty pool and unlocked controller |
+| 73271 | 9 | 1 | none | Later entry gap |
+| 73280 | 9 | 0 | none | Day-entry work finishing |
+| 73305 | 10 | 0 | none | Before player-control dispatch |
+| 73307 | 12 | 0 | none | Human/computer branch has not yet been selected |
+| 73308 | 13 | 0 | none | First recognized human map-input state |
+
+Each of these checkpoints, the supplied settled state, a command menu, the AI
+turn, and the next human turn was restored into three independent branches:
+neutral, Right for one frame, and Select for one frame. Every branch then ran
+10 neutral frames (396 coherent samples across 33 branches):
+- Right had no effect at the six entry checkpoints preceding state 13. From
+  frame 73308, Right immediately moved the cursor from =(1,7)= to =(2,7)=.
+  The supplied settled state and the next human turn behaved the same way.
+- Select opened the command menu and raised the controller lock. There is one
+  frame of queued work before the lock changes; phase recognition therefore
+  does not imply that another command is immediately available.
+- Right and Select produced no differences from neutral at the locked command
+  menu or the sampled computer turn. The menu uses controller state 13 with
+  lock 1; the computer turn uses state 14 with lock 0.
+
+Ending the human turn reaches state 14 at frame 73583, then state 13 at frame
+73852 on day 2. Ordinary turn changes reuse =0x0849E750= and =0x08499E18=,
+which had previously only been observed around initial battle entry. The
+classifier now labels these shared effects =BATTLE_TRANSITION=.
+
+** Runtime use and remaining work
+=classify_lifecycle= accepts an optional =BattleControlObservation= from the
+same snapshot as the callback pair and script words. With the battle pair,
+mode 1, state 13, lock 0, gate 0, input substate 0, and no active screen scripts,
+it returns =BATTLE_PLAYER_TURN=. Known screens/results retain precedence.
+Omitted controls, busy states, AI turns, and unknown overlays remain unresolved.
+
+The archive replay also confirms that the victory parent can start while the
+map is still visible and battle callbacks remain selected (the earlier HQ
+sequence's =state3=). Result processes retain precedence over generic fades
+and controller fields; the phase identifies the active sequence, not an exact
+pixel-level boundary of the banner animation.
+
+This makes the supplied settled human turn recognizable without misclassifying
+the tested entry gaps or retained menu fields. Still needed:
+- Define per-structure validity checks for maps, players, properties, and units;
+  human control does not replace pointer, count, coordinate, and ownership checks.
+- Extend the controller research across resumed games, Campaign, combat,
+  dialogues, and more computer/player configurations.
+- Map additional human-input substates and pending tasks before exposing a
+  universal command-readiness flag. Camera/cursor alignment also gates some
+  commands in =0x0802DBF8=, even within human control.
+
+** Reproduction and evidence
+Evidence is external at =/tmp/aw2-lifecycle-control-research/=: source copies,
+full RAM dumps, screenshots, =metadata.json=, =entry-trace.json=,
+=turn-trace.json=, =input-probes.json=, and =original-rom-checks.json=.
+The capture/trace/probe/ROM-check scripts are preserved there. All snapshots
+were captured at paused emulator frame boundaries. Temporary emulator ROM,
+save, and XDG copies isolated all writes from the supplied originals.
+
+ROM-independent regressions in =tests/test_lifecycle.py= retain distilled
+controller/process observations and cover stale menu fields, shared transition
+effects, locked menus, computer control, results, unknown overlays, missing
+controls, and conflicting result signals; no ROM or save-state data is tracked.
+Validation covered 45 current/archived full-RAM observations, 860 frame-trace
+samples, and 396 input-probe snapshots. The 28 lifecycle regression cases and
+the full repository pre-commit checks passed.
