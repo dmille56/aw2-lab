@@ -70,13 +70,13 @@ mGBA =gbAx= savedata extension (tag 2) produces the 65,536-byte game save:
 The game subsequently loads that save through its own Continue command; the
 RAM is not patched to simulate a resumed battle.
 
-The pinned headless startup path does not explicitly autoload SRAM. Adjacent
-save files alone did not make the initial Continue attempt work. The successful
-research session uses a temporary Lua bootstrap to call =emu:loadSaveFile= on
-an isolated save copy, reset, and load the repository bridge. The savedata
-extension in the resulting cold-boot checkpoint matches the save hash above.
-This bootstrap is an external research helper; normal launcher SRAM loading
-and windowed-mode parity are not implemented or certified here.
+The pinned headless frontend now calls =mCoreAutoloadSave= after loading the ROM,
+matching the SDL frontend startup path. A rebuilt headless emulator loaded an
+isolated =aw2.sav= from its configured =savegamePath= and completed the game's
+Continue flow without a Lua save-loading bootstrap. At frame 4078 the resumed
+match reached =BATTLE_PLAYER_TURN= through the regular bridge launcher. The
+ROM, save, and XDG directories were temporary copies. Windowed-mode parity is
+not implemented or certified here.
 
 Older retained save-dialogue checkpoints contained uninitialized Flash headers.
 Those experiments, wrong menu selections, and attempts without explicitly loaded
@@ -170,4 +170,4 @@ full repository pre-commit checks pass.
   earlier archived victory/defeat associations.
 - Additional combat types, animation shortcuts, and allowing reads during busy
   phases. All unrecognized contexts remain unavailable.
-- Production headless SRAM autoload and headless/windowed parity.
+- Headless/windowed parity.

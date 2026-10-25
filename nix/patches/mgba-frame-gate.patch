@@ -287,3 +287,7 @@ while gated. Normal mGBA behavior is unchanged unless AW2_MGBA_FRAME_GATE=1.
  };
  
  }
+--- a/src/platform/headless-main.c
++++ b/src/platform/headless-main.c
+@@ -168,0 +169 @@
++	mCoreAutoloadSave(core);
