@@ -1,0 +1,173 @@
+#+TITLE: AW2 Additional Lifecycle Coverage
+
+* Scope and result
+
+Date: 2026-10-25. This extends [[file:AW2-LIFECYCLE-RESEARCH.org][lifecycle research]] and
+[[file:AW2-STATE-VALIDATION.org][structure validation]] across a genuine in-game Versus resume, CPU combat,
+animation settings, regular/Super CO Power activation, and save/yield dialogues.
+The same checksum-verified US ROM and pinned headless mGBA build apply.
+
+Six complete controller traces contain 7,257 coherent frame observations. Two
+additional yield/dialogue traces contain 1,402 observations. Independently
+restored full-RAM checks cover 48 checkpoints: only nine normal human-control
+snapshots permit live decoding. All 297 previously archived RAM pairs preserve
+their earlier live/unavailable decisions. Raw structural validity never overrides
+the lifecycle guard.
+
+| Path | Observations | First normal human-control frame | Result |
+|------+--------------+----------------------------------+--------|
+| Andy regular Power | 834 | 129003 | Quote/effects unavailable; active Power allowed after settlement |
+| Supplied Max Super Power | 668 | 11623 | Quote/effects unavailable; active Super allowed after settlement |
+| Three CPU turns, full animations | 3949 | 18550 | CPU attacks and turn changes unavailable |
+| Three CPU turns, Visual C | 1577 | 15694 | CPU battle animations skipped; attacks remain unavailable |
+| Human attack, No Visual | 71 | 19715 | Alternate resolver and cleanup unavailable |
+| Continue saved Versus battle | 158 | 3305 | Loading and initialized-but-busy arrays unavailable |
+
+These are configuration-specific checkpoints, not fixed animation durations.
+The resume trace starts at the final Continue confirmation; its earlier cold
+boot and menu preparations are separately captured.
+
+* Runtime recognition
+
+[[file:../src/aw2_lab/lifecycle.py][lifecycle.py]] now recognizes:
+
+- =BATTLE_POWER=: process =0x0849D77C= under the verified battle callbacks.
+  The process spans the observed quote, activation presentation, and effects
+  for both regular and Super Power. The active-power byte alone does not
+  identify this phase: it becomes 1 or 2 and stays active after input returns.
+- =BATTLE_COMBAT=: either resolver =0x0849FEF8= (animated) or =0x0849FFB0=
+  (without the full battle animation), with a human Fire parent
+  =0x0849A9F8= or verified computer controller mode 1/state 14, under battle
+  or animation callbacks. CPU attacks lack the human Fire parent.
+- =BATTLE_COMPUTER_TURN=: mode 1/state 14 with battle callbacks, no active
+  screen processes, zero locks/gates, and input substate zero. Unknown overlays
+  or other CPU substates remain unresolved. This phase blocks live decoding.
+
+Known result processes retain precedence over these associations. Missing or
+conflicting evidence does not establish human control. The full supported
+decoder subset still requires =BATTLE_PLAYER_TURN= and all structure checks.
+
+Original-ROM checks corroborate both resolver literals at =0x0802C56C= and
+=0x0802C570=, the Fire parent's wait for the non-animated resolver at
+=0x0849AA18=, the two visual branches at =0x08041D14/0x08041D3C=, and
+the Power parent literal at =0x0803964C=. Mode/state checks build on the
+earlier verified controller dispatch, rather than equating a CPU portrait
+with a controller state.
+
+* Real save and resume
+
+** Saving and cold boot
+The newly supplied checkpoint is archived by SHA-256
+=e8c05cecb640a87a6b49bc5ec5bbee9e8c5c091c707c052cde4afdd50560afd3=.
+It starts at frame 10926, day 4, player 2, with Super available. A separate
+branch opens Save, completes its text, selects Yes, and confirms the save.
+An A press while text is appearing can finish the text without selecting Yes;
+the captured confirmation and resulting SRAM change are part of the evidence.
+
+The completed save checkpoint is frame 11301. Extracting its unmodified native
+mGBA =gbAx= savedata extension (tag 2) produces the 65,536-byte game save:
+=64c187930e67fb79ed646262c255e4e0064cf952141f1599609ccf1fc2826669=.
+The game subsequently loads that save through its own Continue command; the
+RAM is not patched to simulate a resumed battle.
+
+The pinned headless startup path does not explicitly autoload SRAM. Adjacent
+save files alone did not make the initial Continue attempt work. The successful
+research session uses a temporary Lua bootstrap to call =emu:loadSaveFile= on
+an isolated save copy, reset, and load the repository bridge. The savedata
+extension in the resulting cold-boot checkpoint matches the save hash above.
+This bootstrap is an external research helper; normal launcher SRAM loading
+and windowed-mode parity are not implemented or certified here.
+
+Older retained save-dialogue checkpoints contained uninitialized Flash headers.
+Those experiments, wrong menu selections, and attempts without explicitly loaded
+SRAM are excluded from successful resume evidence. All emulator ROM/save/XDG
+writes use temporary copies, leaving the supplied files untouched.
+
+** Resume boundary
+
+| Frame | Observation | Live decoding |
+|-------+-------------+---------------|
+| 3167 | Versus Continue selected | Unavailable |
+| 3168 | Continue confirmation starts transition | Unavailable |
+| 3220..3222 | Unrecognized handoff; arrays not initialized | Unavailable |
+| 3223 | Geometry/players/units consistent; property coverage incomplete | Unavailable |
+| 3237 | All supported arrays consistent; transition processes active | Unavailable |
+| 3303 | State 12, lock 1, no screen processes | Unavailable |
+| 3304 | State 12, lock 0 | Unavailable |
+| 3305 | State 13, lock 0, input substate 0 | Available after structure checks |
+
+At frame 3305, compared with the completed-save checkpoint, the dimensions,
+tile and terrain grids, active property coordinates/types/owners, complete unit
+pool, day, turn, and each player's funds, slot/color, control, CO, and team
+match. Inactive property payload and unrelated volatile bytes are not compared.
+The game resumes the same turn without adding a day or income payment in this
+example.
+
+* Computer combat and animation settings
+
+The retained four-player battle supplies three CPU opponents. With full
+animations, the trace includes all three CPU turns, battles without a human
+Fire parent, unit damage/destruction, and the next red human turn. There are
+no human-turn classifications within the CPU portion.
+
+Settings are changed through Options, without memory writes:
+- Visual C describes itself as viewing player battle animations only. Its
+  three-CPU-turn trace contains 104 observations with the alternate resolver
+  and no animation-engine callbacks, before normal human control returns.
+- No Visual describes itself as no animation. The human Tank attack uses
+  =0x0849FFB0=; there is no full-screen animation-engine switch. Cleanup
+  still passes through states 16 and 13 with input substate 4 before returning
+  to substate zero. A temporary occupied zero-health record also fails unit
+  validation before the destroyed unit's type clears.
+
+Separate attempts holding L from attack confirmation or pulsing B/Start during
+an animation did not skip that animation. They are negative controls, not a
+verified shortcut. The confirmed skip coverage is the game-provided Visual C
+and No Visual settings; other shortcuts or animation modes remain unverified.
+
+* Powers, dialogues, and input probes
+
+Regular Power and Super both retain the Power parent through their effects.
+The regular trace ends with active byte 1, and the supplied Super trace with
+active byte 2. Neither value prevents decoding once the presentation finishes
+and normal controller/structure checks pass. The two activations are separate
+branches, so their frame numbers are not directly comparable durations.
+
+Save confirmation, overwrite confirmation, partially displayed text, Options,
+and Yield confirmation are blocked even when all supported arrays are valid.
+Several have no active screen-pool process and retain controller state 13;
+their nonzero controller lock prevents live decoding. The additional confirmed
+Yield branch removes the yielding army and starts CPU play. It is not a newly
+verified final defeat presentation or an automatic elimination dialogue.
+
+Seven independent Right-versus-neutral probes contain 140 controller snapshots.
+They reject the Right pulse at resume frame 3304, regular-Power frame 129001,
+Super frame 11621, and CPU frame 14795. Right moves the cursor only in the
+corresponding normal-control checkpoints at 3305, 129003, and 11623. A universal
+command-readiness flag is still outside the claim.
+
+* Evidence and checks
+
+External artifacts live at =/tmp/aw2-lifecycle-coverage-research/=. They include
+the supplied source copy, complete traces, selected checkpoints, paired RAM,
+screenshots, =validation-matrix.json=, =input-probes.json=, =archive-replay.json=,
+=verification-results.json=, =original-rom-checks.json=, save-extraction
+provenance, scripts, and a hash manifest. The manifest names the successful
+trace inputs and excludes unsuccessful resume/navigation attempts.
+
+ROM-independent regressions cover CPU attacks, both resolvers, power sequences,
+active Power/Super settlement, result precedence, unknown overlays, and the
+resume/dialogue controller guards. All 118 lifecycle/structure cases and the
+full repository pre-commit checks pass.
+
+* Remaining coverage
+
+- Campaign save/resume, event conversations, and Campaign-only structures.
+- Resume during other days, players, active powers, and additional configurations.
+- Other CO-specific power effects and dialogue/animation variants; two
+  independently activated powers do not prove all CO behavior.
+- Fresh automatic final-elimination dialogues/outcomes, rather than Yield or
+  earlier archived victory/defeat associations.
+- Additional combat types, animation shortcuts, and allowing reads during busy
+  phases. All unrecognized contexts remain unavailable.
+- Production headless SRAM autoload and headless/windowed parity.

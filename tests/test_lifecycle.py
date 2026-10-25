@@ -30,7 +30,7 @@ PLAYER_CONTROL = BattleControlObservation(
         (12, 0, LifecyclePhase.BATTLE_ENGINE_UNRESOLVED),
         (13, 0, LifecyclePhase.BATTLE_PLAYER_TURN),
         (13, 1, LifecyclePhase.BATTLE_ENGINE_UNRESOLVED),
-        (14, 0, LifecyclePhase.BATTLE_ENGINE_UNRESOLVED),
+        (14, 0, LifecyclePhase.BATTLE_COMPUTER_TURN),
     ],
 )
 def test_process_free_entry_play_menu_and_ai_observations(
@@ -44,7 +44,11 @@ def test_process_free_entry_play_menu_and_ai_observations(
         battle_control=replace(PLAYER_CONTROL, state=state, lock_count=lock_count),
     )
     assert result.phase is phase
-    assert result.battle_decode_safety is BattleDecodeSafety.UNKNOWN
+    assert result.battle_decode_safety is (
+        BattleDecodeSafety.BLOCKED
+        if phase is LifecyclePhase.BATTLE_COMPUTER_TURN
+        else BattleDecodeSafety.UNKNOWN
+    )
 
 
 @pytest.mark.parametrize(
@@ -171,3 +175,65 @@ def test_process_free_combat_cleanup_requires_input_substate_reset(
         battle_control=replace(PLAYER_CONTROL, state=state, lock_count=lock, input_state=substate),
     )
     assert result.phase is phase
+
+
+@pytest.mark.parametrize("resolver", [0x0849FEF8, 0x0849FFB0])
+@pytest.mark.parametrize("callbacks", [BATTLE_CALLBACKS, ANIMATION_CALLBACKS])
+def test_computer_combat_does_not_require_a_human_fire_parent(resolver, callbacks) -> None:
+    result = classify_lifecycle(
+        *callbacks, [resolver], battle_control=replace(PLAYER_CONTROL, state=14, lock_count=1)
+    )
+    assert result.phase is LifecyclePhase.BATTLE_COMBAT
+    assert result.battle_decode_safety is BattleDecodeSafety.BLOCKED
+    assert result.matched_scripts == (resolver,)
+
+
+def test_no_visual_human_combat_uses_the_alternate_resolver() -> None:
+    result = classify_lifecycle(
+        *BATTLE_CALLBACKS, [0x0849A9F8, 0x0849FFB0], battle_control=PLAYER_CONTROL
+    )
+    assert result.phase is LifecyclePhase.BATTLE_COMBAT
+    assert result.battle_decode_safety is BattleDecodeSafety.BLOCKED
+
+
+@pytest.mark.parametrize(
+    "control", [None, PLAYER_CONTROL, replace(PLAYER_CONTROL, mode=0, state=14)]
+)
+def test_resolver_without_fire_parent_requires_verified_computer_context(control) -> None:
+    result = classify_lifecycle(*BATTLE_CALLBACKS, [0x0849FFB0], battle_control=control)
+    assert result.phase is LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+
+
+def test_computer_turn_with_unknown_overlay_remains_unresolved() -> None:
+    result = classify_lifecycle(
+        *BATTLE_CALLBACKS, [0x0849FD14], battle_control=replace(PLAYER_CONTROL, state=14)
+    )
+    assert result.phase is LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+
+
+def test_power_quote_and_effects_are_blocked_despite_human_control_fields() -> None:
+    for scripts in ([0x0849D77C], [0x0849D77C, 0x08616794, 0x0849D84C]):
+        result = classify_lifecycle(*BATTLE_CALLBACKS, scripts, battle_control=PLAYER_CONTROL)
+        assert result.phase is LifecyclePhase.BATTLE_POWER
+        assert result.battle_decode_safety is BattleDecodeSafety.BLOCKED
+        assert result.matched_scripts == (0x0849D77C,)
+    assert (
+        classify_lifecycle(*BATTLE_CALLBACKS, [], battle_control=PLAYER_CONTROL).phase
+        is LifecyclePhase.BATTLE_PLAYER_TURN
+    )
+
+
+@pytest.mark.parametrize("callbacks", [SCREEN_CALLBACKS, ANIMATION_CALLBACKS, (0, 0)])
+def test_power_process_requires_the_verified_battle_callbacks(callbacks) -> None:
+    result = classify_lifecycle(*callbacks, [0x0849D77C], battle_control=PLAYER_CONTROL)
+    assert result.phase is LifecyclePhase.UNKNOWN
+
+
+def test_result_presentation_overrides_power_and_computer_combat() -> None:
+    result = classify_lifecycle(
+        *BATTLE_CALLBACKS,
+        [0x0849D77C, 0x0849FEF8, 0x084C327C],
+        battle_control=replace(PLAYER_CONTROL, state=14),
+    )
+    assert result.phase is LifecyclePhase.DEFEAT_PRESENTATION
+    assert result.battle_decode_safety is BattleDecodeSafety.BLOCKED

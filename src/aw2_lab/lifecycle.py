@@ -24,6 +24,8 @@ class LifecyclePhase(StrEnum):
     VERSUS_SETUP = "versus_setup"
     BATTLE_TRANSITION = "battle_transition"
     BATTLE_COMBAT = "battle_combat"
+    BATTLE_POWER = "battle_power"
+    BATTLE_COMPUTER_TURN = "battle_computer_turn"
     BATTLE_PLAYER_TURN = "battle_player_turn"
     BATTLE_ENGINE_UNRESOLVED = "battle_engine_unresolved"
     RESULT_SEQUENCE = "result_sequence"
@@ -80,10 +82,11 @@ SCREEN_CALLBACKS = (0x08036885, 0x080368E9)
 BATTLE_CALLBACKS = (0x08036945, 0x080369BD)
 ANIMATION_CALLBACKS = (0x08036A51, 0x08036AB9)
 
-# The Fire command waits for its combat resolver, which starts the full-screen
-# animation as a blocking child. Require both scripts: the Fire parent alone
-# also covers targeting and final cleanup, and animation callbacks are shared.
-_COMBAT_SCRIPTS = frozenset({0x0849A9F8, 0x0849FEF8})
+# Human Fire commands and computer attacks share these animated/non-animated
+# resolvers. The Fire parent alone also covers targeting and final cleanup.
+_FIRE_COMMAND_SCRIPT = 0x0849A9F8
+_COMBAT_RESOLVERS = frozenset({0x0849FEF8, 0x0849FFB0})
+_POWER_SCRIPT = 0x0849D77C
 
 _FRONTEND_SCRIPTS = {
     0x08581500: LifecyclePhase.STARTUP,
@@ -127,7 +130,7 @@ def classify_lifecycle(
     slot's script word. A zero script word is an inactive slot; its remaining
     bytes must not be interpreted as a process.
 
-    Optional controller fields recognize the verified human map-input mode.
+    Optional controller fields recognize verified human and computer control.
     Without those fields, settled battle states and process-free transition
     gaps remain ``BATTLE_ENGINE_UNRESOLVED``. Player-turn recognition does not
     certify field validity or that every command is currently available;
@@ -173,15 +176,32 @@ def classify_lifecycle(
             (_MAP_SELECT_SCRIPT,),
         )
 
-    if _COMBAT_SCRIPTS <= scripts and engine in {
-        LifecycleEngine.BATTLE,
-        LifecycleEngine.ANIMATION,
-    }:
+    if _POWER_SCRIPT in scripts and engine is LifecycleEngine.BATTLE:
+        return LifecycleAssessment(
+            LifecyclePhase.BATTLE_POWER,
+            engine,
+            BattleDecodeSafety.BLOCKED,
+            (_POWER_SCRIPT,),
+        )
+
+    computer_control = (
+        battle_control is not None and battle_control.mode == 1 and battle_control.state == 14
+    )
+    combat_scripts = scripts & _COMBAT_RESOLVERS
+    if (
+        combat_scripts
+        and (_FIRE_COMMAND_SCRIPT in scripts or computer_control)
+        and engine
+        in {
+            LifecycleEngine.BATTLE,
+            LifecycleEngine.ANIMATION,
+        }
+    ):
         return LifecycleAssessment(
             LifecyclePhase.BATTLE_COMBAT,
             engine,
             BattleDecodeSafety.BLOCKED,
-            tuple(sorted(_COMBAT_SCRIPTS)),
+            tuple(sorted(combat_scripts | (scripts & {_FIRE_COMMAND_SCRIPT}))),
         )
 
     # These effects also run at ordinary turn changes, so their presence cannot
@@ -216,15 +236,19 @@ def classify_lifecycle(
             not scripts
             and battle_control is not None
             and battle_control.mode == 1
-            and battle_control.state == 13
+            and battle_control.state in {13, 14}
             and battle_control.lock_count == 0
             and battle_control.input_gate == 0
             and battle_control.input_state == 0
         ):
             return LifecycleAssessment(
-                LifecyclePhase.BATTLE_PLAYER_TURN,
+                LifecyclePhase.BATTLE_PLAYER_TURN
+                if battle_control.state == 13
+                else LifecyclePhase.BATTLE_COMPUTER_TURN,
                 engine,
-                BattleDecodeSafety.UNKNOWN,
+                BattleDecodeSafety.UNKNOWN
+                if battle_control.state == 13
+                else BattleDecodeSafety.BLOCKED,
             )
         return LifecycleAssessment(
             LifecyclePhase.BATTLE_ENGINE_UNRESOLVED,

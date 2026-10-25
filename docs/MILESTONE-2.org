@@ -163,6 +163,13 @@
      snapshots and paired Right/neutral probes verify the boundary. Archived
      result/dialogue signals still take precedence. Other attack modes and
      fresh elimination/Campaign dialogues remain unverified.
+     [[file:AW2-LIFECYCLE-COVERAGE.org][Further lifecycle coverage]] now verifies a real in-game Versus save/resume,
+     three CPU turns with full or skipped animations, No Visual combat,
+     regular/Super activations, and save/yield dialogues. Forty-eight restored
+     RAM checks keep every busy/menu/dialogue case unavailable; nine normal
+     human-control snapshots pass. Saved/resumed researched fields match.
+     Campaign/event dialogues, additional configurations, production headless
+     SRAM autoload, universal outcomes, and emulator-mode parity remain open.
    - [ ] Identify title screens, menus, battle states, and transitions.
    - [ ] Establish when battle structures are valid to interpret.
    - [ ] Identify battle completion and outcome when validated.

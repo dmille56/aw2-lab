@@ -12,6 +12,10 @@ questions, not extra gameplay steps. The latest [[*Finding: Results, save-progre
 extends the initial observations below through victory/defeat, the save-progress
 prompt, and return to map selection.
 
+The newer [[file:AW2-LIFECYCLE-COVERAGE.org][additional lifecycle coverage]] verifies a real Versus save/resume,
+three CPU turns with full or skipped animations, No Visual combat, regular/Super
+Power activation, and save/yield dialogues. Unknown contexts remain unavailable.
+
 * Finding: Startup, title, Versus setup, and battle entry
 
 ** Claim and status
@@ -1096,9 +1100,11 @@ This makes the supplied settled human turn recognizable without misclassifying
 the tested entry gaps or retained menu fields. The follow-up
 [[file:AW2-STATE-VALIDATION.org][structure-validation finding]] implements the supported pointer, count,
 coordinate, and ownership guards. Still needed:
-- Extend the controller research across resumed games, Campaign, additional
+- Extend the controller research across Campaign, additional resume and
   combat/dialogue variants, and more computer/player configurations. The
   [[*Finding: combat animation and return to player control][combat trace below]] covers two normal animated attacks and their cleanup.
+  [[file:AW2-LIFECYCLE-COVERAGE.org][Additional coverage]] now includes a genuine Versus resume, CPU attacks,
+  animation settings, regular/Super activations, and save/yield dialogues.
 - Map additional human-input substates and pending tasks before exposing a
   universal command-readiness flag. Camera/cursor alignment also gates some
   commands in =0x0802DBF8=, even within human control.

@@ -25,6 +25,11 @@ table, player records, and unit records. Layout evidence is in
   zero-health record also fails unit validation before its type is cleared.
   Only normal control resumes live availability. Archived result/dialogue
   signals retain precedence over combat processes.
+- [[file:AW2-LIFECYCLE-COVERAGE.org][Additional lifecycle coverage]] checks 48 restored snapshots spanning real
+  Versus resume, CPU combat, skipped/disabled animations, regular/Super Power,
+  and save/yield dialogues. Nine normal human-control snapshots are available;
+  all busy/menu/dialogue cases remain unavailable. The saved and resumed
+  researched fields match, and all 297 earlier archive decisions are preserved.
 - This certifies the researched subset in the tested contexts. It does not
   validate arbitrary mods, Campaign-only terrain, every transport, unknown
   record fields, or command readiness. There is no new state API endpoint or
@@ -205,9 +210,9 @@ decoders is separate from validating these structures.
   inactive/stale records, cycles, frame drift, and truncated captures. They use
   no ROM or proprietary memory data. All 56 structure-validation cases and the
   full repository pre-commit checks passed.
-- Remaining coverage: resumed battles, Campaign-specific terrain and unit types,
+- Remaining coverage: additional resume configurations, Campaign-specific terrain and unit types,
   more transports/ownership scenarios, and allowing supported reads during AI
   turns or other busy phases. Normal animated combat is now checked; other
-  attack/animation modes and new elimination dialogues remain coverage gaps.
+  attack/animation modes, CO-specific effects, and new elimination dialogues remain coverage gaps.
   Unverified fields and command availability remain
   outside the claim. Modded map sizes and theoretical table capacities stay deferred.

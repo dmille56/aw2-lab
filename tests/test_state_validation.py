@@ -122,6 +122,45 @@ def test_valid_structures_stay_unavailable_through_combat_and_cleanup(memory) ->
     report.require_live()
 
 
+@pytest.mark.parametrize("script", [0x0849FEF8, 0x0849FFB0])
+def test_computer_combat_is_unavailable_even_without_a_fire_parent(memory, script) -> None:
+    pack_into("<I", memory[1], 0xD610, script)
+    pack_into("<H", memory[2], 0x32D8, 14)
+    report = validate_battle_snapshot(snapshot(memory))
+    assert report.lifecycle.phase is LifecyclePhase.BATTLE_COMBAT
+    assert not report.can_decode_live
+
+
+@pytest.mark.parametrize("active_power", [1, 2])
+def test_power_sequence_blocks_valid_arrays_but_active_power_does_not(memory, active_power) -> None:
+    _, ewram, _ = memory
+    ewram[0x23284 + 60 + 0x1E] = active_power
+    pack_into("<I", ewram, 0xD610, 0x0849D77C)
+    report = validate_battle_snapshot(snapshot(memory))
+    assert report.lifecycle.phase is LifecyclePhase.BATTLE_POWER
+    assert all(
+        getattr(report, field.value).status is ValidationStatus.VALID for field in BattleStructure
+    )
+    assert not report.can_decode_live
+    pack_into("<I", ewram, 0xD610, 0)
+    assert validate_battle_snapshot(snapshot(memory)).can_decode_live
+
+
+def test_resume_and_process_free_dialogues_require_the_normal_controller(memory) -> None:
+    # Resumed battle arrays can be valid before state 12 advances to state 13.
+    for state, lock_count in ((12, 1), (12, 0), (13, 1)):
+        pack_into("<H", memory[2], 0x32D8, state)
+        memory[2][0x30F0] = lock_count
+        report = validate_battle_snapshot(snapshot(memory))
+        assert all(
+            getattr(report, field.value).status is ValidationStatus.VALID
+            for field in BattleStructure
+        )
+        assert not report.can_decode_live
+    memory[2][0x30F0] = 0
+    assert validate_battle_snapshot(snapshot(memory)).can_decode_live
+
+
 @pytest.mark.parametrize("width,height", [(0, 0), (49, 15), (48, 39), (65535, 65535)])
 def test_unsupported_dimensions_stop_dependent_reads(memory, width, height) -> None:
     pack_into("<HH", memory[1], 0x1E450, width, height)
