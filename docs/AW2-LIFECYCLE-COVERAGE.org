@@ -216,8 +216,10 @@ full repository pre-commit checks pass.
 - Resume during other days, players, active powers, and additional configurations.
 - Other CO-specific power effects and dialogue/animation variants; two
   independently activated powers do not prove all CO behavior.
-- Fresh automatic final-elimination dialogues/outcomes, rather than Yield or
-  earlier archived victory/defeat associations.
+- A fresh two-player Versus routing elimination now traces the empty opponent
+  roster, defeated-marker update, victory process, summary, save prompt, and map
+  selection. The exact hit/removal frame remains unisolated, and decoding stays
+  blocked at map selection. Campaign elimination dialogues remain unverified.
 - Additional combat types, animation shortcuts, and allowing reads during busy
   phases. All unrecognized contexts remain unavailable.
 - Headless/windowed parity for combat animations, powers, and result/dialogue flows.

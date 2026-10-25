@@ -162,12 +162,16 @@
      through cleanup until the input substate resets. Nineteen restored
      snapshots and paired Right/neutral probes verify the boundary. Archived
      result/dialogue signals still take precedence. Other attack modes and
-     fresh elimination/Campaign dialogues remain unverified.
+     Campaign dialogues remain unverified.
      [[file:AW2-LIFECYCLE-COVERAGE.org][Further lifecycle coverage]] now verifies a real in-game Versus save/resume,
      three CPU turns with full or skipped animations, No Visual combat,
      regular/Super activations, and save/yield dialogues. Forty-eight restored
      RAM checks keep every busy/menu/dialogue case unavailable; nine normal
      human-control snapshots pass. Saved/resumed researched fields match.
+     A fresh two-player routing elimination now pins the defeated marker to
+     frame 6201 and the victory process to frame 6202, then follows the summary,
+     save prompt, and map selection; the exact hit frame remains unresolved.
+     See the [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: fresh final-unit elimination through results and map selection][fresh elimination trace]].
      Campaign/event dialogues, additional configurations, universal outcomes,
      and front-end parity for combat, powers, and results remain open. Headless
      and windowed builds produced identical full RAM hashes across startup,

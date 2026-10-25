@@ -1238,3 +1238,74 @@ long destruction attempt timed out after 492 captured observations; it is not
 the complete-trace evidence. Short runs completed both branches without a
 timeout. The matrix's =save-prompt= label follows the observed screen, even
 though the retained source filename is =defeat-sequence.ss0=.
+
+* Finding: fresh final-unit elimination through results and map selection
+
+** Scope and sources
+- Date: 2026-10-25. The same checksum-verified US ROM and pinned headless
+  mGBA build were used. The supplied =aw2.ss2=, =aw2.ss3=, and =aw2.ss4=
+  states remained unchanged; hashes are recorded in
+  =/tmp/aw2-final-elimination/evidence-manifest.json=.
+- =aw2.ss2= is frame =5917=, day 4, with the Fire/Wait command menu open.
+  Player slot 1 has four active units; slot 2 has one 29-health Infantry.
+  Geometry, properties, player records, and units validate, but the lifecycle
+  is unresolved and live decoding is blocked.
+- =aw2.ss3= is frame =6190= during combat. The Fire command and non-animated
+  resolver are active under battle callbacks; slot 2's unit block is empty,
+  while its defeated marker is still zero. All four supported structures
+  validate, but =BATTLE_COMBAT= blocks live decoding.
+- =aw2.ss4= is frame =6329= and visibly shows the VICTORY banner.
+
+** Last-unit and result boundary
+
+| Frame | Evidence | Lifecycle / live decoding |
+|-------+----------+---------------------------|
+| 5917 | Fire/Wait menu; last enemy has 29 health | =BATTLE_ENGINE_UNRESOLVED / blocked= |
+| 6190 | Combat resolver active; enemy roster empty; defeat marker 0 | =BATTLE_COMBAT / blocked= |
+| 6200 | Cleanup; enemy roster remains empty; defeat marker 0 | =BATTLE_ENGINE_UNRESOLVED / blocked= |
+| 6201 | Player slot 2 defeated marker changes to day 4 | =BATTLE_ENGINE_UNRESOLVED / blocked= |
+| 6202 | Victory result process starts | =VICTORY_PRESENTATION / blocked= |
+
+The saved combat checkpoint leaves a gap between frames 5917 and 6190, so the
+exact hit and unit-record removal frame are not isolated. The defeat marker is
+now pinned to frame 6201, and the result process begins on frame 6202. This
+shows the marker is set while battle callbacks and an unresolved cleanup state
+are still active, one frame before the victory process is recognized.
+
+** Victory, summary, save prompt, and menu
+
+| Frame | Visible or classified phase | Live decoding |
+|-------+-----------------------------+---------------|
+| 6329 | VICTORY banner | Blocked |
+| 7409 | Winner quote | Blocked |
+| 7952 | WIN/LOSE result summary | Blocked |
+| 8163 | Save-progress prompt | Blocked |
+| 8319 | Versus map-selection process | Blocked |
+| 8439 | SELECT MAP screen rendered | Blocked |
+
+Every full-RAM sample in this flow has valid geometry, property, player, and
+unit structures. Lifecycle state still denies live decoding through the map
+selection screen. Decoding does not resume within this terminal result path.
+
+** Same-battle command-menu boundary
+
+A cancel/reopen branch from the supplied pre-attack state isolates the
+controller guard. Cancelling the command menu returns to a live player turn at
+frame 5950 after cleanup. At frame 5979, all structures validate and
+=BATTLE_PLAYER_TURN= permits decoding. A one-frame A press starts process
+=0x0849BE38=; frame 5980 becomes =BATTLE_ENGINE_UNRESOLVED= and live decoding
+is blocked. This is a separate branch from the final attack itself: the
+supplied pre-attack checkpoint already begins with decoding blocked. The
+terminal result path remains blocked through map selection; a new battle was
+not started from that menu.
+
+** Reproduction and evidence
+
+Artifacts are external at =/tmp/aw2-final-elimination/=. =focused-findings.json=
+summarizes the samples and source hashes; =marker-frames.json= records the
+one-frame defeat-marker change; =boundary-frames.json= records the marker to
+victory-process transition; =decode-block-boundary.json= and
+=exact-resume-frames.json= contain the command-menu control probes. The
+directory also preserves the supplied screenshots, complete EWRAM/IWRAM
+snapshots, generated mGBA branches, =result-flow.json=, =verification-results.json=,
+and the hash manifest. The supplied ROM and state files were not modified.
