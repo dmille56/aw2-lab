@@ -23,6 +23,7 @@ class LifecyclePhase(StrEnum):
     VERSUS_MAP_SELECT = "versus_map_select"
     VERSUS_SETUP = "versus_setup"
     BATTLE_TRANSITION = "battle_transition"
+    BATTLE_COMBAT = "battle_combat"
     BATTLE_PLAYER_TURN = "battle_player_turn"
     BATTLE_ENGINE_UNRESOLVED = "battle_engine_unresolved"
     RESULT_SEQUENCE = "result_sequence"
@@ -38,6 +39,7 @@ class LifecycleEngine(StrEnum):
     UNKNOWN = "unknown"
     SCREEN = "screen"
     BATTLE = "battle"
+    ANIMATION = "animation"
 
 
 class BattleDecodeSafety(StrEnum):
@@ -76,6 +78,12 @@ class BattleControlObservation:
 
 SCREEN_CALLBACKS = (0x08036885, 0x080368E9)
 BATTLE_CALLBACKS = (0x08036945, 0x080369BD)
+ANIMATION_CALLBACKS = (0x08036A51, 0x08036AB9)
+
+# The Fire command waits for its combat resolver, which starts the full-screen
+# animation as a blocking child. Require both scripts: the Fire parent alone
+# also covers targeting and final cleanup, and animation callbacks are shared.
+_COMBAT_SCRIPTS = frozenset({0x0849A9F8, 0x0849FEF8})
 
 _FRONTEND_SCRIPTS = {
     0x08581500: LifecyclePhase.STARTUP,
@@ -165,6 +173,17 @@ def classify_lifecycle(
             (_MAP_SELECT_SCRIPT,),
         )
 
+    if _COMBAT_SCRIPTS <= scripts and engine in {
+        LifecycleEngine.BATTLE,
+        LifecycleEngine.ANIMATION,
+    }:
+        return LifecycleAssessment(
+            LifecyclePhase.BATTLE_COMBAT,
+            engine,
+            BattleDecodeSafety.BLOCKED,
+            tuple(sorted(_COMBAT_SCRIPTS)),
+        )
+
     # These effects also run at ordinary turn changes, so their presence cannot
     # distinguish initial battle entry from an ongoing match's turn transition.
     if scripts & _BATTLE_TRANSITION_SCRIPTS and engine in {
@@ -226,4 +245,6 @@ def _engine_for(callback_a: int, callback_b: int) -> LifecycleEngine:
         return LifecycleEngine.SCREEN
     if (callback_a, callback_b) == BATTLE_CALLBACKS:
         return LifecycleEngine.BATTLE
+    if (callback_a, callback_b) == ANIMATION_CALLBACKS:
+        return LifecycleEngine.ANIMATION
     return LifecycleEngine.UNKNOWN

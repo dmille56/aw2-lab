@@ -1096,8 +1096,9 @@ This makes the supplied settled human turn recognizable without misclassifying
 the tested entry gaps or retained menu fields. The follow-up
 [[file:AW2-STATE-VALIDATION.org][structure-validation finding]] implements the supported pointer, count,
 coordinate, and ownership guards. Still needed:
-- Extend the controller research across resumed games, Campaign, combat,
-  dialogues, and more computer/player configurations.
+- Extend the controller research across resumed games, Campaign, additional
+  combat/dialogue variants, and more computer/player configurations. The
+  [[*Finding: combat animation and return to player control][combat trace below]] covers two normal animated attacks and their cleanup.
 - Map additional human-input substates and pending tasks before exposing a
   universal command-readiness flag. Camera/cursor alignment also gates some
   commands in =0x0802DBF8=, even within human control.
@@ -1117,3 +1118,114 @@ controls, and conflicting result signals; no ROM or save-state data is tracked.
 Validation covered 45 current/archived full-RAM observations, 860 frame-trace
 samples, and 396 input-probe snapshots. The 28 lifecycle regression cases and
 the full repository pre-commit checks passed.
+
+* Finding: combat animation and return to player control
+
+** Scope and reproduction
+- Date: 2026-10-25. Same checksum-verified US ROM, pinned headless mGBA,
+  and frame-gate patch as above. Temporary ROM/save/XDG copies isolate writes.
+- The retained four-player =red-ready.ss0= checkpoint is frame =19421=,
+  day 6, red's turn. Source SHA-256:
+  =e34dddc4216fef3a84390796a0b188f76ff51f123983f0dc4da423fe970b36d0=.
+  The original seven combat checkpoints no longer exist at their supplied
+  paths; this is a fresh controlled sequence from a retained checkpoint.
+- Move the cursor Up twice from =(1,7)= to the red Tank at =(1,5)=, select
+  it with A, confirm its current position with A, then choose Fire with A.
+  Preparation inputs, as =key_mask:frames=, are
+  =64:1, 0:8, 64:1, 0:8, 1:1, 0:10, 1:1, 0:20, 1:1, 0:20=.
+  The forecast at frame =19492= targets green Infantry at =(1,4)=.
+- Destruction branch: press A for one frame, then neutral frames. The
+  44-health target is destroyed; other green units remain, so no player is
+  eliminated and no result dialogue is expected.
+- Damage/counterattack branch: restore that forecast, press Right for one
+  frame and neutral for 15 frames, targeting green Infantry at =(2,5)=.
+  At frame =19508=, press A for one frame, then neutral frames. Both units
+  survive: the Tank's masked health changes =98 -> 96= and the Infantry's
+  =96 -> 32=. No damage formula is inferred from this example.
+- Complete traces use short emulator sessions restored at the 250-frame
+  checkpoint. They cover 501 destruction observations and 601 damage
+  observations, counting the shared boundary only once per branch.
+
+** Combat association corroborated in the original ROM
+
+| Signal | Verified association |
+|--------+----------------------|
+| =0x0849A9F8= | Fire command parent; also exists during targeting and cleanup |
+| =0x0849FEF8= | Resolver awaited by that parent; spans the confirmed combat sequence |
+| =0x0855379C= | Blocking animation child started by the resolver |
+| =(0x08036A51, 0x08036AB9)= | Animation callback pair; distinct from normal battle callbacks |
+
+The parent's command at =0x0849AA10= waits for =0x0849FEF8=.
+The resolver command at =0x0849FF48= starts =0x0855379C= as a blocking
+child. That child's call at =0x085537A4= invokes =0x080531D4=, which calls
+=0x08036C08= to install the animation callbacks. Their exact Thumb pointer
+literals are at =0x08036C24= and =0x08036C28=. These links were checked
+against the supported ROM bytes; assembly labels alone are not the evidence.
+
+=classify_lifecycle= now returns =BATTLE_COMBAT=, with decoding blocked,
+when both Fire parent and resolver are present under the battle or animation
+callback pair. It reports the additional engine family as =ANIMATION=.
+Neither animation callbacks alone nor either process alone establishes combat.
+Known result processes retain precedence. This is a verified association for
+these attacks, not an exhaustive list of every combat or animation mode.
+
+** Destruction timing and cleanup counterexamples
+
+| Frame | Observation | Lifecycle / live decoding |
+|-------+-------------+---------------------------|
+| 19421 | Free cursor before selecting the Tank | Player turn; supported structures available |
+| 19492 | Target forecast; state 13, lock 1, input substate 4 | Unresolved; unavailable |
+| 19495 | Fire parent and resolver; lock 2 | Combat; unavailable |
+| 19527 | Animation callbacks installed | Combat; unavailable |
+| 19868 | Animation child ends; animation callbacks still selected | Combat; unavailable |
+| 19877 | Battle callbacks return; resolver remains | Combat; unavailable |
+| 19915 | Target type still Infantry but masked health is zero | Combat; unit validation invalid |
+| 19917 | Target type cleared to zero; stale record payload remains | Combat; unavailable |
+| 19957 | Controller state 16, resolver still present | Combat; unavailable |
+| 19958 | Only Fire parent remains; lock 1 | Unresolved; unavailable |
+| 19959 | No processes, lock 0, state 16, substate 4 | Unresolved; unavailable |
+| 19960 | State returns to 13 but substate remains 4 | Unresolved; unavailable |
+| 19961 | State 13, lock 0, substate 0, no processes | Player turn; supported structures available |
+
+The nonlethal branch similarly remains unavailable through its animations and
+counterattack. At frames =19931= and =19932= it still has input substate 4;
+frame =19933= is its first recognized player-turn observation.
+
+Four independently restored checkpoints were branched with a one-frame Right
+pulse versus neutral input, followed by eight neutral frames. Right is ignored
+at destruction frames =19527=, =19959=, and =19960=. It moves the cursor
+from =(1,4)= to =(2,4)= at =19961=; the neutral branch stays at =(1,4)=.
+Thus normal callbacks, controller state 13, an empty process pool, and zero
+locks are still insufficient without the input-substate check. No new universal
+command-readiness claim is made.
+
+** Validation, dialogues, and remaining coverage
+- Nineteen restored full-RAM snapshots cover pre-attack control, targeting,
+  animation, damage/deletion, cleanup, post-combat control, and a retained
+  save-progress prompt. Only the four normal-control snapshots are live.
+  The zero-health occupied record is rejected by unit validation; otherwise
+  plausible arrays never bypass the lifecycle guard.
+- Replay of the same 297 archived RAM pairs preserves every prior live-data
+  decision. Five archived victory/defeat/result dialogue observations remain
+  blocked, including their retained battle callbacks. These are replays of
+  captured callback/process fields, not new full-RAM captures or a newly
+  executed game-ending attack.
+- Both new attacks finish without a dialogue. Campaign event conversations,
+  new combat-triggered elimination dialogues, animations disabled/skipped,
+  indirect/naval/air attacks, and AI-initiated combat remain additional coverage.
+  Resumed-game coverage and universal result/outcome rules remain open.
+- ROM-independent regressions cover both combat engine pairs, incomplete or
+  conflicting evidence, result precedence, and combat-to-cleanup-to-player
+  validation with otherwise valid arrays. All 99 lifecycle/structure cases and
+  full repository pre-commit checks pass.
+
+** Evidence
+Artifacts are external at =/tmp/aw2-combat-lifecycle-research/=. Complete
+=destroy-head= / =destroy-tail= and =damage= / =damage-tail= traces, independently
+restored checkpoints, =validation-matrix.json=, screenshots, paired RAM dumps,
+=input-probes.json=, =archive-replay.json=, =dialogue-replay.json=, original-ROM
+checks, scripts, and a hash manifest preserve reproduction details. The first
+long destruction attempt timed out after 492 captured observations; it is not
+the complete-trace evidence. Short runs completed both branches without a
+timeout. The matrix's =save-prompt= label follows the observed screen, even
+though the retained source filename is =defeat-sequence.ss0=.

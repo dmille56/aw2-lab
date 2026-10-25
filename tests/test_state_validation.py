@@ -7,7 +7,12 @@ from struct import pack_into
 import pytest
 
 from aw2_lab.bridge import BridgeError, LuaBridgeClient, MemorySnapshot
-from aw2_lab.lifecycle import BATTLE_CALLBACKS, SCREEN_CALLBACKS
+from aw2_lab.lifecycle import (
+    ANIMATION_CALLBACKS,
+    BATTLE_CALLBACKS,
+    SCREEN_CALLBACKS,
+    LifecyclePhase,
+)
 from aw2_lab.rom_profile import AW2_US_REVISION_0, UnsupportedRomError
 from aw2_lab.state_validation import (
     BattleLayout,
@@ -85,6 +90,36 @@ def test_consistent_retained_data_is_unavailable_in_menus_and_results(memory, sc
 def test_consistent_arrays_do_not_make_entry_gaps_or_computer_turns_live(memory, state) -> None:
     pack_into("<H", memory[2], 0x32D8, state)
     assert not validate_battle_snapshot(snapshot(memory)).can_decode_live
+
+
+def test_valid_structures_stay_unavailable_through_combat_and_cleanup(memory) -> None:
+    _, ewram, iwram = memory
+    assert validate_battle_snapshot(snapshot(memory)).can_decode_live
+    for callbacks in (BATTLE_CALLBACKS, ANIMATION_CALLBACKS, BATTLE_CALLBACKS):
+        for offset, value in zip((0x40D0, 0x40EC), callbacks, strict=True):
+            pack_into("<I", iwram, offset, value)
+        pack_into("<I", ewram, 0xD610, 0x0849A9F8)
+        pack_into("<I", ewram, 0xD67C, 0x0849FEF8)
+        report = validate_battle_snapshot(snapshot(memory))
+        assert report.lifecycle.phase is LifecyclePhase.BATTLE_COMBAT
+        assert all(
+            getattr(report, field.value).status is ValidationStatus.VALID
+            for field in BattleStructure
+        )
+        assert not any(report.available(field) for field in BattleStructure)
+        with pytest.raises(ValueError, match="battle_combat"):
+            report.require_live()
+
+    pack_into("<I", ewram, 0xD610, 0)
+    pack_into("<I", ewram, 0xD67C, 0)
+    pack_into("<H", iwram, 0x3334, 4)
+    for state in (16, 13):
+        pack_into("<H", iwram, 0x32D8, state)
+        assert not validate_battle_snapshot(snapshot(memory)).can_decode_live
+    pack_into("<H", iwram, 0x3334, 0)
+    report = validate_battle_snapshot(snapshot(memory))
+    assert report.can_decode_live
+    report.require_live()
 
 
 @pytest.mark.parametrize("width,height", [(0, 0), (49, 15), (48, 39), (65535, 65535)])

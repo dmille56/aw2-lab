@@ -5,6 +5,7 @@ from dataclasses import replace
 import pytest
 
 from aw2_lab.lifecycle import (
+    ANIMATION_CALLBACKS,
     BATTLE_CALLBACKS,
     SCREEN_CALLBACKS,
     BattleControlObservation,
@@ -112,3 +113,61 @@ def test_conflicting_result_presentations_stay_unknown() -> None:
     )
     assert result.phase is LifecyclePhase.UNKNOWN
     assert result.battle_decode_safety is BattleDecodeSafety.UNKNOWN
+
+
+@pytest.mark.parametrize("callbacks", [BATTLE_CALLBACKS, ANIMATION_CALLBACKS])
+def test_fire_parent_and_resolver_recognize_combat_with_retained_human_state(callbacks) -> None:
+    result = classify_lifecycle(
+        *callbacks,
+        [0x0849A9F8, 0x0849FEF8, 0x0855379C],
+        battle_control=PLAYER_CONTROL,
+    )
+    assert result.phase is LifecyclePhase.BATTLE_COMBAT
+    assert result.battle_decode_safety is BattleDecodeSafety.BLOCKED
+    assert result.matched_scripts == (0x0849A9F8, 0x0849FEF8)
+
+
+@pytest.mark.parametrize("scripts", [[], [0x0855379C], [0x0849A9F8], [0x0849FEF8]])
+def test_animation_callbacks_alone_do_not_identify_combat_or_player_control(scripts) -> None:
+    result = classify_lifecycle(*ANIMATION_CALLBACKS, scripts, battle_control=PLAYER_CONTROL)
+    assert result.phase is LifecyclePhase.UNKNOWN
+    assert result.battle_decode_safety is BattleDecodeSafety.UNKNOWN
+
+
+@pytest.mark.parametrize("callbacks", [SCREEN_CALLBACKS, (0, 0)])
+def test_combat_scripts_require_a_supported_engine(callbacks) -> None:
+    result = classify_lifecycle(*callbacks, [0x0849A9F8, 0x0849FEF8], battle_control=PLAYER_CONTROL)
+    assert result.phase is LifecyclePhase.UNKNOWN
+
+
+@pytest.mark.parametrize("script", [0x08615CB0, 0x084C327C, 0x0849D56C])
+def test_results_override_combat_processes(script) -> None:
+    result = classify_lifecycle(
+        *BATTLE_CALLBACKS, [0x0849A9F8, 0x0849FEF8, script], battle_control=PLAYER_CONTROL
+    )
+    assert result.phase in {
+        LifecyclePhase.VICTORY_PRESENTATION,
+        LifecyclePhase.DEFEAT_PRESENTATION,
+        LifecyclePhase.RESULT_SEQUENCE,
+    }
+    assert result.battle_decode_safety is BattleDecodeSafety.BLOCKED
+
+
+@pytest.mark.parametrize(
+    ("state", "lock", "substate", "phase"),
+    [
+        (16, 0, 4, LifecyclePhase.BATTLE_ENGINE_UNRESOLVED),
+        (13, 0, 4, LifecyclePhase.BATTLE_ENGINE_UNRESOLVED),
+        (13, 0, 0, LifecyclePhase.BATTLE_PLAYER_TURN),
+    ],
+)
+def test_process_free_combat_cleanup_requires_input_substate_reset(
+    state, lock, substate, phase
+) -> None:
+    # Consecutive destruction checkpoints: frames 19959, 19960, and 19961.
+    result = classify_lifecycle(
+        *BATTLE_CALLBACKS,
+        [],
+        battle_control=replace(PLAYER_CONTROL, state=state, lock_count=lock, input_state=substate),
+    )
+    assert result.phase is phase
