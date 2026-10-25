@@ -149,14 +149,17 @@
      and ROM checks now verify a human-input controller state, allowing
      =BATTLE_PLAYER_TURN= when its mode, locks, input state, and engine agree.
      Entry gaps, a command menu, and an AI turn provide negative controls.
-     No state is marked safe for active-battle decoding yet: field validity
-     intervals and wider path coverage still need verification. See the classifier
-     notes in
+     [[file:AW2-STATE-VALIDATION.org][Per-structure validation]] now checks geometry, property coverage/owners,
+     players, and bounded unit/cargo records, allowing the supported live fields
+     only after both the lifecycle and structural guards pass. Replays cover
+     297 archived snapshots and 25 restored checkpoints; retained setup/results
+     memory and entry gaps remain unavailable. Campaign/resume coverage and
+     additional busy contexts remain open. See the classifier notes in
      [[file:AW2-LIFECYCLE-RESEARCH.org::*Conservative runtime classifier][lifecycle research]].
    - [ ] Identify title screens, menus, battle states, and transitions.
    - [ ] Establish when battle structures are valid to interpret.
    - [ ] Identify battle completion and outcome when validated.
-   - [ ] Verify that non-battle and transitional memory is not interpreted as a valid battle.
+   - [X] Verify that non-battle and transitional memory is not interpreted as a valid battle.
 
 ** TODO Decode map and property state
    - Research progress: [[file:AW2-MAP-RESEARCH.org::*Finding: two-player HQ capture completes the battle and changes ownership][HQ capture comparison]] verifies an

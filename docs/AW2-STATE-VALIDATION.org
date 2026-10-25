@@ -1,0 +1,205 @@
+#+TITLE: AW2 Battle Structure Validation
+
+Conservative validation of the supported ROM's map geometry, property/feature
+table, player records, and unit records. Layout evidence is in
+[[file:AW2-MAP-RESEARCH.org][map/property research]] and [[file:AW2-LIFECYCLE-RESEARCH.org][lifecycle research]].
+
+* Result and scope
+
+- Date: 2026-10-25. The exact supported US revision-0 ROM was selected by
+  SHA-256. Its map, unit, and player pointer literals and tile/terrain lookup
+  are loaded by =load_battle_layout=; an unknown ROM or mismatching pointer is
+  rejected before following addresses.
+- [[file:../src/aw2_lab/state_validation.py][state_validation.py]] checks the supported structures and reports their
+  raw consistency independently from whether they may be decoded as live.
+  =can_decode_live= requires the verified =BATTLE_PLAYER_TURN= context and
+  passing checks for all four structures. Menus, results, unknown contexts,
+  transitions, locked menus, and computer turns are conservatively unavailable.
+- Replay covered 297 archived full-RAM observations and 25 restored control
+  checkpoints. The 170 archived human-turn observations all pass the supported
+  checks, across 15 map geometries including 46 x 28, 39 x 30, and 33 x 35.
+  None of the other 127 archived observations is exposed as a live battle.
+- This certifies the researched subset in the tested contexts. It does not
+  validate arbitrary mods, Campaign-only terrain, every transport, unknown
+  record fields, or command readiness. There is no new state API endpoint or
+  complete battle decoder in this change.
+
+* Coherent captures and pointer rules
+
+=capture_battle_snapshot= reads complete EWRAM and IWRAM in bounded 4-KiB
+requests at a paused emulator frame. Every response and a final frame check
+must agree; frame drift or incomplete data raises an error. Offline snapshots
+must likewise come from a coherent capture; RAM bytes alone cannot prove their
+own capture provenance.
+
+| ROM literal | Expected GBA address | Rule |
+|-------------+----------------------+------|
+| =LE32(0x08499590)= | =0x0201E450= | Map structure |
+| =LE32(0x08499594)= | =0x02022684= | Unit pool, including reserved slots |
+| =LE32(0x08499598)= | =0x02023284= | Player-record base; slots 1..4 start after record zero |
+
+The implementation bounds every read within captured GBA RAM and checks
+halfword/word alignment. Dynamic dimensions, row offsets, property coordinates,
+turn indices, and passenger indices are checked before dependent reads. No GBA
+pointer is converted to a host pointer. The stale current-unit pointer at
+=0x030040D8= is not used to identify a unit under the free cursor.
+
+* Per-structure checks
+
+** Map geometry
+
+- Nonzero little-endian width/height at the map base.
+- Supported retail envelope: width <=48, height <=39, area <=1,288. These are
+  conservative support bounds based on the existing catalog/buffer research;
+  they are not a new claim about the engine's theoretical limits.
+- Every active row offset at =B+0x417A+2*y= equals =y*width=. A corrupt offset
+  is rejected rather than followed into another array.
+- Every graphical tile halfword at =B+0x0A22+2*i= fits the 1,024-byte ROM
+  lookup and matches its terrain/owner byte at =B+0x1432+i=. The lookup loader
+  at =0x080215D0= copies from =0x080C1BC4= through offset =0x3FF=.
+- Currently supported graphical IDs are <=470 and terrain classes are
+  =1..8,10..19=. Unsupported IDs/classes, including unverified Labs, yield
+  =UNKNOWN=. Owner codes must be =0..4= and owned cells must be supported
+  property/feature classes.
+
+** Property and feature table
+
+- Four-byte records at =0x03003150=, bounded to 92 slots. Stop on first byte
+  =0xFF=; ignore the rest of that record and all trailing stale entries.
+  Zero first-byte entries are skipped without interpreting their stale bytes.
+  Missing termination within the bound makes the list unavailable.
+- Every active coordinate is unique, inside the map, and matches the terrain
+  grid's encoded type/owner. The list must cover the grid's supported feature
+  cells exactly: City, HQ, Airport, Port, Base, unused silo, and spent silo.
+- Non-neutral owners must refer to participating player records. Defeated
+  players remain participating records; they are not confused with unused slots.
+- The fourth property byte is deliberately uninterpreted. Capture progress is
+  checked in the unit record. Silos remain features after launch.
+- The 92-slot traversal bound is distinct from a proven maximum property count;
+  the existing 88-property Royal Channel observation is supported. Larger-map
+  and theoretical-capacity experiments remain deferred.
+
+** Players and turn
+
+- Read player slots =1..4= using the 60-byte stride. The participation/control
+  byte at =+0x1B= determines whether a record is active; inactive records may
+  retain arbitrary CO, team, and power bytes.
+- Supported participating control types are 1 (human) and 2 (computer). Unknown
+  controls or CO IDs outside =0..18= yield =UNKNOWN=.
+- Slot/color ID =+0x1A= must match the slot, active power =+0x1E= must be
+  =0..2=, and team =+0x2A= must be =0..3=.
+- Day must be initialized, and the turn selector must identify a participating
+  bounded slot. A recognized human turn whose selected player is marked
+  defeated is unavailable for live decoding.
+
+** Units and cargo
+
+- The pool spans four =0x300=-byte address blocks, each with 64 physical
+  12-byte records. Normal allocation starts at slot 1 and stops before slot 51;
+  slot 0 and slots 51..63 are outside the supported allocator. A nonzero unit
+  there yields =UNKNOWN= rather than being silently decoded.
+- Original allocator =0x08025AEC= uses the current army's index offset, starts
+  at offset+1, and loops while the index is below offset+=0x33=. Its record
+  advance is =0x0C=. Thus the first usable record addresses remain
+  =0x02022690,0x02022990,0x02022C90,0x02022F90=; starting a 64-record scan
+  at one of those addresses would include the next block's reserved record.
+- A zero type byte marks an unused record, regardless of stale flags,
+  coordinates, or health. Active records need a supported observed type, a
+  participating owner block, coordinates inside the map, health =1..100= after
+  masking with =0x7F=, and capture progress below 20 from byte +5 shifted right 3.
+  The ROM's health readers mask off byte +4's high bit; rejecting raw values
+  such as =0xE4= would incorrectly reject a full-health unit.
+- Supported APC/Lander links at +7/+8 are global unit indices, not universally
+  small per-army slot numbers. Resolve =UNIT_BASE + 12*reference=; the high two
+  bits identify the army block and the low six identify the slot. For example,
+  blue reference 65 points to blue slot 1 at =0x02022990=. The earlier red
+  slot-plus-one observations are the army-zero special case.
+- Validate link range, own-army membership, target occupancy, self-links,
+  duplicate parents, cycles, and APC capacity. Unsupported transport/link fields
+  yield =UNKNOWN=. The original destruction routine at =0x08025D60= resolves
+  both passenger bytes directly against the global unit base with stride 12.
+- Do not require passenger/carrier coordinates to be equal. Across the archived
+  data, 56 nonzero references cover both red and blue armies; 33 retain different
+  passenger/carrier coordinates. All reference targets remain occupied in the
+  matching army. Coordinate equality at the loading checkpoint is not a general
+  invariant while the carrier moves. Nested transports are allowed if acyclic.
+
+* Lifecycle validity matrix
+
+The restored control states are preserved under
+=/tmp/aw2-lifecycle-control-research/=. Source Rules is frame 73056; checkpoints
+from the earlier frame trace were restored without advancing their saved frame.
+The table distinguishes passing raw checks from permission to expose live data:
+
+| Context | Frame | Raw checks: map/properties/players/units | Unit count | Live decoding |
+|---------+-------+------------------------------------------+------------+---------------|
+| Rules, controller state 13 retained | 73056 | All pass | 13 | Blocked |
+| Last sampled old state before reset | 73087 | All pass | 13 | Blocked |
+| Initialization, controller state 5 | 73088 | All pass | 0 | Blocked |
+| Process-free entry gap, unlocked state 5 | 73163 | All pass | 0 | Blocked |
+| Day-entry work, controller state 9 | 73271 | All pass | 0 | Blocked |
+| Last frame before human dispatch | 73307 | All pass | 0 | Blocked |
+| First recognized human input state | 73308 | All pass | 0 | Available |
+| Command menu, controller locked | 73373 | All pass | 0 | Blocked |
+| Computer control, state 14 | 73583 | All pass | 0 | Blocked |
+| Following human turn, day 2 | 73852 | All pass | 4 | Available |
+
+The guard permits a legitimate initial battle with no units, rather than using
+nonempty unit records as an initialization test. Raw consistency cannot identify
+which match retained bytes belong to. The conservative live interval begins at
+the tested human-input state, and closes during unverified/busy contexts; this
+does not imply the underlying map becomes physically invalid during every animation.
+
+All 20 archived victory observations, the defeat observation, five result-summary
+observations, three save-prompt observations, and five of six map-selection
+observations pass all four raw checks. Every one remains unavailable as live
+data. Two setup observations also retain a complete, consistent old battle.
+These are direct counterexamples to treating structural plausibility as freshness.
+
+* Runtime use
+
+#+begin_src python
+layout = load_battle_layout(rom_path)
+snapshot = await capture_battle_snapshot(bridge, layout)
+report = validate_battle_snapshot(snapshot)
+report.require_live()  # Raises with lifecycle/structure reasons unless all checks pass.
+# A supported decoder can now use this same immutable snapshot.
+#+end_src
+
+=report.available(BattleStructure.PROPERTIES)= checks the lifecycle and the
+geometry/property/player dependencies; units likewise depend on geometry and
+players. Player fields can be validated independently of malformed map geometry.
+=VALID= means the implemented raw checks pass, =INVALID= means an observed
+invariant fails, and =UNKNOWN= means coverage is missing or a dependency failed.
+Neither unknown nor invalid data is available for live decoding.
+
+The pure lifecycle classifier retains =battle_decode_safety=UNKNOWN= on a human
+turn. The companion validation report supplies the guarded decision for the
+supported fields. This is a library interface; wiring it into future state API
+decoders is separate from validating these structures.
+
+* Evidence, checks, and remaining coverage
+
+- Evidence: =/tmp/aw2-structure-validation-research/=. =entry-matrix.json= has
+  the 25 restored-frame reports and capture hashes. =archive-report.json= has
+  all 297 archived reports and paired RAM hashes; archival frame numbers are
+  left unspecified instead of guessing timestamps from file names.
+- =summary.json= records map geometries, phase counts, and cargo comparisons.
+  =original-rom-checks.json= records the pointer, allocator, lookup-loader, and
+  cargo-resolution corroboration. Capture/replay/ROM-check scripts and a hash
+  manifest are preserved beside the evidence. ROM/save/RAM artifacts stay outside
+  the repository and Nix store.
+- Captures use isolated temporary emulator ROM, save, and XDG copies. Full-RAM
+  snapshots were captured in small emulator batches after long runs encountered
+  a bridge timeout; incomplete runs do not enter the final 25-row matrix.
+  Renderer requests were avoided during the display handoff; visual context
+  comes from the previously captured control-state screenshots at those frames.
+- Synthetic tests cover malformed dimensions, row offsets, tile indices,
+  sentinels, ownership, player indices, unit health/progress, global cargo links,
+  inactive/stale records, cycles, frame drift, and truncated captures. They use
+  no ROM or proprietary memory data. All 56 structure-validation cases and the
+  full repository pre-commit checks passed.
+- Remaining coverage: resumed battles, Campaign-specific terrain and unit types,
+  more transports/ownership scenarios, and allowing supported reads during AI
+  turns or other busy phases. Unverified fields and command availability remain
+  outside the claim. Modded map sizes and theoretical table capacities stay deferred.

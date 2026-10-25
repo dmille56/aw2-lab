@@ -197,6 +197,9 @@ dialogues, other map/setup flows, and windowed parity need more coverage.
 Preserve the distinction between phase classification and per-field validity:
 some battle data is initialized
 during entry and retained after results and menu return.
+The companion [[file:AW2-STATE-VALIDATION.org][structure validator]] now supplies separate bounded consistency
+checks and a live-field availability decision; the classifier alone still does
+not authorize decoding.
 
 ** Replay check: current user-supplied front-end states
 The current =~/Downloads/aw2/aw2.ss1= through =aw2.ss9= files were loaded in
@@ -1090,9 +1093,9 @@ and controller fields; the phase identifies the active sequence, not an exact
 pixel-level boundary of the banner animation.
 
 This makes the supplied settled human turn recognizable without misclassifying
-the tested entry gaps or retained menu fields. Still needed:
-- Define per-structure validity checks for maps, players, properties, and units;
-  human control does not replace pointer, count, coordinate, and ownership checks.
+the tested entry gaps or retained menu fields. The follow-up
+[[file:AW2-STATE-VALIDATION.org][structure-validation finding]] implements the supported pointer, count,
+coordinate, and ownership guards. Still needed:
 - Extend the controller research across resumed games, Campaign, combat,
   dialogues, and more computer/player configurations.
 - Map additional human-input substates and pending tasks before exposing a

@@ -7,6 +7,9 @@ screenshots, and save states outside the repository and Nix store.
 The separate [[file:AW2-CO-REFERENCE.org][CO reference]] summarizes passive CO behavior and
 CO/Super CO Powers from StrategyWiki; it is gameplay reference material rather
 than a verified memory layout.
+The [[file:AW2-STATE-VALIDATION.org][battle structure validation notes]] describe the implemented bounds and
+lifecycle guards, including the 50 usable unit slots per army and global cargo
+indices verified during the cross-lifecycle replay.
 
 The [[*Finding: Five additional initial Versus maps][five-map comparison]] identifies airports, ports, shoals, and stale data
 at and beyond property-list terminators. The [[*Finding: Royal Channel height and lower rows][Royal Channel comparison]] extends
