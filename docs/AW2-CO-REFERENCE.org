@@ -1,0 +1,201 @@
+#+TITLE: Advance Wars 2 CO Reference
+
+Reference summary of the Commanding Officers (COs), their passive strengths and
+weaknesses, CO Powers, and Super CO Powers. This is gameplay reference material,
+not a verified RAM map. The effects below summarize the
+[[https://strategywiki.org/wiki/Advance_Wars_2:_Black_Hole_Rising/COs][StrategyWiki CO guide]] (accessed 2026-10-25); numeric effects and edge cases have
+not all been independently tested against the supported US revision-0 ROM.
+Where a supplied save-state experiment provides evidence, it is identified
+separately.
+
+* General power notes from the guide
+- Each CO has a normal CO Power and a stronger Super CO Power, except Sturm,
+  who has only Meteor Strike. The guide expresses power cost in stars.
+- The guide says power bonuses are additive and generally last until the
+  player's next turn. It also describes the power meter as being charged by
+  damage taken and, at half rate, damage dealt; using a power raises the next
+  cost while carrying unused meter forward. Treat these as guide-reported
+  mechanics, not findings from this project's memory research.
+- The guide notes a general 10% defense effect when using a power unless a
+  different defense effect is specified. This reference does not attempt to
+  reconcile that statement with every individual power or game situation.
+
+* Orange Star
+
+** Andy
+- Passive: balanced units with no listed attack bonus or penalty.
+- CO Power, Hyper Repair (3 stars): heals each unit by 2 HP.
+- Super CO Power, Hyper Upgrade (6 stars): heals each unit by 5 HP, gives +1
+  movement, and +20% attack for the turn.
+
+** Max
+- Passive: direct combat units other than Infantry and Mechs have +20% attack;
+  indirect units have -10% attack and one less maximum range.
+- CO Power, Max Force (3 stars): eligible direct units get +20% attack and +1
+  movement.
+- Super CO Power, Max Blast (6 stars): eligible direct units get +40% attack
+  and +2 movement.
+
+** Sami
+- Passive: Infantry and Mechs have +30% attack and capture at 1.5 times the
+  normal rate. APCs, Landers, and T-Copters get +1 movement; other direct units
+  have -10% attack.
+- CO Power, Double Time (3 stars): Infantry and Mechs get +20% attack and +1
+  movement.
+- Super CO Power, Victory March (8 stars): Infantry and Mechs get +50% attack
+  and +2 movement, and can capture properties regardless of HP. The guide
+  describes the capture as instant and includes HQs. The supplied research
+  checkpoints show Sami capturing cities with both an Infantry and a Mech
+  during the active power; the user confirms a city can be captured in one turn
+  regardless of HP. HQ capture under this power has not been isolated in our
+  save-state tests. See [[file:AW2-MAP-RESEARCH.org::*Sami Super CO Power captures with Infantry and Mech][the RAM comparison]].
+
+** Nell
+- Passive: luck can increase attack damage by up to 10% according to the guide.
+- CO Power, Lucky Star (3 stars): attacks can gain up to 6 additional damage
+  points.
+- Super CO Power, Lady Luck (6 stars): attacks can gain up to 10 additional
+  damage points.
+
+** Hachi
+- Passive: units retain normal stats and cost 10% less.
+- CO Power, Barter (3 stars): the guide says unit prices are reduced and units
+  gain +10% defense; its wording conflicts on the discount amount (40% off vs.
+  half the original price), so the exact discount needs verification.
+- Super CO Power, Merchant Union (5 stars): discounts unit prices, allows land
+  units to be bought and deployed from cities, and gives +10% defense. The
+  guide has the same discount wording inconsistency as for Barter.
+
+* Blue Moon
+
+** Olaf
+- Passive: unaffected by Snow movement penalties; Rain affects his units as
+  Snow affects other COs.
+- CO Power, Blizzard (3 stars): changes weather to Snow until his next turn.
+- Super CO Power, Winter Fury (7 stars): deals 2 HP damage to enemy units and
+  changes weather to Snow until his next turn.
+
+** Grit
+- Passive: indirect units have +20% attack and +1 maximum range; direct units
+  other than Infantry and Mechs have -20% attack.
+- CO Power, Snipe Attack (3 stars): indirect units get +30% attack and +1
+  maximum range.
+- Super CO Power, Super Snipe (6 stars): indirect units get +30% attack and +2
+  maximum range.
+
+** Colin
+- Passive: units cost 20% less and have -10% attack.
+- CO Power, Gold Rush (2 stars): multiplies current funds by 1.5.
+- Super CO Power, Power of Money (6 stars): gives +3.33% attack per 1,000
+  funds held when activated; funds are not spent.
+
+* Green Earth
+
+** Eagle
+- Passive: Air units have +15% attack, +10% defense, and consume 2 less fuel
+  per day; Sea units have -30% attack.
+- CO Power, Lightning Drive (3 stars): Air units gain another +15% attack and
+  +20% defense.
+- Super CO Power, Lightning Strike (9 stars): eligible units that already
+  acted can act again (Infantry and Mechs are excluded); Air units gain +15%
+  attack and +20% defense. The guide also notes a penalty on units the
+  following turn but does not give its amount in this summary.
+
+** Drake
+- Passive: Sea units have +10% defense and +1 movement; his units avoid Rain
+  movement penalties, and his presence makes Rain more likely. Air units have
+  -30% attack.
+- CO Power, Tsunami (4 stars): deals 1 HP damage to enemy units and halves
+  their remaining fuel.
+- Super CO Power, Typhoon (7 stars): deals 2 HP damage to enemy units, halves
+  their remaining fuel, and changes weather to Rain until his next turn.
+
+** Jess
+- Passive: land vehicles other than Infantry and Mechs have +10% attack;
+  Air, Sea, Infantry, and Mech units have -10% attack.
+- CO Power, Turbo Charge (3 stars): land vehicles get +20% attack and +1
+  movement; all units refill fuel and ammo.
+- Super CO Power, Overdrive (6 stars): land vehicles get +40% attack and +2
+  movement; all units refill fuel and ammo.
+
+* Yellow Comet
+
+** Kanbei
+- Passive: all units have +30% attack and +30% defense, and cost 20% more.
+- CO Power, Morale Boost (4 stars): units get +20% attack and +10% defense.
+- Super CO Power, Samurai Spirit (7 stars): units get +20% attack and +30%
+  defense, and a further +50% attack when counterattacking.
+
+** Sonja
+- Passive: units get +1 vision and a +50% counterattack bonus; opponents cannot
+  see their HP (the guide says this does not affect AI). Her units may also
+  deal up to 10% less damage.
+- CO Power, Enhanced Vision (3 stars): gives another +1 vision and lets units
+  see into Forests and Reefs without adjacent vision.
+- Super CO Power, Counter Break (5 stars): has Enhanced Vision's effects and
+  lets Sonja's units counterattack before the attacker while the power is
+  active.
+
+** Sensei
+- Passive: Infantry and Mechs have +40% attack; Battle Copters have +50%;
+  APCs, Landers, and T-Copters get +1 movement. Other Land and Sea units have
+  -10% attack.
+- CO Power, Copter Command (2 stars): creates 9 HP Infantry on eligible empty
+  owned cities; the new units can move immediately. Battle Copters get +25%
+  attack.
+- Super CO Power, Airborne Assault (6 stars): creates 9 HP Mechs on eligible
+  empty owned cities; the new units can move immediately. Battle Copters get
+  +25% attack.
+
+* Black Hole
+
+** Flak
+- Passive: attack has random variation, with possible outcomes ranging from
+  an attack increase up to 25% to a decrease up to 10%.
+- CO Power, Brute Force (3 stars): random attack damage can gain up to 4 HP or
+  lose up to 2 HP.
+- Super CO Power, Barbaric Blow (6 stars): random attack damage can gain up to
+  7 HP or lose up to 3 HP.
+
+** Lash
+- Passive: terrain defense bonuses also increase attack by the same amount.
+- CO Power, Terrain Tactics (4 stars): units pay 1 movement point for each
+  terrain type they can normally traverse.
+- Super CO Power, Prime Tactics (7 stars): has Terrain Tactics' movement
+  effect and doubles Lash's terrain-based bonuses.
+
+** Adder
+- Passive: no listed attack or defense bonuses; the guide describes his CO
+  meter as shorter than average.
+- CO Power, Sideslip (2 stars): gives all units +1 movement.
+- Super CO Power, Sidewinder (5 stars): gives all units +2 movement.
+
+** Hawke
+- Passive: all units have +10% attack.
+- CO Power, Black Wave (5 stars): deals 1 HP damage to enemies and heals
+  Hawke's units by 1 HP.
+- Super CO Power, Black Storm (9 stars): deals 2 HP damage to enemies and
+  heals Hawke's units by 2 HP.
+
+** Sturm
+- Passive: all units have +20% attack and +20% defense with no added cost;
+  units pay 1 movement point for traversable terrain except during Snow.
+- Super CO Power only, Meteor Strike (10 stars): drops a meteor on a visible
+  area selected for high enemy damage. Units hit lose 8 HP, but are left at
+  1 HP if they had 8 HP or less; Sturm's units also gain +20% attack and +30%
+  defense. The guide notes targeting constraints intended to avoid striking
+  allies when that would cause more damage than the enemy hit.
+
+* Research status and source caveats
+- No CO behavior or power field is inferred from the descriptions above. The
+  existing RAM work verifies settled-battle CO IDs and selected map/unit fields;
+  it does not decode every passive modifier or power state.
+- Sami's normal capture multiplier is consistent with the supplied full-HP
+  capture checkpoints (15 progress points). Her Super CO Power one-turn city
+  capture is user-confirmed and illustrated by the supplied two-city sequence.
+- Hachi's price-reduction wording is internally inconsistent in the StrategyWiki
+  article. Other exact values and edge cases should be treated as source claims
+  until reproduced or verified against the supported ROM.
+
+* Source
+- StrategyWiki, [[https://strategywiki.org/wiki/Advance_Wars_2:_Black_Hole_Rising/COs][Advance Wars 2: Black Hole Rising/COs]], accessed 2026-10-25.

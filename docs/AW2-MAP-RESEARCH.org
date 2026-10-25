@@ -4,6 +4,9 @@ Map and property findings, verified memory layouts, reproduction steps, evidence
 and unresolved questions for Milestone 2. The general research workflow and
 finding template are in [[file:AW2-RESEARCH-NOTES.org][AW2 research notes]]. Keep ROMs, dumps, saves,
 screenshots, and save states outside the repository and Nix store.
+The separate [[file:AW2-CO-REFERENCE.org][CO reference]] summarizes passive CO behavior and
+CO/Super CO Powers from StrategyWiki; it is gameplay reference material rather
+than a verified memory layout.
 
 The [[*Finding: Five additional initial Versus maps][five-map comparison]] identifies airports, ports, shoals, and stale data
 at and beyond property-list terminators. The [[*Finding: Royal Channel height and lower rows][Royal Channel comparison]] extends
@@ -180,6 +183,31 @@ zero-based coordinate, let =i = LE16(B + 0x417A + 2*y) + x=.
 | =0x03003150 + 4*n + 2= | Property y coordinate | =u8= | All 28/31 entries match zero-based map locations; high |
 | =U + 5=, bits 3..7 | Infantry's accumulated capture points | =u8 >> 3= | Wait gives 0; partial capture gives 10; completion resets to 0; original capture routine agrees; high within this experiment |
 
+*** Static ROM trace: property record byte 3
+- ROM: the supported US revision-0 image, SHA-256
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+- I traced the known direct references to =0x03003150= in the available AW2BHR
+  Thumb disassembly. Property-list construction at =0x0800C574= and the rebuild
+  path at =0x080219AC= write the terrain/owner byte and coordinates at offsets
+  =0=, =1=, and =2=, then write =0xFF= to the next entry's offset =0= as the
+  terminator. Property counting, filtering, coordinate lookup, and terrain
+  synchronization paths at =0x0800C874=, =0x0800C8A0=, =0x0800C8D8=,
+  =0x0800C608=, =0x08021CB4=, =0x08028660=, and =0x0803F990= read fields at
+  offsets =0..2=; =0x0800C608= clears the matched entry's first byte in its
+  editor path. No instruction in these located property-table paths reads or
+  writes offset =3=.
+- There is a separate scratch list at =gUnknown_084995A0= with eight-byte
+  entries. The constructors at =0x0800C574= and =0x080219AC= explicitly zero
+  byte =+3= in that scratch list. That is a different structure and does not
+  identify the fourth byte of the four-byte property entries.
+- Result: the fourth property byte remains semantically unknown; the traced
+  code gives no evidence that game logic consumes it. This agrees with the
+  supplied checkpoints, where every active fourth byte has been zero. The code
+  evidence is limited to the functions represented in this partial disassembly;
+  it does not prove that no other retail-ROM path accesses the byte. A broader
+  binary-wide access audit or controlled nonzero-byte experiment would be needed
+  to close that gap. Static trace does not alter the unresolved status.
+
 For the terrain/owner byte, =raw & 0x1F= gives the terrain class and =raw >> 5=
 gives an owner code. Verified classes are plain =1=, mountain =3=, wood =4=,
 road =5=, city =6=, sea =7=, HQ =8=, and base =14=. Observed owner codes are
@@ -192,7 +220,103 @@ During confirmed infantry selection/capture actions, =U = LE32(0x030040D8)=
 was =0x02022690=. The original capture routine resolves this pointer through
 the literal at =0x08091354= and uses the upper five bits at unit offset =5=.
 This is accumulated progress; the city UI shows =20 - progress= in this test.
-The lower three bits are not interpreted here.
+Their meaning is unresolved; the comparison below checks whether they change
+during a normal Infantry city capture.
+
+*** Three-checkpoint capture-byte comparison (2026-10-25)
+- The user supplied =~/Downloads/aw2/aw2.ss1= through =aw2.ss3= showing a Blue
+  Infantry and a neutral city before Capture, after a partial Capture, and
+  after ownership changes. Each state was restored independently in isolated
+  headless mGBA sessions with the supported US revision-0 ROM above.
+- The same Infantry record remains at =0x020229D8= at coordinates =(30,17)=;
+  the city remains property entry =39=. Its capture byte is at record offset
+  =+5= (=0x020229DD=). The capture byte and property owner were:
+
+| State | Frame | Unit capture byte | Upper five bits | Lower three bits | City property byte |
+|-------+-------+-------------------+-----------------+------------------+--------------------|
+| =aw2.ss1= before Capture | 244297 | =0x00= | 0 | =0= | =0x06= neutral city |
+| =aw2.ss2= partial Capture | 244557 | =0x50= | 10 | =0= | =0x06= neutral city |
+| =aw2.ss3= captured | 245696 | =0x00= | 0 | =0= | =0x46= Blue-owned city |
+
+- State SHA-256 values: =aw2.ss1= =ad402d7e5098c1607ef6e9d5534e111a18dcbad1d03734db0a07375c02fc63c9=;
+  =aw2.ss2= =4ce4fa3a79f0c7e11b5ccd417771a5cb03b00cd4ff48144375ed03c7df785c0a=;
+  =aw2.ss3= =6474ab7f7e95d2e272d0f4bd51a8def7ebd764a36fb52b047755416f7c3eaad9=.
+- Finding: the lower three bits stay zero across this normal Infantry city
+  capture. The byte changes from =0x00= to =0x50= during partial capture and
+  returns to =0x00= on completion, entirely accounted for by the already
+  verified upper-five-bit progress field. That test alone did not identify
+  their meaning; the later Sami comparison below adds a Mech case.
+
+*** Sami Infantry and Mech capture checkpoints (2026-10-25)
+- The user supplied five states =~/Downloads/aw2/aw2.ss1= through =aw2.ss5=.
+  They show before capture, partial capture, and completed capture by a Sami
+  Infantry, followed by partial and completed capture by a Sami Mech. Each
+  state was restored independently with the same ROM profile and isolated
+  headless mGBA setup.
+- The Infantry record is at =0x020226E4= and stands on the city at =(9,7)=,
+  property entry =17=. Its capture byte is =0x020226E9=. The Mech record is at
+  =0x020226F0= on the city at =(9,9)=, property entry =23=; its capture byte is
+  =0x020226F5=.
+
+| State | Frame | Capturing unit | Capture byte | Progress (bits 3..7) | Low bits | City property byte |
+|-------+-------+----------------+--------------+----------------------+----------+--------------------|
+| =aw2.ss1= before capture | 297294 | Infantry at (9,7) | =0x00= | 0 | =0= | =0x46= Blue |
+| =aw2.ss2= Infantry partial | 297506 | Infantry at (9,7) | =0x78= | 15 | =0= | =0x46= Blue |
+| =aw2.ss3= Infantry complete | 298263 | Infantry at (9,7) | =0x00= | 0 | =0= | =0x26= Red/Sami |
+| =aw2.ss4= Mech partial | 297502 | Mech at (9,9) | =0x79= | 15 | =1= | =0x46= Blue |
+| =aw2.ss5= Mech complete | 298035 | Mech at (9,9) | =0x01= | 0 | =1= | =0x26= Red/Sami |
+
+- State SHA-256 values: =aw2.ss1= =b7b0d5e7cd8b36c8e28a4ed1169257a10e00ca5deca8038ecc4230b1a9330421=;
+  =aw2.ss2= =bc3dcbaf2072e63ce139f5801b7842fce3fe311254fa011bedf9b1de568021c3=;
+  =aw2.ss3= =84fb11178c25cad69b8219aa97a8b5967d8a1cd013e8d5dffd9ee0e91b2a13db=;
+  =aw2.ss4= =917663eaed4867c32124c46325e1ffda0f2c2b8444f011e89004add67d69910d=;
+  =aw2.ss5= =f9dbfdc7126e62c0cce111e49f7ba250e894ff992eb71861d77d16e34e429a01=.
+- Both Sami units show 15 capture points at full HP in their partial states,
+  consistent with the user-reported 1.5-per-HP rule. In each partial state the
+  city remains Blue; each completion state changes the city to Red/Sami and
+  clears the upper progress bits.
+- The low bits differ by unit in these observations: =0= for Infantry and =1=
+  for Mech. Each unit retains its low-bit value from before capture through
+  partial and completed capture. This is consistent with a unit-dependent
+  subfield, but does not establish its meaning or show whether other unit types
+  use the other values. In the traced capture routine at =0x08042650=, the game
+  extracts progress from the upper five bits and preserves the low three bits
+  when it stores updated progress; it does not interpret those low bits there.
+
+*** Sami Super CO Power captures with Infantry and Mech (2026-10-25)
+- The user added =aw2.ss2= through =aw2.ss6= to =~/Downloads/aw2=. The first
+  two show the Super Power title and Sami's activation animation. The later
+  three show the field with =SUPER P= active, the Infantry's capture completed
+  and a Capture/Wait menu for the Mech, then the Mech's capture completed.
+  These states were restored independently with the supported ROM and isolated
+  headless mGBA setup.
+- The Infantry at =(9,7)= is record =0x020226E4= and captures property entry
+  =17=; the Mech at =(9,9)= is record =0x020226F0= and captures property entry
+  =23=. In order, the capture byte remains =0x00= for the Infantry and =0x01=
+  for the Mech: neither accumulates upper-bit progress during these instant
+  captures. Property entry 17 is Red-owned in the active-power field checkpoint,
+  while entry 23 is still Blue-owned; in the final checkpoint both entries are
+  Red-owned. This matches the supplied sequence of two captures during Sami's
+  active Super CO Power.
+
+| State | Frame | Screen/evidence | Infantry capture byte | Mech capture byte | City at (9,7), entry 17 | City at (9,9), entry 23 |
+|-------+-------+-----------------+-----------------------+-------------------+--------------------------+--------------------------|
+| =aw2.ss2= | 299845 | Super Power title | =0x00= | =0x01= | =0x46= Blue | =0x46= Blue |
+| =aw2.ss3= | 300218 | Sami activation animation | =0x00= | =0x01= | =0x46= Blue | =0x46= Blue |
+| =aw2.ss4= | 300727 | =SUPER P= visible; Infantry capture complete | =0x00= | =0x01= | =0x26= Red/Sami | =0x46= Blue |
+| =aw2.ss5= | 300937 | =SUPER P= visible; Mech Capture/Wait menu | =0x00= | =0x01= | =0x26= Red/Sami | =0x46= Blue |
+| =aw2.ss6= | 301087 | =SUPER P= visible; Mech capture complete | =0x00= | =0x01= | =0x26= Red/Sami | =0x26= Red/Sami |
+
+- State SHA-256 values: =aw2.ss2= =b8dce51e826c57b97e5f808d38b3a032f590e130ddc326dbb3c25204baa93168=;
+  =aw2.ss3= =21d41652b634315204fe5e028042975ca8bc296d27653c297d181397b4cd3f79=;
+  =aw2.ss4= =67bd713365d3158b5b30d2c863f88a639957433bec30defa36a84ca46e4e53b9=;
+  =aw2.ss5= =d03d006e48d09947d769c9b9b35f960feb546df11371cae9a3fd9768e9a4f9bd=;
+  =aw2.ss6= =e122b9d34b20ff9351e84ecf210c24d9518f98c668e219455b1f45e1021601f6=.
+- This corroborates the reported Super Power capture behavior for both unit
+  types and shows that instant completion does not change their observed low
+  capture bits. The screenshots identify the active-power phase; this RAM
+  comparison does not independently identify a dedicated power-active field
+  or establish how the power's effect is encoded internally.
 
 *** User-confirmed capture rules
 The user reports the following gameplay rules from direct play. These general
@@ -203,15 +327,20 @@ rules are recorded separately from the RAM-controlled cases below:
 - If that unit moves or fires from the property, its accumulated capture
   points reset.
 - Sami's Infantry and Mechs add 1.5 points per HP when capturing.
-- While Sami's Super CO Power is active, her Infantry and Mechs can capture
-  any property in one turn.
+- While Sami's Super CO Power is active, her Infantry and Mechs can capture a
+  city in one turn regardless of their current HP. The user reports this as a
+  gameplay rule; the Super Power checkpoints below directly demonstrate
+  one-turn captures by both unit types, but use full-HP units.
 
 The controlled 4-HP Infantry Capture/Wait comparison independently agrees with
 the reported normal rate: it records four added points. The supplied property
 capture checkpoints also show partial progress in the unit record and zero
-progress after completion. The Sami modifiers and move/fire reset rule are
-user-confirmed gameplay observations; no isolated RAM comparison has yet
-correlated those cases with the memory fields.
+progress after completion. The five Sami checkpoints independently connect her
+normal capture bonus to 15 progress points for full-HP Infantry and Mech. The
+Super CO Power behavior is user-confirmed to work regardless of unit HP; the
+separate two-city Sami checkpoint sequence above provides full-HP examples for
+both unit types. The move/fire reset rule remains a user-confirmed gameplay
+observation without an isolated RAM comparison.
 
 *** Pointer handling, bounds, sentinels, and validity
 - Select the exact supported ROM before using =B= or the other address rules.
@@ -586,8 +715,12 @@ samples. All supplied files retained their original SHA-256 values.
   not a maximum-size claim.
 - Labs, reefs, rivers/bridges, pipes/seams, silos, other unobserved terrain,
   additional owner codes, and alternate army/player configurations need evidence.
-- The property fourth byte, capture low bits, and behavior at the runtime table
-  bound remain unresolved. Properties persist during battle, so no deletion or
+- The property fourth byte, capture low-bit meaning, and behavior at the runtime
+  table bound remain unresolved. Capture low bits were =0= for Infantry and =1=
+  for Mech in the normal and Sami capture checkpoints, and persisted through
+  completion; see the capture comparisons above.
+  Static tracing found no access to property byte 3 in the located table paths;
+  see the ROM trace above. Properties persist during battle, so no deletion or
   slot-reuse experiment is planned. This work adds no new capture experiment
   beyond the earlier city experiment.
 - Battle-lifecycle validity, frontend parity, general unit resolution, and Python

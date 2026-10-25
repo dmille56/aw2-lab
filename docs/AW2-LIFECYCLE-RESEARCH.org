@@ -161,6 +161,37 @@ Additional controls:
   parity separately. The title timer can eventually enter other behavior; these
   neutral controls cover only the first 60 frames after each source state.
 
+** Conservative runtime classifier
+The first implementation is in =src/aw2_lab/lifecycle.py=. It accepts the two
+callback words and script IDs read from the bounded process pool and returns a
+phase, engine family, matching scripts, and a battle-decode safety status.
+Callers must supply a coherent snapshot and must only pass a slot's first word
+when nonzero.
+
+- Exact screen and battle callback pairs identify the engine family only;
+  Thumb low bits are significant.
+- Known startup, title, mode-selection, Versus map-selection, and Versus setup
+  processes classify the observed front-end phases. The shared setup parent
+  cannot distinguish Teams from Rules. Results take precedence over retained
+  battle callbacks and stale battle data.
+- Known battle-entry processes classify as =BATTLE_ENTRY=. Because the list is
+  explicitly incomplete and process-free entry gaps were observed, a battle
+  callback without a known process is =BATTLE_ENGINE_UNRESOLVED=, not a
+  confirmed active battle.
+- A simultaneous victory and defeat presentation signal is treated as
+  conflicting evidence and classified =UNKNOWN=.
+- =BattleDecodeSafety.BLOCKED= means do not interpret data as a live active
+  battle; =UNKNOWN= means the classifier cannot establish safety. No observation
+  currently yields a positive safe-to-decode result. This is deliberate: a
+  verified settled-battle marker and its validity interval are still missing.
+
+This is a conservative exclusion/classification aid, not a complete lifecycle
+decoder. Result and process associations are verified only in supplied paths;
+Campaign, resumed battles, AI turns, combat, powers, dialogues, other map/setup
+flows, and windowed parity need more coverage. Preserve the distinction between
+phase classification and per-field validity: some battle data is initialized
+during entry and retained after results and menu return.
+
 ** Reproduction and evidence
 All evidence is external at =/tmp/aw2-lifecycle-research/=. Preserve this directory
 and the source checkpoints. =capture.py= and =session.py= capture full RAM at a
