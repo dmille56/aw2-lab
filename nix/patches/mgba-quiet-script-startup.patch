@@ -27,3 +27,10 @@ diff --git a/src/platform/qt/Window.cpp b/src/platform/qt/Window.cpp
  			for (const auto& scriptPath : scripts) {
  				m_scripting->loadFile(scriptPath);
  			}
+
+diff --git a/src/platform/qt/CoreManager.cpp b/src/platform/qt/CoreManager.cpp
+--- a/src/platform/qt/CoreManager.cpp
++++ b/src/platform/qt/CoreManager.cpp
+@@ -102 +102 @@
+-		if (bad) {
++		if (bad && qEnvironmentVariable("AW2_MGBA_SUPPRESS_TEMP_ROM_WARNING") != "1") {

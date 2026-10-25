@@ -90,6 +90,9 @@ async def test_launcher_uses_mode_executable_and_stops_process(
     assert calls == [expected_executable, "--script", str(bridge), str(rom)]
     assert environment["AW2_MGBA_SCRIPTING_CONSOLE"] == "0"
     assert environment["AW2_MGBA_FRAME_GATE"] == "1"
+    assert environment["AW2_MGBA_SUPPRESS_TEMP_ROM_WARNING"] == (
+        "1" if mode is EmulatorMode.WINDOWED else "0"
+    )
     assert launcher.is_running
     await launcher.stop()
     assert process.terminated

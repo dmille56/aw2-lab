@@ -85,6 +85,9 @@ class EmulatorLauncher:
             self.settings.mode is EmulatorMode.WINDOWED and self.settings.show_scripting_console
         )
         environment["AW2_MGBA_SCRIPTING_CONSOLE"] = "1" if show_console else "0"
+        environment["AW2_MGBA_SUPPRESS_TEMP_ROM_WARNING"] = (
+            "1" if self.settings.mode is EmulatorMode.WINDOWED else "0"
+        )
         try:
             process = await asyncio.create_subprocess_exec(
                 executable,
