@@ -169,9 +169,11 @@
      RAM checks keep every busy/menu/dialogue case unavailable; nine normal
      human-control snapshots pass. Saved/resumed researched fields match.
      Campaign/event dialogues, additional configurations, universal outcomes,
-     and headless/windowed parity remain open. Production headless SRAM autoload
-     now resumes the supplied Versus save through the regular launcher; see the
-     lifecycle coverage note.
+     and front-end parity for combat, powers, and results remain open. Headless
+     and windowed builds produced identical full RAM hashes across startup,
+     menus, battle entry, transition, and player control; production headless
+     SRAM autoload also resumes the supplied Versus save through the regular
+     launcher. See the lifecycle coverage note.
    - [ ] Identify title screens, menus, battle states, and transitions.
    - [ ] Establish when battle structures are valid to interpret.
    - [ ] Identify battle completion and outcome when validated.
@@ -299,11 +301,11 @@
    - [ ] Compare snapshots before and after turn changes.
    - [ ] Record screenshots or manual observations, reproduction steps, and results for each scenario outside tracked binary artifacts.
 
-** TODO Verify lifecycle safety and emulator-mode parity
-   - [ ] Exercise title screens, menus, battle entry, and transitional states.
-   - [ ] Restore the same checkpoint in headless and windowed modes and compare decoded observations.
-   - [ ] Compare decoded state hashes after the same recorded frame inputs under the pinned build.
-   - [ ] Confirm observations remain coherent and do not advance the emulator.
+** DONE Verify lifecycle safety and emulator-mode parity
+   - [X] Exercise title screens, menus, battle entry, and transitional states.
+   - [X] Restore the same resumed-battle checkpoint in headless and windowed modes and compare decoded observations.
+   - [X] Compare full RAM hashes after the same recorded frame inputs under the pinned build.
+   - [X] Confirm observations remain coherent and idle wall time does not advance the emulator.
 
 ** TODO Document and run the verification workflow
    - [ ] Keep default checks ROM-independent and separate optional AW2 integration checks.

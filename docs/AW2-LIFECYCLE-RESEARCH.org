@@ -1219,7 +1219,10 @@ command-readiness claim is made.
 - Both new attacks finish without a dialogue. Campaign event conversations,
   new combat-triggered elimination dialogues, animations disabled/skipped,
   indirect/naval/air attacks, and AI-initiated combat remain additional coverage.
-  Resumed-game coverage and universal result/outcome rules remain open.
+  Other resumed-game configurations and universal result/outcome rules remain
+  open. Headless/windowed parity across startup, menus, battle entry, and player
+  control is recorded in
+  [[file:AW2-LIFECYCLE-COVERAGE.org::*Headless and windowed parity][the parity comparison]].
 - ROM-independent regressions cover both combat engine pairs, incomplete or
   conflicting evidence, result precedence, and combat-to-cleanup-to-player
   validation with otherwise valid arrays. All 99 lifecycle/structure cases and

@@ -75,8 +75,58 @@ matching the SDL frontend startup path. A rebuilt headless emulator loaded an
 isolated =aw2.sav= from its configured =savegamePath= and completed the game's
 Continue flow without a Lua save-loading bootstrap. At frame 4078 the resumed
 match reached =BATTLE_PLAYER_TURN= through the regular bridge launcher. The
-ROM, save, and XDG directories were temporary copies. Windowed-mode parity is
-not implemented or certified here.
+ROM, save, and XDG directories were temporary copies. Parity for this resumed
+battle checkpoint is described below.
+
+** Headless and windowed parity
+
+The same resumed-match checkpoint (frame 11301) was restored in the pinned
+headless and Qt frontends. Both received 30 neutral frames, one Right frame, and
+60 neutral frames. Each reached frame 11392. The captured 256 KiB EWRAM and
+32 KiB IWRAM hashes match exactly across frontends:
+
+| Memory | SHA-256 |
+|--------+---------|
+| EWRAM | =a6209d49362cefe76fd248381af8d85a6badc9ffd23d3d4c36a3fac11b34ae2f= |
+| IWRAM | =ca7988f2624763d0b7291b894833e1af88c018fd9381d26e69b62e723f381801= |
+
+Both observations classify as =BATTLE_PLAYER_TURN=; geometry (240 cells),
+properties (28), players (2), and units (11) validate, and live decoding is
+available. The complete screenshot hashes also match. After capture, each
+frontend stayed at frame 11392 through 500 ms of wall time, confirming that the
+bridge observation does not advance emulation. This establishes parity for
+the resumed live-battle checkpoint and input sequence; the additional phase
+coverage below checks menus, battle entry, and transition to player control.
+
+The comparison record and binary evidence are outside Git at
+=/tmp/aw2-mode-parity/comparison.json=, =headless-ewram.bin=,
+=windowed-ewram.bin=, =headless-iwram.bin=, and =windowed-iwram.bin=.
+
+The comparison now also covers startup, title, menus, battle entry, and the
+transition into player control. Both frontends restored the same paused frame-0
+checkpoint; startup and title were reached with 99 neutral frames, then Start
+for one frame and 367 neutral frames. Other rows restore the same saved
+checkpoint and advance one neutral frame. Across all 11 rows, the EWRAM/IWRAM
+hashes, screenshots, frame numbers, lifecycle results, and structure
+validations match exactly. Each bridge remained at its observed frame during
+the 250 ms idle check.
+
+| Frame | Checkpoint | Lifecycle | Live decode |
+|-------+------------+-----------+-------------|
+| 0 | Paused boot | =UNKNOWN= | No |
+| 99 | Nintendo startup | =STARTUP= | No |
+| 467 | Title / Press Start | =TITLE= | No |
+| 573 | Mode selection | =MODE_SELECT= | No |
+| 2249 | Versus map selection | =VERSUS_MAP_SELECT= | No |
+| 73057 | Rules menu | =VERSUS_SETUP= | No |
+| 73162 | Battle entry gap | =BATTLE_ENGINE_UNRESOLVED= | No |
+| 73272 | Day-entry flow | =BATTLE_ENGINE_UNRESOLVED= | No |
+| 73308 | Entry reaches player control | =BATTLE_PLAYER_TURN= | Yes |
+| 73309 | First player turn | =BATTLE_PLAYER_TURN= | Yes |
+| 73374 | Battle command menu | =BATTLE_ENGINE_UNRESOLVED= | No |
+
+The machine-readable comparison, per-mode records, paired RAM, and screenshots
+are preserved at =/tmp/aw2-lifecycle-phase-parity/=.
 
 Older retained save-dialogue checkpoints contained uninitialized Flash headers.
 Those experiments, wrong menu selections, and attempts without explicitly loaded
@@ -170,4 +220,4 @@ full repository pre-commit checks pass.
   earlier archived victory/defeat associations.
 - Additional combat types, animation shortcuts, and allowing reads during busy
   phases. All unrecognized contexts remain unavailable.
-- Headless/windowed parity.
+- Headless/windowed parity for combat animations, powers, and result/dialogue flows.
