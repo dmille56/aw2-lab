@@ -267,10 +267,13 @@
      [[file:AW2-LIFECYCLE-RESEARCH.org::*Validated snapshot comparison across the Blue-to-Red turn change][the validated turn comparison]].
    - [ ] Investigate weather, power meters, and active powers; expose only verified values.
      [[file:AW2-POWER-WEATHER-RESEARCH.org][Power/weather research]] now verifies meter charge at =R(k)+0x20=,
-     the =+0x25= use counter and spending for Andy/Max/Sami, active Power
-     values, and current Clear/Rain weather at =0x03003FEC=. Snow, CO weather
-     overrides/expiry, charge earnings, and high-counter behavior remain open;
-     the composite item stays unfinished until those gaps are resolved or scoped.
+     the =+0x25= use counter and spending for Andy/Max/Sami/Olaf/Drake, active
+     Power values, and current Clear/Rain/Snow weather at =0x03003FEC=. Olaf's
+     Blizzard and Drake's Typhoon both update the current-weather field and
+     reset it during the next-turn transition. Weather-rule interactions,
+     charge earnings, and high-counter behavior remain open, so the composite
+     item stays unfinished. See
+     [[file:AW2-POWER-WEATHER-RESEARCH.org::*Olaf Blizzard override and expiry][the weather traces]].
    - [X] Verify player and turn changes against manually inspected game states.
      Before/after screenshots and validated full-RAM snapshots confirm the
      Blue-to-Red day change and funds shown in the HUD. An intermediate turn

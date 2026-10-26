@@ -5,15 +5,18 @@
 Date: 2026-10-25. This study uses the checksum-verified US revision-0 ROM
 =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=
 and pinned headless mGBA =fd9dc5c2cbf234365068855851107e762fc6211b=.
-Eleven coherent full-RAM snapshots compare Andy and Max's retained activation
-traces, a newly executed Sami regular Power, and separate Clear/Random Rules
-branches. All four supported structures validate in every sample. Command
-menus and power presentations remain unavailable for live decoding; settled
-player turns pass the existing lifecycle gate.
+The baseline study uses eleven coherent full-RAM snapshots to compare Andy
+and Max's retained activation traces, a newly executed Sami regular Power, and
+separate Clear/Random Rules branches. Follow-ups trace Olaf's Blizzard and
+Drake's Typhoon through their next-turn weather resets. All four supported
+structures validate in every sample. Command menus and power presentations
+remain unavailable for live decoding; settled player turns pass the existing
+lifecycle gate.
 
 The study verifies meter storage, spending, and low activation-counter values,
-plus current Clear/Rain weather. Snow, weather expiry/CO overrides, combat
-charge earnings, and high-counter behavior remain open. These findings extend
+plus current Clear/Rain/Snow weather and the Olaf Blizzard and Drake Typhoon
+weather overrides through expiry. Combat charge earnings, high-counter
+behavior, and weather-rule interactions remain open. These findings extend
 the documented decoding subset; a typed state decoder and state API remain
 separate tasks.
 
@@ -24,10 +27,10 @@ Select the supported ROM profile before following its layout literals.
 
 | Address | Field | Representation | Verified interpretation and limit |
 |---------+-------+----------------+-----------------------------------|
-| =R(k)+0x1E= | Active Power | =u8= | 0 inactive, 1 Power, 2 Super; supported by the Andy/Max/Sami observations |
+| =R(k)+0x1E= | Active Power | =u8= | 0 inactive, 1 Power, 2 Super; supported by Andy, Max, Sami, Olaf, and Drake |
 | =R(k)+0x20= | Meter charge | 32-bit LE; signed ROM comparisons | Nonnegative raw charge verified in these samples; negative values are not validated charge |
 | =R(k)+0x25= | Power-use scaling counter | =u8= | Increments before spending; transitions 0 to 1 and 1 to 2 verified |
-| =0x03003FEC= | Current weather | =u8= | 0 Clear and 2 Rain match the controlled screenshots; other values remain unverified here |
+| =0x03003FEC= | Current weather | =u8= | 0 Clear, 1 Snow, and 2 Rain match controlled screenshots and power checkpoints |
 | =0x03003FED= | Weather rule/mode | =u8= | 0 for the Clear Rules branch and 3 for Random; modes 1/2 are not identified from these UI comparisons |
 
 Other neighboring fields are retained as raw observations:
@@ -56,8 +59,8 @@ through =0x08044374=. For the observed counters 0, 1, and 2, its results are
 The threshold routines at =0x080441D4= and =0x08044208= multiply that unit
 by words from =0x085D3DD0 + 0x104*co_id + 0x0C/0x10=. These are the normal
 star count and total Super star count in the tested CO rows: Andy/Max have
-3/6; Sami has 3/8. Do not interpret the Super value as only the additional
-stars beyond normal Power.
+3/6; Sami has 3/8; Drake has 4/7. Do not interpret the Super value as only
+the additional stars beyond normal Power.
 
 =0x0804438C= increments the use counter through =0x08044354=, then invokes
 the spending routine =0x080440A8=. Spending subtracts the threshold for the
@@ -69,12 +72,15 @@ comparisons agree with that order:
 | Andy Power | 128189 -> 128191 | 41,650 -> 3,850 | 1 -> 2 | 37,800 |
 | Max Super | 10926 -> 10976 | 54,000 -> 0 | 0 -> 1 | 64,800, clamped at zero |
 | Sami Power | 11464 -> 12458 | 72,000 -> 39,600 | 0 -> 1 | 32,400 |
+| Olaf Power | 12442 -> 13808 | 63,000 -> 30,600 | 0 -> 1 | 32,400 |
+| Drake Super | 61809 -> 62103 | 63,000 -> 0 | 0 -> 1 | 75,600, clamped at zero |
 
-The Andy and Max charge deductions occur while active status is still zero
-and the lifecycle is =BATTLE_POWER=. Their settled observations at frames
-129003 and 11623 have active status 1 and 2 respectively. Sami settles with
-active status 1 at frame 12458. A zero active status during the presentation
-therefore does not imply that no activation has begun.
+The Andy, Max, Olaf, and Drake charge deductions occur while active status is
+still zero and the lifecycle is =BATTLE_POWER=. Their settled observations at
+frames 129003, 11623, 14140, and 62946 have active status 1, 2, 1, and 2
+respectively. Sami settles with active status 1 at frame 12458. A zero active
+status during the presentation therefore does not imply that no activation has
+begun.
 
 The static per-star routine has a separate branch for counters above 9 that
 returns 18,000. That branch and counters 3..9 have not been exercised here;
@@ -103,15 +109,100 @@ base plus =0x2C=, and =0x08035020= uses that value to select the render palette.
 =0x08035170= reads the current weather and mode separately. This supports
 the distinction between a current condition and the Rules setting. A retained
 Andy battle also has mode 1 while current weather is 0; this study assigns no
-UI meaning to mode 1. Weather value 1 needs a visible Snow checkpoint before
-it is exposed with that meaning.
+UI meaning to mode 1. The Olaf Blizzard sequence below verifies weather value
+1 as Snow.
 
-* Reproduction and evidence
+* Olaf Blizzard override and expiry
+
+Five supplied checkpoints identify player 1 as Olaf (battle CO ID 3) and
+player 2 as Max (ID 2). They show Clear before activation, the Blizzard
+presentation, settled Snow, Snow during Max's turn, then Clear when Olaf next
+regains control. The screenshots agree with the current-weather byte at
+=0x03003FEC=. Olaf's regular Power also spends 32,400 meter units: the charge
+falls from 63,000 to 30,600 as the use counter increments from 0 to 1. The
+active-Power byte is still zero during the presentation, then becomes 1 after
+the effect settles.
+
+| Checkpoint | Frame | Day / active player | Phase | Current weather | Olaf active Power | Charge / uses |
+|------------+-------+---------------------+-------+-----------------+-------------------+--------------|
+| Before Blizzard | 12442 | 5 / Olaf | Player turn | 0 Clear | 0 | 63,000 / 0 |
+| Blizzard presentation | 13808 | 5 / Olaf | Power presentation | 0 Clear | 0 | 30,600 / 1 |
+| Blizzard settled | 14140 | 5 / Olaf | Player turn | 1 Snow | 1 | 30,600 / 1 |
+| Max's turn | 14650 | 5 / Max | Player turn | 1 Snow | 1 | 30,600 / 1 |
+| Olaf next turn | 14992 | 6 / Olaf | Player turn | 0 Clear | 0 | 30,600 / 1 |
+
+Frame-by-frame replay brackets both field updates. Starting from the supplied
+Blizzard-presentation state, the active-Power byte is 1 at frame 13964 while
+weather remains Clear through frame 13995; weather first becomes Snow at
+frame 13996. To cross the expiry, replay Max's End command from the supplied
+Max-turn state. Olaf's active-Power byte clears at frame 14697 as day 6 starts,
+but Snow remains through frame 14765. Current weather first returns to Clear
+at frame 14766. The lifecycle is still blocked from live decoding at that
+point; the supplied settled checkpoint at frame 14992 is a valid player turn.
+Thus the weather reset occurs during the transition, after the CO active-Power
+flag clears and before live decoding resumes.
+
+The neighbor bytes at =0x03003FED..0x03003FEF= are retained in the external
+trace without assigning new meanings. In particular, =+0x2= is 1 in the
+opponent-turn checkpoint and 0 in the adjacent samples; its role is unresolved.
+All twelve documented snapshots pass the four structural checks, including
+the animation and transition samples where live decoding is correctly blocked.
+The full per-sample RAM, screenshots, source hashes, and validation results are
+in =olaf-weather-trace.json= under =/tmp/aw2-weather-power-research/=. The
+frame-boundary checkpoints are named =olaf-blizzard-n156=, =n187=, and =n188=
+for activation, and =olaf-expiry-4=, =olaf-expiry-72=, and =olaf-turn-n73= for
+the next-turn transition.
+
+* Drake Typhoon override and expiry
+
+Seven supplied checkpoints identify player 1 as Drake (battle CO ID 9) and
+player 2 as Max (ID 2). They show Clear before Typhoon, the selected Super
+command and presentation, settled Rain, Rain during Max's turn, then Clear on
+Drake's next turn. The screenshot and current-weather byte at =0x03003FEC=
+agree. Drake's Super spends 63,000 available meter units, increments the use
+counter from 0 to 1, and leaves the meter at zero. The ROM CO row has 7 Super
+stars; at counter 1 the 75,600-unit threshold is clamped to zero. The active
+Power byte remains zero during the presentation and is 2 after settlement.
+
+| Checkpoint | Frame | Day / active player | Screen | Current weather | Drake active Power | Charge / uses |
+|------------+-------+---------------------+-------+-----------------+--------------------+--------------|
+| Before Typhoon | 61809 | 5 / Drake | Player turn | 0 Clear | 0 | 63,000 / 0 |
+| Super selected | 61964 | 5 / Drake | Command menu | 0 Clear | 0 | 63,000 / 0 |
+| Typhoon presentation | 62103 | 5 / Drake | Power presentation | 0 Clear | 0 | 0 / 1 |
+| Typhoon splash | 62428 | 5 / Drake | Power presentation | 0 Clear | 0 | 0 / 1 |
+| Typhoon settled | 62946 | 5 / Drake | Player turn | 2 Rain | 2 | 0 / 1 |
+| Max's turn | 63342 | 5 / Max | Player turn | 2 Rain | 2 | 0 / 1 |
+| Drake next turn | 63765 | 6 / Drake | Player turn | 0 Clear | 0 | 0 / 1 |
+
+Frame-boundary replays show the active-Super byte is already 2 at frame 62748
+while weather is still Clear. Clear remains through frame 62751; Rain first
+appears at frame 62752. To trace expiry, open Max's command menu from the
+supplied Max-turn checkpoint, select End, and confirm. Drake's active-Super
+byte remains 2 with Rain at frame 63388. At frame 63389, as day 6 begins, the
+Power byte is 0 but Rain remains. Rain is present through frame 63457 and the
+weather first returns to Clear at frame 63458. Live decoding is still blocked
+there and has resumed by frame 63685; the supplied settled checkpoint at frame
+63765 also validates. As with
+Blizzard, the weather resets after the active-Power flag clears and before
+live decoding resumes.
+
+The neighboring byte =0x03003FEE= is 2 in the opponent-turn checkpoint and 0
+in adjacent source checkpoints; its meaning remains unknown. All fifteen
+documented snapshots pass the four structural checks. Full RAM, screenshots,
+source hashes, and lifecycle results are in =drake-weather-trace.json= under
+=/tmp/aw2-weather-power-research/=. It names the boundary samples
+=drake-typhoon-n320=, =n323=, and =n324= for activation, and
+=drake-expiry-n3=, =n4=, =n72=, and =n73= for the next-turn transition.
+
+* General reproduction and evidence
 
 External artifacts are in =/tmp/aw2-weather-power-research/=. =findings.json=
-contains all eleven sample frames, source metadata, full-RAM/screenshot hashes,
-raw player records, validation decisions, threshold calculations, and excluded
-attempts. =evidence-manifest.json= fingerprints those inputs and reports.
+contains the eleven baseline sample frames, source metadata,
+full-RAM/screenshot hashes, raw player records, validation decisions,
+threshold calculations, and excluded attempts. The separate
+=olaf-weather-trace.json= and =drake-weather-trace.json= contain their sequence
+provenance and frame boundaries, including the source hashes at capture time.
+The evidence manifest fingerprints the retained RAM and screenshot samples.
 
 - Run =python /tmp/aw2-weather-power-research/analyze.py= from the repository
   environment to reproduce the offline field comparisons and assertions.
@@ -135,13 +226,40 @@ attempts. =evidence-manifest.json= fingerprints those inputs and reports.
   instruction addresses. The early streaming-disassembly experiment is not
   used as evidence.
 
+* Olaf Blizzard replay
+
+- For the activation boundary, load the supplied =aw2.ss2= checkpoint and
+  advance neutral frames 187 and 188 in separate replays. These end at frames
+  13995 and 13996, on opposite sides of the Clear-to-Snow update.
+- For expiry, load supplied =aw2.ss4=, open Max's command menu, select End,
+  and replay the confirmation. The retained =olaf-end-selected.ss0= checkpoint
+  is at frame 14692. Confirm with A and advance 72 then 73 neutral frames in
+  separate replays to observe Snow at 14765 and Clear at 14766.
+- =olaf-weather-trace.json= fingerprints the five supplied sources and the
+  twelve full-RAM comparison samples. Emulator runs use isolated copies and
+  leave the supplied states and SRAM unchanged.
+
+* Drake Typhoon replay
+
+- For the activation boundary, load the supplied =aw2.ss4= Typhoon splash
+  checkpoint and advance 323 and 324 neutral frames in separate replays. These
+  end at frames 62751 and 62752, on opposite sides of the Clear-to-Rain update.
+- For expiry, load supplied =aw2.ss6=, open Max's command menu, select End,
+  and confirm. The retained =drake-end-selected.ss0= checkpoint is at frame
+  63384. After confirming with A, advance 3 then 4 neutral frames to compare
+  frame 63388 with 63389, and 72 then 73 frames to compare 63457 with 63458.
+- =drake-weather-trace.json= fingerprints the seven supplied sources and the
+  fifteen full-RAM comparison samples. The emulator uses isolated copies and
+  leaves the supplied states and SRAM unchanged.
+
 * Remaining checks
 
-- Obtain a visible Snow checkpoint and a before/during/after Olaf or Drake
-  power sequence to verify weather overrides and restoration.
+- Check whether weather-rule selection and the unresolved neighboring weather
+  bytes interact with the verified Olaf and Drake overrides. Keep mode and
+  neighbor meanings raw until controlled evidence identifies them.
 - Isolate charge gained from one known attack and counterattack; verify
   earning rules and clamping independently of the spend path.
 - Check later activation counters and the unusual static high-counter branch
   before generalizing thresholds.
 - Check more COs and player slots, readiness reset timing, and active-Power
-  expiry across turns. Keep unsupported values explicitly unknown.
+  expiry for other Power variants. Keep unsupported values explicitly unknown.
