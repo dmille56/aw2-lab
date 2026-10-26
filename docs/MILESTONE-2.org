@@ -301,8 +301,14 @@
    - [ ] Cover unit identity across movement, destruction, slot reuse, and checkpoint metadata restoration.
 
 ** TODO Verify structured snapshots against manually inspected states
-   - [ ] Compare snapshots before and after movement.
-   - [ ] Compare snapshots before and after combat damage and unit destruction.
+   - [X] Compare validated snapshots and documented unit fields before and after movement.
+     The controlled APC pair validates as live player turns in both states;
+     only the manually verified field subset is decoded until the typed unit
+     decoder is implemented. See [[file:AW2-MAP-RESEARCH.org::*Validated snapshot comparison][the movement comparison]].
+   - [X] Compare snapshots before and after combat damage and unit destruction.
+     The controlled nonlethal attack, zero-health record, type clearing, and
+     settled destruction snapshots were structurally validated and compared
+     with manually inspected unit fields. See [[file:AW2-LIFECYCLE-RESEARCH.org::*Structured snapshot comparison for combat damage and destruction][the combat comparison]].
    - [ ] Compare snapshots before and after purchasing, including funds and slot reuse.
    - [ ] Compare snapshots before and after capture, including progress and ownership.
    - [ ] Compare snapshots before and after turn changes.

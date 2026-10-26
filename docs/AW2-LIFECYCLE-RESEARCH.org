@@ -1228,6 +1228,59 @@ command-readiness claim is made.
   validation with otherwise valid arrays. All 99 lifecycle/structure cases and
   full repository pre-commit checks pass.
 
+** Structured snapshot comparison for combat damage and destruction
+
+The archived full-RAM observations from the existing controlled attack traces
+were passed through =validate_battle_snapshot= and compared with the manually
+inspected unit records and screenshots. The common before checkpoint is
+=red-ready.ss0= at frame =19421= (SHA-256
+=e34dddc4216fef3a84390796a0b188f76ff51f123983f0dc4da423fe970b36d0=).
+
+| Checkpoint | Frame | Lifecycle | Unit validation | Active units | Live decode |
+|------------+-------+-----------+-----------------+--------------+-------------|
+| Before attack | 19421 | =BATTLE_PLAYER_TURN= | Valid | 26 | Yes |
+| Nonlethal damage settled | 19933 | =BATTLE_PLAYER_TURN= | Valid | 26 | Yes |
+| Lethal target at zero HP | 19915 | =BATTLE_COMBAT= | Invalid: masked HP zero in occupied slot | 26 | No |
+| Lethal target type cleared | 19917 | =BATTLE_COMBAT= | Valid | 25 | No |
+| Destruction cleanup settled | 19961 | =BATTLE_PLAYER_TURN= | Valid | 25 | Yes |
+
+Across both branches, the map geometry, active graphical-tile and terrain
+arrays, and property table remain identical to the before snapshot. The player
+table remains structurally valid, but some bytes change and are not assigned
+meaning in this comparison.
+
+In the nonlethal branch, the red Tank record at =0x020226A8= changes from
+=05 00 01 05 E2 04 3C 00 00 00 00 04= to
+=05 01 01 05 E0 04 3C 00 00 00 00 04=. Its masked HP changes =98 -> 96=;
+byte +1 changes but its action semantics are not inferred. The Infantry at
+=0x02022CA8= changes from
+=01 00 02 05 60 00 5D 00 00 00 04 00= to
+=01 00 02 05 20 00 5D 00 00 00 04 00=, with masked HP =96 -> 32=.
+Both survive and the settled snapshot returns to live decoding.
+
+In the destruction branch, the Infantry at =0x02022C9C= begins with 44 HP
+(masked byte =0x2C=). At frame =19915= its type remains Infantry while masked
+HP is zero; unit validation rejects the occupied record. At frame =19917= the
+type byte has cleared, the stale record payload remains, and the active-unit
+count drops from 26 to 25. The lifecycle remains =BATTLE_COMBAT=, so live
+decoding is still blocked. It resumes only at frame =19961= after cleanup
+returns to =BATTLE_PLAYER_TURN=.
+
+This confirms the health and occupied-slot transitions in these attacks. It
+does not establish a damage formula or the meanings of action byte +1 and
+other changed player-record bytes. The comparison uses the validated snapshot
+and documented unit fields; a complete typed =GameState= decoder remains
+unimplemented.
+
+Reproduction outputs and source fingerprints are external at
+=/tmp/aw2-combat-lifecycle-research/=. The comparison script
+=compare_structured_combat_snapshots.py= has SHA-256
+=bf0d6a34e42ba13cac86ea51a622c2cb0b85d64e9402fc04debc42472c33d371=; its
+machine-readable report =structured-combat-snapshot-comparison.json= has
+SHA-256 =c93ec75ba5841991656f0326b73a22d76445b030a1cfd7c313038e900f9f2037=.
+The report links each frame to the exact source-state, EWRAM, IWRAM, and
+screenshot hashes.
+
 ** Evidence
 Artifacts are external at =/tmp/aw2-combat-lifecycle-research/=. Complete
 =destroy-head= / =destroy-tail= and =damage= / =damage-tail= traces, independently
