@@ -338,7 +338,13 @@
      allocation and reuse. See [[file:AW2-STATE-VALIDATION.org::*Units and cargo][the bounded unit checks]] and
      [[file:AW2-MAP-RESEARCH.org::*Validated structured comparison of purchase checkpoints][the purchase comparisons]]. Runtime allocation in other armies and
      exceptional states remain unverified.
-   - [ ] Decode type, owner, position, and raw/displayed health.
+   - [X] Decode type, owner, position, and raw/displayed health.
+     Byte +0 is the type ID; owner is implied by the army block; bytes +2/+3
+     are X/Y; byte +4's low seven bits hold internal health. A controlled move,
+     four-player roster, combat samples, and displayed-4-HP Infantry checkpoint
+     support these interpretations. The high bit's meaning and exact HUD
+     rounding for every health value remain open. See
+     [[file:AW2-MAP-RESEARCH.org::*Finding: unit type, owner block, coordinates, and health fields][the unit field evidence]].
    - [ ] Decode fuel, ammo, and action status.
    - [ ] Investigate cargo relationships and special status; expose only verified values.
    - [ ] Verify movement, damage, destruction, purchasing, and relevant status changes.

@@ -1556,8 +1556,8 @@ ROM/map agreement, all property entries, cursor positions, and turn/funds sample
   record, including bytes +2/+3, stays the same. The screen changes from the
   selected-unit view to a movement overlay. This associates byte +1 with the
   action/movement UI in this sample, but does not define its bit meanings or
-  prove a completed move. The selected record's coordinates should remain
-  candidates until a controlled before/after movement pair confirms them.
+  prove a completed move. A later controlled APC move confirms bytes +2/+3 as
+  coordinates; byte +1 remains uninterpreted beyond this menu association.
 - The Fire/Wait menu and the following damage forecast have identical sampled
   unit records. In the settled combat result, six bytes change in the sampled
   unit region, all within two records:
@@ -1721,6 +1721,37 @@ SHA-256 =04b7e24b69c685c724af7421bb74e0374deeb54708b3753df1e02808c8126d08=;
 the output =purchase-snapshot-comparison.json= has SHA-256
 =12f80c99adaca563be95f8dae12ad89a76e6e079e94102a8dea6a43aab1a8898=.
 The report includes each source-state, RAM, and screenshot hash.
+
+** Finding: unit type, owner block, coordinates, and health fields
+
+*** Verified fields and scope
+For active record index =i=, its address is =UNIT_BASE + 12*i=, where
+=i = 64*army + slot=. The combined checkpoint and ROM evidence confirms:
+
+| Record field | Representation | Verified interpretation | Evidence and limit |
+|--------------+----------------+-------------------------+--------------------|
+| Byte +0 | =u8= | Unit-type ID; zero marks an unused slot | Screenshots match Infantry =1=, Mech =2=, APC =7=, and Md Tank =11=. Other supported IDs have not all been individually matched to screenshots. |
+| Army block | Four 64-record blocks | Owner/player is implied by containing block; there is no separate owner byte | The four-player comparison maps blocks 0..3 to slots 1..4 and red/blue/green/yellow. Other setups are not separately tested here. |
+| Bytes +2, +3 | Two =u8= values | Zero-based X, Y | The controlled APC record =0x02022804= changes =(7,5)= to =(7,4)= on a screenshot-confirmed one-tile move; stationary records retain coordinates. |
+| Byte +4, bits 0..6 | =u8 & 0x7F= | Internal health, observed range 1..100 | Combat changes track damage; raw =0x25= (37) matches a displayed 4-HP Infantry. Full health can be =0x64= or =0xE4=, with the high bit set in the latter. |
+| Byte +4, bit 7 | =u8 & 0x80= | Separate flag, not part of health | ROM health readers mask it off. Its meaning remains unresolved. |
+
+Byte +1 is associated with movement/action UI but its bit meanings remain
+unknown. Byte +5's upper five bits store capture progress in the verified
+capture contexts; its lower bits and other uses remain separate open
+questions. Fuel at +6 and transport references at +7/+8 are covered in their
+own findings. The evidence does not establish the exact rounding rule from
+internal health to displayed HP for every value.
+
+*** Evidence references
+The coordinate/health movement sample is
+[[*Validated snapshot comparison][the APC movement comparison]] under
+=/tmp/aw2-clean-supply-research/=. The displayed-health observation is the
+[[*Damaged-infantry Capture/Wait control][four-HP Infantry comparison]]. The
+army-block mapping is in
+[[*Finding: four-player army blocks, player slots, and colors][the four-player
+comparison]]. ROM/build and checkpoint hashes are recorded in those findings;
+binary artifacts remain external to the repository.
 
 ** Finding: APC and Lander cargo relationships
 
@@ -2076,7 +2107,7 @@ observed active records, marker values, and checkpoint hashes; SHA-256
 | 4 | Flak | 3 | =0x02022F90= | yellow / 4 | 7 |
 
 Each observed block uses the established 12-byte record stride and =0x300=
-spacing. Counts use a nonzero first record byte as the active-record test and
+spacing. Byte +0 is the unit-type field and zero marks an unused record. Counts
 are limited to these checkpoints. Across =ss3= through =ss7=, counts are
 =10/10/10/7=, =14/13/12/7=, =16/15/17/6=, =18/17/21/4=, and
 =20/19/24/6= in block order. The field remains a unit-type byte candidate as

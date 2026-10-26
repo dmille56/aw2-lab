@@ -114,6 +114,24 @@ pointer is converted to a host pointer. The stale current-unit pointer at
   advance is =0x0C=. Thus the first usable record addresses remain
   =0x02022690,0x02022990,0x02022C90,0x02022F90=; starting a 64-record scan
   at one of those addresses would include the next block's reserved record.
+- For an active record at =UNIT_BASE + 12*(64*army + slot)=, byte +0 is the
+  unit-type ID. Controlled screenshots and movement/combat states match
+  Infantry =0x01=, Mech =0x02=, APC =0x07=, and Md Tank =0x0B=; other supported
+  IDs are enumerated by the ROM profile but have not all been individually
+  matched to screenshots. There is no separate owner byte in this record:
+  ownership is the containing army block, mapped to player slots/colors in the
+  [[file:AW2-MAP-RESEARCH.org::*Finding: four-player army blocks, player slots, and colors][four-player comparison]].
+- Bytes +2 and +3 are zero-based map X and Y coordinates. A controlled APC
+  move changes record =0x02022804= from =(7,5)= to =(7,4)= while the screenshot
+  shows the APC move one tile; other stationary units retain their coordinates.
+  This confirms the candidate coordinate interpretation in the earlier
+  movement snapshots.
+- Byte +4 stores internal health in its low seven bits (=raw & 0x7F=), with
+  observed values from 1 to 100; bit 7 is a separate flag and may be set at
+  full health (=0xE4=). The damaged-infantry checkpoint pairs raw =0x25= (37)
+  with displayed 4 HP, and combat checkpoints show this field changing with
+  damage. These examples verify the field and mask, not every internal-to-HUD
+  rounding case. See [[file:AW2-MAP-RESEARCH.org::*Finding: damaged-infantry Capture/Wait control][the damaged Infantry comparison]].
 - A zero type byte marks an unused record, regardless of stale flags,
   coordinates, or health. Active records need a supported observed type, a
   participating owner block, coordinates inside the map, health =1..100= after
