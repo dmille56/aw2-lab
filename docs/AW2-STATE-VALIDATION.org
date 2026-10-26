@@ -154,9 +154,11 @@ pointer is converted to a host pointer. The stale current-unit pointer at
   reset exception preserves an embarked passenger's acted flag. Reconstructed
   logical lookups match all 21 archived Wait/cargo gameplay captures. See
   [[file:AW2-MAP-RESEARCH.org::*Finding: unit status bits in map lookup and cargo routines][the status-bit trace]] and
-  [[file:AW2-MAP-RESEARCH.org::*Finding: Wait status and start-of-turn upkeep][the Wait and upkeep comparison]]. Action bits 5..7 lack verified semantic
-  labels; bit 5 is read by map tile selection. No flag alone establishes
-  command readiness. Byte +5's upper five bits store
+  [[file:AW2-MAP-RESEARCH.org::*Finding: Wait status and start-of-turn upkeep][the Wait and upkeep comparison]]. Status bit 5 selects an alternate map
+  tile-rendering path, but its gameplay meaning is unknown; bits 6/7 remain
+  unassigned. Fuel byte +6 bit 7 is excluded from the HUD, preserved by
+  identified arithmetic updates, and cleared on initialization, but no sample
+  sets it. No flag alone establishes command readiness. Byte +5's upper five bits store
   capture progress in verified capture contexts; its low three bits carry
   ammo bits 8..10 of the packed halfword at +4. The controlled APC supply pair
   shows a Md Tank's ammo rising =2 -> 6= in these bits while fuel rises
@@ -262,7 +264,7 @@ decoders is separate from validating these structures.
   no ROM or proprietary memory data. All 56 structure-validation cases and the
   full repository pre-commit checks passed.
 - Remaining coverage: additional resume configurations, Campaign-specific terrain and unit types,
-  more transports/ownership scenarios, and allowing supported reads during AI
+  cargo in Green/Yellow army blocks and other ownership scenarios, and allowing supported reads during AI
   turns or other busy phases. Normal animated combat is now checked; other
   attack/animation modes, CO-specific effects, and new elimination dialogues remain coverage gaps.
   Unverified fields and command availability remain

@@ -341,8 +341,9 @@
    - Cargo progress: [[file:AW2-MAP-RESEARCH.org::*Finding: APC and Lander cargo relationships][APC/Lander snapshots]] support a one-based passenger slot reference in
      byte +7 for one red APC and one red Lander, including Lander unload/link
      clearing. A two-passenger Lander snapshot supports a second reference
-     at byte +8. The Transport Copter pair is documented below. Armies beyond
-     red/blue and field reuse remain unverified. ROM Load/Drop routines now
+     at byte +8. Red/Blue APC cargo references are verified in both blocks;
+     the Transport Copter pair is documented below. Green/Yellow cargo and
+     field reuse remain unverified. ROM Load/Drop routines now
      establish status bit 3 as embarked passenger and bit 4 as carrier with
      cargo in those paths.
      Load fills +7 then +8; dropping the first passenger compacts +8 into +7,
@@ -356,7 +357,7 @@
      confirms +7 global passenger reference and clearing the cargo/embarked
      flags on unload for one Red Copter carrying a Mech. The user confirms
      APCs and Transport Copters carry one Infantry or Mech each, and Landers
-     carry two land units. Cargo behavior in other army blocks remains
+     carry two land units. Cargo behavior in Green/Yellow army blocks remains
      unverified.
    - Supply progress: [[file:AW2-MAP-RESEARCH.org::*Finding: APC supply and paired unit fuel/ammo changes][APC supply pair]] matches the
      selected APC's HUD fuel to record byte +6 and shows three other records
@@ -416,10 +417,12 @@
      meanings do not alone establish command readiness. See the status-bit
      trace above; no complete typed unit decoder is introduced here.
    - [ ] Investigate cargo relationships and special status; expose only verified values.
-     Sampled APC, Lander, and Transport Copter cargo links are documented.
-     Remaining coverage is broader army/passenger cases and the unassigned
-     status/fuel bits; the runtime two-passenger drop and owner-turn reset are
-     documented below.
+     Sampled APC, Lander, and Transport Copter cargo links are documented,
+     including Red/Blue block references. Remaining cargo coverage is
+     Green/Yellow blocks, destruction, and slot reuse. Status bit 5's renderer
+     effect is known but its gameplay meaning remains unresolved; bits 6/7 and
+     fuel bit 7 remain unassigned. The runtime two-passenger drop and owner-turn
+     reset are documented below.
      Six additional checkpoints contained no transports or cargo changes.
      ROM tracing shows status bit 5 feeds map-unit tile selection, but its
      gameplay meaning and writer remain unknown; bits 6/7, fuel byte bit 7,

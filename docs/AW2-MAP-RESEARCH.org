@@ -1775,8 +1775,8 @@ binary artifacts remain external to the repository.
   mGBA setup. Source state hashes remained unchanged. The comparisons cover
   one passenger in a red APC, and one or two passengers in a red Lander. The
   user confirms APCs and Transport Copters each carry one Infantry or Mech,
-  while Landers carry two land units. Army blocks beyond the sampled cases
-  remain unverified.
+  while Landers carry two land units. The original examples are Red-army
+  records; Blue cargo is covered by the cross-army comparison below.
 - They match the observed 12-byte unit records and red army block beginning
   at =0x02022690=. The APC record at =0x0202269C= has byte +7 equal to =0x09=
   while the infantry at slot 8 (=0x020226F0=) is at the APC's coordinates.
@@ -1828,6 +1828,23 @@ binary artifacts remain external to the repository.
   verifies the two drops and the observed UI order. Transport Copter evidence
   is documented in the following finding.
 
+*** Red/Blue cargo references
+- The five-state two-passenger research set also contains loaded Red and Blue
+  APCs at frame =52475=. Red APC ref 2 has byte +7 =0x15=, pointing to Mech
+  ref 21 in Red's block. Blue APC ref 71 (army block 1, local slot 7) has
+  byte +7 =0x42=, pointing to Infantry ref 66 (army block 1, local slot 2).
+  The Blue passenger has status =0x0B= and the APC has status =0x10=.
+  Therefore +7 stores the passenger's global unit reference, including the
+  army-block offset, rather than a per-army slot number.
+- The archive scan finds loaded carrier/passenger pairs within blocks 0 and 1
+  (Red and Blue); it finds no cargo links in Green or Yellow blocks. This is
+  checkpoint coverage, not proof that cross-army loading is possible or that
+  every army uses identical runtime paths.
+- Evidence: =/tmp/aw2-two-cargo-research/state4-ewram.bin= and
+  =metadata.json= (frame and source-state hash), plus
+  =/tmp/aw2-two-cargo-research/two-passenger-focused.json=. The original
+  source-state hashes were unchanged.
+
 *** Reproduction and evidence
 Source states, full EWRAM/IWRAM dumps, and screenshots are external at
 =/tmp/aw2-cargo-research/=. =metadata.json= records the source hashes, frames,
@@ -1836,8 +1853,9 @@ contains the relevant APC/Lander/passenger records and screenshot hashes. Its
 SHA-256 is =e63109b4b0637871d0a805ad9c6177cd825be99a65dbaa72abeee5a51c4ed33f=.
 
 *** Remaining questions
-- Test whether the references apply in additional army blocks; test what
-  happens to the links if a passenger is destroyed or its slot is reused.
+- Cargo references now have Red and Blue block evidence. Check loaded carriers
+  in the Green and Yellow blocks; test what happens to links if a passenger is
+  destroyed or its slot is reused.
 - Bits 0..4 now have the scoped interpretation in the status-bit trace.
   Passenger coordinates need not follow the carrier during movement; see the
   later cargo validation.
@@ -2308,14 +2326,16 @@ with the pinned US ROM and inspecting its recorded frame and screenshot.
 | 2 | =0x04= | Retain temporary logical occupancy while bit 1 is set. An existing logical entry with this bit set may be replaced by another unit at that coordinate. |
 | 3 | =0x08= | Embarked passenger in the Load/Drop paths: Load sets it and Drop clears it. Owning-turn reset preserves bit 0 while it is set. |
 | 4 | =0x10= | Carrier has cargo in the Load/Drop paths: Load sets it; Drop clears it when the compacted cargo list is empty. |
+| 5 | =0x20= | Read by the map renderer and selects the alternate tile path at offset =+0x78=; gameplay trigger/meaning is unresolved. |
+| 6 | =0x40= | No meaning or reader/writer established; no nonzero sample found. |
+| 7 | =0x80= | No meaning or reader/writer established; no nonzero sample found. |
 
 Bits 1/2 describe map lookup handling, not independent acted/ready flags or
 FoW visibility. Future decoding should preserve their mechanical meanings;
-command readiness still requires the lifecycle/UI context. Bits 5..7 and
-other special unit fields still lack semantic assignments; bit 5's renderer
-use is bounded below.
+command readiness still requires the lifecycle/UI context. Bit 5's renderer
+effect is known but its gameplay meaning is not; bits 6/7 remain unassigned.
 
-*** Higher status bits and six latest checkpoint audit
+*** Higher status bits and archived checkpoint audit
 - Six additional user checkpoints were restored on 2026-10-26 at frames
   =492094, 492514, 492674, 492940, 493216, and 493316=. Each has dimensions
   =16x15= and exactly eight active records: Infantry at global references
@@ -2326,20 +2346,38 @@ use is bounded below.
   =/tmp/aw2-new-cargo-research/manifest.json= and
   =unit-summary.json=; screenshots are saved alongside them. The original
   save-state files were unchanged by restoration.
-- Static trace of =sub_08022428= reads status byte +1. It uses bit 5 as an
-  input to =sub_0802216C=; in the ordinary map-unit tile path, that input
-  selects tile offset =+0x78= instead of the generated tile offset. This
-  establishes that bit 5 affects unit rendering, but not what gameplay
-  condition sets it or what semantic name it should have. The same routine
-  masks bits 6/7 (=0xC0=) and passes that value to the tile helper; the traced
-  path does not establish a distinct gameplay meaning for either bit. Bits
-  5..7 were all zero in the 21 prior Wait/APC/Lander captures and these six
-  added checkpoints.
+- A wider archive scan inspected =815= RAM-dump files, deduplicated them to
+  =666= EWRAM hashes, and retained =629= snapshots with plausible map geometry.
+  Across =11,827= active unit records, the only nonzero bits 5..7 are two
+  =0x20= records for the byte-identical type =0x18= unit at ref 73 in separate
+  movement/supply snapshots. No =0x40= or =0x80= status values occur. The
+  observed =0x20= record does not identify the flag's gameplay trigger.
+- Static trace of =sub_08022428= loads status byte +1 and masks it with
+  =0x20= at =0x08022554..0x0802255E= before passing the result to
+  =sub_0802216C=. That helper tests the flag at =0x08022250..0x0802225E= and
+  selects tile offset =+0x78= instead of the generated-tile path. This
+  establishes bit 5's renderer effect. The traced renderer does not inspect
+  status bits 6 or 7; the earlier claim that it masked/passed =0xC0= from the
+  status byte was incorrect. Their broader readers/writers and meanings remain
+  unresolved.
+- The same archive scan found fuel byte +6 bit 7 clear in all =11,827= active
+  records. The HUD reader at =0x0802AEA4..0x0802AEAA= extracts the low seven
+  bits. Identified arithmetic updates at =0x08025448=, =0x08025478=,
+  =0x08025BA0=, =0x08025BAA=, and =0x08029ACA= update low-seven-bit fuel while
+  preserving bit 7. Unit initialization/normalization at =0x08025BF6= and
+  =0x08025C12= clears or replaces the high bit. This distinguishes it from
+  numeric fuel, but does not reveal its purpose or identify a path that sets
+  it.
+- Audit and exact renderer disassembly are external at
+  =/tmp/aw2-high-unit-bit-audit/=. =audit.json= records the ROM fingerprint,
+  archive counts, nonzero high-status examples, cargo block pairs, and
+  fuel-bit scan. Its SHA-256 is
+  =c1c23e069347a6463e943d6eace501e0bdc741a91e92ffeee0e9922cef8831e7=.
+  =status-renderer.txt= preserves the relevant Thumb disassembly.
 - These findings do not change the supported cargo interpretation. The
-  six new captures are battle snapshots without transport units. The
-  owner-turn-reset and sequential two-passenger Lander findings below add the
+  six newest checkpoints are battle snapshots without transport units. The
+  owner-turn-reset and sequential two-passenger Lander findings add the
   relevant cargo runtime coverage.
-
 *** ROM readers and writers
 - =sub_080258CC= builds a logical lookup at =MAP_BASE+0x051A= and a visible
   lookup at =MAP_BASE+0x12=, using global unit indices at row-offset plus X.
@@ -2378,11 +2416,9 @@ use is bounded below.
   now has a concrete cargo context: an embarked passenger retains its acted
   flag. Red-Lander checkpoints show two embarked passengers retain status
   =0x0B= from Red day 2 to Red day 3; see the owner-turn-reset finding.
-- Fuel is byte +6's low seven bits, not the entire byte. HUD code at
-  =0x0802AEA2..0x0802AEAA= extracts those bits before drawing fuel, and
-  fuel writers preserve bit 7. Existing observed fuel values all fit in seven
-  bits, so this refines the storage description without changing those
-  measurements. Byte +6 bit 7 remains unassigned.
+- Fuel is byte +6's low seven bits, not the entire byte. The HUD read and
+  arithmetic/initialization paths above confirm masking and preservation of
+  bit 7 during fuel changes; its purpose and any setter remain unknown.
 
 *** Checkpoint comparisons and reproduction
 The lookup results below name global unit indices, not per-army slot offsets.
