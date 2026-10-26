@@ -1867,20 +1867,39 @@ binary artifacts remain external to the repository.
   carrier can retain stale link bytes. The allocator checks the type byte,
   and unit initialization =sub_08025BE0= clears status and both cargo bytes
   before a new unit uses the slot.
+- Nine new Red-versus-Blue checkpoints now show a two-passenger Lander being
+  destroyed and both passenger slots later reused. At frame =9769= (=aw2.ss3=),
+  Red Lander ref 4 has +7 =3= and +8 =2=; refs 3 and 2 are its two embarked
+  units. At frame =10083= (=ss4=), the attack is in progress. By frame =10205=
+  (=ss5=), the Lander and both passenger type bytes are zero, while Blue ref 67
+  occupies the Lander's former tile. The now-inactive Lander retains stale +7/+8
+  bytes, so those links must be interpreted only while its type is active.
+- The later purchase checkpoints show Red ref 2 active again at frame =10969=
+  (=ss8=), then Red ref 3 active at frame =11203= (=ss9=). These are the two
+  passenger slots from the destroyed Lander, and the intervening checkpoints
+  show them empty. The records are new units, not surviving passengers: their
+  type/position fields differ from the embarked records. This provides runtime
+  evidence that destroying a two-passenger Lander removes both passengers and
+  that the allocator can later reuse both slots. Screenshots show the purchase
+  sequence; all nine source save-state hashes were unchanged during inspection.
 - A separate purchase sequence destroyed and reused Red global ref 12 while
   Lander ref 7 continued carrying refs 45 and 11. The Lander and both active
   passenger records were byte-identical before destruction and after purchase;
   the allocator reused the empty ref 12 rather than an occupied passenger.
-  This does not demonstrate reuse of a passenger's own slot after its carrier
-  is destroyed. The removal routine itself does not scan other carriers to
-  unlink a passenger removed independently; callers or game rules could also
-  affect that case, which has no normal-game checkpoint here.
+  The removal routine itself does not scan other carriers to unlink a passenger
+  removed independently; callers or game rules could also affect that case,
+  which has no normal-game checkpoint here.
 - The replay and raw-record summaries, original-state hashes, and isolated
   flag-probe results are preserved in the temporary research artifact
   =aw2-special-status-followup=. Its =replay-summary.json= SHA-256 is
   =70aad37bc81dedb13614adbc3f8462dff37eed10d7d2b3b78ad5a5eb1e91d664=;
   =reuse-cargo-check.json= SHA-256 is
   =d3b2a6fe47c04b17ef72befc35182946f5b1eeaa7ecc210242bde1920957c3d5=.
+- The nine new source states, EWRAM/IWRAM dumps, screenshots, and source hashes
+  are preserved under =/tmp/aw2-lander-destruction-20261026/=. The focused
+  record report is =destruction-focused.json= (SHA-256
+  =4fbde04c45c89a628334cb50909ce9f5405820bf94f64766bb87e3420c4af1ba=); its
+  manifest records source file hashes, emulated frames, and RAM hashes.
 
 *** Reproduction and evidence
 Source states, full EWRAM/IWRAM dumps, and screenshots are external at
@@ -1890,10 +1909,8 @@ contains the relevant APC/Lander/passenger records and screenshot hashes. Its
 SHA-256 is =e63109b4b0637871d0a805ad9c6177cd825be99a65dbaa72abeee5a51c4ed33f=.
 
 *** Remaining questions
-- Capture a two-passenger Lander's destruction and subsequent purchase if
-  runtime confirmation of both recursive removals and passenger-slot reuse is
-  needed. Independent destruction of an embarked passenger has not been
-  demonstrated through normal play.
+- Independent destruction of an embarked passenger has not been demonstrated
+  through normal play; this may be impossible through ordinary battle actions.
 - Bits 0..4 now have the scoped interpretation in the status-bit trace.
   Passenger coordinates need not follow the carrier during movement; see the
   later cargo validation.

@@ -343,8 +343,10 @@
      clearing. A two-passenger Lander snapshot supports a second reference
      at byte +8. Red/Blue APC cargo references are verified in both blocks;
      a four-player replay also verifies Green/Yellow APC load/drop after changing
-     the CPU control bytes to human. Passenger-slot reuse after carrier
-     destruction remains unverified. ROM Load/Drop routines now
+     the CPU control bytes to human. A new two-passenger Lander destruction
+     sequence shows both passengers removed and both slots later reused by
+     purchases. The inactive Lander retains stale +7/+8 bytes, so its cargo
+     links are valid only while its type is active. ROM Load/Drop routines now
      establish status bit 3 as embarked passenger and bit 4 as carrier with
      cargo in those paths.
      Load fills +7 then +8; dropping the first passenger compacts +8 into +7,
@@ -422,8 +424,9 @@
      Sampled APC, Lander, and Transport Copter cargo links are documented.
      APC load/drop now covers all four blocks, with human-control edits for
      Green/Yellow. ROM removal recursively processes both cargo links, and a
-     purchase sequence preserves occupied passenger slots. Runtime reuse of a
-     destroyed passenger's slot remains open.
+     two-passenger Lander destruction removes both passengers, and later
+     purchases reuse both passenger slots. The inactive Lander may retain
+     stale cargo references, which must not be followed once its type is zero.
      Sub Dive/Rise sets/clears status bit 5. Injected-flag combat shows bits
      6/7 affect an army marker at removal; natural setters and downstream
      outcomes remain open. Fuel byte bit 7 propagates through Join in a
