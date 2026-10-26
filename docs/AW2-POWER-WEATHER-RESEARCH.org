@@ -16,9 +16,9 @@ lifecycle gate.
 The study verifies meter storage, spending, and low activation-counter values,
 plus current Clear/Rain/Snow weather and the Olaf Blizzard and Drake Typhoon
 weather overrides through expiry. Combat charge earnings, high-counter
-behavior, and weather-rule interactions remain open. These findings extend
-the documented decoding subset; a typed state decoder and state API remain
-separate tasks.
+behavior, and weather mode/neighbor-byte meanings remain open. These findings
+extend the documented decoding subset; a typed state decoder and state API
+remain separate tasks.
 
 * Verified fields and raw observations
 
@@ -254,9 +254,12 @@ The evidence manifest fingerprints the retained RAM and screenshot samples.
 
 * Remaining checks
 
-- Check whether weather-rule selection and the unresolved neighboring weather
-  bytes interact with the verified Olaf and Drake overrides. Keep mode and
-  neighbor meanings raw until controlled evidence identifies them.
+- The StrategyWiki CO guide describes Blizzard and Typhoon weather lasting
+  until the owning CO's next turn; the snapshots above independently confirm
+  both field updates and resets. The remaining weather-layout questions are
+  the semantics of =0x03003FED= (observed mode values 0 and 3) and neighboring
+  bytes =0x03003FEE..0x03003FEF=. Preserve them as raw values unless a decoder
+  needs those interpretations.
 - Isolate charge gained from one known attack and counterattack; verify
   earning rules and clamping independently of the spend path.
 - Check later activation counters and the unusual static high-counter branch

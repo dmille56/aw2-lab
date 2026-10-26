@@ -270,9 +270,10 @@
      the =+0x25= use counter and spending for Andy/Max/Sami/Olaf/Drake, active
      Power values, and current Clear/Rain/Snow weather at =0x03003FEC=. Olaf's
      Blizzard and Drake's Typhoon both update the current-weather field and
-     reset it during the next-turn transition. Weather-rule interactions,
-     charge earnings, and high-counter behavior remain open, so the composite
-     item stays unfinished. See
+     reset it during the next-turn transition, consistent with the documented
+     CO effects. The weather mode/neighbor byte meanings, charge earnings, and
+     high-counter behavior remain open, so the composite item stays unfinished.
+     See
      [[file:AW2-POWER-WEATHER-RESEARCH.org::*Olaf Blizzard override and expiry][the weather traces]].
    - [X] Verify player and turn changes against manually inspected game states.
      Before/after screenshots and validated full-RAM snapshots confirm the
