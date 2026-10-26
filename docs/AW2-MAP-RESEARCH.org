@@ -1009,6 +1009,40 @@ hashes and coherent RAM/screenshot capture hashes are retained in the research
 session manifest at =/tmp/aw2-city-red-blue-research/manifest.json=; the source
 save states remain outside the repository.
 
+*** Validated snapshot comparison for city capture
+The six checkpoints above were loaded as complete EWRAM/IWRAM snapshots and
+checked with =validate_battle_snapshot= against the verified US ROM profile.
+All six classify as =BATTLE_PLAYER_TURN= and permit live decoding. Geometry,
+property, player, and unit validations pass in every snapshot. The common map
+has 190 cells, 14 property records, and two player records; active unit counts
+are four in states 1-2 and six in states 3-6. Screenshots agree with the
+checkpoint descriptions.
+
+| Checkpoint | Frame | Red infantry byte +5 / points | City property record (entry 9) | Terrain/owner byte | Tile ID |
+|------------+-------+-------------------------------+--------------------------------+--------------------+---------|
+| =ss1= | 555911 | =0x00= / 0; infantry has not reached the city | =06 04 06 00= | =0x06= neutral | 450 |
+| =ss2= | 556146 | =0x78= / 15; five points remain | =06 04 06 00= | =0x06= neutral | 450 |
+| =ss3= through =ss5= | 557051-558136 | =0x78= / 15 | =06 04 06 00= | =0x06= neutral | 450 |
+| =ss6= | 558361 | =0x00= / 0; capture complete | =26 04 06 00= | =0x26= Red | 455 |
+
+The target is at =(4,6)=. The property entry at =0x03003174= retains its
+coordinates and fourth byte while its first byte changes neutral =0x06= to
+Red-owned =0x26=. The matching terrain/owner grid byte at =0x0201F8F8= changes
+the same way, and the graphical tile at =0x0201EF5A= changes from 450 to 455.
+The Red infantry record begins at =0x02022690=; byte +5 changes from =0x78=
+at 15 accumulated points to zero when capture completes. This confirms that
+capture progress is present before ownership changes, and that the property
+record, map ownership grid, and graphical tile update together on completion.
+
+These checkpoints do not include a zero-progress snapshot with the infantry
+already standing on the city, nor a closer checkpoint of the final capture
+transition. Only the documented byte subset is interpreted; the project does
+not yet expose a complete typed battle-state decoder. The low three bits of
+the capture byte are zero in these samples and remain unresolved. Full RAM
+dumps and screenshot evidence remain external in
+=/tmp/aw2-city-red-blue-research/=; =manifest.json= records the frame and
+EWRAM/IWRAM/source hashes for each checkpoint.
+
 *** Red/Blue city transfers and Red factory capture
 Seven newer states on the same =19x10= map show Red taking a Blue city, Blue
 taking a Red city, and Red taking a Blue factory. The sampled property-list

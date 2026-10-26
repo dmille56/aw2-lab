@@ -313,7 +313,10 @@
      Two destroy/purchase sequences validate funds at player 1's record start,
      a 1000-fund deduction, and both earlier-empty-slot selection and freed-slot
      reuse. See [[file:AW2-MAP-RESEARCH.org::*Validated structured comparison of purchase checkpoints][the purchase comparison]].
-   - [ ] Compare snapshots before and after capture, including progress and ownership.
+   - [X] Compare validated snapshots before and after capture, including progress and ownership.
+     Six full-RAM checkpoints validate as live player turns. The city capture
+     progress, property record, terrain/owner byte, and graphical tile were
+     compared against screenshots. See [[file:AW2-MAP-RESEARCH.org::*Validated snapshot comparison for city capture][the capture comparison]].
    - [ ] Compare snapshots before and after turn changes.
    - [ ] Record screenshots or manual observations, reproduction steps, and results for each scenario outside tracked binary artifacts.
 
