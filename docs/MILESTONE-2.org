@@ -210,11 +210,26 @@
      reset, and Sami's capture modifiers. Geometry/allocation limits, the
      property fourth byte, capture-field low bits, and Campaign labs remain
      unresolved; the gameplay rules and evidence are documented in the map
-     research file.
-   - [ ] Identify map dimensions and terrain layout.
-   - [ ] Decode property locations, types, and ownership.
-   - [ ] Decode capture progress and verify changes during capture.
-   - [ ] Use zero-based map coordinates and document memory-to-coordinate mapping.
+     research file. Verified field interpretations are scoped to the sampled
+     retail maps and states; theoretical capacity/size, the property fourth
+     byte, capture-byte low bits, and Campaign labs remain open.
+   - [X] Identify map dimensions and terrain layout.
+     Runtime dimensions, row offsets, graphical tiles, and terrain/owner grids
+     match the supported ROM maps across the observed size range. Maximum
+     dimensions remain unproven. See [[file:AW2-MAP-RESEARCH.org::*Finding: Royal Channel height and lower rows][large-map geometry]].
+   - [X] Decode property locations, types, and ownership.
+     Four-byte records and the terrain grid agree for observed property types
+     and owners, including ownership transfers. The 92-slot traversal bound
+     is not a proven capacity. See [[file:AW2-MAP-RESEARCH.org::*Four-army property encoding][property encoding]].
+   - [X] Decode capture progress and verify changes during capture.
+     Normal Infantry capture progress and city ownership changes are validated
+     in full-RAM checkpoints; Sami's modifier rules are user-confirmed, while
+     memory semantics for special modifiers and low bits remain open. See
+     [[file:AW2-MAP-RESEARCH.org::*Validated snapshot comparison for city capture][the capture comparison]].
+   - [X] Use zero-based map coordinates and document memory-to-coordinate mapping.
+     The row-offset plus x formula is verified against map tiles, property
+     coordinates, and cursor observations. See
+     [[file:AW2-MAP-RESEARCH.org::*Initial Versus map and property layout][the map layout]].
 
 ** TODO Decode players and turn state
    - Research progress: [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: Results, save-progress exit, and powers][result/power observations]] verify the player-record stride,
@@ -244,9 +259,18 @@
      slots in setup. Other player fields and power-meter semantics remain to
      be checked.
    - [X] Identify players, armies, teams, and COs.
-   - [ ] Decode funds, day, and active player.
+   - [X] Decode funds, day, and active player.
+     In the tested two-player Versus setup, funds are an unsigned LE u32 at
+     =R(k)+0=, day is a u16 at =0x03004080=, and the active-player selector
+     is a u16 at =0x030033EC=; the settled values match the HUD. Interpret the
+     selector only in a lifecycle-validated player turn. See
+     [[file:AW2-LIFECYCLE-RESEARCH.org::*Validated snapshot comparison across the Blue-to-Red turn change][the validated turn comparison]].
    - [ ] Investigate weather, power meters, and active powers; expose only verified values.
-   - [ ] Verify player and turn changes against manually inspected game states.
+   - [X] Verify player and turn changes against manually inspected game states.
+     Before/after screenshots and validated full-RAM snapshots confirm the
+     Blue-to-Red day change and funds shown in the HUD. An intermediate turn
+     selector mismatch remains blocked by lifecycle validation; the selector
+     alone is not treated as an actionable player identity.
 
 ** TODO Decode unit records
    - Research progress: [[file:AW2-MAP-RESEARCH.org::*Finding: unit movement menu and combat damage snapshots][new movement/combat snapshots]] support a 12-byte record stride,

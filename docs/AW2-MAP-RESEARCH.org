@@ -18,10 +18,12 @@ adds green/yellow ownership, city-capture completions for three armies, and a
 damaged-infantry Capture/Wait control. The [[*Finding: Pipes, seams, silos, rivers, and bridges][Pipe Maze / Hourglass Isle comparison]]
 verifies additional terrain, silo consumption, and separate seam health. The
 [[*Finding: Kita Straight reefs and map stability across turns][Kita Straight comparison]] verifies reefs and map stability across turns.
-Together, twelve maps cover widths 15, 16, 22, 27, 32, 39, and 42 and heights
-10, 15, 22, 24, 30, and 35; these are observed sizes, not allocation limits. Earlier findings retain
-their original scope. Labs remain a Campaign-specific follow-up per the user's
-scenario guidance; no lab layout is claimed without a Campaign observation.
+The initial twelve-map comparison covers widths 15, 16, 22, 27, 32, 39, and
+42 and heights 10, 15, 22, 24, 30, and 35; later findings add further maps
+and capture states. These dimensions are observed sizes, not allocation limits.
+Earlier findings retain their original scope. Labs remain a Campaign-specific
+follow-up per the user's scenario guidance; no lab layout is claimed without a
+Campaign observation.
 
 * Map and property layout verification
 
