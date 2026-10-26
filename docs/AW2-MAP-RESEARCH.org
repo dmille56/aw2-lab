@@ -1575,6 +1575,11 @@ ROM/map agreement, all property entries, cursor positions, and turn/funds sample
   also change in the first record, so those changes are not assigned to a
   particular movement, fuel, or animation meaning from this non-controlled
   sequence.
+- Byte +1 at =0x020226A8= is =0x06= in the movement overlay and in the
+  Fire/Wait menu and forecast, then =0x01= in the settled combat result. The
+  screenshots associate these values with different action contexts, but do
+  not define the bits or make =0x06= a stable acted/ready value. Byte +5 is
+  zero for this Infantry and does not test ammunition consumption.
 - The supplied states include a Wait choice, but no fingerprinted pair in
   this batch isolates the same unit immediately before and after choosing
   Wait. Byte +1 remains only an action/status candidate; its values are
@@ -1991,6 +1996,9 @@ above identify the exact checkpoints used.
 - Compare the same unit's byte +1 before and after Wait, movement, and Fire in
   settled human turns; do not interpret transient menu value =0x06= as a stable
   bit pattern without a ROM reader/writer trace.
+- The archived Fire/Wait-to-result pair changes byte +1 from =0x06= to =0x01=,
+  but its checkpoints are not a controlled same-unit Wait-versus-Fire branch.
+  Capture that direct comparison before assigning an action-state meaning.
 - For ammunition, capture an ammo-using unit's HUD and record byte +5 before
   firing and after combat settles. A matched no-ammo state can test whether
   remaining ammunition changes attack eligibility or counterfire behavior.
