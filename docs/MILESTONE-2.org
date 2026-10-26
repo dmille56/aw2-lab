@@ -306,14 +306,17 @@
      the counter-5 threshold. A second sequence verifies counter 9 -> 10 and
      the same 54,000-point deduction predicted by the counter-10 branch. Static
      ROM analysis maps counters 3..9 and saturates the use counter at 255;
-     behavior above counter 10 and at saturation is not runtime-tested. Clear
-     Rules settle with weather bytes
-     =[0,0,0,0]=; Rain, Snow, and Random choices settle with mode byte =3= and
-     current/neighbor values matching Rain or Snow. Thus =3= is not a unique
-     Random enum. Mode value 1 and the independent roles of the two following
-     weather bytes remain unresolved, so this composite item stays unfinished.
-     See
-     [[file:AW2-POWER-WEATHER-RESEARCH.org::*Olaf Blizzard override and expiry][the weather traces]].
+     further runtime counter testing above 10 and at saturation is deferred
+     per user request. Clear Rules settle with weather bytes
+     =[0,0,0,0]=; earlier Rain, Snow, and Random-labeled starts had mode =3=.
+     New Random-weather checkpoints verify both Clear→Rain→Clear and
+     Clear→Snow→Clear with mode =1=; =+0x2E= follows computed weather at the
+     sampled boundaries while target =+0x2F= stays Clear. Timer and
+     per-player counter bytes were recorded across the turns. Reconcile the
+     differing mode =3= starts, map mode =2=, and identify the exact
+     target-selection rule and intermediate timer/counter behavior. The
+     weather questions keep this composite item unfinished. See
+     [[file:AW2-POWER-WEATHER-RESEARCH.org::*Rules-screen weather choices and settled weather bytes][the weather resolver findings]].
    - [X] Verify player and turn changes against manually inspected game states.
      Before/after screenshots and validated full-RAM snapshots confirm the
      Blue-to-Red day change and funds shown in the HUD. An intermediate turn
