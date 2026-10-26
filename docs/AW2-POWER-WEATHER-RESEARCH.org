@@ -31,7 +31,7 @@ Select the supported ROM profile before following its layout literals.
 | =R(k)+0x20= | Meter charge | 32-bit LE; signed ROM comparisons | Nonnegative raw charge verified in these samples; negative values are not validated charge |
 | =R(k)+0x25= | Power-use scaling counter | =u8= | Increments before spending; transitions 0 to 1 and 1 to 2 verified |
 | =0x03003FEC= | Current weather | =u8= | 0 Clear, 1 Snow, and 2 Rain match controlled screenshots and power checkpoints |
-| =0x03003FED= | Weather rule/mode | =u8= | 0 for the Clear Rules branch and 3 for Random; modes 1/2 are not identified from these UI comparisons |
+| =0x03003FED= | Weather rule/mode candidate | =u8= | 0 in settled Clear Rules battle, 3 in settled Random Rules battle; 1 also occurs on the Rules screen and in a retained Andy battle, so this is not a fully decoded Rules enum |
 
 Other neighboring fields are retained as raw observations:
 
@@ -40,8 +40,11 @@ Other neighboring fields are retained as raw observations:
 - =R(k)+0x24= is a cached readiness value. The ROM updater can raise it to
   1/2 on the corresponding thresholds and activation clears it. It is not an
   independent command-availability predicate.
-- =0x03003FEE..0x03003FEF= participate in weather selection. Preserve them
-  as raw bytes until their complete lifecycle is checked.
+- =0x03003FEE..0x03003FEF= are read by the ROM's weather-resolution path.
+  They remain raw bytes: in the Random/Rain branch both are 2 across sampled
+  turns, while in Olaf/Drake traces =+0x2= temporarily matches the power's
+  Snow/Rain value during the opponent's turn. These correlations do not
+  establish their individual meanings.
 
 * Meter readers, thresholds, and spending
 
@@ -82,11 +85,29 @@ respectively. Sami settles with active status 1 at frame 12458. A zero active
 status during the presentation therefore does not imply that no activation has
 begun.
 
-The static per-star routine has a separate branch for counters above 9 that
-returns 18,000. That branch and counters 3..9 have not been exercised here;
-do not extrapolate the runtime-verified progression or publish high-counter
-thresholds as verified. The counter incrementer also has a static saturation
-check at 255; no such runtime state was observed.
+The pinned-ROM listing makes the high-counter calculation explicit. At
+=0x0804419C=, counters 0..9 use =9000 * (100 + 20*n) / 100=, producing 9,000,
+10,800, 12,600, 14,400, 16,200, 18,000, 19,800, 21,600, 23,400, and 25,200
+units per star respectively. Any counter above 9 takes a separate branch and
+returns 18,000 per star, so the value drops at counter 10 and stays there.
+At =0x08044354=, incrementing is capped at 255. These are static ROM
+calculations, not runtime-verified meter thresholds; activation at those
+counters has not been exercised.
+
+The ROM call sites at =0x08041CB8= and =0x08041CCA= invoke the meter adder
+from the combat damage calculation, once for each participating player. Each
+amount combines the two damage-estimate terms, halving one term before adding
+the other. This identifies combat damage as the source of charge and shows
+that both sides of a combat calculation contribute. An existing four-player
+combat trace provides one runtime comparison: from frame 19664 to 19667,
+Andy (slot 1) gains 250 and Sami (slot 3) gains 500; Max and Flak do not
+change. The resulting memory at frame 19668 has changes in one Red and one
+Green unit record. This confirms combat-time charge changes, but this trace
+does not isolate the damage terms or establish the exact attribution,
+rounding, or clamping rule. Its raw snapshots are in
+  =/tmp/aw2-lifecycle-coverage-research/off-combat-changes.json= and the
+  =check-off-combat-0-ewram.bin= / =check-off-combat-5-ewram.bin= snapshots;
+  the full sequence returns to a player turn at frame 19715.
 
 * Clear and Rain weather comparison
 
@@ -104,13 +125,17 @@ Map dimensions, graphical tiles, terrain/owner cells, and the property table
 are byte-identical across these two settled battles. The weather appearance
 does not require a different terrain layout. Both pass live snapshot gating.
 
-Original =0x0803504C= stores an effect's weather value at the configuration
-base plus =0x2C=, and =0x08035020= uses that value to select the render palette.
-=0x08035170= reads the current weather and mode separately. This supports
-the distinction between a current condition and the Rules setting. A retained
-Andy battle also has mode 1 while current weather is 0; this study assigns no
-UI meaning to mode 1. The Olaf Blizzard sequence below verifies weather value
-1 as Snow.
+Original-ROM routines =0x0803504C= and =0x08035020= respectively store and
+render the weather value at configuration base plus =0x2C=. The weather
+resolution routines around =0x08035170= read the adjacent bytes at =+0x2D=
+through =+0x2F=; the code therefore confirms these are related weather-state
+inputs, but its branches do not yet justify assigning individual field names
+to the three bytes. The controlled Rules comparison ties =+0x2D= value 0 to the
+settled Clear choice and 3 to the Random choice that produced Rain. A retained
+Andy battle has =+0x2D= value 1 with current weather 0, and the Rules screen
+checkpoint also has value 1, so value 1 is not decoded as a settled weather
+condition. The Olaf Blizzard sequence below verifies current weather value 1
+as Snow.
 
 * Olaf Blizzard override and expiry
 
@@ -254,15 +279,23 @@ The evidence manifest fingerprints the retained RAM and screenshot samples.
 
 * Remaining checks
 
-- The StrategyWiki CO guide describes Blizzard and Typhoon weather lasting
-  until the owning CO's next turn; the snapshots above independently confirm
-  both field updates and resets. The remaining weather-layout questions are
-  the semantics of =0x03003FED= (observed mode values 0 and 3) and neighboring
-  bytes =0x03003FEE..0x03003FEF=. Preserve them as raw values unless a decoder
-  needs those interpretations.
-- Isolate charge gained from one known attack and counterattack; verify
-  earning rules and clamping independently of the spend path.
-- Check later activation counters and the unusual static high-counter branch
-  before generalizing thresholds.
+- The controlled Rules comparison associates =0x03003FED= values 0 and 3
+  with Clear and Random respectively, but value 1 remains ambiguous between
+  setup/transient state and the retained Andy battle. The two following bytes
+  are read by the weather resolver; their roles remain unverified. To resolve
+  them, capture Rules and settled-battle states for each weather choice, then
+  sample one frame at a time through the first Random weather change and each
+  CO weather override/expiry.
+- ROM call sites and one four-player trace show combat damage calculations
+  feed charge gains for both participants. The trace records Andy +250 and
+  Sami +500, but does not isolate which damage terms produced those amounts.
+  Capture a controlled nonlethal attack with no counterattack, then a separate
+  nonlethal counterattack, recording both units' health and each meter before
+  and after. Repeat with a meter near its cap to confirm rounding, side
+  attribution, and clamping.
+- Static ROM code defines counters 3..9 as 14,400..25,200 per star, counter
+  10 and above as 18,000 per star, and saturates the use counter at 255.
+  Runtime behavior for later uses is still unverified; only test activations
+  after safely arranging enough meter, if a decoder needs those values.
 - Check more COs and player slots, readiness reset timing, and active-Power
   expiry for other Power variants. Keep unsupported values explicitly unknown.
