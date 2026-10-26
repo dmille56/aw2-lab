@@ -21,10 +21,12 @@ combat-charge routine explains all four observed meter deltas: each side gets
 its own damage-value term plus half the opposing term, using whole-HP damage
 and a meter valuation coefficient from the ROM unit table. Static ROM values
 for the nonzero Kanbei, Hachi, and Colin adjustments are mapped; runtime
-verification of those modifiers remains open. Natural near-cap evidence,
-runtime high-counter activation, and weather mode/neighbor-byte meanings also
-remain open. These findings extend the documented decoding subset; a
-typed state decoder and state API remain separate tasks.
+verification now covers Kanbei's inactive +20% and Colin's inactive -20%, as
+well as Hachi's inactive and Power modifiers. Hachi's Super adjustment remains
+open. Natural near-cap evidence, runtime high-counter activation, and weather
+mode/neighbor-byte meanings also remain open. These findings extend the
+documented decoding subset; a typed state decoder and state API remain
+separate tasks.
 
 * Verified fields and raw observations
 
@@ -274,8 +276,31 @@ tables; each source file's SHA-256 was identical before and after restoration.
 The hashes are =aw2.ss1= =0750845c8409a7b6bf7fd659eb33e08b1278cd4af72920a480369900b45f8378=
 and =aw2.ss2= =ace65ef34193dcd38c3b2d6caf5f8fb0c7282b1624b8d2188a13c6b4b2fd33ba=.
 The full RAM dumps and parsed checkpoint records are in
-=/tmp/aw2-kanbei-meter-research/=. Hachi's Super adjustment and Colin's
-runtime adjustment remain unverified.
+=/tmp/aw2-kanbei-meter-research/=. At that point, Hachi's Super adjustment and
+Colin's runtime adjustment remained unverified.
+
+* Colin inactive meter adjustment
+
+The new =aw2.ss1= -> =aw2.ss2= pair restores at frames =79134= and =79401= as
+valid two-player battle states. Slot 1 is Colin (CO ID =16=), with active
+Power =0=; slot 2 is Andy (CO ID =1=), also with active Power =0=. Colin's
+Battle Copter (unit type =0x13=) at =0x020226A8= loses one displayed HP:
+health byte +4 changes =0x64 -> 0x55= (100 -> 85, or 10 -> 9 displayed HP).
+Its base meter coefficient is =900=; Colin's -20% adjustment predicts
+=900 * 80/100 = 720= meter units. His meter changes =6000 -> 6720= (+720),
+matching the prediction.
+
+Andy's type =0x05= unit at =0x020229D8= changes from health =100= to =95=,
+remaining at 10 displayed HP and contributing no whole-HP loss term. Andy's
+meter increases =12000 -> 12360= (+360), exactly half of Colin's =720= term.
+This verifies Colin's inactive -20% adjustment and the opponent half-term.
+
+Both states restore with valid geometry, property, player, and unit tables;
+their source hashes are unchanged after restoration. The hashes are
+=aw2.ss1= =04b6f64d20e6276bf4eedb776df4b6ad8c3383d524ab65d62ef45c207adbfb18=
+and =aw2.ss2= =4d63862b108b997e10ece2d821461704adc8fbcae8caaf89b8e6c81507562ec0=.
+Full RAM dumps and parsed records are in =/tmp/aw2-colin-checkpoints/=. The
+remaining runtime CO modifier check is Hachi's Super adjustment.
 
 The six supplied states restore as valid battle structures under the supported
 US ROM and pinned mGBA build. Full EWRAM/IWRAM dumps, screenshots, parsed unit
@@ -321,10 +346,11 @@ Type =0x0E= checks produce terms =4,000= and =0=, then =4,000= and =800=;
 the Infantry check produces =600= and =0=. These reproduce the observed meter
 changes for Andy, Sami, and the sampled CO ID 10. Hachi's inactive and Power
 adjustments are runtime-verified on Battle Copter type =0x13= (base
-coefficient =900=), producing adjusted coefficients =810= and =450=. A Kanbei
-(ID 6) Battle Copter checkpoint pair confirms the inactive +20% adjustment:
-one displayed HP lost adds =1080= to Kanbei and =540= to Andy. Hachi's Super
-adjustment and Colin (ID 16) still need runtime checks. Rounding at fractional
+coefficient =900=), producing adjusted coefficients =810= and =450=. Battle
+Copter checkpoint pairs confirm Kanbei's inactive +20% adjustment (+1,080 to
+Kanbei and +540 to Andy) and Colin's inactive -20% adjustment (+720 to Colin
+and +360 to Andy) for a one displayed-HP loss. Hachi's Super adjustment
+remains to be runtime-checked. Rounding at fractional
 meter values also remains open. The
 instrumented counter-0 replay below confirms the near-cap clamp for Andy and
 Sami; other caps and COs remain unverified.
@@ -518,10 +544,11 @@ The evidence manifest fingerprints the retained RAM and screenshot samples.
   controlled attacks with type =0x13=, verified as B.Cpt by screenshot; its
   base coefficient is 900, adjusted to 810 and 450. A Kanbei Battle Copter
   sample verifies his inactive +20% adjustment with +1,080 meter for Kanbei
-  and +540 for Andy. Colin's runtime check and Hachi's Super adjustment remain
-  open. Fractional meter rounding remains open. The cap check used instrumented
-  meter initialization; natural
-  near-cap evidence is still open.
+  and +540 for Andy. A Colin Battle Copter sample verifies his inactive -20%
+  adjustment with +720 meter for Colin and +360 for Andy. Hachi's Super
+  adjustment remains open. Fractional meter rounding remains open. The cap
+  check used instrumented meter initialization; natural near-cap evidence is
+  still open.
 - Static ROM code defines counters 3..9 as 14,400..25,200 per star, counter
   10 and above as 18,000 per star, and saturates the use counter at 255.
   Runtime behavior for later uses is still unverified; only test activations
