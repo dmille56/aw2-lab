@@ -272,11 +272,12 @@
      Blizzard and Drake's Typhoon both update the current-weather field and
      reset it during the next-turn transition, consistent with the documented
      CO effects. ROM analysis shows combat damage estimates feed both players'
-     meter gains; one four-player combat trace records Andy +250 and Sami
-     +500. The high-counter formula is statically known, but exact gain
-     attribution and later activation thresholds lack controlled runtime
-     checkpoints. The Rules mode and adjacent weather bytes are only partly
-     understood, so the composite item stays unfinished.
+     meter gains; a nonlethal trace records Andy +300 and Sami +600, and an
+     instrumented near-cap replay verifies clamping at their Super thresholds.
+     The high-counter formula is statically known, but damage-term attribution
+     and later activation thresholds lack runtime checkpoints. The Rules mode
+     and adjacent weather bytes are only partly understood, so the composite
+     item stays unfinished.
      See
      [[file:AW2-POWER-WEATHER-RESEARCH.org::*Olaf Blizzard override and expiry][the weather traces]].
    - [X] Verify player and turn changes against manually inspected game states.

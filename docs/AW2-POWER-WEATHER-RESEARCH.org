@@ -15,10 +15,13 @@ lifecycle gate.
 
 The study verifies meter storage, spending, and low activation-counter values,
 plus current Clear/Rain/Snow weather and the Olaf Blizzard and Drake Typhoon
-weather overrides through expiry. Combat charge earnings, high-counter
-behavior, and weather mode/neighbor-byte meanings remain open. These findings
-extend the documented decoding subset; a typed state decoder and state API
-remain separate tasks.
+weather overrides through expiry. New paired checkpoints distinguish a
+nonlethal attack without counterfire from one with counterfire; an instrumented
+counter-0 replay also verifies clamping at two CO thresholds. Exact damage-term
+attribution, natural near-cap evidence, runtime high-counter activation, and
+weather mode/neighbor-byte meanings remain open. These findings extend the
+documented decoding subset; a typed state decoder and state API remain separate
+tasks.
 
 * Verified fields and raw observations
 
@@ -78,6 +81,60 @@ comparisons agree with that order:
 | Olaf Power | 12442 -> 13808 | 63,000 -> 30,600 | 0 -> 1 | 32,400 |
 | Drake Super | 61809 -> 62103 | 63,000 -> 0 | 0 -> 1 | 75,600, clamped at zero |
 
+* Runtime attack, counterfire, and cap checks
+
+Three supplied checkpoints form a consecutive two-attack sequence on a
+two-player map. Their restored frames are =68746=, =69392=, and =69664=;
+players 3 and 4 are inactive. Player 1 is Andy (CO ID 1), and player 2 has
+CO ID 10. Across both transitions, only one unit record changes in each army.
+
+| Checkpoint pair | Player 1 meter | Player 2 meter | Red target record | Blue attacker record | Result |
+|-----------------+----------------+----------------+-------------------+---------------------+--------|
+| =aw2.ss1= -> =aw2.ss2= | 7,500 -> 11,500 (+4,000) | 15,000 -> 17,000 (+2,000) | =0x020226C0=, byte +4: =0x64 -> 0x2C= (100 -> 44) | =0x02022A20=, byte +1: =0 -> 1=; byte +4: =0xE4 -> 0x64= (low 7 bits remain 100) | No counterfire: the Blue attacker remains at 100 health |
+| =aw2.ss2= -> =aw2.ss3= | 11,500 -> 15,900 (+4,400) | 17,000 -> 19,800 (+2,800) | =0x020226CC=, byte +4: =0xE4 -> 0x2D= (low 7 bits: 100 -> 45) | =0x02022A2C=, byte +1: =0 -> 1=; byte +4: =0xE4 -> 0x58= (low 7 bits: 100 -> 88) | Counterfire: the Blue attacker loses 12 health points |
+
+These observations support reading health from the low seven bits of byte +4:
+the Blue attacker's =0xE4= is 100 health with bit 7 set, while the no-counter
+case changes it to =0x64= without changing health. In the counterfire case it
+changes to =0x58=, or 88 health. The two Red targets lose 56 and 55 raw health
+points respectively. This confirms the distinction between the supplied
+attack-only and counterfire examples. The meter changes are not yet a formula:
+the target damage differs by one raw point, and the counterfire case also
+damages the Blue unit. More controlled damage levels are needed to separate
+the charge contributions.
+
+The source-state hashes, four-structure validation, full RAM, and screenshots
+are recorded externally in
+=/tmp/aw2-meter-controlled-check/new-user-states/summary.json= and its
+same-named =aw2-*.bin= / =aw2.png= artifacts. All three source hashes were
+identical before and after restoration.
+
+An earlier saved damage forecast at frame 19508 in
+=/tmp/aw2-combat-lifecycle-research/damage-forecast.ss0= was replayed with one
+confirm input. At frame 19511, Andy (slot 1) rose from 2,400 to 2,700 and Sami
+(slot 3) rose from 2,400 to 3,000; Max (slot 2) stayed at 1,550 and Flak
+(slot 4) at 1,900. The event later returned to a player turn at frame 19933.
+The Green infantry record at =0x02022CA8= remained occupied and its byte +4
+changed from =0x60= to =0x20=, making this a nonlethal target hit in the
+documented health encoding. The Red record at =0x020226A8= also changed, but
+its changed bytes are not assigned to specific fields here, so this does not
+by itself establish whether counterfire occurred. The trace confirms charge
+gains for both participants but does not isolate the attack and counterattack
+contributions. The original sample timeline is
+=/tmp/aw2-combat-lifecycle-research/damage-trace.json= and
+=damage-tail-trace.json=; full-RAM endpoints are
+=damage-forecast-ewram.bin= and =check-damage-tail-175-ewram.bin=.
+
+For the cap check, a temporary mGBA session restored the same forecast state
+and initialized Andy's and Sami's meter words in RAM to 53,900 and 71,500.
+The values are below their counter-0 Super thresholds of 54,000 and 72,000.
+After the same confirm input, both reached but did not exceed their threshold:
+Andy 53,900 -> 54,000 and Sami 71,500 -> 72,000 at frame 19511. This
+instrumented run verifies the combat-adder cap for these two COs and this
+counter value; it is not a naturally earned near-cap checkpoint. The temporary
+run record is =/tmp/aw2-meter-controlled-check/cap-probe.json=, and it did not
+write to the supplied save states or cartridge SRAM.
+
 The Andy, Max, Olaf, and Drake charge deductions occur while active status is
 still zero and the lifecycle is =BATTLE_POWER=. Their settled observations at
 frames 129003, 11623, 14140, and 62946 have active status 1, 2, 1, and 2
@@ -97,17 +154,10 @@ counters has not been exercised.
 The ROM call sites at =0x08041CB8= and =0x08041CCA= invoke the meter adder
 from the combat damage calculation, once for each participating player. Each
 amount combines the two damage-estimate terms, halving one term before adding
-the other. This identifies combat damage as the source of charge and shows
-that both sides of a combat calculation contribute. An existing four-player
-combat trace provides one runtime comparison: from frame 19664 to 19667,
-Andy (slot 1) gains 250 and Sami (slot 3) gains 500; Max and Flak do not
-change. The resulting memory at frame 19668 has changes in one Red and one
-Green unit record. This confirms combat-time charge changes, but this trace
-does not isolate the damage terms or establish the exact attribution,
-rounding, or clamping rule. Its raw snapshots are in
-  =/tmp/aw2-lifecycle-coverage-research/off-combat-changes.json= and the
-  =check-off-combat-0-ewram.bin= / =check-off-combat-5-ewram.bin= snapshots;
-  the full sequence returns to a player turn at frame 19715.
+the other. The new attack-only and counterfire pairs confirm meter changes in
+both cases but do not yet assign the formula's two terms. The instrumented
+counter-0 replay below confirms the near-cap clamp for Andy and Sami; other
+caps and COs remain unverified.
 
 * Clear and Rain weather comparison
 
@@ -286,13 +336,12 @@ The evidence manifest fingerprints the retained RAM and screenshot samples.
   them, capture Rules and settled-battle states for each weather choice, then
   sample one frame at a time through the first Random weather change and each
   CO weather override/expiry.
-- ROM call sites and one four-player trace show combat damage calculations
-  feed charge gains for both participants. The trace records Andy +250 and
-  Sami +500, but does not isolate which damage terms produced those amounts.
-  Capture a controlled nonlethal attack with no counterattack, then a separate
-  nonlethal counterattack, recording both units' health and each meter before
-  and after. Repeat with a meter near its cap to confirm rounding, side
-  attribution, and clamping.
+- The new pair confirms attack-only gains of +4,000/+2,000 and counterfire
+  gains of +4,400/+2,800 for Andy/CO ID 10. Isolate the charge formula with
+  more damage levels and damage values while holding the unit matchup constant;
+  the current target damage differs by one raw point between cases. The cap
+  check used instrumented meter initialization; natural near-cap evidence is
+  still open.
 - Static ROM code defines counters 3..9 as 14,400..25,200 per star, counter
   10 and above as 18,000 per star, and saturates the use counter at 255.
   Runtime behavior for later uses is still unverified; only test activations
