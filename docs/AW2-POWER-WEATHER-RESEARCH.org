@@ -527,9 +527,12 @@ settles with mode 0. This reconciles the earlier mode-3 states. Mode 3's
 scheduled target behavior is established statically; its exact setup meaning
 outside the tested fixed-weather starts is not. Mode 2's resolver behavior is
 established statically as "hold the current non-Clear weather," but no
-controlled Rules/battle state identifies when the game selects mode 2. The
-Olaf Blizzard sequence below independently verifies current weather value 1
-as Snow; this is a separate CO-forced weather path.
+controlled Rules/battle state identifies when the game selects mode 2. A
+direct caller of the mode-2 setter is also not present in the inspected
+static call sites, so it may be invoked through a callback or data-driven
+event; that route is not yet established. The Olaf Blizzard sequence below
+independently verifies current weather value 1 as Snow; this is a separate
+CO-forced weather path.
 
 * Target field writer trace
 
@@ -540,21 +543,26 @@ weather-state initializer =0x08034780= writes zero to =+0x2F=, then clears
 =+0x2C..+0x2E=. The generic record-byte loader has separate handlers for
 =+0x2C=, =+0x2D=, =+0x2E=, and =+0x2F= at
 =0x08071854..0x08071898=; the final handler copies the input record's byte
-into =+0x2F=. This is a load/initialization path, not evidence of a runtime
-weather transition writer. Small mode setters at =0x08035538=,
+into =+0x2F=. Settled fixed Rain and Snow battles have =+0x2F= values 2 and 1,
+respectively, confirming that setup can load a nonzero target from a record.
+This is a load/initialization path, not evidence of a runtime weather
+transition writer. Small mode setters at =0x08035538=,
 =0x08035548=, and =0x08035558= write mode values 1, 2, and 0 respectively.
-The generic loader can also load mode 3 from a record. The callers that choose
-mode 2 or set a nonzero target remain unidentified.
+The generic loader can also load mode 3 from a record. The caller or data
+that chooses mode 2 remains unidentified. The nonzero setup target source is
+identified as the record-byte loader; a battle-time writer that changes the
+target remains unidentified.
 
 The synchronized turn helper =sub_08035080= updates scratch counters at
 =0x03004493 + active_player= and reports whether participating players have
 matching counters. Helper =sub_080350E4= clears those counters and sets the
 timer at =0x03004490= to 30; =sub_08035124= invokes it when passed a nonzero
 weather differing from current. These helpers gate a change to the resolved
-weather, not a write to the target. No runtime write to the target byte appears
-in the captured Random or CO-power cycles; =+0x2F= stays 0. Its nonzero
-scenario-loading source and any scripted writer outside these traced paths
-remain unverified.
+weather, not a write to the target. In captured Random and CO-power cycles,
+=+0x2F= stays 0; the fixed Rain and Snow starts instead load their nonzero
+targets during setup. No battle-time target write has been identified in the
+traced resolver, turn-update, or CO-power paths. A data-driven event or other
+writer outside those paths remains possible and unverified.
 
 Turn-update routine =sub_08042B9C= stores the resolver's returned weather in
 =+0x2E=. Routine =sub_080351F0= reads that byte, compares it with current
@@ -603,7 +611,7 @@ result return to Clear; mode and target again remain 1 and 0 respectively.
 This confirms that mode 1 participates in real changing-weather behavior and
 that =+0x2E= follows the computed weather at the observed boundaries. The
 target byte staying Clear while Rain is current is consistent with the ROM
-resolver's scheduling path; the exact rule that selects the next weather and
+resolver's mode-1 path; the exact rule that selects the next weather and
 whether the target is transiently changed between these samples still need
 closer observation.
 
