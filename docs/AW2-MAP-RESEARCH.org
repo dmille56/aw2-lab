@@ -1629,6 +1629,55 @@ and screenshot hashes; SHA-256
   other army blocks; determine whether a slot is ever reserved or reused under
   special unit states.
 
+** Validated structured comparison of purchase checkpoints
+
+The two archived destroy/purchase sequences were revalidated from their full
+RAM snapshots with =validate_battle_snapshot=. Geometry, properties, players,
+and units validate in every sample. The first scenario is a 15 x 13 map with
+31 properties and two players; its unit count changes =48 -> 47 -> 48= across
+the destroy/purchase boundary. The repeat scenario has the same geometry and
+property/player counts, with its unit count changing =54 -> 53 -> 54=.
+
+| Sequence | Checkpoint | Frame | Player 1 funds at =R(1)+0= | Phase / live decoding | Units |
+|----------+------------+-------+-----------------------------+-----------------------+-------|
+| Earlier empty slot selected | =aw2.ss1= | 151252 | 31900 | =BATTLE_PLAYER_TURN= / Yes | 48 |
+| Earlier empty slot selected | =aw2.ss2= | 151669 | 31900 | =BATTLE_ENGINE_UNRESOLVED= / No | 48 |
+| Earlier empty slot selected | =aw2.ss3= | 151927 | 31900 | =BATTLE_PLAYER_TURN= / Yes | 47 |
+| Earlier empty slot selected | =aw2.ss4= | 152263 | 30900 | =BATTLE_PLAYER_TURN= / Yes | 48 |
+| Freed slot reused | =aw2.ss1= | 187767 | 27500 | =BATTLE_PLAYER_TURN= / Yes | 54 |
+| Freed slot reused | =aw2.ss2= | 188384 | 27500 | =BATTLE_PLAYER_TURN= / Yes | 53 |
+| Freed slot reused | =aw2.ss3= | 188631 | 26500 | =BATTLE_PLAYER_TURN= / Yes | 54 |
+
+The raw little-endian u32 at =0x020232C0= (=R(1)+0=) matches the funds shown
+in the before/after purchase HUD screenshots. It stays at =31900= through
+destruction then falls to =30900= on the purchase; the independent sequence
+stays at =27500= through destruction then falls to =26500=. Both purchases
+therefore reduce player 1 funds by =1000= in these examples. This comparison
+verifies the field for player 1 and these retail Versus states; other player
+records and contexts remain untested.
+
+The map dimensions, active graphical tiles, terrain/owner arrays, and property
+table are unchanged across each purchase boundary. In the first scenario, the
+earlier empty red-block offset =4= is selected while the just-destroyed offset
+=12= remains empty. In the repeat scenario, offset =11= is the lowest empty
+slot after destruction and is reused; later empty offset =22= remains empty.
+Here offsets count records from the first usable red record at =0x02022690=.
+Together the two cases support a lowest-numbered-empty allocation scan in the
+observed red block, without establishing behavior for other armies or unusual
+states.
+
+The record comparison uses the validated snapshot and documented raw unit
+fields; a complete typed =GameState= and unit decoder is not implemented. Raw
+record byte +1 and byte +5 meanings remain unverified.
+
+The full RAM, screenshots, source-state fingerprints, and comparisons are
+external at =/tmp/aw2-unit-reuse-research/= and
+=/tmp/aw2-unit-reuse-followup/=. Script =compare_purchase_snapshots.py= has
+SHA-256 =04b7e24b69c685c724af7421bb74e0374deeb54708b3753df1e02808c8126d08=;
+the output =purchase-snapshot-comparison.json= has SHA-256
+=12f80c99adaca563be95f8dae12ad89a76e6e079e94102a8dea6a43aab1a8898=.
+The report includes each source-state, RAM, and screenshot hash.
+
 ** Finding: APC and Lander cargo relationships
 
 *** Claim and scope
