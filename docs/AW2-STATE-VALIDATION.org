@@ -138,10 +138,13 @@ pointer is converted to a host pointer. The stale current-unit pointer at
   selected-unit HUD, and one controlled APC move reduces it from =68= to =67=.
   The supply comparison shows nearby units' byte +6 values rise, but does not
   establish all unit-specific limits or supply rules.
-- Byte +1 changes with movement/action contexts (=0= to =1= in the controlled
-  APC move; =0= before a Tank shot, =6= in Fire/forecast UI, and =1= after
-  combat settles). These samples associate it with action processing but do
-  not define its bit meanings or Wait behavior. Byte +5's upper five bits store
+- Byte +1 bit 0 is the used-this-turn flag in verified contexts. ROM action
+  completion sets it, the unit-selection scan skips records with it set, and
+  the turn-start reset clears it unless bit 3 is set. A controlled Wait
+  comparison follows =0 -> 6= in the Wait menu, =1= after Wait resolves, and
+  =0= at that army's next turn. ROM code ORs =0x06= into byte +1 in transient
+  action UI paths; the meanings of bits 1 and 2 and the bit-3 reset exception
+  remain unresolved. See [[file:AW2-MAP-RESEARCH.org::*Finding: Wait status and start-of-turn upkeep][the Wait and upkeep comparison]]. Byte +5's upper five bits store
   capture progress in verified capture contexts; its low three bits carry
   ammo bits 8..10 of the packed halfword at +4. The controlled APC supply pair
   shows a Md Tank's ammo rising =2 -> 6= in these bits while fuel rises

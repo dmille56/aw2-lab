@@ -342,13 +342,14 @@
      Recon has no ammo display. The observed +5 change is explained by packed
      ammo: byte +5 bits 0..2 carry ammo bits 8..10, while bits 3..7 carry
      capture progress.
-     Byte +1 changes from 0 to 1 in the move pair, but other screenshots show
-     value 6 in movement/Fire-Wait UI and value 1 after a settled attack; its
-     action-state bits are unresolved. The attack sequence confirms a shot
-     and correlates these values with its action flow. The canonical ammo bits
-     and ROM reader/writers are now identified. See
-     [[file:AW2-MAP-RESEARCH.org::*Finding: Tank firing and HUD ammunition comparison][the Tank firing comparison]]. Compare before and after Wait separately for
-     byte +1 action status; Wait does not consume ammo, as user-confirmed.
+     Byte +1 bit 0 is verified as used-this-turn: ROM sets it after actions,
+     the unit-selection scan skips it, and the next-turn reset clears it. The
+     controlled Wait sequence shows 0 -> 6 in the menu, 1 after Wait resolves,
+     and 0 at the next turn; meanings of bits 1 and 2 and the bit-3 reset
+     exception remain open. See
+     [[file:AW2-MAP-RESEARCH.org::*Finding: Wait status and start-of-turn upkeep][the Wait/upkeep comparison]]. Wait does not consume ammo, as user-confirmed.
+     The canonical ammo bits and ROM HUD/combat/refill paths are documented in
+     [[file:AW2-MAP-RESEARCH.org::*Finding: Tank firing and HUD ammunition comparison][the Tank firing comparison]].
      Further supply samples can establish exact refill amounts by unit type
      and when the adjacent-unit refill triggers; adjacent-unit supply is
      user-confirmed and independently visible in the captured checkpoints.

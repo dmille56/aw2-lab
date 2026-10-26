@@ -1556,7 +1556,8 @@ ROM/map agreement, all property entries, cursor positions, and turn/funds sample
   selected-unit view to a movement overlay. This associates byte +1 with the
   action/movement UI in this sample, but does not define its bit meanings or
   prove a completed move. A later controlled APC move confirms bytes +2/+3 as
-  coordinates; byte +1 remains uninterpreted beyond this menu association.
+  coordinates. Follow-up checkpoints and ROM tracing now identify byte +1
+  bit 0 as the used-this-turn flag; see [[*Finding: Wait status and start-of-turn upkeep][the controlled Wait and upkeep comparison]].
 - The Fire/Wait menu and the following damage forecast have identical sampled
   unit records. In the settled combat result, six bytes change in the sampled
   unit region, all within two records:
@@ -1575,14 +1576,15 @@ ROM/map agreement, all property entries, cursor positions, and turn/funds sample
   particular movement, fuel, or animation meaning from this non-controlled
   sequence.
 - Byte +1 at =0x020226A8= is =0x06= in the movement overlay and in the
-  Fire/Wait menu and forecast, then =0x01= in the settled combat result. The
-  screenshots associate these values with different action contexts, but do
-  not define the bits or make =0x06= a stable acted/ready value. Byte +5 is
+  Fire/Wait menu and forecast, then =0x01= in the settled combat result. ROM
+  tracing and the controlled Wait pair now show that bit 0 is set after action
+  completion; the value =0x06= is a transient action-processing value, not a
+  settled acted/ready flag. Bits 1 and 2 remain unnamed. Byte +5 is
   zero for this Infantry and does not test ammunition consumption.
-- The supplied states include a Wait choice, but no fingerprinted pair in
-  this batch isolates the same unit immediately before and after choosing
-  Wait. Byte +1 remains only an action/status candidate; its values are
-  context-dependent and not decoded from this sequence.
+- The controlled Wait and next-turn comparison is documented in
+  [[*Finding: Wait status and start-of-turn upkeep][the Wait/upkeep finding]].
+  It resolves byte +1 bit 0 as used-this-turn and records the unresolved
+  transient bits separately.
 
 *** Reproduction and evidence
 The seven source states, full EWRAM/IWRAM dumps, and screenshots are external
@@ -2002,12 +2004,11 @@ above identify the exact checkpoints used.
   confirms that adjacent units receive fuel and ammo.
 - Compare a no-move control with an APC movement that newly puts a unit next to
   it, to pin down when the adjacent-unit supply update runs.
-- Compare the same unit's byte +1 before and after Wait, movement, and Fire in
-  settled human turns; do not interpret transient menu value =0x06= as a stable
-  bit pattern without a ROM reader/writer trace.
-- The archived Fire/Wait-to-result pair changes byte +1 from =0x06= to =0x01=,
-  but its checkpoints are not a controlled same-unit Wait-versus-Fire branch.
-  Capture that direct comparison before assigning an action-state meaning.
+- Byte +1 bit 0 is now verified as the used-this-turn flag through the
+  controlled Wait and next-turn pair and ROM readers/writers. The archived
+  Fire/Wait-to-result pair still is not a controlled same-unit Wait-versus-Fire
+  branch. Bits 1 and 2 and the bit-3 reset exception remain open; do not assign
+  meanings based only on transient value =0x06=.
 - Ammo storage is confirmed in the unit record: =LE16(record + 4) bits 7..10=.
   The HUD reader at ROM =0x0802AEB4..0x0802AEE2= checks the type's maximum-ammo
   entry and extracts these bits before drawing the number. Combat code at
@@ -2074,10 +2075,10 @@ above identify the exact checkpoints used.
   address calculations are not excluded. ROM SHA-256 is
   =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
 - The action byte is context-sensitive: =0x06= appears in action/forecast
-  states and =0x01= after combat. This associates it with action processing,
-  but does not decode its bits or establish Wait behavior. A Wait comparison
-  may help isolate byte +1's action-state behavior; the user confirms Wait
-  does not consume ammo, so it cannot resolve ammunition fields.
+  states and =0x01= after combat. The controlled Wait pair and ROM trace
+  identify bit 0 as used-this-turn; bits 1 and 2 remain unresolved. The user
+  confirms Wait does not consume ammo, so it cannot resolve ammunition fields.
+  See [[*Finding: Wait status and start-of-turn upkeep][the Wait/upkeep finding]].
 
 *** Reproduction and evidence
 The six source states, full RAM captures, and screenshots are external at
@@ -2087,6 +2088,87 @@ in =aw2-ss1.json= through =aw2-ss6.json=. The focused comparison
 =81d6412d0db0e2c0c1a845f9e818760186efccc1f1af1c01ec345a19c0823b56=.
 The ROM SHA-256 is
 =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+
+** Finding: Wait status and start-of-turn upkeep
+
+*** Claim and scope
+- Date: 2026-10-26. Nine supplied save states capture a Red turn before
+  action, the Wait menu for two Bombers, the resolved actions, the Blue turn,
+  and the following Red turn. The source state files remain unchanged. State
+  hashes are recorded below; all RAM extracts and screenshots are external in
+  =/tmp/aw2-wait-research/=.
+- The 12-byte record at =0x0202269C= is a Red Bomber at =(2,11)= with raw
+  health =100=, ammo =9=, and fuel =83=. Its byte +1 is =0= in settled state
+  =aw2.ss1=, =6= in the Wait-menu checkpoints =ss2/ss3=, =1= after Wait
+  resolves in =ss4=, and remains =1= through the other army's turn (=ss8=).
+  It returns to =0= at the next Red turn (=ss9=). The Wait selection itself
+  does not change its position, health, ammo, or fuel.
+- A second Red Bomber at =0x02022690= starts at =(5,12)= with raw health
+  =31=, ammo =8=, fuel =83=, and byte +1 =0=. Its Wait-menu checkpoints
+  (=ss5/ss6=) show byte +1 =6=. In =ss7= it has moved to =(4,12)= and
+  resolved Wait with byte +1 =1= and fuel =82=. At the next Red turn (=ss9=)
+  its byte +1 resets to =0=, health rises =31 -> 60=, ammo =8 -> 9=, and
+  fuel =82 -> 99=.
+- The property record at =0x030031C0= identifies =(4,12)= as an Airport
+  (terrain class =10=) owned by Red (owner =1=). Thus this pair observes
+  end-of-turn replenishment on an allied property. It does not isolate the
+  repair-cost amount: Red funds also include the turn's income. The user
+  confirms the general rule that allied-base recovery restores 2 displayed HP
+  and replenishes fuel/ammo, charges money proportional to unit cost, and does
+  not repair if funds are insufficient. The raw health change here is
+  =31 -> 60=; do not interpret that internal encoding as a displayed-HP delta
+  without applying the game's health conversion.
+- The Red Bomber at =0x0202269C=, which stayed at =(2,11)= off a property,
+  loses fuel =83 -> 78= at the next Red turn. A Blue Bomber at =0x020229A8=
+  likewise loses fuel =79 -> 74= when Blue's turn begins. These observations
+  support five fuel of air-unit turn-start consumption in these cases; they do
+  not generalize the amount to all air/sea types. The Bomber on the Airport
+  instead ends at full fuel =99=.
+- The supported US ROM's unit action byte is at record +1. In
+  =sub_08035584= (=0x08035584=), the game ORs =0x06= into it, matching the
+  transient movement/action and Wait UI values. In =sub_080424FC=
+  (=0x080424FC=), action completion ORs bit 0 into byte +1; the post-Wait
+  value =1= and the settled post-attack value =1= match this used-this-turn
+  flag. The unit-selection scan in =sub_080254AC= skips active records with
+  bit 0 set. Turn-start routine =sub_08025EA0= clears bit 0 with mask
+  =0xFE= for active records unless bit 3 is set, matching =1 -> 0= at the
+  owning army's next turn. Bit 3's exception and the meanings of bits 1 and 2
+  are not resolved; OR-ing =0x06= proves the transient bits are set, not what
+  each represents. Disassembly is from the supported US ROM with SHA-256
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+
+*** Reproduction and evidence
+The source state hashes are:
+
+| State | SHA-256 |
+|-------+---------|
+| =aw2.ss1= | =3a00586cfc246bdffae10b80c35fb5ada746f1d2500759edf4270596fa27a07b= |
+| =aw2.ss2= | =169225c79b319b17b766012e2794cc65ae300de67a0b695e016e9bd11214a1c7= |
+| =aw2.ss3= | =b4342a757081edcd2b25b8c000c101914d5076af48c90d24ff48f824e2fe382a= |
+| =aw2.ss4= | =1961694548461e43b3145698181c86410020dca8444eadbbdd3d564b97865ed6= |
+| =aw2.ss5= | =38ed97275dbedad94bed0aa40ce48f30294b18e619084d095900de5a792e1a8e= |
+| =aw2.ss6= | =96022da7fa15d124eb291fe61fabf55546ca6157380c451861508bae175f81b7= |
+| =aw2.ss7= | =634611ad14be012e49050827c045569307df93e7a07c09a066d9074411fbfd27= |
+| =aw2.ss8= | =f94bce2ac53ef9a238232da5edbd595d15b038a38f91fd834b3efef77986225c= |
+| =aw2.ss9= | =d0b945c5eccf081adc7db47ef07a7bfd0f87474e1581c7c9463b0671011d8808= |
+
+=wait-checkpoints.json= contains per-state decoded records, validation and
+screenshots/RAM hashes. The nine source states, extracted RAM, and screenshots
+are external in =/tmp/aw2-wait-research/=. Reproduce by restoring each state
+with the pinned US ROM and inspecting its recorded frame and screenshot.
+
+*** Remaining questions
+- The user-reported repair rule still needs a controlled funds comparison to
+  measure exact costs and verify the no-funds case. Capture an allied-base unit
+  immediately before and after upkeep at full and damaged health, with income
+  and other repairs controlled.
+- Check fuel consumption across additional air and sea unit types, low-fuel
+  cases, and units on allied properties; the five-point observation here is
+  limited to Bombers.
+- Trace the exceptional bit-3 path and identify bits 1 and 2 separately if a
+  decoder needs them. Byte +1 bit 0 is supported as the used-this-turn flag;
+  value =0x06= remains a transient action-processing value, not the settled
+  acted flag.
 
 * Finding: three-player routing outcome and army records
 
