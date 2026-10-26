@@ -126,12 +126,14 @@ pointer is converted to a host pointer. The stale current-unit pointer at
   shows the APC move one tile; other stationary units retain their coordinates.
   This confirms the candidate coordinate interpretation in the earlier
   movement snapshots.
-- Byte +4 stores internal health in its low seven bits (=raw & 0x7F=), with
-  observed values from 1 to 100; bit 7 is a separate flag and may be set at
-  full health (=0xE4=). The damaged-infantry checkpoint pairs raw =0x25= (37)
-  with displayed 4 HP, and combat checkpoints show this field changing with
-  damage. These examples verify the field and mask, not every internal-to-HUD
-  rounding case. See [[file:AW2-MAP-RESEARCH.org::*Finding: damaged-infantry Capture/Wait control][the damaged Infantry comparison]].
+- Halfword +4 packs health and ammo: bits 0..6 are internal health
+  (=word & 0x7F=), observed from 1 to 100; bits 7..10 are ammunition
+  (=(word >> 7) & 0x0F=). The damaged-infantry checkpoint pairs raw health
+  =0x25= (37) with displayed 4 HP; combat checkpoints show it changing with
+  damage. The Tank's =0x04E4= -> =0x0463= change on firing changes health
+  100 -> 99 and ammo 9 -> 8. Independent Battle Copter state has ammo 6 in
+  both the record and HUD. These examples verify the fields, not every
+  internal-to-HUD health rounding case. See [[file:AW2-MAP-RESEARCH.org::*Finding: Tank firing and HUD ammunition comparison][the firing comparison]].
 - Byte +6 is fuel in the tested contexts: APC values =26= and =68= match the
   selected-unit HUD, and one controlled APC move reduces it from =68= to =67=.
   The supply comparison shows nearby units' byte +6 values rise, but does not
@@ -141,18 +143,18 @@ pointer is converted to a host pointer. The stale current-unit pointer at
   combat settles). These samples associate it with action processing but do
   not define its bit meanings or Wait behavior. Byte +5's upper five bits store
   capture progress in verified capture contexts; its low three bits remain
-  uninterpreted. A Tank shot leaves byte +5 at =4= while HUD ammo drops 9 -> 8,
-  so it is not the displayed ammo count. IWRAM byte =0x03000799= matches the
-  HUD values for the Tank (9 before, 8 after) and a Recon (3) in settled
-  checkpoints; treat it as a candidate display/cache field pending ROM tracing
-  and cross-unit confirmation. The earlier Md Tank supply change from +5 =1=
+  uninterpreted. IWRAM byte =0x03000799= is not a stable ammo value: it drifts
+  from 0 to 11 over 30 neutral frames while Tank ammo stays at 8, and reads 4
+  in the settled Battle Copter checkpoint that shows 6 ammo. It has no
+  established ammo/cache role. The earlier Md Tank supply change from +5 =1=
   to =3= remains unexplained.
 - A zero type byte marks an unused record, regardless of stale flags,
   coordinates, or health. Active records need a supported observed type, a
   participating owner block, coordinates inside the map, health =1..100= after
   masking with =0x7F=, and capture progress below 20 from byte +5 shifted right 3.
-  The ROM's health readers mask off byte +4's high bit; rejecting raw values
-  such as =0xE4= would incorrectly reject a full-health unit.
+  ROM health reads mask with =0x7F=; rejecting raw values such as =0xE4= would
+  incorrectly reject a full-health unit. Bits 7..10 are ammo, not a separate
+  health flag.
 - Supported APC/Lander links at +7/+8 are global unit indices, not universally
   small per-army slot numbers. Resolve =UNIT_BASE + 12*reference=; the high two
   bits identify the army block and the low six identify the slot. For example,

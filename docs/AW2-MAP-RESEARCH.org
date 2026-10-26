@@ -1742,14 +1742,15 @@ For active record index =i=, its address is =UNIT_BASE + 12*i=, where
 | Army block | Four 64-record blocks | Owner/player is implied by containing block; there is no separate owner byte | The four-player comparison maps blocks 0..3 to slots 1..4 and red/blue/green/yellow. Other setups are not separately tested here. |
 | Bytes +2, +3 | Two =u8= values | Zero-based X, Y | The controlled APC record =0x02022804= changes =(7,5)= to =(7,4)= on a screenshot-confirmed one-tile move; stationary records retain coordinates. |
 | Byte +4, bits 0..6 | =u8 & 0x7F= | Internal health, observed range 1..100 | Combat changes track damage; raw =0x25= (37) matches a displayed 4-HP Infantry. Full health can be =0x64= or =0xE4=, with the high bit set in the latter. |
-| Byte +4, bit 7 | =u8 & 0x80= | Separate flag, not part of health | ROM health readers mask it off. Its meaning remains unresolved. |
+| Halfword +4, bits 7..10 | =(LE16(record+4) >> 7) & 0x0F= | Current ammo count | Matched Tank 9 -> 8 after firing; independent Battle Copter record contains 6, matching its HUD. ROM HUD reader and combat/refill writers read and update these bits directly. |
 
 Byte +1 is associated with movement/action UI but its bit meanings remain
 unknown. Byte +5's upper five bits store capture progress in the verified
 capture contexts; its lower bits and other uses remain separate open
-questions. Fuel at +6 and transport references at +7/+8 are covered in their
-own findings. The evidence does not establish the exact rounding rule from
-internal health to displayed HP for every value.
+questions. Byte +4 bit 7 is the low bit of this packed ammo field, not a
+separate flag. Fuel at +6 and transport references at +7/+8 are covered in
+their own findings. The evidence does not establish the exact rounding rule
+from internal health to displayed HP for every value.
 
 *** Evidence references
 The coordinate/health movement sample is
@@ -1990,12 +1991,9 @@ above identify the exact checkpoints used.
 *** Remaining questions
 - Test a recipient inside the destination radius and another beyond it, with
   a no-move control, to isolate the supply trigger and range.
-- Confirm the candidate IWRAM HUD-ammo byte =0x03000799= with ROM reader/writer
-  tracing and additional selected units. The Tank shot matches 9 -> 8 in both
-  the HUD and this byte; the byte also matches the Recon panel's displayed 3
-  in a settled after-shot checkpoint. Byte +5 stays =0x04= through the Tank
-  shot, so its lower bits are not the displayed ammo count. The earlier supply
-  pair's =1 -> 3= byte +5 change remains unexplained.
+- Investigate the earlier supply pair's =1 -> 3= byte +5 change; this is not
+  ammo. Its upper five bits are capture progress in verified capture contexts,
+  while the low three bits and supply-time change remain unexplained.
 - Check whether supply restores ammunition after identifying its storage, and
   test other supply eligibility conditions.
 - Compare the same unit's byte +1 before and after Wait, movement, and Fire in
@@ -2004,16 +2002,33 @@ above identify the exact checkpoints used.
 - The archived Fire/Wait-to-result pair changes byte +1 from =0x06= to =0x01=,
   but its checkpoints are not a controlled same-unit Wait-versus-Fire branch.
   Capture that direct comparison before assigning an action-state meaning.
-- The supplied Tank pair now shows HUD ammo 9 -> 8 and matching IWRAM byte
-  =0x03000799= 9 -> 8. Confirm whether this is a display cache or the canonical
-  ammo field by tracing its ROM readers/writers and comparing additional units.
-  Byte +5 does not change. A matched no-ammo state can test attack eligibility
-  or counterfire behavior once the field is confirmed.
+- Ammo storage is confirmed in the unit record: =LE16(record + 4) bits 7..10=.
+  The HUD reader at ROM =0x0802AEB4..0x0802AEE2= checks the type's maximum-ammo
+  entry and extracts these bits before drawing the number. Combat code at
+  =0x080419E2..0x080419F6= decrements the packed field and stores the halfword;
+  refill code in =sub_08029978= at =0x080299FE..0x08029A22= increments it,
+  clamps through the type table, and stores it. The combat update preserves
+  every other halfword bit with mask =0xFFFFF87F=.
+- The candidate IWRAM byte =0x03000799= is neither canonical ammo nor a
+  reliable display cache. In the Tank checkpoint it drifts through values
+  =0..11= over 30 neutral frames while the Tank remains at 8 ammo and the HUD
+  is unchanged. A separate settled Battle Copter checkpoint shows 6 ammo in
+  the HUD and packed unit record, while =0x03000799= is =4=. A raw search of
+  the verified US ROM found no literal reference to =0x03000799= (this does
+  not rule out computed or indirect accesses). Treat the old correlation to
+  the Tank's 9 -> 8 as coincidence; the previously reported Recon “3 ammo”
+  was a misread because Recon has no ammo display.
+- Independent evidence: the copter record at =0x0202269C= has bytes =13 00 02
+  0C 64 03 63 00 00 00 00 04=: type =19=, full health, ammo =6=, fuel =99=.
+  Its settled screenshot shows B.Cptr with 6 ammo. Evidence and neutral-frame
+  captures are external in =/tmp/aw2-ammo-storage-research/=; source save state
+  and binary hashes are recorded in =probe.json=.
+- A matched no-ammo state can test attack eligibility or counterfire behavior;
+  the packed ammo field itself no longer needs identification.
 - The user confirms that choosing Wait does not decrease unit ammunition. Use
   before/after Wait checkpoints only to investigate byte +1 action status, not
-  to infer ammo storage or consumption. The Tank shot above supplies the
-  required ammo-decrement example; the remaining ammo task is validating the
-  candidate IWRAM display value against the ROM and other unit types.
+  to infer ammo storage or consumption. The Tank shot supplies the ammo
+  decrement example; field location and ROM reader/writer logic are confirmed.
 
 ** Finding: Tank firing and HUD ammunition comparison
 
@@ -2035,14 +2050,21 @@ above identify the exact checkpoints used.
   changes 100 -> 99, the Recon's changes 100 -> 6, and the Tank's byte +1
   changes 0 -> 6 in action UI -> 1 after resolution.
 - The settled after-state screenshot shows the Tank with 8 ammo and 59 fuel.
-  Byte +5 remains =0x04= through the shot, so it is not a direct raw ammo count
-  for this Tank. IWRAM byte =0x03000799= changes 9 -> 8, matching the Tank's
-  HUD before and after; in settled =aw2.ss5= it is =3= while the Recon panel
-  displays 3 ammo. This is a strong candidate for the currently displayed
-  unit's ammo value, but its use as canonical unit storage is unverified.
-  Another IWRAM byte at =0x03007C91= also changes 9 -> 8 across the pair but
-  remains 8 while the Recon panel is shown; its meaning is unknown. Byte +6
-  remains consistent with fuel.
+  The packed halfword at +4 changes =0x04E4= -> =0x0463=: low-seven-bit health
+  changes 100 -> 99, while bits 7..10 change ammo 9 -> 8. Byte +5 remains
+  =0x04=. A separate settled Battle Copter record and HUD both show 6 ammo.
+  IWRAM byte =0x03000799= does not reliably track ammo: it changes during
+  neutral frames with no unit/HUD change and is =4= in the copter checkpoint.
+  The previous apparent Recon match was an observation error; the Recon panel
+  does not show ammo. Another IWRAM byte at =0x03007C91= has no established
+  meaning. Byte +6 remains consistent with fuel.
+- In the supported US ROM, the HUD reader at =0x0802AEB4..0x0802AEE2= extracts
+  ammo from unit halfword +4 after checking the unit-type max-ammo table. The
+  combat decrement at =0x080419E2..0x080419F6= and refill loop
+  =sub_08029978= (=0x080299FE..0x08029A22=) update those same packed bits.
+  A raw scan found no literal =0x03000799= reference in the ROM; indirect
+  address calculations are not excluded. ROM SHA-256 is
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
 - The action byte is context-sensitive: =0x06= appears in action/forecast
   states and =0x01= after combat. This associates it with action processing,
   but does not decode its bits or establish Wait behavior. A Wait comparison

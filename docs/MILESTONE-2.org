@@ -331,19 +331,21 @@
      fuel while the APC moves one tile and loses one fuel; a nearby Md Tank's
      raw byte +5 also rises by two during that move. A later Tank shot lowers
      HUD ammo 9 -> 8 while byte +5 stays 4, ruling out +5 as the displayed ammo
-     count. IWRAM byte =0x03000799= matches the Tank's 9 -> 8 HUD change and a
-     Recon's displayed 3 in another settled checkpoint; this is a candidate
-     display/cache field pending ROM tracing and cross-unit confirmation.
-     The supply pair's +5 change remains unexplained.
+     count. Ammo is now verified in bits 7..10 of the unit record halfword at
+     +4: the Tank changes from 9 to 8 ammo after firing, and a separate Battle
+     Copter checkpoint's record and HUD both show 6. The HUD reader and combat
+     decrement/refill routines in the supported ROM use these same bits.
+     IWRAM byte =0x03000799= is not ammo or a reliable display cache: it varies
+     from 0 to 11 over neutral frames while the Tank remains at 8 and reads 4
+     for the Copter showing 6. The prior Recon “3 ammo” match was a misread;
+     Recon has no ammo display. The supply pair's +5 change remains unexplained.
      Byte +1 changes from 0 to 1 in the move pair, but other screenshots show
      value 6 in movement/Fire-Wait UI and value 1 after a settled attack; its
      action-state bits are unresolved. The attack sequence confirms a shot
-     and correlates these values with its action flow, but the ammo storage
-     address is not yet confirmed as canonical storage. See
-     [[file:AW2-MAP-RESEARCH.org::*Finding: Tank firing and HUD ammunition comparison][the Tank firing comparison]]. To close this item, trace the ROM ammo
-     readers/writers and cross-check IWRAM byte =0x03000799= with additional
-     selected units. Compare before and after Wait separately for byte +1
-     action status; Wait does not consume ammo, as user-confirmed.
+     and correlates these values with its action flow. The canonical ammo bits
+     and ROM reader/writers are now identified. See
+     [[file:AW2-MAP-RESEARCH.org::*Finding: Tank firing and HUD ammunition comparison][the Tank firing comparison]]. Compare before and after Wait separately for
+     byte +1 action status; Wait does not consume ammo, as user-confirmed.
      Supply radius/trigger and byte +5 semantics still need controlled checks.
    - [X] Identify unit table layout, bounds, occupancy, and slot reuse.
      The supported ROM pool has four 64-record blocks with 12-byte records;
@@ -356,8 +358,8 @@
      Byte +0 is the type ID; owner is implied by the army block; bytes +2/+3
      are X/Y; byte +4's low seven bits hold internal health. A controlled move,
      four-player roster, combat samples, and displayed-4-HP Infantry checkpoint
-     support these interpretations. The high bit's meaning and exact HUD
-     rounding for every health value remain open. See
+     support these interpretations. Ammo occupies bits 7..10 of the same
+     halfword at +4. Exact HUD rounding for every health value remains open. See
      [[file:AW2-MAP-RESEARCH.org::*Finding: unit type, owner block, coordinates, and health fields][the unit field evidence]].
    - [ ] Decode fuel, ammo, and action status.
    - [ ] Investigate cargo relationships and special status; expose only verified values.
