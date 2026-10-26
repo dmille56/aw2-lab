@@ -22,8 +22,8 @@ its own damage-value term plus half the opposing term, using whole-HP damage
 and a meter valuation coefficient from the ROM unit table. Static ROM values
 for the nonzero Kanbei, Hachi, and Colin adjustments are mapped; runtime
 verification now covers Kanbei's inactive +20% and Colin's inactive -20%, as
-well as Hachi's inactive and Power modifiers. Hachi's Super adjustment remains
-open. Natural near-cap evidence, runtime high-counter activation, and weather
+well as Hachi's inactive, Power, and Super modifiers. Natural near-cap
+evidence, runtime high-counter activation, and weather
 mode/neighbor-byte meanings also remain open. These findings extend the
 documented decoding subset; a typed state decoder and state API remain
 separate tasks.
@@ -299,8 +299,39 @@ Both states restore with valid geometry, property, player, and unit tables;
 their source hashes are unchanged after restoration. The hashes are
 =aw2.ss1= =04b6f64d20e6276bf4eedb776df4b6ad8c3383d524ab65d62ef45c207adbfb18=
 and =aw2.ss2= =4d63862b108b997e10ece2d821461704adc8fbcae8caaf89b8e6c81507562ec0=.
-Full RAM dumps and parsed records are in =/tmp/aw2-colin-checkpoints/=. The
-remaining runtime CO modifier check is Hachi's Super adjustment.
+Full RAM dumps and parsed records are in =/tmp/aw2-colin-checkpoints/=. At
+that point, Hachi's Super modifier was the remaining runtime CO adjustment.
+
+* Hachi Super meter adjustment
+
+Three new checkpoints capture Hachi's Super activation and a later combat
+event. =aw2.ss1= restores at frame =121534= before activation: slot 1 is Hachi
+(CO ID =15=), active Power =0=, meter =45000=; slot 2 is Andy (CO ID =1=),
+active Power =0=, meter =52700=. =aw2.ss2= restores at frame =122128= during the
+Merchant Union presentation. Hachi's meter has been spent to zero and her use
+counter is 1, but active Power is still =0= during the presentation. Its
+lifecycle phase is unknown, so it is not used as a settled battle sample.
+
+In =aw2.ss3= at frame =123972=, Hachi's active-Power byte is =2= (Super), and
+the screenshot shows the SUPER HUD indicator. Her Battle Copter (type =0x13=)
+at =0x02022690= has health byte +4 =0x55= (85, or 9 displayed HP), down from
+=0x64= (100, or 10 displayed HP) in =aw2.ss1=. Andy's unit (type =0x05=) at
+=0x020229A8= changes from low-seven-bit health 100 to 97, which remains at 10
+displayed HP. Andy's meter increases =52700 -> 52925= (+225); Hachi's stays at
+zero while her Super is active. The one displayed-HP loss on Hachi's Battle
+Copter has a base coefficient of =900=. Hachi's Super -50% adjustment gives
+=450=, and Andy receives half, =225=, exactly matching the observed gain.
+This verifies Hachi's Super modifier from the opponent's charge while active
+Power suppresses Hachi's own charge.
+
+All three saves restore with valid geometry, property, player, and unit tables;
+their source hashes are unchanged after restoration. The hashes are
+=aw2.ss1= =853171e47958d2d415f0215d361f7b4548dd5fefe573b655a00e23edf006ce0d=;
+=aw2.ss2= =74c30f76e9a80b351b32890d0c1550afc3730211b83ab09ef8a4681b090b9e94=;
+and =aw2.ss3= =e1f957181833ec6719bb6d8bb5368aa7aa28037f94b618c205633c819e3bdcf8=.
+Full RAM dumps, screenshots, and parsed records are in
+=/tmp/aw2-hachi-super-checkpoints/=. The presentation checkpoint's transient
+phase remains unclassified.
 
 The six supplied states restore as valid battle structures under the supported
 US ROM and pinned mGBA build. Full EWRAM/IWRAM dumps, screenshots, parsed unit
@@ -349,8 +380,9 @@ adjustments are runtime-verified on Battle Copter type =0x13= (base
 coefficient =900=), producing adjusted coefficients =810= and =450=. Battle
 Copter checkpoint pairs confirm Kanbei's inactive +20% adjustment (+1,080 to
 Kanbei and +540 to Andy) and Colin's inactive -20% adjustment (+720 to Colin
-and +360 to Andy) for a one displayed-HP loss. Hachi's Super adjustment
-remains to be runtime-checked. Rounding at fractional
+and +360 to Andy) for a one displayed-HP loss. Hachi's Super adjustment is
+also runtime-verified: a Battle Copter's one-HP term is adjusted to =450=,
+giving Andy the observed =225= half-share. Rounding at fractional
 meter values also remains open. The
 instrumented counter-0 replay below confirms the near-cap clamp for Andy and
 Sami; other caps and COs remain unverified.
@@ -546,7 +578,8 @@ The evidence manifest fingerprints the retained RAM and screenshot samples.
   sample verifies his inactive +20% adjustment with +1,080 meter for Kanbei
   and +540 for Andy. A Colin Battle Copter sample verifies his inactive -20%
   adjustment with +720 meter for Colin and +360 for Andy. Hachi's Super
-  adjustment remains open. Fractional meter rounding remains open. The cap
+  adjustment now matches the ROM prediction: one Battle Copter HP yields a
+  +225 opponent half-share. Fractional meter rounding remains open. The cap
   check used instrumented meter initialization; natural near-cap evidence is
   still open.
 - Static ROM code defines counters 3..9 as 14,400..25,200 per star, counter

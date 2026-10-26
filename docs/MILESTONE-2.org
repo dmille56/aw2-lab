@@ -292,8 +292,9 @@
      +20% adjustment: one displayed HP lost yields +1,080 meter for Kanbei and
      +540 for Andy. New Colin Battle Copter states verify his inactive -20%
      adjustment: a one displayed-HP loss yields +720 meter for Colin and +360
-     for Andy. Hachi's Super adjustment remains open. An earlier attack
-     checkpoint has CO byte 10, which
+     for Andy. New Hachi Super states confirm the -50% adjustment: a one-HP
+     Battle Copter loss gives Andy the predicted +225 half-share. An earlier
+     attack checkpoint has CO byte 10, which
      conflicts with the controlled roster mapping of Hachi to ID 15; do not
      use it as Hachi evidence until its CO identity is reconciled. An
      instrumented near-cap replay verifies
