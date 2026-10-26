@@ -24,8 +24,8 @@ for the nonzero Kanbei, Hachi, and Colin adjustments are mapped; runtime
 verification now covers Kanbei's inactive +20% and Colin's inactive -20%, as
 well as Hachi's inactive, Power, and Super modifiers. ROM analysis resolves
 fractional meter rounding for valid unit and CO values. Natural near-cap
-evidence, runtime high-counter activation, and weather
-mode/neighbor-byte meanings also remain open. These findings extend the
+evidence, runtime behavior above counter 10 and at counter saturation, and the
+individual meanings of weather mode/neighbor bytes also remain open. These findings extend the
 documented decoding subset; a typed state decoder and state API remain
 separate tasks.
 
@@ -40,7 +40,7 @@ Select the supported ROM profile before following its layout literals.
 | =R(k)+0x20= | Meter charge | 32-bit LE; signed ROM comparisons | Nonnegative raw charge verified in these samples; negative values are not validated charge |
 | =R(k)+0x25= | Power-use scaling counter | =u8= | Increments before spending; transitions 0 to 1 and 1 to 2 verified |
 | =0x03003FEC= | Current weather | =u8= | 0 Clear, 1 Snow, and 2 Rain match controlled screenshots and power checkpoints |
-| =0x03003FED= | Weather rule/mode candidate | =u8= | 0 in settled Clear Rules battle, 3 in settled Random Rules battle; 1 also occurs on the Rules screen and in a retained Andy battle, so this is not a fully decoded Rules enum |
+| =0x03003FED= | Weather rule/mode candidate | =u8= | 0 in the settled Clear Rules battle; 3 in settled Rain, Snow, and Random selections. It distinguishes the tested Clear setup from weather-enabled cases but does not identify which non-Clear option was selected. Value 1 occurs on the Rules screen and in retained battle checkpoints and remains unresolved. |
 
 Other neighboring fields are retained as raw observations:
 
@@ -87,6 +87,92 @@ comparisons agree with that order:
 | Sami Power | 11464 -> 12458 | 72,000 -> 39,600 | 0 -> 1 | 32,400 |
 | Olaf Power | 12442 -> 13808 | 63,000 -> 30,600 | 0 -> 1 | 32,400 |
 | Drake Super | 61809 -> 62103 | 63,000 -> 0 | 0 -> 1 | 75,600, clamped at zero |
+
+* Runtime Power activation at a high use counter
+
+*** Claim and scope
+Five new save states show Andy's regular Power at use counter 4 before
+activation and its effects through his next turn. They restore as follows:
+
+| State | Frame | Lifecycle | Active Power | Meter | Use counter | Readiness |
+|-------+-------+-----------+--------------+-------+-------------+-----------|
+| =aw2.ss1= | 269964 | Player turn | 0 | 68,500 | 4 | 1 |
+| =aw2.ss2= | 270240 | Power presentation | 0 | 14,500 | 5 | 0 |
+| =aw2.ss3= | 270622 | Player turn | 1 | 14,500 | 5 | 0 |
+| =aw2.ss4= | 270978 | Opponent turn | 1 | 14,500 | 5 | 0 |
+| =aw2.ss5= | 271332 | Andy's next turn | 0 | 14,500 | 5 | 0 |
+
+Player slot 1 is Andy (CO ID =1=). From state 1 to state 2, the counter changes
+=4 -> 5= and charge changes =68,500 -> 14,500=, an exact deduction of
+=54,000=. The ROM increments the counter before calculating the spend. At
+counter 5, the verified formula gives =18,000= units per star; Andy's three
+Power stars therefore cost =54,000=, matching the checkpoint. This is a
+runtime confirmation of a Power threshold beyond the previously checked
+counters 0..2. A second sequence below exercises the counter-10 branch.
+
+The presentation checkpoint has valid geometry, property, player, and unit
+structures, but its lifecycle phase is =battle_power= and live decoding is
+blocked. The active-Power byte remains 0 during that presentation and becomes
+1 once Andy regains player control. It clears to 0 at his next turn; the meter
+and use counter remain unchanged through those later samples. This confirms
+that meter spending/use count are updated before the settled active-Power flag.
+
+*** Reproduction and evidence
+The five source save-state SHA-256 values are:
+
+| State | SHA-256 |
+|-------+---------|
+| =aw2.ss1= | =499e263c4d6a3e2e98c8ceba8d94c5734dfc37a04e4db6cc023aab192134a30c= |
+| =aw2.ss2= | =98fa3ebfb7c21b1391730942558587a92abec2318e14535ef1b9f3d79b63a6e3= |
+| =aw2.ss3= | =193db6703bd33a00aa39463cf5111ca80cc2191516842061af809416e5746d35= |
+| =aw2.ss4= | =ee0381b60d18c8fb02ef31b2ed545bf364339edf7fafd1263b56490dde9920dc= |
+| =aw2.ss5= | =09efee7f5173aeaca481cfb695e9545f5f0db0707e4b55d9d718b8a468885153= |
+
+All source hashes matched before and after restoration. Per-state decoded player
+records, structure checks, screenshots, and RAM hashes are in
+=/tmp/aw2-high-counter-research/checkpoints.json= and its adjacent state/RAM
+artifacts. The supported ROM hash is
+=ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+
+*** Runtime verification of the counter-10 branch
+Six new states capture Andy's next activation after nine prior uses:
+
+| State | Frame | Day / active player | Lifecycle | Active Power | Meter | Use counter | Readiness |
+|-------+-------+---------------------+-----------+--------------+-------+-------------+-----------|
+| =aw2.ss1= | 333921 | 16 / Andy | Player turn | 0 | 114,300 | 9 | 1 |
+| =aw2.ss2= | 334422 | 16 / Andy | Engine unresolved | 0 | 114,300 | 9 | 1 |
+| =aw2.ss3= | 334642 | 16 / Andy | Power presentation | 0 | 60,300 | 10 | 0 |
+| =aw2.ss4= | 334963 | 16 / Andy | Player turn | 1 | 60,300 | 10 | 0 |
+| =aw2.ss5= | 335349 | 16 / opponent | Player turn | 1 | 60,300 | 10 | 0 |
+| =aw2.ss6= | 335705 | 17 / Andy | Player turn | 0 | 60,300 | 10 | 1 |
+
+At activation, Andy's use counter increments =9 -> 10= and his meter falls
+=114,300 -> 60,300=, a =54,000= deduction. At counter 10, ROM code takes
+the branch that returns =18,000= charge units per star; Andy's three-star
+Power costs =54,000=. This confirms the counter-10 branch at runtime and
+confirms that the activation applies the newly incremented counter. The value
+does not exceed the preexisting meter, so this pair is not a cap test.
+
+As in the counter-4 sequence, state =aw2.ss3= is a structurally valid Power
+presentation but not a live-decode-safe player turn. The active-Power byte
+remains zero during the presentation, becomes 1 in the settled Andy turn, stays
+active through the opponent turn, and clears at Andy's next turn. The readiness
+byte returns to 1 at that next turn while the use counter remains 10.
+
+Source state hashes are:
+
+| State | SHA-256 |
+|-------+---------|
+| =aw2.ss1= | =917f830c31afe5ec7b82b83a10638d81f0df09a1a6ece72787cd9a3fe6ecc8c5= |
+| =aw2.ss2= | =79d4e4f9648b7c96ce0d9df74c3a8cfb6249ac40c58bf053e48ffdc98210d77f= |
+| =aw2.ss3= | =33f4272686dc0dcac2a6ff7f67362f0e2c67a6486b0eea2093fdd3efa27e95e4= |
+| =aw2.ss4= | =109035aa03280b0b05e434d89779e67ca50404d35d6511569ff1b25475c159ff= |
+| =aw2.ss5= | =ef7a46960f86fa251b608a19df8377fee4af7479d50fb2db6f567b79c8b2889c= |
+| =aw2.ss6= | =bfdbdb22d1758b971236858bd41e2f6df88afafe5ae40e623f820b87ee4e1a1c= |
+
+All source states remained unchanged. Parsed player records, full RAM, screenshots,
+and structure/lifecycle validation are external in
+=/tmp/aw2-counter10-research/checkpoints.json= and its adjacent artifacts.
 
 * Runtime attack, counterfire, and cap checks
 
@@ -402,21 +488,25 @@ meter units for valid unmodified game data. This resolves the earlier
 fractional-rounding question statically; a runtime checkpoint cannot exercise
 a fractional case without altered or invalid unit/CO table data.
 
-* Clear and Rain weather comparison
+* Rules-screen weather choices and settled weather bytes
 
-Both branches begin at the same retained Rules checkpoint, with only the
-Weather choice changed. The Clear branch is sampled at frame 73552; the
-Random branch at frame 73559. Screenshots show a normal Clear palette in the
-first and gray water with diagonal rain streaks in the second.
+The Clear and Random branches begin at the same retained Rules checkpoint,
+with only the Weather choice changed. The Clear branch is sampled at frame
+73552; the Random branch at frame 73559. Additional isolated replays confirm
+the Rules-screen Rain and Snow choices at frames 73559 and 73566. Their source
+screenshots show the selected Weather label; the resulting battle screenshots
+show Rain or Snow respectively.
 
 | Rules choice | Current byte =0x03003FEC= | Mode byte =0x03003FED= | Neighbor bytes =0x03003FEE..EF= |
 |--------------+---------------------------+------------------------+---------------------------------|
 | Clear | 0 | 0 | 0, 0 |
 | Random, producing Rain | 2 | 3 | 2, 2 |
+| Rain | 2 | 3 | 2, 2 |
+| Snow | 1 | 3 | 1, 1 |
 
 Map dimensions, graphical tiles, terrain/owner cells, and the property table
-are byte-identical across these two settled battles. The weather appearance
-does not require a different terrain layout. Both pass live snapshot gating.
+are byte-identical across these settled battles. The weather appearance does
+not require a different terrain layout. All four pass live snapshot gating.
 
 Original-ROM routines =0x0803504C= and =0x08035020= respectively store and
 render the weather value at configuration base plus =0x2C=. The weather
@@ -424,11 +514,30 @@ resolution routines around =0x08035170= read the adjacent bytes at =+0x2D=
 through =+0x2F=; the code therefore confirms these are related weather-state
 inputs, but its branches do not yet justify assigning individual field names
 to the three bytes. The controlled Rules comparison ties =+0x2D= value 0 to the
-settled Clear choice and 3 to the Random choice that produced Rain. A retained
-Andy battle has =+0x2D= value 1 with current weather 0, and the Rules screen
-checkpoint also has value 1, so value 1 is not decoded as a settled weather
-condition. The Olaf Blizzard sequence below verifies current weather value 1
-as Snow.
+settled Clear choice and 3 to the tested Rain, Snow, and Random choices. Thus
+=3= is not a unique Random enum; it marks the observed non-Clear configurations
+in this comparison. A retained Andy battle has =+0x2D= value 1 with current
+weather 0, and the Rules screen checkpoint also has value 1, so value 1 remains
+unresolved. The Olaf Blizzard sequence below independently verifies current
+weather value 1 as Snow.
+
+In these settled starts, =+0x2E= and =+0x2F= both match current weather for
+Rain/Snow/Random and are both zero under Clear. The Random-rule sequence then
+holds Rain at =[2,3,2,2]= from day 3 through day 8 in the archived samples.
+The Olaf and Drake override traces show that =+0x2E= can temporarily match a
+CO-forced Snow/Rain value during the opponent's turn while =+0x2F= stays zero.
+These are useful correlations, not field names: both bytes are read by the
+weather resolver and their independent roles remain unknown.
+
+The Rain and Snow checkpoints were reproduced from retained Rules choices
+=weather-choice-2.ss0= and =weather-choice-3.ss0= with A followed by 480 neutral
+frames. Both restore as valid live player turns. The generated checkpoints,
+RAM, and screenshots are external in =/tmp/aw2-weather-power-research/=. Their
+source state hashes are
+=aaf3f74f542fe15e399cbd8e4d434ba739725ea4d25b01ac9f65bd5fe9cadff3= and
+=b6c60d3c39bcb70db7a785eb74b1b0abe9714213db85a78d6498ca2c9f8e08c2=;
+decoded weather bytes are recorded in =rain-choice-start.json= and
+=snow-rule-start.json=.
 
 * Olaf Blizzard override and expiry
 
@@ -574,13 +683,14 @@ The evidence manifest fingerprints the retained RAM and screenshot samples.
 
 * Remaining checks
 
-- The controlled Rules comparison associates =0x03003FED= values 0 and 3
-  with Clear and Random respectively, but value 1 remains ambiguous between
-  setup/transient state and the retained Andy battle. The two following bytes
-  are read by the weather resolver; their roles remain unverified. To resolve
-  them, capture Rules and settled-battle states for each weather choice, then
-  sample one frame at a time through the first Random weather change and each
-  CO weather override/expiry.
+- The controlled Rules comparison associates =0x03003FED= value 0 with Clear
+  and value 3 with tested Rain, Snow, and Random selections. Value 3 therefore
+  does not encode a unique choice, and value 1 remains ambiguous between setup
+  and retained battle contexts. The two following bytes match settled weather
+  in the tested non-Clear starts, but their roles remain unverified. The
+  archived Random sequence stays Rain through day 8; a controlled Random match
+  across an actual weather change would test whether =+0x2F= is a scheduled
+  value and what =+0x2E= records during that transition.
 - Original-ROM code and the type =0x0E= and Infantry checkpoints agree on full-value
   charge for damage received and half-value charge for damage dealt. The
   weighted terms are 4,000/0 without counterfire and 4,000/800 with
@@ -599,8 +709,10 @@ The evidence manifest fingerprints the retained RAM and screenshot samples.
   used instrumented meter initialization; natural near-cap evidence is
   still open.
 - Static ROM code defines counters 3..9 as 14,400..25,200 per star, counter
-  10 and above as 18,000 per star, and saturates the use counter at 255.
-  Runtime behavior for later uses is still unverified; only test activations
-  after safely arranging enough meter, if a decoder needs those values.
+  10 and above as 18,000 per star, and saturates the use counter at 255. The
+  Andy sequences verify both counter-4 to counter-5 and counter-9 to
+  counter-10 activations, each deducting 54,000 at the resulting counter.
+  Values above 10 and the saturation behavior at 255 remain static-only; test
+  them only if a decoder needs those values.
 - Check more COs and player slots, readiness reset timing, and active-Power
   expiry for other Power variants. Keep unsupported values explicitly unknown.

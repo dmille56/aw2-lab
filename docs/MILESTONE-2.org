@@ -301,9 +301,17 @@
      do not use it as Hachi evidence until its CO identity is reconciled. An
      instrumented near-cap replay verifies
      clamping at Andy's and Sami's Super thresholds; natural near-cap evidence
-     and later activation thresholds remain open. The Rules mode and adjacent
-     weather bytes are only partly understood, so the composite item stays
-     unfinished.
+     remains open. New checkpoints verify Andy activating Power at use counter
+     4: the counter increments to 5 before a 54,000-point deduction, matching
+     the counter-5 threshold. A second sequence verifies counter 9 -> 10 and
+     the same 54,000-point deduction predicted by the counter-10 branch. Static
+     ROM analysis maps counters 3..9 and saturates the use counter at 255;
+     behavior above counter 10 and at saturation is not runtime-tested. Clear
+     Rules settle with weather bytes
+     =[0,0,0,0]=; Rain, Snow, and Random choices settle with mode byte =3= and
+     current/neighbor values matching Rain or Snow. Thus =3= is not a unique
+     Random enum. Mode value 1 and the independent roles of the two following
+     weather bytes remain unresolved, so this composite item stays unfinished.
      See
      [[file:AW2-POWER-WEATHER-RESEARCH.org::*Olaf Blizzard override and expiry][the weather traces]].
    - [X] Verify player and turn changes against manually inspected game states.
