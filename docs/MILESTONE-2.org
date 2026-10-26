@@ -322,7 +322,11 @@
      live-context checks; turn, day, funds, map, properties, and unit changes
      are documented. The handoff snapshot remains lifecycle-blocked. See
      [[file:AW2-LIFECYCLE-RESEARCH.org::*Validated snapshot comparison across the Blue-to-Red turn change][the turn comparison]].
-   - [ ] Record screenshots or manual observations, reproduction steps, and results for each scenario outside tracked binary artifacts.
+   - [X] Record screenshots or manual observations, reproduction steps, and results for each scenario outside tracked binary artifacts.
+     The movement, combat, purchase, capture, and turn-change scenarios now
+     have a consolidated evidence index; screenshots, hashes, RAM captures,
+     and comparison outputs remain external. See
+     [[file:AW2-SNAPSHOT-EVIDENCE.org][the snapshot evidence index]].
 
 ** DONE Verify lifecycle safety and emulator-mode parity
    - [X] Exercise title screens, menus, battle entry, and transitional states.

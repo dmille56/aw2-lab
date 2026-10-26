@@ -1,0 +1,115 @@
+#+title: Milestone 2 structured-snapshot scenario evidence
+
+This index records how to reproduce and inspect each structured-snapshot
+scenario, the observed result, and where its non-Git evidence is stored. The
+supported ROM SHA-256 is
+=ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+Screenshots, save states, and RAM dumps stay outside the repository; their
+source hashes and capture metadata identify the exact historical checkpoints.
+
+The supplied movement, purchase, capture, and turn-change source save states
+were not copied into the research folders. Their hashes remain in each
+=metadata.json= or =manifest.json=, and their screenshots and full RAM captures
+are preserved. To replay one of those exact states, use a source save matching
+the recorded hash; otherwise recreate the scenario from the steps below and
+record a new source hash. Combat also preserves generated =.ss0= branch states.
+
+* Movement and associated supply observation
+- Procedure: restore the before-move APC checkpoint identified by the
+  =aw2.ss2= hash in =/tmp/aw2-clean-supply-research/metadata.json=. Select the
+  Red APC at candidate coordinate =(7,5)=, move it one tile north to =(7,4)=,
+  and choose Wait. Capture the settled state and compare it with the after
+  checkpoint (=aw2.ss3=).
+- Manual evidence: =state2.png= and =state3.png= in
+  =/tmp/aw2-clean-supply-research/= show the APC before/after; the HUD and
+  map location agree with the interpreted coordinates.
+- Result: both snapshots validate as live player turns. The APC's byte +6
+  changes 68 to 67; the adjacent Infantry's changes 94 to 99, and the Md
+  Tank's changes 45 to 50. The map, properties, and player records are
+  unchanged. This supports a movement-associated supply effect but does not
+  isolate its trigger radius or timing.
+- Recheck: run =python /tmp/aw2-clean-supply-research/compare_movement_snapshots.py=.
+  Findings and field limits: [[file:AW2-MAP-RESEARCH.org::*Validated snapshot comparison][movement comparison]].
+
+* Combat damage and unit destruction
+- Procedure: restore =red-ready.ss0= (frame 19421) from
+  =/tmp/aw2-map-research-four/=, with the Red Tank at =(1,5)= and adjacent
+  Infantry targets. For the nonlethal branch, select Fire on the target at
+  =(2,5)= and let the animation settle. For destruction, restore the archived
+  =forecast.ss0= in =/tmp/aw2-combat-lifecycle-research/=, use the 44-HP Infantry,
+  continue the attack trace,
+  and sample the zero-health frame, type-clear frame, and settled cleanup.
+- Manual evidence: paired screenshots for before, damage settled, zero HP,
+  and settled destruction are in =/tmp/aw2-combat-lifecycle-research/=. The
+  screenshots show the selected target and final damage/result.
+- Result: the Tank and target health changes match the screenshot. During
+  destruction, the occupied zero-HP record is rejected; after its type clears,
+  the active count drops by one; live decoding resumes after cleanup. No
+  damage formula or unit action-byte meaning is inferred.
+- Recheck: run
+  =python /tmp/aw2-combat-lifecycle-research/compare_structured_combat_snapshots.py=.
+  Input traces, generated branches, and findings are described in
+  [[file:AW2-LIFECYCLE-RESEARCH.org::*Structured snapshot comparison for combat damage and destruction][the combat comparison]].
+
+* Unit purchase after destruction
+- Procedure: for the first sequence, start from the hashed pre-attack state
+  in =/tmp/aw2-unit-reuse-research/metadata.json=, destroy the low-health Red
+  Infantry, then purchase an Infantry at the Red base. For the second, repeat
+  with the source state in =/tmp/aw2-unit-reuse-followup/metadata.json= and
+  buy the same unit after destruction. Capture before, destroyed, and
+  purchased states.
+- Manual evidence: the state screenshots in both folders show the unit
+  disappearing, the purchase at the base, and the HUD funds.
+- Result: funds fall by 1,000 in each purchase. In the first sequence the
+  allocator chooses an earlier empty slot; in the repeat it reuses the slot
+  just freed. All snapshots validate, and the map and property arrays stay
+  unchanged.
+- Recheck: run
+  =python /tmp/aw2-unit-reuse-research/compare_purchase_snapshots.py=.
+  The two sequences and slot limits are described in
+  [[file:AW2-MAP-RESEARCH.org::*Validated structured comparison of purchase checkpoints][the purchase comparison]].
+
+* Property capture progress and ownership
+- Procedure: inspect the user-supplied checkpoint sequence from =ss1= through
+  =ss6= in frame order. To recreate the Red branch, move the Infantry onto the
+  neutral city at =(4,6)= and choose Capture; retain the partial checkpoint,
+  then the completed capture checkpoint. The accompanying Blue branch shows
+  its separate city at =(14,3)= with partial progress.
+- Manual evidence: =ss1.png= through =ss6.png= in
+  =/tmp/aw2-city-red-blue-research/= show the units, city, and capture HUD.
+- Result: the Red unit's byte +5 represents 15 observed progress points at
+  state 2 while property entry 9 remains neutral. At completion, progress
+  resets; the property record and terrain/owner byte change from =0x06= to
+  =0x26= and the tile ID changes 450 to 455. Blue's sequence reaches 10
+  points but has no completion checkpoint in this set.
+- Recheck: run
+  =python /tmp/aw2-city-red-blue-research/compare_capture_snapshots.py=.
+  Findings and unresolved capture bits are in
+  [[file:AW2-MAP-RESEARCH.org::*Validated snapshot comparison for city capture][the capture comparison]].
+
+* Turn change
+- Procedure: restore the Blue day 1 checkpoint =aw2.ss5= (frame 6489). From
+  the command menu, press Down and release five frames, four times, then
+  confirm End. Sample through the handoff and after Red day 2 settles. The
+  exact control sequence and frame observations are in
+  =/tmp/aw2-turn-reef-research/observations.json= and
+  =timing-observations.json=.
+- Manual evidence: =state5.png= and =state7.png= in
+  =/tmp/aw2-turn-reef-research/= show Blue day 1 with 15,000 funds and Red
+  day 2 with 16,000 funds; state 6 is retained as the intermediate handoff.
+- Result: the settled turn selector changes 2 to 1, day 1 to 2, and Red funds
+  rise by 10,000 while Blue funds stay fixed. Map and property arrays are
+  identical. Both settled snapshots permit live decoding; the handoff sample
+  remains lifecycle-blocked.
+- Recheck: run
+  =python /tmp/aw2-turn-reef-research/compare_turn_snapshots.py=.
+  Findings and transition limits are in
+  [[file:AW2-LIFECYCLE-RESEARCH.org::*Validated snapshot comparison across the Blue-to-Red turn change][the turn comparison]].
+
+* Evidence handling
+All five comparison scripts were rerun successfully while preparing this
+index. Their JSON outputs include source, memory, and screenshot fingerprints
+where available. The latest capture and turn comparison outputs are
+=capture-snapshot-comparison.json= and =turn-snapshot-comparison.json= in
+their corresponding external folders. No save-state, screenshot, or RAM dump
+was added to Git.
