@@ -324,21 +324,24 @@
      clearing. A two-passenger Lander snapshot supports a second one-based
      reference at byte +8. Loading and drop order, other armies, and field
      reuse remain unverified.
-   - Supply progress: [[file:AW2-MAP-RESEARCH.org::*Finding: APC supply and paired unit-fuel changes][APC supply pair]] matches the
+   - Supply progress: [[file:AW2-MAP-RESEARCH.org::*Finding: APC supply and paired unit fuel/ammo changes][APC supply pair]] matches the
      selected APC's HUD fuel to record byte +6 and shows three other records
-     rise to 99. Supply range, eligibility, and other replenished fields remain
-     unverified. A controlled move pair shows two adjacent units gain five
-     fuel while the APC moves one tile and loses one fuel; a nearby Md Tank's
-     raw byte +5 also rises by two during that move. A later Tank shot lowers
-     HUD ammo 9 -> 8 while byte +5 stays 4, ruling out +5 as the displayed ammo
-     count. Ammo is now verified in bits 7..10 of the unit record halfword at
-     +4: the Tank changes from 9 to 8 ammo after firing, and a separate Battle
+     rise to 99. The user confirms APCs refill fuel and ammo for every unit
+     directly adjacent to them. A controlled move pair shows two adjacent
+     units gain five fuel while the APC moves one tile and loses one fuel; a
+     nearby Md Tank's ammo rises from 2 to 6 as byte +5 changes from 1 to 3.
+     A later Tank shot lowers HUD ammo 9 -> 8 while byte +5 stays 4 because
+     only ammo bit 7 changes. Ammo is verified in bits 7..10 of the unit
+     record halfword at +4: the Tank changes from 9 to 8 ammo after firing,
+     and a separate Battle
      Copter checkpoint's record and HUD both show 6. The HUD reader and combat
      decrement/refill routines in the supported ROM use these same bits.
      IWRAM byte =0x03000799= is not ammo or a reliable display cache: it varies
      from 0 to 11 over neutral frames while the Tank remains at 8 and reads 4
      for the Copter showing 6. The prior Recon “3 ammo” match was a misread;
-     Recon has no ammo display. The supply pair's +5 change remains unexplained.
+     Recon has no ammo display. The observed +5 change is explained by packed
+     ammo: byte +5 bits 0..2 carry ammo bits 8..10, while bits 3..7 carry
+     capture progress.
      Byte +1 changes from 0 to 1 in the move pair, but other screenshots show
      value 6 in movement/Fire-Wait UI and value 1 after a settled attack; its
      action-state bits are unresolved. The attack sequence confirms a shot
@@ -346,7 +349,9 @@
      and ROM reader/writers are now identified. See
      [[file:AW2-MAP-RESEARCH.org::*Finding: Tank firing and HUD ammunition comparison][the Tank firing comparison]]. Compare before and after Wait separately for
      byte +1 action status; Wait does not consume ammo, as user-confirmed.
-     Supply radius/trigger and byte +5 semantics still need controlled checks.
+     Further supply samples can establish exact refill amounts by unit type
+     and when the adjacent-unit refill triggers; adjacent-unit supply is
+     user-confirmed and independently visible in the captured checkpoints.
    - [X] Identify unit table layout, bounds, occupancy, and slot reuse.
      The supported ROM pool has four 64-record blocks with 12-byte records;
      the allocator uses slots 1..50 in each block. A zero type byte marks an

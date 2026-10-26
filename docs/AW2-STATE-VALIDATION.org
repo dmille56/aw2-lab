@@ -142,12 +142,13 @@ pointer is converted to a host pointer. The stale current-unit pointer at
   APC move; =0= before a Tank shot, =6= in Fire/forecast UI, and =1= after
   combat settles). These samples associate it with action processing but do
   not define its bit meanings or Wait behavior. Byte +5's upper five bits store
-  capture progress in verified capture contexts; its low three bits remain
-  uninterpreted. IWRAM byte =0x03000799= is not a stable ammo value: it drifts
+  capture progress in verified capture contexts; its low three bits carry
+  ammo bits 8..10 of the packed halfword at +4. The controlled APC supply pair
+  shows a Md Tank's ammo rising =2 -> 6= in these bits while fuel rises
+  =45 -> 50=. IWRAM byte =0x03000799= is not a stable ammo value: it drifts
   from 0 to 11 over 30 neutral frames while Tank ammo stays at 8, and reads 4
   in the settled Battle Copter checkpoint that shows 6 ammo. It has no
-  established ammo/cache role. The earlier Md Tank supply change from +5 =1=
-  to =3= remains unexplained.
+  established ammo/cache role.
 - A zero type byte marks an unused record, regardless of stale flags,
   coordinates, or health. Active records need a supported observed type, a
   participating owner block, coordinates inside the map, health =1..100= after
