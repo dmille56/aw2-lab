@@ -476,8 +476,10 @@ Original =0x0804415C= checks the active-power byte for nonzero.
 =0x08044144= copies the neighboring byte at offset =0x1F= into =0x1E=;
 =0x08044178= clears =0x1E=. The adjacent byte can stay 1 or 2 when active
 status is zero: red has =(0,1)= in state 5 and blue has =(0,2)= in state 4.
-It must not be used as the active-power flag. Other player fields, power-meter
-scaling/thresholds, and the adjacent byte's complete lifecycle remain unverified.
+It must not be used as the active-power flag. The later
+[[file:AW2-POWER-WEATHER-RESEARCH.org][meter/weather study]] identifies charge storage, use-counter scaling, and
+spending for Andy/Max/Sami. Charge earnings, high counters, and the adjacent
+byte's complete lifecycle remain unverified.
 
 ** Controlled power activation
 From state 5, Select opens the command menu with Power available. Selecting that
@@ -783,8 +785,10 @@ source hashes. Its SHA-256 is
 =b2c48b075dd14f4cc15786ff4d8754e791be3964c8b22c161226be36f4544c2b=.
 
 ** Remaining questions
-- Verify power-meter scaling and thresholds, what the +0x28 player byte means,
-  and the complete lifecycle of +0x1F for more COs and turn transitions.
+- The [[file:AW2-POWER-WEATHER-RESEARCH.org][meter/weather study]] verifies storage, low-counter thresholds, and
+  spending in three activation paths. Charge earnings, high-counter behavior,
+  what the +0x28 player byte means, and the complete lifecycle of +0x1F for
+  more COs and turn transitions remain open.
 - Reproduce the same Power and SUPER sequences for different COs, including
   settled effects and any unit changes, before generalizing the field values.
 

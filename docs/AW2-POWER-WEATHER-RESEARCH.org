@@ -1,0 +1,147 @@
+#+TITLE: AW2 Power Meter and Weather Research
+
+* Result and scope
+
+Date: 2026-10-25. This study uses the checksum-verified US revision-0 ROM
+=ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=
+and pinned headless mGBA =fd9dc5c2cbf234365068855851107e762fc6211b=.
+Eleven coherent full-RAM snapshots compare Andy and Max's retained activation
+traces, a newly executed Sami regular Power, and separate Clear/Random Rules
+branches. All four supported structures validate in every sample. Command
+menus and power presentations remain unavailable for live decoding; settled
+player turns pass the existing lifecycle gate.
+
+The study verifies meter storage, spending, and low activation-counter values,
+plus current Clear/Rain weather. Snow, weather expiry/CO overrides, combat
+charge earnings, and high-counter behavior remain open. These findings extend
+the documented decoding subset; a typed state decoder and state API remain
+separate tasks.
+
+* Verified fields and raw observations
+
+Use =R(k) = 0x02023284 + 0x3C*k= for participating player slots 1..4.
+Select the supported ROM profile before following its layout literals.
+
+| Address | Field | Representation | Verified interpretation and limit |
+|---------+-------+----------------+-----------------------------------|
+| =R(k)+0x1E= | Active Power | =u8= | 0 inactive, 1 Power, 2 Super; supported by the Andy/Max/Sami observations |
+| =R(k)+0x20= | Meter charge | 32-bit LE; signed ROM comparisons | Nonnegative raw charge verified in these samples; negative values are not validated charge |
+| =R(k)+0x25= | Power-use scaling counter | =u8= | Increments before spending; transitions 0 to 1 and 1 to 2 verified |
+| =0x03003FEC= | Current weather | =u8= | 0 Clear and 2 Rain match the controlled screenshots; other values remain unverified here |
+| =0x03003FED= | Weather rule/mode | =u8= | 0 for the Clear Rules branch and 3 for Random; modes 1/2 are not identified from these UI comparisons |
+
+Other neighboring fields are retained as raw observations:
+
+- =R(k)+0x1F= holds the selected activation kind in these paths. It may retain
+  1/2 while =+0x1E= is zero; it must not replace the active-Power flag.
+- =R(k)+0x24= is a cached readiness value. The ROM updater can raise it to
+  1/2 on the corresponding thresholds and activation clears it. It is not an
+  independent command-availability predicate.
+- =0x03003FEE..0x03003FEF= participate in weather selection. Preserve them
+  as raw bytes until their complete lifecycle is checked.
+
+* Meter readers, thresholds, and spending
+
+Original-ROM routines =0x08044080= and =0x08044094= write/read a word at
+=R(k)+0x20=. The charge-adder at =0x080440E0= checks that CO Powers are
+enabled, ignores an active Power or a negative meter, and clamps positive
+growth to the Super threshold. This identifies the storage and clamping path;
+the formula converting individual combat events into charge is not established.
+
+The per-star charge routine at =0x0804419C= reads the byte at =R(k)+0x25=
+through =0x08044374=. For the observed counters 0, 1, and 2, its results are
+9,000, 10,800, and 12,600 raw units per star. The formula on this branch is
+=9000 * (100 + 20*n) / 100=.
+
+The threshold routines at =0x080441D4= and =0x08044208= multiply that unit
+by words from =0x085D3DD0 + 0x104*co_id + 0x0C/0x10=. These are the normal
+star count and total Super star count in the tested CO rows: Andy/Max have
+3/6; Sami has 3/8. Do not interpret the Super value as only the additional
+stars beyond normal Power.
+
+=0x0804438C= increments the use counter through =0x08044354=, then invokes
+the spending routine =0x080440A8=. Spending subtracts the threshold for the
+updated counter and clamps negative results to zero. The controlled/retained
+comparisons agree with that order:
+
+| CO / activation | Frames before -> after | Charge before -> after | Counter before -> after | Deduction threshold |
+|-----------------+------------------------+------------------------+-------------------------+---------------------|
+| Andy Power | 128189 -> 128191 | 41,650 -> 3,850 | 1 -> 2 | 37,800 |
+| Max Super | 10926 -> 10976 | 54,000 -> 0 | 0 -> 1 | 64,800, clamped at zero |
+| Sami Power | 11464 -> 12458 | 72,000 -> 39,600 | 0 -> 1 | 32,400 |
+
+The Andy and Max charge deductions occur while active status is still zero
+and the lifecycle is =BATTLE_POWER=. Their settled observations at frames
+129003 and 11623 have active status 1 and 2 respectively. Sami settles with
+active status 1 at frame 12458. A zero active status during the presentation
+therefore does not imply that no activation has begun.
+
+The static per-star routine has a separate branch for counters above 9 that
+returns 18,000. That branch and counters 3..9 have not been exercised here;
+do not extrapolate the runtime-verified progression or publish high-counter
+thresholds as verified. The counter incrementer also has a static saturation
+check at 255; no such runtime state was observed.
+
+* Clear and Rain weather comparison
+
+Both branches begin at the same retained Rules checkpoint, with only the
+Weather choice changed. The Clear branch is sampled at frame 73552; the
+Random branch at frame 73559. Screenshots show a normal Clear palette in the
+first and gray water with diagonal rain streaks in the second.
+
+| Rules choice | Current byte =0x03003FEC= | Mode byte =0x03003FED= | Neighbor bytes =0x03003FEE..EF= |
+|--------------+---------------------------+------------------------+---------------------------------|
+| Clear | 0 | 0 | 0, 0 |
+| Random, producing Rain | 2 | 3 | 2, 2 |
+
+Map dimensions, graphical tiles, terrain/owner cells, and the property table
+are byte-identical across these two settled battles. The weather appearance
+does not require a different terrain layout. Both pass live snapshot gating.
+
+Original =0x0803504C= stores an effect's weather value at the configuration
+base plus =0x2C=, and =0x08035020= uses that value to select the render palette.
+=0x08035170= reads the current weather and mode separately. This supports
+the distinction between a current condition and the Rules setting. A retained
+Andy battle also has mode 1 while current weather is 0; this study assigns no
+UI meaning to mode 1. Weather value 1 needs a visible Snow checkpoint before
+it is exposed with that meaning.
+
+* Reproduction and evidence
+
+External artifacts are in =/tmp/aw2-weather-power-research/=. =findings.json=
+contains all eleven sample frames, source metadata, full-RAM/screenshot hashes,
+raw player records, validation decisions, threshold calculations, and excluded
+attempts. =evidence-manifest.json= fingerprints those inputs and reports.
+
+- Run =python /tmp/aw2-weather-power-research/analyze.py= from the repository
+  environment to reproduce the offline field comparisons and assertions.
+- The retained Andy/Max inputs are in
+  =/tmp/aw2-lifecycle-coverage-research/=, with source hashes and trace inputs
+  recorded in that study's metadata and validation matrix.
+- For the new Sami activation, restore =super-source.ss0= from that folder,
+  open Blue's command menu, choose End, and wait until Red control settles.
+  Red is Sami (battle CO ID 4). Open the command menu, choose Power, confirm,
+  and wait through the effects. The exact key/frame pairs and each generated
+  source checkpoint hash are recorded in =red-ready.json=,
+  =sami-power-menu.json=, and =sami-power-settled.json=.
+- For weather, restore
+  =/tmp/aw2-lifecycle-control-research/sources/aw2.ss3=. Move from Fog to Weather
+  with Right, choose Clear or Random using Down, then confirm the Rules screen
+  and advance 480 neutral frames. The source and generated checkpoint chains
+  are in the =weather-choice-*=, =clear-battle-start.json=, and
+  =random-battle-start.json= records. Their PNGs are the manual weather evidence.
+- ROM listings use an ELF wrapper generated by =make_elf.py= and the pinned
+  LLVM =llvm-objdump --triple=thumbv4t= so literal-pool data cannot shift later
+  instruction addresses. The early streaming-disassembly experiment is not
+  used as evidence.
+
+* Remaining checks
+
+- Obtain a visible Snow checkpoint and a before/during/after Olaf or Drake
+  power sequence to verify weather overrides and restoration.
+- Isolate charge gained from one known attack and counterattack; verify
+  earning rules and clamping independently of the spend path.
+- Check later activation counters and the unusual static high-counter branch
+  before generalizing thresholds.
+- Check more COs and player slots, readiness reset timing, and active-Power
+  expiry across turns. Keep unsupported values explicitly unknown.
