@@ -172,11 +172,14 @@
      frame 6201 and the victory process to frame 6202, then follows the summary,
      save prompt, and map selection; the exact hit frame remains unresolved.
      See the [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: fresh final-unit elimination through results and map selection][fresh elimination trace]].
-     Campaign/event dialogues, additional configurations, universal outcomes,
-     and front-end parity for combat, powers, and results remain open. Headless
-     and windowed builds produced identical full RAM hashes across startup,
+     Headless/windowed parity is now verified across eleven retained combat,
+     regular/Super Power, victory, quote, summary, save-prompt, and menu-return
+     checkpoints. Frames, full EWRAM/IWRAM hashes, screenshots, lifecycle
+     classifications, structure validations, and decoding decisions match.
+     Campaign/event dialogues, additional configurations, and universal
+     outcome rules remain open. The earlier parity checks also cover startup,
      menus, battle entry, transition, and player control; production headless
-     SRAM autoload also resumes the supplied Versus save through the regular
+     SRAM autoload resumes the supplied Versus save through the regular
      launcher. See the lifecycle coverage note.
    - [ ] Identify title screens, menus, battle states, and transitions.
    - [ ] Establish when battle structures are valid to interpret.
@@ -309,6 +312,7 @@
    - [X] Exercise title screens, menus, battle entry, and transitional states.
    - [X] Restore the same resumed-battle checkpoint in headless and windowed modes and compare decoded observations.
    - [X] Compare full RAM hashes after the same recorded frame inputs under the pinned build.
+   - [X] Compare combat, regular/Super Power, and result-flow checkpoints across headless and windowed modes.
    - [X] Confirm observations remain coherent and idle wall time does not advance the emulator.
 
 ** TODO Document and run the verification workflow
@@ -324,4 +328,4 @@
    - [ ] A Python decoder exposes validated structured state.
    - [ ] Structured snapshots match manually inspected states before and after movement, combat damage, purchasing, capture, and turn changes.
    - [ ] Title screens and transitional states are recognized safely.
-   - [ ] Observations agree between emulator modes for the same checkpoint.
+   - [X] Observations agree between emulator modes for the same checkpoint across the verified startup, battle, combat, Power, and results coverage.
