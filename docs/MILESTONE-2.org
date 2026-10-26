@@ -342,8 +342,9 @@
      byte +7 for one red APC and one red Lander, including Lander unload/link
      clearing. A two-passenger Lander snapshot supports a second reference
      at byte +8. Red/Blue APC cargo references are verified in both blocks;
-     the Transport Copter pair is documented below. Green/Yellow cargo and
-     field reuse remain unverified. ROM Load/Drop routines now
+     a four-player replay also verifies Green/Yellow APC load/drop after changing
+     the CPU control bytes to human. Passenger-slot reuse after carrier
+     destruction remains unverified. ROM Load/Drop routines now
      establish status bit 3 as embarked passenger and bit 4 as carrier with
      cargo in those paths.
      Load fills +7 then +8; dropping the first passenger compacts +8 into +7,
@@ -357,8 +358,8 @@
      confirms +7 global passenger reference and clearing the cargo/embarked
      flags on unload for one Red Copter carrying a Mech. The user confirms
      APCs and Transport Copters carry one Infantry or Mech each, and Landers
-     carry two land units. Cargo behavior in Green/Yellow army blocks remains
-     unverified.
+     carry two land units. Green/Yellow transport types beyond the sampled APC
+     and unmodified CPU cargo behavior remain unverified.
    - Supply progress: [[file:AW2-MAP-RESEARCH.org::*Finding: APC supply and paired unit fuel/ammo changes][APC supply pair]] matches the
      selected APC's HUD fuel to record byte +6 and shows three other records
      rise to 99. The user confirms APCs refill fuel and ammo for every unit
@@ -410,24 +411,24 @@
      halfword at +4. Exact HUD rounding for every health value remains open. See
      [[file:AW2-MAP-RESEARCH.org::*Finding: unit type, owner block, coordinates, and health fields][the unit field evidence]].
    - [X] Decode fuel, ammo, and action status.
-     Fuel is byte +6 bits 0..6; the HUD reader masks away its unassigned bit 7.
+     Fuel is byte +6 bits 0..6; the HUD reader masks away bit 7, which Join
+     propagates in an injected-flag replay but whose gameplay meaning is unknown.
      Ammo is halfword +4 bits 7..10. Action byte +1 bit 0 is used-this-turn;
      bits 1/2 control visible/logical lookup handling, and bits 3/4 mark an
      embarked passenger/carrier with cargo in the Load/Drop paths. These flag
      meanings do not alone establish command readiness. See the status-bit
      trace above; no complete typed unit decoder is introduced here.
    - [ ] Investigate cargo relationships and special status; expose only verified values.
-     Sampled APC, Lander, and Transport Copter cargo links are documented,
-     including Red/Blue block references. Remaining cargo coverage is
-     Green/Yellow blocks, destruction, and slot reuse. Status bit 5's renderer
-     effect is known but its gameplay meaning remains unresolved; bits 6/7 and
-     fuel bit 7 remain unassigned. The runtime two-passenger drop and owner-turn
-     reset are documented below.
-     Six additional checkpoints contained no transports or cargo changes.
-     ROM tracing shows status bit 5 feeds map-unit tile selection, but its
-     gameplay meaning and writer remain unknown; bits 6/7, fuel byte bit 7,
-     and other special fields also lack verified meanings. See the higher-bit
-     audit in the map research file.
+     Sampled APC, Lander, and Transport Copter cargo links are documented.
+     APC load/drop now covers all four blocks, with human-control edits for
+     Green/Yellow. ROM removal recursively processes both cargo links, and a
+     purchase sequence preserves occupied passenger slots. Runtime reuse of a
+     destroyed passenger's slot remains open.
+     Sub Dive/Rise sets/clears status bit 5. Injected-flag combat shows bits
+     6/7 affect an army marker at removal; natural setters and downstream
+     outcomes remain open. Fuel byte bit 7 propagates through Join in a
+     synthetic replay, but its natural source and meaning are unknown. See
+     the higher-bit audit in the map research file.
    - [X] Verify movement, damage, destruction, purchasing, and relevant status changes.
      Controlled snapshots verify coordinate changes on movement, health/ammo
      changes in combat, record removal on destruction, and slot reuse on
