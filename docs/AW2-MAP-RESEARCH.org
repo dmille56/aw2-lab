@@ -1808,8 +1808,10 @@ binary artifacts remain external to the repository.
   =(10,2)= while the Lander was at =(8,4)=. This confirms two simultaneous
   passenger references and shows that the second reference uses byte +8.
   The supplied record has both links occupied; the user confirms this is the
-  Lander's two-unit capacity. The snapshots do not establish which byte is
-  filled first during loading or the order used when dropping both passengers.
+  Lander's two-unit capacity. The later
+  [[*Finding: two-passenger Lander sequential drops][sequential-drop comparison]]
+  establishes +7-then-+8 loading and observes both passengers being dropped
+  in that order for the tested sequence.
 - The action/status byte changes with cargo state in these checkpoints. In
   the loaded APC pair, the carrier has byte +1 =0x11= and its passenger has
   =0x0B=. The loaded Lander with two passengers has the same
@@ -1821,8 +1823,9 @@ binary artifacts remain external to the repository.
   global unit-index representation established in
   [[file:AW2-STATE-VALIDATION.org::*Units and cargo][the later cargo validation]]. Resolve links as =UNIT_BASE + 12*reference=;
   the reference already includes the army block. The Load/Drop trace also
-  establishes link insertion and compaction, while default UI drop order and
-  other uses of these fields in unsupported transports remain unverified.
+  establishes link insertion and compaction. The later runtime sequence
+  verifies the two drops and the observed UI order; other transports remain
+  unverified.
 
 *** Reproduction and evidence
 Source states, full EWRAM/IWRAM dumps, and screenshots are external at
@@ -1832,8 +1835,6 @@ contains the relevant APC/Lander/passenger records and screenshot hashes. Its
 SHA-256 is =e63109b4b0637871d0a805ad9c6177cd825be99a65dbaa72abeee5a51c4ed33f=.
 
 *** Remaining questions
-- A runtime sequence dropping both Lander passengers separately can check the
-  statically established insertion/compaction rules and the UI's drop order.
 - Confirm whether the same +7/+8 references apply to other transport types and
   army blocks; test what happens to the links if a passenger is destroyed or
   its slot is reused.
@@ -1857,8 +1858,9 @@ SHA-256 is =e63109b4b0637871d0a805ad9c6177cd825be99a65dbaa72abeee5a51c4ed33f=.
   empty. Thus the second passenger link is represented at +8 in this sample.
 - The user identifies this as the Lander's maximum capacity of two; APC
   capacity is one. The snapshots verify two occupied Lander references but do
-  not show the intermediate one-passenger state, the order in which fields
-  are filled, or the order in which passengers are dropped.
+  not show the intermediate one-passenger state; the later
+  [[*Finding: two-passenger Lander sequential drops][sequential-drop finding]]
+  adds that runtime coverage.
 
 *** Reproduction and evidence
 The five source states, full RAM dumps, and screenshots are external at
@@ -1867,6 +1869,45 @@ ROM/build/patch fingerprints. =two-passenger-focused.json= contains the
 Lander and passenger records for the before/loaded checkpoints and screenshot
 hashes. Its SHA-256 is
 =b5fff66d772a353898d06a67ade1db51d087cc4cf2926be8a625f71b7415c873=.
+
+** Finding: two-passenger Lander sequential drops
+
+*** Claim and scope
+- Date: 2026-10-26. Six user checkpoints on the supported US ROM show a
+  Lander loading two passengers and dropping them separately. The frames are
+  =4384= (one passenger aboard), =4620= (two aboard), =4849= (Drop menu with
+  both aboard), =5027= (first passenger dropped), =5150= (same one-passenger
+  state after the menu closes), and =5256= (both passengers unloaded).
+- In the full state at frame =4849=, Lander global reference 1 has status
+  =0x16=, +7 =3, and +8 =4. The Recon at ref 3 and APC at ref 4 both have
+  embarked status =0x0B=. After the first drop (frame =5027=), ref 3 is at
+  =(7,3)= with status =0x01=; the Lander has +7 =4, +8 =0, and still has
+  carrier bit 4 set; ref 4 remains embarked with status =0x0B=. This confirms
+  runtime compaction of the second link into +7.
+- Replaying the remaining Drop from the frame-5027 checkpoint took two A
+  presses separated by 20 neutral frames. The resulting full 256-record unit
+  table matches the frame-5256 checkpoint byte for byte. In both, the Lander's
+  two link bytes are zero and its status is =0x01=; refs 3 and 4 are no longer
+  embarked and each has status =0x01=. The APC at ref 4 is at =(8,4)=. Thus
+  the second drop clears the last link and carrier bit 4, and both drops can
+  be completed during this activation. In this observed order, ref 3 from +7
+  drops first and ref 4, compacted from +8 to +7, drops second.
+- This is runtime evidence for one Red Lander sequence; it does not generalize
+  link encoding to other transport types or establish passenger behavior over
+  an owner-turn reset.
+
+*** Reproduction and evidence
+The six original states, EWRAM/IWRAM captures, and screenshots are external
+at =/tmp/aw2-lander-drop-research/=. =manifest.json= records every source
+save-state hash before and after restoration, ROM fingerprint, frame, RAM
+hashes, and screenshot captures. The controlled replay uses
+=aw2_lander_second_drop_verify.py=; its captured EWRAM is
+=replayed-second-drop-ewram.bin=. The full unit-table equality assertion was
+checked against the saved frame-5256 state. Source save states remained
+unchanged. Replay script SHA-256 is
+=53ab9eee9a79b7702220db10454a60a52e14ceaff6213ee440828d9ba11612c8=;
+=sequence-report.json= SHA-256 is
+=4b3b489fecf9dbe801d7a7ce1273e67bd46df107087774cafe8ecda35ec1bfc7=.
 
 ** Finding: APC supply and paired unit fuel/ammo changes
 
@@ -2220,7 +2261,34 @@ with the pinned US ROM and inspecting its recorded frame and screenshot.
 Bits 1/2 describe map lookup handling, not independent acted/ready flags or
 FoW visibility. Future decoding should preserve their mechanical meanings;
 command readiness still requires the lifecycle/UI context. Bits 5..7 and
-other special unit fields remain unassigned.
+other special unit fields still lack semantic assignments; bit 5's renderer
+use is bounded below.
+
+*** Higher status bits and six latest checkpoint audit
+- Six additional user checkpoints were restored on 2026-10-26 at frames
+  =492094, 492514, 492674, 492940, 493216, and 493316=. Each has dimensions
+  =16x15= and exactly eight active records: Infantry at global references
+  =1..4= and =65..68=. These records are byte-identical across all six
+  checkpoints, every status byte is =0x00=, and all carrier/passenger bytes
+  at +7/+8 are zero. They provide no cargo transition or nonzero high-status
+  sample. Source and RAM hashes are recorded in external
+  =/tmp/aw2-new-cargo-research/manifest.json= and
+  =unit-summary.json=; screenshots are saved alongside them. The original
+  save-state files were unchanged by restoration.
+- Static trace of =sub_08022428= reads status byte +1. It uses bit 5 as an
+  input to =sub_0802216C=; in the ordinary map-unit tile path, that input
+  selects tile offset =+0x78= instead of the generated tile offset. This
+  establishes that bit 5 affects unit rendering, but not what gameplay
+  condition sets it or what semantic name it should have. The same routine
+  masks bits 6/7 (=0xC0=) and passes that value to the tile helper; the traced
+  path does not establish a distinct gameplay meaning for either bit. Bits
+  5..7 were all zero in the 21 prior Wait/APC/Lander captures and these six
+  added checkpoints.
+- These findings do not change the supported cargo interpretation. The
+  six new captures are battle snapshots without transport units; runtime
+  coverage of other transport types and an embarked unit across owner-turn
+  reset remains open; sequential two-passenger Lander drops are documented
+  below.
 
 *** ROM readers and writers
 - =sub_080258CC= builds a logical lookup at =MAP_BASE+0x051A= and a visible
@@ -2252,8 +2320,9 @@ other special unit fields remain unassigned.
   0 while +8 remains occupied, =0x08042954..0x08042966= shifts +8 into +7
   and clears +8. At =0x0804296C..0x08042978= it clears carrier bit 4 if +7
   is now empty. This establishes insertion/compaction statically; a runtime
-  two-drop sequence and the default UI choice order remain additional
-  coverage.
+  two-drop sequence confirms compaction and clearing the final link. In the
+  observed UI sequence, passenger ref 3 from +7 drops before ref 4 from +8;
+  other transports remain unverified. See the sequential-drop finding.
 - Turn reset =sub_08025EA0= checks bit 3 before clearing bit 0. Its skip
   now has a concrete cargo context: an embarked passenger retains its acted
   flag. This rule is established statically; an owning-turn checkpoint pair

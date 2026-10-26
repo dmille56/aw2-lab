@@ -345,10 +345,13 @@
      reuse remain unverified. ROM Load/Drop routines now establish status bit
      3 as embarked passenger and bit 4 as carrier with cargo in those paths.
      Load fills +7 then +8; dropping the first passenger compacts +8 into +7,
-     and bit 4 clears when no cargo remains. These are global unit references,
+     and bit 4 clears when no cargo remains. A runtime two-drop sequence
+     confirms compaction, clearing the last link, and both passengers becoming
+     acted. See the [[file:AW2-MAP-RESEARCH.org::*Finding: two-passenger Lander sequential drops][sequential-drop evidence]]. These are global unit references,
      as established by the later red/blue cargo validation; the early red
      slot-plus-one interpretation is only the army-zero special case. A
-     runtime two-drop sequence and default UI drop ordering remain unverified.
+     passenger across its owner's turn reset and other transport types remain
+     unverified.
    - Supply progress: [[file:AW2-MAP-RESEARCH.org::*Finding: APC supply and paired unit fuel/ammo changes][APC supply pair]] matches the
      selected APC's HUD fuel to record byte +6 and shows three other records
      rise to 99. The user confirms APCs refill fuel and ammo for every unit
@@ -405,10 +408,14 @@
      meanings do not alone establish command readiness. See the status-bit
      trace above; no complete typed unit decoder is introduced here.
    - [ ] Investigate cargo relationships and special status; expose only verified values.
-     Remaining coverage includes other transports, a runtime two-passenger
-     drop sequence, and an embarked passenger across its owning-turn reset.
-     Action bits 5..7, fuel byte bit 7, and other special fields remain
-     unassigned.
+     Remaining coverage includes other transports and an embarked passenger
+     across its owning-turn reset; the runtime two-passenger Lander drop is
+     documented below.
+     Six additional checkpoints contained no transports or cargo changes.
+     ROM tracing shows status bit 5 feeds map-unit tile selection, but its
+     gameplay meaning and writer remain unknown; bits 6/7, fuel byte bit 7,
+     and other special fields also lack verified meanings. See the higher-bit
+     audit in the map research file.
    - [X] Verify movement, damage, destruction, purchasing, and relevant status changes.
      Controlled snapshots verify coordinate changes on movement, health/ammo
      changes in combat, record removal on destruction, and slot reuse on
