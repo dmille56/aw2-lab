@@ -134,17 +134,28 @@ pointer is converted to a host pointer. The stale current-unit pointer at
   100 -> 99 and ammo 9 -> 8. Independent Battle Copter state has ammo 6 in
   both the record and HUD. These examples verify the fields, not every
   internal-to-HUD health rounding case. See [[file:AW2-MAP-RESEARCH.org::*Finding: Tank firing and HUD ammunition comparison][the firing comparison]].
-- Byte +6 is fuel in the tested contexts: APC values =26= and =68= match the
-  selected-unit HUD, and one controlled APC move reduces it from =68= to =67=.
+- Byte +6 bits 0..6 are fuel in the tested contexts: APC values =26= and =68=
+  match the selected-unit HUD, and one controlled APC move reduces it from
+  =68= to =67=.
   The supply comparison shows nearby units' byte +6 values rise, but does not
-  establish all unit-specific limits or supply rules.
+  establish all unit-specific limits or supply rules. The ROM HUD reader at
+  =0x0802AEA2..0x0802AEAA= masks away bit 7; that bit remains unassigned.
 - Byte +1 bit 0 is the used-this-turn flag in verified contexts. ROM action
   completion sets it, the unit-selection scan skips records with it set, and
   the turn-start reset clears it unless bit 3 is set. A controlled Wait
   comparison follows =0 -> 6= in the Wait menu, =1= after Wait resolves, and
   =0= at that army's next turn. ROM code ORs =0x06= into byte +1 in transient
-  action UI paths; the meanings of bits 1 and 2 and the bit-3 reset exception
-  remain unresolved. See [[file:AW2-MAP-RESEARCH.org::*Finding: Wait status and start-of-turn upkeep][the Wait and upkeep comparison]]. Byte +5's upper five bits store
+  action UI paths. The lookup builder excludes bit-1 units from the visible
+  lookup; bit 2 retains their logical occupancy and permits replacement of
+  that temporary entry by another unit. The Load/Drop writers establish bit 3
+  as embarked passenger and bit 4 as carrier with cargo in those paths. Load
+  sets both flags on the corresponding records; Drop clears passenger bits
+  3/1 and clears carrier bit 4 when its cargo list is empty. Thus the turn
+  reset exception preserves an embarked passenger's acted flag. Reconstructed
+  logical lookups match all 21 archived Wait/cargo gameplay captures. See
+  [[file:AW2-MAP-RESEARCH.org::*Finding: unit status bits in map lookup and cargo routines][the status-bit trace]] and
+  [[file:AW2-MAP-RESEARCH.org::*Finding: Wait status and start-of-turn upkeep][the Wait and upkeep comparison]]. Action bits 5..7 remain unassigned, and no
+  flag alone establishes command readiness. Byte +5's upper five bits store
   capture progress in verified capture contexts; its low three bits carry
   ammo bits 8..10 of the packed halfword at +4. The controlled APC supply pair
   shows a Md Tank's ammo rising =2 -> 6= in these bits while fuel rises

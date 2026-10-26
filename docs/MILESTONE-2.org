@@ -340,9 +340,15 @@
      blocks and unusual allocator states remain untested.
    - Cargo progress: [[file:AW2-MAP-RESEARCH.org::*Finding: APC and Lander cargo relationships][APC/Lander snapshots]] support a one-based passenger slot reference in
      byte +7 for one red APC and one red Lander, including Lander unload/link
-     clearing. A two-passenger Lander snapshot supports a second one-based
-     reference at byte +8. Loading and drop order, other armies, and field
-     reuse remain unverified.
+     clearing. A two-passenger Lander snapshot supports a second reference
+     at byte +8. Other transport types, armies beyond red/blue, and field
+     reuse remain unverified. ROM Load/Drop routines now establish status bit
+     3 as embarked passenger and bit 4 as carrier with cargo in those paths.
+     Load fills +7 then +8; dropping the first passenger compacts +8 into +7,
+     and bit 4 clears when no cargo remains. These are global unit references,
+     as established by the later red/blue cargo validation; the early red
+     slot-plus-one interpretation is only the army-zero special case. A
+     runtime two-drop sequence and default UI drop ordering remain unverified.
    - Supply progress: [[file:AW2-MAP-RESEARCH.org::*Finding: APC supply and paired unit fuel/ammo changes][APC supply pair]] matches the
      selected APC's HUD fuel to record byte +6 and shows three other records
      rise to 99. The user confirms APCs refill fuel and ammo for every unit
@@ -364,8 +370,13 @@
      Byte +1 bit 0 is verified as used-this-turn: ROM sets it after actions,
      the unit-selection scan skips it, and the next-turn reset clears it. The
      controlled Wait sequence shows 0 -> 6 in the menu, 1 after Wait resolves,
-     and 0 at the next turn; meanings of bits 1 and 2 and the bit-3 reset
-     exception remain open. See
+     and 0 at the next turn. The ROM lookup builder now establishes bit 1 as
+     visible-lookup suppression and bit 2 as temporary logical occupancy while
+     suppressed. Selection sets both; action-process cleanup clears both.
+     Bit 3 is set on Load and cleared on Drop, explaining the owning-turn
+     exception for embarked passengers. All 21 archived Wait/cargo logical
+     lookups match reconstruction from those ROM rules. See
+     [[file:AW2-MAP-RESEARCH.org::*Finding: unit status bits in map lookup and cargo routines][the status-bit trace]] and
      [[file:AW2-MAP-RESEARCH.org::*Finding: Wait status and start-of-turn upkeep][the Wait/upkeep comparison]]. Wait does not consume ammo, as user-confirmed.
      The canonical ammo bits and ROM HUD/combat/refill paths are documented in
      [[file:AW2-MAP-RESEARCH.org::*Finding: Tank firing and HUD ammunition comparison][the Tank firing comparison]].
@@ -386,9 +397,25 @@
      support these interpretations. Ammo occupies bits 7..10 of the same
      halfword at +4. Exact HUD rounding for every health value remains open. See
      [[file:AW2-MAP-RESEARCH.org::*Finding: unit type, owner block, coordinates, and health fields][the unit field evidence]].
-   - [ ] Decode fuel, ammo, and action status.
+   - [X] Decode fuel, ammo, and action status.
+     Fuel is byte +6 bits 0..6; the HUD reader masks away its unassigned bit 7.
+     Ammo is halfword +4 bits 7..10. Action byte +1 bit 0 is used-this-turn;
+     bits 1/2 control visible/logical lookup handling, and bits 3/4 mark an
+     embarked passenger/carrier with cargo in the Load/Drop paths. These flag
+     meanings do not alone establish command readiness. See the status-bit
+     trace above; no complete typed unit decoder is introduced here.
    - [ ] Investigate cargo relationships and special status; expose only verified values.
-   - [ ] Verify movement, damage, destruction, purchasing, and relevant status changes.
+     Remaining coverage includes other transports, a runtime two-passenger
+     drop sequence, and an embarked passenger across its owning-turn reset.
+     Action bits 5..7, fuel byte bit 7, and other special fields remain
+     unassigned.
+   - [X] Verify movement, damage, destruction, purchasing, and relevant status changes.
+     Controlled snapshots verify coordinate changes on movement, health/ammo
+     changes in combat, record removal on destruction, and slot reuse on
+     purchase. Wait and attack comparisons confirm the used-this-turn flag;
+     loaded/unloaded carrier and passenger records plus ROM writers confirm
+     the cargo flags. See the linked movement, firing, Wait, cargo, and
+     destruction/purchase findings above.
 
 ** TODO Define stable unit identity bookkeeping
    - [ ] Preserve unit identity across movement.

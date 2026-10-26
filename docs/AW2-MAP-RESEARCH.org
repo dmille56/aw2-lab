@@ -1579,12 +1579,13 @@ ROM/map agreement, all property entries, cursor positions, and turn/funds sample
   Fire/Wait menu and forecast, then =0x01= in the settled combat result. ROM
   tracing and the controlled Wait pair now show that bit 0 is set after action
   completion; the value =0x06= is a transient action-processing value, not a
-  settled acted/ready flag. Bits 1 and 2 remain unnamed. Byte +5 is
+  settled acted/ready flag. Bits 1 and 2 control display suppression and
+  temporary logical occupancy; see [[*Finding: unit status bits in map lookup and cargo routines][the status-bit trace]]. Byte +5 is
   zero for this Infantry and does not test ammunition consumption.
 - The controlled Wait and next-turn comparison is documented in
   [[*Finding: Wait status and start-of-turn upkeep][the Wait/upkeep finding]].
-  It resolves byte +1 bit 0 as used-this-turn and records the unresolved
-  transient bits separately.
+  It resolves byte +1 bit 0 as used-this-turn. The later status-bit trace
+  resolves the two transient bits through the map lookup builder.
 
 *** Reproduction and evidence
 The seven source states, full EWRAM/IWRAM dumps, and screenshots are external
@@ -1743,9 +1744,14 @@ For active record index =i=, its address is =UNIT_BASE + 12*i=, where
 | Bytes +2, +3 | Two =u8= values | Zero-based X, Y | The controlled APC record =0x02022804= changes =(7,5)= to =(7,4)= on a screenshot-confirmed one-tile move; stationary records retain coordinates. |
 | Byte +4, bits 0..6 | =u8 & 0x7F= | Internal health, observed range 1..100 | Combat changes track damage; raw =0x25= (37) matches a displayed 4-HP Infantry. Full health can be =0x64= or =0xE4=, with the high bit set in the latter. |
 | Halfword +4, bits 7..10 | =(LE16(record+4) >> 7) & 0x0F= | Current ammo count | Matched Tank 9 -> 8 after firing; independent Battle Copter record contains 6, matching its HUD. ROM HUD reader and combat/refill writers read and update these bits directly. |
+| Byte +6, bits 0..6 | =u8 & 0x7F= | Current fuel count | APC/Bomber HUD and movement/upkeep comparisons; the ROM HUD reader masks away bit 7. That high bit has a separate, unassigned meaning. |
 
-Byte +1 is associated with movement/action UI but its bit meanings remain
-unknown. Byte +5 bits 3..7 store capture progress in verified capture
+Byte +1 bit 0 is the used-this-turn flag. Bits 1 and 2 control exclusion from
+the visible-unit lookup and retention in the logical-unit lookup during action
+processing. Load and Drop writers establish bit 3 as embarked passenger and
+bit 4 as carrier with cargo in those paths. See
+[[*Finding: unit status bits in map lookup and cargo routines][the status-bit trace]] for the exact masks and scope.
+Byte +5 bits 3..7 store capture progress in verified capture
 contexts. Its bits 0..2, together with byte +4 bit 7, form the four-bit ammo
 field in halfword +4. Fuel at +6 and transport references at +7/+8 are covered
 in their own findings. The evidence does not establish the exact rounding
@@ -1804,11 +1810,19 @@ binary artifacts remain external to the repository.
   The supplied record has both links occupied; the user confirms this is the
   Lander's two-unit capacity. The snapshots do not establish which byte is
   filled first during loading or the order used when dropping both passengers.
-- Other action/status bytes change during these sequences, but their meanings
-  remain unresolved. The one-based slot reference is verified only for these
-  red army records. The data does not establish multi-passenger ordering,
-  linkage for other armies, or whether the same field has other uses for
-  non-transport units.
+- The action/status byte changes with cargo state in these checkpoints. In
+  the loaded APC pair, the carrier has byte +1 =0x11= and its passenger has
+  =0x0B=. The loaded Lander with two passengers has the same
+  carrier/passenger values. After the observed Lander drop, the carrier and
+  passenger each have byte +1 =0x01=. Thus bit 4 on the carrier and bit 3 on
+  passengers correlate with cargo being loaded in these samples. The later
+  [[*Finding: unit status bits in map lookup and cargo routines][ROM Load/Drop trace]] confirms the corresponding bit setters and clearers.
+- These original red-army reference observations are a special case of the
+  global unit-index representation established in
+  [[file:AW2-STATE-VALIDATION.org::*Units and cargo][the later cargo validation]]. Resolve links as =UNIT_BASE + 12*reference=;
+  the reference already includes the army block. The Load/Drop trace also
+  establishes link insertion and compaction, while default UI drop order and
+  other uses of these fields in unsupported transports remain unverified.
 
 *** Reproduction and evidence
 Source states, full EWRAM/IWRAM dumps, and screenshots are external at
@@ -1818,13 +1832,15 @@ contains the relevant APC/Lander/passenger records and screenshot hashes. Its
 SHA-256 is =e63109b4b0637871d0a805ad9c6177cd825be99a65dbaa72abeee5a51c4ed33f=.
 
 *** Remaining questions
-- Capture an intermediate one-passenger state while loading a Lander, then
-  unload both passengers separately to verify link insertion and drop order.
+- A runtime sequence dropping both Lander passengers separately can check the
+  statically established insertion/compaction rules and the UI's drop order.
 - Confirm whether the same +7/+8 references apply to other transport types and
   army blocks; test what happens to the links if a passenger is destroyed or
   its slot is reused.
-- Confirm action/status-byte meanings and the passenger's stored coordinates
-  across movement, unloading, and checkpoint restoration.
+- Bits 0..4 now have the scoped interpretation in the status-bit trace.
+  Additional transport types and a loaded passenger across its owner's next
+  turn remain useful runtime coverage. Passenger coordinates need not follow
+  the carrier during movement; see the later cargo validation.
 
 ** Finding: two-passenger Lander slot references
 
@@ -2007,8 +2023,8 @@ above identify the exact checkpoints used.
 - Byte +1 bit 0 is now verified as the used-this-turn flag through the
   controlled Wait and next-turn pair and ROM readers/writers. The archived
   Fire/Wait-to-result pair still is not a controlled same-unit Wait-versus-Fire
-  branch. Bits 1 and 2 and the bit-3 reset exception remain open; do not assign
-  meanings based only on transient value =0x06=.
+  branch. The later status-bit trace identifies bits 1/2 through the map
+  lookup builder and bit 3 through the Load/Drop writers.
 - Ammo storage is confirmed in the unit record: =LE16(record + 4) bits 7..10=.
   The HUD reader at ROM =0x0802AEB4..0x0802AEE2= checks the type's maximum-ammo
   entry and extracts these bits before drawing the number. Combat code at
@@ -2076,7 +2092,8 @@ above identify the exact checkpoints used.
   =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
 - The action byte is context-sensitive: =0x06= appears in action/forecast
   states and =0x01= after combat. The controlled Wait pair and ROM trace
-  identify bit 0 as used-this-turn; bits 1 and 2 remain unresolved. The user
+  identify bit 0 as used-this-turn; the later status-bit trace identifies
+  bits 1/2 through their map lookup behavior. The user
   confirms Wait does not consume ammo, so it cannot resolve ammunition fields.
   See [[*Finding: Wait status and start-of-turn upkeep][the Wait/upkeep finding]].
 
@@ -2132,9 +2149,12 @@ The ROM SHA-256 is
   flag. The unit-selection scan in =sub_080254AC= skips active records with
   bit 0 set. Turn-start routine =sub_08025EA0= clears bit 0 with mask
   =0xFE= for active records unless bit 3 is set, matching =1 -> 0= at the
-  owning army's next turn. Bit 3's exception and the meanings of bits 1 and 2
-  are not resolved; OR-ing =0x06= proves the transient bits are set, not what
-  each represents. Disassembly is from the supported US ROM with SHA-256
+  owning army's next turn. Loaded APC/Lander records show bit 3 on passengers
+  and bit 4 on carriers, with these bits absent after the observed Lander
+  drop. The later Load/Drop trace confirms that bit 3 is set on embarking
+  and cleared on disembarking. The lookup builder and action-process cleanup
+  establish the separate roles of bits 1 and 2; see the status-bit trace below.
+  Disassembly is from the supported US ROM with SHA-256
   =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
 
 *** Reproduction and evidence
@@ -2165,10 +2185,110 @@ with the pinned US ROM and inspecting its recorded frame and screenshot.
 - Check fuel consumption across additional air and sea unit types, low-fuel
   cases, and units on allied properties; the five-point observation here is
   limited to Bombers.
-- Trace the exceptional bit-3 path and identify bits 1 and 2 separately if a
-  decoder needs them. Byte +1 bit 0 is supported as the used-this-turn flag;
-  value =0x06= remains a transient action-processing value, not the settled
-  acted flag.
+- The status-bit trace below resolves bits 1..4 in the observed action/cargo
+  paths. A runtime owning-turn reset with a passenger still embarked would
+  further check the statically established bit-3 reset exception.
+
+** Finding: unit status bits in map lookup and cargo routines
+
+*** Claim and scope
+- Date: 2026-10-26. Original-ROM readers and writers resolve byte +1 bits
+  0..4 for the supported US ROM. Offline comparison of 21 archived gameplay
+  RAM captures covers nine Wait/upkeep states, eight APC/Lander states, and
+  four two-passenger scenario states. These reuse the original coherent RAM
+  captures and screenshots; they are not new emulator replays. Menu-only
+  captures without battle dimensions were excluded.
+- All 21 logical-unit lookup arrays match an independent reconstruction of
+  =sub_080258CC='s flag and collision rules, byte for byte. Selected units
+  with status =0x06= remain in the logical lookup and are absent from the
+  visible-unit lookup. Embarked passengers with =0x0B= are absent from both,
+  including the Blue passenger at global reference 66 in the two-passenger
+  scenario. The full records remain occupied in the unit pool.
+- Across the same 21 captures, every bit-3 record is a linked APC/Lander
+  passenger, and all linked passengers have bit 3 set. Every sampled APC or
+  Lander has bit 4 set exactly when its cargo links are nonempty. The report
+  records no cargo-flag disagreements.
+
+| Byte +1 bit | Mask | Established behavior |
+|-------------+------+----------------------|
+| 0 | =0x01= | Used this turn. Action completion sets it; unit cycling skips it; owning-turn reset clears it unless bit 3 is set. |
+| 1 | =0x02= | Suppress the unit from the normal visible-unit lookup at =MAP_BASE+0x12=. Also suppress it from logical occupancy unless bit 2 overrides that exclusion. |
+| 2 | =0x04= | Retain temporary logical occupancy while bit 1 is set. An existing logical entry with this bit set may be replaced by another unit at that coordinate. |
+| 3 | =0x08= | Embarked passenger in the Load/Drop paths: Load sets it and Drop clears it. Owning-turn reset preserves bit 0 while it is set. |
+| 4 | =0x10= | Carrier has cargo in the Load/Drop paths: Load sets it; Drop clears it when the compacted cargo list is empty. |
+
+Bits 1/2 describe map lookup handling, not independent acted/ready flags or
+FoW visibility. Future decoding should preserve their mechanical meanings;
+command readiness still requires the lifecycle/UI context. Bits 5..7 and
+other special unit fields remain unassigned.
+
+*** ROM readers and writers
+- =sub_080258CC= builds a logical lookup at =MAP_BASE+0x051A= and a visible
+  lookup at =MAP_BASE+0x12=, using global unit indices at row-offset plus X.
+  At =0x08025978..0x08025980= it skips a record when
+  =(status & 0x06) == 0x02=. Thus bit 1 without bit 2 excludes it from both
+  lookups; =0x06= retains logical occupancy. At
+  =0x080259AE..0x080259B6= an existing logical occupant is replaceable only
+  when that occupant has bit 2. At =0x080259C0..0x080259C8= any bit-1 unit
+  is excluded from the visible lookup. Subsequent FoW/control filtering can
+  also remove visible entries, so visible-table absence alone cannot identify
+  bit 1.
+- =sub_08025340= and =sub_08025378= respectively set and clear bit 1 for a
+  global unit reference. Selection/action helper =sub_08035584= sets both
+  bits 1/2 (=OR 0x06=) and associates the record with an action process.
+  Cleanup =sub_08035828= clears both bits (=AND 0xF9=) on that process's
+  unit record. =sub_080424FC= calls that cleanup before setting bit 0; if
+  bit 3 is still set, it then restores bit 1. This explains the settled
+  embarked value =0x0B= rather than treating =0x06= as an acted flag.
+- Load =sub_08042864= resolves the carrier from the destination lookup. It
+  fills carrier +7 if empty, otherwise +8, using the selected unit's global
+  reference. At =0x080428BE..0x080428CC= it sets passenger bit 3 and carrier
+  bit 4. The caller's action-completion path establishes used-this-turn and
+  the passenger's exclusion from the visible and logical lookups.
+- Drop =sub_080428F0= resolves passenger =carrier[7 + cargo_index]= against
+  the global unit pool. At =0x08042914..0x08042922= it clears passenger bits
+  3 and 1 (=AND 0xF7= then =AND 0xFD=), preserving bit 0. It writes the
+  adjacent drop coordinates and clears that cargo link. When dropping index
+  0 while +8 remains occupied, =0x08042954..0x08042966= shifts +8 into +7
+  and clears +8. At =0x0804296C..0x08042978= it clears carrier bit 4 if +7
+  is now empty. This establishes insertion/compaction statically; a runtime
+  two-drop sequence and the default UI choice order remain additional
+  coverage.
+- Turn reset =sub_08025EA0= checks bit 3 before clearing bit 0. Its skip
+  now has a concrete cargo context: an embarked passenger retains its acted
+  flag. This rule is established statically; an owning-turn checkpoint pair
+  with the same passenger still embarked would add direct runtime coverage.
+- Fuel is byte +6's low seven bits, not the entire byte. HUD code at
+  =0x0802AEA2..0x0802AEAA= extracts those bits before drawing fuel, and
+  fuel writers preserve bit 7. Existing observed fuel values all fit in seven
+  bits, so this refines the storage description without changing those
+  measurements. Byte +6 bit 7 remains unassigned.
+
+*** Checkpoint comparisons and reproduction
+The lookup results below name global unit indices, not per-army slot offsets.
+The Wait and cargo headings above identify the original source-state hashes.
+
+| Archive/state | Unit reference | Status | Logical lookup | Visible lookup |
+|---------------+----------------+--------+----------------+----------------|
+| Wait 1 | Bomber 2 at =(2,11)= | =0x00= | Present | Present |
+| Wait 2/3 | Same Bomber | =0x06= | Present at stored position | Absent |
+| Wait 4 | Same Bomber after Wait | =0x01= | Present | Present |
+| Wait 9 | Same Bomber at next Red turn | =0x00= | Present | Present |
+| Cargo 4 | APC 2 / Infantry 9 | =0x11 / 0x0B= | Carrier only | Carrier only |
+| Cargo 8 | Lander 7 / Infantry 8 | =0x16 / 0x0B= | Carrier only | Both absent during action UI |
+| Cargo 9 | Same Lander / dropped Infantry | =0x01 / 0x01= | Both at separate positions | Both at separate positions |
+| Two-cargo 5 | Lander 7 / passengers 20 and 13 | =0x11 / 0x0B / 0x0B= | Carrier only | Carrier only |
+
+Offline comparison script =/tmp/aw2-unit-status-research/analyze.py= records
+each input EWRAM hash, active record, lookup position, and full logical-grid
+comparison. Its SHA-256 is
+=81a645036c714a9e03dcda4cd6b31986f17c78256f51fb9d9a6a85cdd9f761a5=.
+Report =status-grid-comparison.json= has SHA-256
+=6aa01afdc536d4dc14f2b8ea161aeb45253d8c34efbc7f7195fa0a74d9cc1492=;
+all input hashes remain unchanged. Reproduce by running that script against
+the archived full-RAM captures named in the report and inspecting the listed
+original-ROM routines. The ROM SHA-256 is
+=ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
 
 * Finding: three-player routing outcome and army records
 
