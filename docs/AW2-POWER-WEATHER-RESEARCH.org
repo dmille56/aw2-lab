@@ -22,7 +22,8 @@ its own damage-value term plus half the opposing term, using whole-HP damage
 and a meter valuation coefficient from the ROM unit table. Static ROM values
 for the nonzero Kanbei, Hachi, and Colin adjustments are mapped; runtime
 verification now covers Kanbei's inactive +20% and Colin's inactive -20%, as
-well as Hachi's inactive, Power, and Super modifiers. Natural near-cap
+well as Hachi's inactive, Power, and Super modifiers. ROM analysis resolves
+fractional meter rounding for valid unit and CO values. Natural near-cap
 evidence, runtime high-counter activation, and weather
 mode/neighbor-byte meanings also remain open. These findings extend the
 documented decoding subset; a typed state decoder and state API remain
@@ -382,10 +383,24 @@ Copter checkpoint pairs confirm Kanbei's inactive +20% adjustment (+1,080 to
 Kanbei and +540 to Andy) and Colin's inactive -20% adjustment (+720 to Colin
 and +360 to Andy) for a one displayed-HP loss. Hachi's Super adjustment is
 also runtime-verified: a Battle Copter's one-HP term is adjusted to =450=,
-giving Andy the observed =225= half-share. Rounding at fractional
-meter values also remains open. The
-instrumented counter-0 replay below confirms the near-cap clamp for Andy and
+giving Andy the observed =225= half-share. The valid unit table and CO
+adjustments resolve the fractional-meter question below. The instrumented
+counter-0 replay below confirms the near-cap clamp for Andy and
 Sami; other caps and COs remain unverified.
+
+* Meter-term rounding
+
+The combat routine applies a CO adjustment to the unit's meter coefficient
+using integer division in =sub_08042C9C=. In the supported ROM, the 24 valid
+unit-type rows (=0x01..0x18=) have a zero or a multiple-of-100 coefficient at
+=0x085D5ABC + 0x5C*unit_type + 6=. The supported CO adjustments are 0, +20,
+-10, -20, and -50 percent, all multiples of 10 percent. Consequently every
+adjusted coefficient is an integer multiple of 10; multiplying by a whole-HP
+loss keeps each combat term a multiple of 10, and the opposing half-term is a
+multiple of 5. The integer divisions therefore discard no fractional raw
+meter units for valid unmodified game data. This resolves the earlier
+fractional-rounding question statically; a runtime checkpoint cannot exercise
+a fractional case without altered or invalid unit/CO table data.
 
 * Clear and Rain weather comparison
 
@@ -579,8 +594,9 @@ The evidence manifest fingerprints the retained RAM and screenshot samples.
   and +540 for Andy. A Colin Battle Copter sample verifies his inactive -20%
   adjustment with +720 meter for Colin and +360 for Andy. Hachi's Super
   adjustment now matches the ROM prediction: one Battle Copter HP yields a
-  +225 opponent half-share. Fractional meter rounding remains open. The cap
-  check used instrumented meter initialization; natural near-cap evidence is
+  +225 opponent half-share. Valid unit and CO table values cannot produce
+  fractional raw meter units (see Meter-term rounding above). The cap check
+  used instrumented meter initialization; natural near-cap evidence is
   still open.
 - Static ROM code defines counters 3..9 as 14,400..25,200 per star, counter
   10 and above as 18,000 per star, and saturates the use counter at 255.

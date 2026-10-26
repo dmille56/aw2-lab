@@ -293,10 +293,12 @@
      +540 for Andy. New Colin Battle Copter states verify his inactive -20%
      adjustment: a one displayed-HP loss yields +720 meter for Colin and +360
      for Andy. New Hachi Super states confirm the -50% adjustment: a one-HP
-     Battle Copter loss gives Andy the predicted +225 half-share. An earlier
-     attack checkpoint has CO byte 10, which
-     conflicts with the controlled roster mapping of Hachi to ID 15; do not
-     use it as Hachi evidence until its CO identity is reconciled. An
+     Battle Copter loss gives Andy the predicted +225 half-share. The ROM's
+     valid unit coefficients and CO adjustments make full meter terms
+     multiples of 10 and half-terms multiples of 5, resolving fractional
+     raw-unit rounding statically. An earlier attack checkpoint has CO byte
+     10, which conflicts with the controlled roster mapping of Hachi to ID 15;
+     do not use it as Hachi evidence until its CO identity is reconciled. An
      instrumented near-cap replay verifies
      clamping at Andy's and Sami's Super thresholds; natural near-cap evidence
      and later activation thresholds remain open. The Rules mode and adjacent
