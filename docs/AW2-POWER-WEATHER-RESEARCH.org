@@ -204,14 +204,39 @@ Power, and Super states are:
 | Hachi | 15 | -10 / -50 / -50 | 90 / 50 / 50 | 720 / 400 / 400 |
 | Colin | 16 | -20 / -20 / -20 | 80 / 80 / 80 | 640 / 640 / 640 |
 
-The same states identify Andy =1=, Sami =4=, and CO ID =10= as zero-adjustment
-rows. No runtime attack yet verifies a nonzero adjustment. The cleanest next
-check is a known-damage attack that damages a Hachi-owned unit while Hachi is
-inactive: six displayed HP lost by a Battle Copter should give Hachi
-=6*720=4,320= and the opposing CO =2,160= from the half share, assuming no
-counterfire damage. Repeating with a Power active predicts Hachi
-=6*400=2,400= and the opponent =1,200=, provided the attack still causes six
-displayed HP of damage.
+The same states identify Andy =1=, Sami =4=, and CO ID =10= as
+zero-adjustment rows. The Hachi checkpoints now verify the inactive adjustment
+in combat. In =aw2.ss1= -> =aw2.ss2=, both players' changing units are type
+=0x13=, whose base coefficient is =900=. Hachi's unit health byte +4 changes
+from =0x64= to =0x23= (100 -> 35, or 10 -> 4 displayed HP); Andy's changes
+from =0x64= to =0x49= (100 -> 73, or 10 -> 8 displayed HP). Hachi's meter
+rises 17,250 -> 23,010 (+5,760), while Andy's rises 34,500 -> 38,730
+(+4,230). With Hachi's inactive -10 adjustment, the terms are Hachi
+=6*810=4,860= and Andy =2*900=1,800=. The two gains are exactly
+=4,860 + floor(1,800/2)=5,760= and =1,800 + floor(4,860/2)=4,230=.
+This pair verifies the full/half formula and Hachi's inactive modifier despite
+both sides taking damage.
+
+A second comparison, =aw2.ss4= -> =aw2.ss6=, shows Hachi's type =0x13= unit
+at =0x020226A8= going from health =0x52= (82, or 9 displayed HP) to a cleared
+record. The opposing unit remains at 100 displayed HP. Hachi's meter rises
+18,060 -> 25,350 (+7,290); Andy's rises 34,905 -> 38,550 (+3,645). The
+predicted full term is =9*810=7,290= and the opponent gets its half. This
+independently matches the Hachi inactive adjustment. Both players have active
+Power =0= in these checkpoints. Unit type =0x13= is identified by its record
+byte; these comparisons do not identify its displayed unit name. Runtime
+verification of Hachi's Power/Super adjustment, the other nonzero CO rows, and
+the Battle Copter-specific coefficient remains open.
+
+The six supplied states restore as valid battle structures under the supported
+US ROM and pinned mGBA build. Full EWRAM/IWRAM dumps, screenshots, parsed unit
+records, and source-integrity results are external in
+=/tmp/aw2-hachi-meter-research/=. The four states used above have SHA-256:
+=aw2.ss1= =3800a67ee3b275104fe60a169af48da234bedc09dba590113ecc0960bb651bdb=;
+=aw2.ss2= =3771eaf83ba907d2c89430fc062ccb29fcb993f4bdeb9034e8f7a51d8917f44d=;
+=aw2.ss4= =b040d27d3e608a05e5986befb4e0cff06283cab80dfd1ffee099c690b5d7bf4=;
+=aw2.ss6= =ad17933441ebb758e1d2a572aa12cec2da4abdf65ef2c07964613582cfde3c2e=.
+Each source hash was unchanged after restoration.
 
 For the cap check, a temporary mGBA session restored the same forecast state
 and initialized Andy's and Sami's meter words in RAM to 53,900 and 71,500.
