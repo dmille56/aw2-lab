@@ -2414,13 +2414,17 @@ and full gameplay consequences of bits 6/7 remain unverified.
   status bits 6 or 7; the earlier claim that it masked/passed =0xC0= from the
   status byte was incorrect. Their removal-time behavior is documented below.
 - The same archive scan found fuel byte +6 bit 7 clear in all =11,827= active
-  records. The HUD reader at =0x0802AEA4..0x0802AEAA= extracts the low seven
-  bits. Identified arithmetic updates at =0x08025448=, =0x08025478=,
-  =0x08025BA0=, =0x08025BAA=, and =0x08029ACA= update low-seven-bit fuel while
-  preserving bit 7. Unit initialization/normalization at =0x08025BF6= and
-  =0x08025C12= clears or replaces the high bit. This distinguishes it from
-  numeric fuel, but does not reveal its purpose or a natural source. Join can
-  propagate it, as documented below.
+  records. The nine new Lander states add 51 active records and have no status
+  bit 6/7 or fuel bit 7 examples. The HUD reader at
+  =0x0802AEA4..0x0802AEAA= extracts the low seven bits. Movement/fuel arithmetic
+  at =0x08025448= and =0x08025478= updates the low-seven-bit count while
+  preserving bit 7 when fuel remains; the zero-fuel branch clears the whole
+  byte. =sub_08025B80= likewise preserves bit 7 while subtracting fuel, but
+  clears it if the cost exceeds available fuel. Replenishment at =0x08029ACA=
+  increments low-seven-bit fuel and preserves bit 7. Unit initialization at
+  =0x08025BF6= clears the high bit, and base-stat fuel copied at =0x08025C12=
+  is masked to seven bits. Join propagates an already-set bit, as documented
+  below; no natural setter was identified in these traced paths.
 - Audit and exact renderer disassembly are external at
   =/tmp/aw2-high-unit-bit-audit/=. =audit.json= records the ROM fingerprint,
   archive counts, nonzero high-status examples, cargo block pairs, and
@@ -2458,6 +2462,17 @@ and full gameplay consequences of bits 6/7 remain unverified.
   list pointers for map IDs =0..178= found =85= lists and =2,465= entries,
   all with source status zero. That bounds the scan; it does not identify
   other scenario scripts or rule out a natural setter.
+- A targeted audit of the unit-record writers found initialization clearing
+  byte +1, the verified action/cargo/Dive paths changing status bits 0..5,
+  and the starting-unit loader copying its source status byte. No natural
+  writer for bits 6/7 was identified. This is not a proof that no script or
+  less common path can set them. The nine new Lander states contain 51 active
+  records with status values =0x00=, =0x01=, =0x06=, =0x0B=, or =0x10=; none
+  has bits 6/7 or fuel bit 7 set. Their source hashes, frames, RAM hashes, and
+  focused scan are preserved in =/tmp/aw2-lander-destruction-20261026/=. The
+  additional scan report and its ROM trace summary are in
+  =/tmp/aw2-high-unit-bit-audit/status-fuel-followup.json= (SHA-256
+  =7fdb1a728957927c7534ea05ff814d4e8a9aeef572b5de81078aa29ce94607be=).
 
 *** Fuel high bit and Join
 - In =sub_08042998=, Join compares byte +6 bit 7 on both units and propagates
@@ -2466,8 +2481,12 @@ and full gameplay consequences of bits 6/7 remain unverified.
   destination fuel byte in two otherwise identical Join cases: with that byte
   =0x60=, the survivor ended at =0x63=; after injecting only bit 7 into
   that byte (=0xE0=), the survivor ended at =0xE3=. Both have numeric fuel 99.
-  This confirms propagation, but the bit's natural setter and gameplay meaning
-  remain unknown.
+  This confirms propagation, but Join is not a natural origin: it copies an
+  already-set bit. The traced fuel initialization masks the high bit, regular
+  fuel consumption and replenishment preserve it when nonzero fuel remains,
+  and depletion clears it. No natural setter or gameplay meaning has been
+  identified. The archived scan and nine new Lander states have no natural
+  set-bit example.
 - The isolated replay summaries and Thumb disassembly are preserved in the
   temporary research artifact =aw2-special-status-followup=. The SHA-256 of
   =flag-removal-probe.json= is

@@ -428,10 +428,13 @@
      purchases reuse both passenger slots. The inactive Lander may retain
      stale cargo references, which must not be followed once its type is zero.
      Sub Dive/Rise sets/clears status bit 5. Injected-flag combat shows bits
-     6/7 affect an army marker at removal; natural setters and downstream
-     outcomes remain open. Fuel byte bit 7 propagates through Join in a
-     synthetic replay, but its natural source and meaning are unknown. See
-     the higher-bit audit in the map research file.
+     6/7 affect an army marker at removal. The traced unit initialization and
+     ordinary status writers do not set them; scanned starting-unit entries
+     also have those bits clear. Their natural setters and downstream outcomes
+     remain open. Fuel byte bit 7 is cleared on initialization/depletion and
+     preserved during nonzero fuel arithmetic; Join only propagates an
+     existing bit. Its natural source and meaning remain unknown. See the
+     higher-bit audit in the map research file.
    - [X] Verify movement, damage, destruction, purchasing, and relevant status changes.
      Controlled snapshots verify coordinate changes on movement, health/ammo
      changes in combat, record removal on destruction, and slot reuse on
