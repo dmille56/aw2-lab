@@ -119,7 +119,9 @@
      automatically; there is no additional Ready confirmation. [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: Results, save-progress exit, and powers][Nine further states]]
      add 107 observations covering two-army results, power activation, the
      save-progress prompt, and return to menus with retained battle data.
-     General outcome/team rules and runtime classification remain unfinished.
+     Tested Versus phases are now classified and the supported live-data gate
+     is verified. Campaign event/dialogue flows, unknown process contexts,
+     and universal outcome/team rules remain unfinished.
      A new HQ-capture sequence follows the post-capture map through victory,
      winner quote, result summary, save prompt, and map selection; it also shows
      the defeated marker and battle callback pair can coexist before the
@@ -181,9 +183,18 @@
      menus, battle entry, transition, and player control; production headless
      SRAM autoload resumes the supplied Versus save through the regular
      launcher. See the lifecycle coverage note.
-   - [ ] Identify title screens, menus, battle states, and transitions.
-   - [ ] Establish when battle structures are valid to interpret.
-   - [ ] Identify battle completion and outcome when validated.
+   - [X] Identify title screens, menus, battle states, and transitions.
+     The supported Versus path recognizes startup/title/mode/map/setup, known
+     transitions, player/computer turns, combat, powers, and result phases.
+     Unrecognized and command-menu contexts remain blocked or unresolved.
+   - [X] Establish when battle structures are valid to interpret.
+     The supported subset is available only in a recognized human player turn
+     after geometry, property, player, and unit checks pass. See
+     [[file:AW2-STATE-VALIDATION.org][structure validation]].
+   - [X] Identify battle completion and outcome when validated.
+     Supplied HQ-capture and routing results identify victory/defeat and the
+     result flow; exact elimination timing and universal outcome rules remain
+     open. See [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: fresh final-unit elimination through results and map selection][the final-elimination trace]].
    - [X] Verify that non-battle and transitional memory is not interpreted as a valid battle.
 
 ** TODO Decode map and property state

@@ -160,10 +160,13 @@ Additional controls:
 - Victory/defeat, post-result prompts, and retained map/day/property data after
   returning to menus were missing from this initial run. The later result finding
   supplies those observations for the tested two-army paths.
-- Check Campaign, resumed battles, AI turns, combat, powers/dialogues, and more
-  menu/transition paths before generalizing these associations. Verify windowed
-  parity separately. The title timer can eventually enter other behavior; these
-  neutral controls cover only the first 60 frames after each source state.
+- Later coverage verifies the tested Versus resume paths, three CPU turns,
+  combat including disabled/skipped animations, regular/Super Power, save/yield
+  dialogues, and headless/windowed parity. These results narrow the open work:
+  Campaign event flows, other CO-specific and AI/combat variants, additional
+  setup/menu contexts, and universal outcome rules remain unverified. The title
+  timer can enter other behavior; the neutral startup controls cover only the
+  first 60 frames after each source state.
 
 ** Conservative runtime classifier
 The implementation is in =src/aw2_lab/lifecycle.py=. It accepts the two callback
@@ -190,17 +193,21 @@ words are ignored.
 - A simultaneous victory and defeat presentation signal is treated as
   conflicting evidence and classified =UNKNOWN=.
 - =BattleDecodeSafety.BLOCKED= means do not interpret data as a live active
-  battle; =UNKNOWN= means the classifier cannot establish safety. No observation
-  currently yields a positive safe-to-decode result. This is deliberate: a
-  per-field validity intervals and broader lifecycle coverage remain unfinished.
+  battle; =UNKNOWN= means the classifier cannot establish safety. The
+  classifier alone never authorizes decoding. The separate structure validator
+  permits the researched subset only when lifecycle classification identifies
+  a human player turn and geometry, properties, players, and units all pass.
+  This positive gate is verified only in the tested Versus contexts; Campaign
+  flows, additional busy states, and unrecognized contexts remain blocked or
+  unresolved.
 
 This is a conservative exclusion/classification aid, not a complete lifecycle
-decoder. Result and process associations are verified only in supplied paths;
-Campaign, resumed battles, AI turns beyond the tested path, combat, powers,
-dialogues, other map/setup flows, and windowed parity need more coverage.
-Preserve the distinction between phase classification and per-field validity:
-some battle data is initialized
-during entry and retained after results and menu return.
+decoder. The tested Versus resume, AI, combat, powers/dialogues, results, and
+windowed-parity paths are documented in [[file:AW2-LIFECYCLE-COVERAGE.org][lifecycle coverage]]. Campaign
+event flows, additional combat/CO variants, other setup/menu contexts, and
+universal outcome rules remain open. Preserve the distinction between phase
+classification and per-field validity: some battle data is initialized during
+entry and retained after results and menu return.
 The companion [[file:AW2-STATE-VALIDATION.org][structure validator]] now supplies separate bounded consistency
 checks and a live-field availability decision; the classifier alone still does
 not authorize decoding.
