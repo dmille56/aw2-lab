@@ -308,14 +308,18 @@
      ROM analysis maps counters 3..9 and saturates the use counter at 255;
      further runtime counter testing above 10 and at saturation is deferred
      per user request. Clear Rules settle with weather bytes
-     =[0,0,0,0]=; earlier Rain, Snow, and Random-labeled starts had mode =3=.
+     =[0,0,0,0]=; fixed Rain and Snow starts use mode =3= (the earlier
+     "Random" label was a Rain Rules checkpoint).
      New Random-weather checkpoints verify both Clear→Rain→Clear and
      Clear→Snow→Clear with mode =1=; =+0x2E= follows computed weather at the
      sampled boundaries while target =+0x2F= stays Clear. Timer and
-     per-player counter bytes were recorded across the turns. Reconcile the
-     differing mode =3= starts, map mode =2=, and identify the exact
-     target-selection rule and intermediate timer/counter behavior. The
-     weather questions keep this composite item unfinished. See
+     per-player counter bytes were recorded across the turns. ROM tracing
+     shows mode =2= holds current non-Clear weather and mode =3= allows a
+     target update after turn synchronization. The target is zero-initialized
+     and can be loaded from record data; no runtime target write has been
+     observed. Identify when setup chooses mode =2= and whether an event can
+     set a nonzero target during battle. The weather questions keep this
+     composite item unfinished. See
      [[file:AW2-POWER-WEATHER-RESEARCH.org::*Rules-screen weather choices and settled weather bytes][the weather resolver findings]].
    - [X] Verify player and turn changes against manually inspected game states.
      Before/after screenshots and validated full-RAM snapshots confirm the

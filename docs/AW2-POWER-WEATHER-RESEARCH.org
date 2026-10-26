@@ -7,7 +7,7 @@ Date: 2026-10-25. This study uses the checksum-verified US revision-0 ROM
 and pinned headless mGBA =fd9dc5c2cbf234365068855851107e762fc6211b=.
 The baseline study uses eleven coherent full-RAM snapshots to compare Andy
 and Max's retained activation traces, a newly executed Sami regular Power, and
-separate Clear/Random Rules branches. Follow-ups trace Olaf's Blizzard and
+separate Clear/Rain Rules branches. Follow-ups trace Olaf's Blizzard and
 Drake's Typhoon through their next-turn weather resets. All four supported
 structures validate in every sample. Command menus and power presentations
 remain unavailable for live decoding; settled player turns pass the existing
@@ -41,7 +41,7 @@ Select the supported ROM profile before following its layout literals.
 | =R(k)+0x20= | Meter charge | 32-bit LE; signed ROM comparisons | Nonnegative raw charge verified in these samples; negative values are not validated charge |
 | =R(k)+0x25= | Power-use scaling counter | =u8= | Increments before spending; transitions 0 to 1 and 1 to 2 verified |
 | =0x03003FEC= | Current weather | =u8= | 0 Clear, 1 Snow, and 2 Rain match controlled screenshots and power checkpoints |
-| =0x03003FED= | Weather rule/mode candidate | =u8= | 0 in the settled Clear Rules battle; 1 across a runtime Random-weather Clear→Rain→Clear cycle. Earlier settled Rain, Snow, and Random-labeled starts had value 3, so neither 1 nor 3 is assigned as a universal setup enum yet. Value 2 remains unmapped. |
+| =0x03003FED= | Weather transition mode | =u8= | 0 in the settled Clear Rules battle; 1 across runtime Random Clear→Rain→Clear and Clear→Snow→Clear cycles; 3 in fixed Rain and Snow Rules starts. Mode 2 holds current non-Clear weather in the resolver, but no setup use is identified. |
 
 Other neighboring fields are retained as raw observations:
 
@@ -52,7 +52,7 @@ Other neighboring fields are retained as raw observations:
   independent command-availability predicate.
 - =0x03003FEE= stores the weather resolver's computed result during turn
   updates; =0x03003FEF= is the target weather read by that resolver. The rule
-  that changes the target and the cached result's full lifetime are
+  that selects a nonzero target and the cached result's full lifetime are
   still unknown. See [[*Rules-screen weather choices and settled weather bytes][the weather resolver trace]].
 
 * Meter readers, thresholds, and spending
@@ -490,17 +490,17 @@ a fractional case without altered or invalid unit/CO table data.
 
 * Rules-screen weather choices and settled weather bytes
 
-The Clear and Random branches begin at the same retained Rules checkpoint,
+The Clear and Rain branches begin at the same retained Rules checkpoint,
 with only the Weather choice changed. The Clear branch is sampled at frame
-73552; the Random branch at frame 73559. Additional isolated replays confirm
+73552; the Rain branch at frame 73559. Additional isolated replays confirm
 the Rules-screen Rain and Snow choices at frames 73559 and 73566. Their source
 screenshots show the selected Weather label; the resulting battle screenshots
-show Rain or Snow respectively.
+show Rain or Snow respectively. The earlier branch described in the first
+report as Random was Rain: its retained Rules screenshot visibly selects Rain.
 
 | Rules choice | Current byte =0x03003FEC= | Mode byte =0x03003FED= | Neighbor bytes =0x03003FEE..EF= |
 |--------------+---------------------------+------------------------+---------------------------------|
 | Clear | 0 | 0 | 0, 0 |
-| Random, producing Rain (earlier isolated start) | 2 | 3 | 2, 2 |
 | Rain | 2 | 3 | 2, 2 |
 | Snow | 1 | 3 | 1, 1 |
 
@@ -511,30 +511,58 @@ not require a different terrain layout. All four pass live snapshot gating.
 Original-ROM routines =0x0803504C= and =0x08035020= respectively store and
 render the current weather at configuration base plus =0x2C=. Resolver
 =sub_08035170= reads current weather at =+0x2C=, a mode byte at =+0x2D=, and
-a target value at =+0x2F=. If current weather is 1 or 2, mode 2 returns the
-current value unchanged; otherwise, when the synchronized turn counter is
-ready, the routine can return the target at =+0x2F=. In mode 3 it also keeps
-the current value while current and target match. If current weather is 0,
-mode 1 makes two RNG checks that may return Snow (=1=) or Rain (=2=). These
-are verified code paths, not a complete mode-enum interpretation.
+a target value at =+0x2F=. For current Snow/Rain, mode 2 immediately returns
+the current value, so it holds weather without consulting the target or turn
+counters. Modes other than 2 can return the target after the synchronized
+player-turn counter is ready when the current weather is non-Clear. If current
+and target already match, mode 3 skips that scheduling check. When current
+weather is Clear, mode 1 makes two RNG checks that may return Snow (=1=) or
+Rain (=2=); the new paired cycles verify both outcomes and their return to
+Clear. Thus mode 1 is runtime-confirmed as the changing/random-weather path.
 
-The Rules comparison ties =+0x2D= value 0 to the tested Clear start and value
-3 to earlier Rain, Snow, and Random-labeled starts. A new six-state runtime
-sequence, recorded below, has value 1 throughout an actual Random-weather
-Clear→Rain→Clear cycle. Therefore value 3 is not a universal Random enum, and
-value 1 is now runtime-associated with Random weather, though the exact setup
-encoding and the differing earlier mode-3 starts remain unresolved. Value 2
-has not been mapped. The Olaf Blizzard sequence below independently verifies
-current weather value 1 as Snow; this is a separate CO-forced weather path.
+The earlier apparent mode-3 Random sample was a mislabeled checkpoint: the
+Rules screenshot at =weather-choice-2.ss0= selects fixed Rain. Fixed Rain and
+Snow both settle with mode 3 and current weather equal to target, while Clear
+settles with mode 0. This reconciles the earlier mode-3 states. Mode 3's
+scheduled target behavior is established statically; its exact setup meaning
+outside the tested fixed-weather starts is not. Mode 2's resolver behavior is
+established statically as "hold the current non-Clear weather," but no
+controlled Rules/battle state identifies when the game selects mode 2. The
+Olaf Blizzard sequence below independently verifies current weather value 1
+as Snow; this is a separate CO-forced weather path.
+
+* Target field writer trace
+
+The resolver at =0x08035170= only reads =+0x2F=; turn update
+=sub_08042B9C= stores its result at =+0x2E=, and update callback
+=sub_080351F0= compares =+0x2E= with current weather at =+0x2C=. The battle
+weather-state initializer =0x08034780= writes zero to =+0x2F=, then clears
+=+0x2C..+0x2E=. The generic record-byte loader has separate handlers for
+=+0x2C=, =+0x2D=, =+0x2E=, and =+0x2F= at
+=0x08071854..0x08071898=; the final handler copies the input record's byte
+into =+0x2F=. This is a load/initialization path, not evidence of a runtime
+weather transition writer. Small mode setters at =0x08035538=,
+=0x08035548=, and =0x08035558= write mode values 1, 2, and 0 respectively.
+The generic loader can also load mode 3 from a record. The callers that choose
+mode 2 or set a nonzero target remain unidentified.
+
+The synchronized turn helper =sub_08035080= updates scratch counters at
+=0x03004493 + active_player= and reports whether participating players have
+matching counters. Helper =sub_080350E4= clears those counters and sets the
+timer at =0x03004490= to 30; =sub_08035124= invokes it when passed a nonzero
+weather differing from current. These helpers gate a change to the resolved
+weather, not a write to the target. No runtime write to the target byte appears
+in the captured Random or CO-power cycles; =+0x2F= stays 0. Its nonzero
+scenario-loading source and any scripted writer outside these traced paths
+remain unverified.
 
 Turn-update routine =sub_08042B9C= stores the resolver's returned weather in
 =+0x2E=. Routine =sub_080351F0= reads that byte, compares it with current
 weather, and triggers a related update callback when they differ. Thus =+0x2E=
 is a cached resolver result in these paths; its full lifetime/purpose is not
-known. The resolver uses =+0x2F= as its target weather value. In settled
-starts, both neighbors match current weather for Rain/Snow/Random and are zero
-under Clear. The archived Random sequence remains Rain at =[2,3,2,2]= from day
-3 through day 8. Olaf and Drake override traces show =+0x2E= temporarily
+known. In settled fixed-weather starts, =+0x2E= and =+0x2F= match current
+weather; both are zero under Clear. The earlier Rain branch remains at
+=[2,3,2,2]= in its archived samples. Olaf and Drake override traces show =+0x2E= temporarily
 matching CO-forced Snow/Rain during the opponent's turn while =+0x2F= stays
 zero. The code establishes the target behavior of =+0x2F=, but not the
 higher-level rule that sets it.
@@ -767,7 +795,7 @@ The evidence manifest fingerprints the retained RAM and screenshot samples.
   =sami-power-menu.json=, and =sami-power-settled.json=.
 - For weather, restore
   =/tmp/aw2-lifecycle-control-research/sources/aw2.ss3=. Move from Fog to Weather
-  with Right, choose Clear or Random using Down, then confirm the Rules screen
+  with Right, choose Clear or Rain using Down, then confirm the Rules screen
   and advance 480 neutral frames. The source and generated checkpoint chains
   are in the =weather-choice-*=, =clear-battle-start.json=, and
   =random-battle-start.json= records. Their PNGs are the manual weather evidence.
@@ -808,12 +836,13 @@ The evidence manifest fingerprints the retained RAM and screenshot samples.
 
 - The runtime Random-weather sequence verifies a Clear→Rain→Clear cycle with
   mode 1, =+0x2E= following the resolved weather at sampled boundaries, and
-  target =+0x2F= remaining Clear in the captured states. The earlier isolated
-  Rain, Snow, and Random-labeled starts had mode 3; reconcile why those starts
-  differ and map mode 2. The six checkpoints sample the timer and synchronized
-  player counters, but do not capture every intermediate write or prove the
-  exact target-selection rule. A closer pair around a future target update, or
-  ROM trace of every writer to =+0x2F=, would resolve those remaining details.
+  target =+0x2F= remaining Clear in the captured states. Static tracing maps
+  mode 2 to holding current non-Clear weather and mode 3 to using the target
+  after turn-counter synchronization; the earlier mode-3 Random label was a
+  Rain Rules checkpoint. The target is zero-initialized and copied from
+  scenario/state data; no runtime target write has been observed. Identify the
+  Rules condition that selects mode 2 and verify whether any event can set a
+  nonzero target or change it during battle.
 - Original-ROM code and the type =0x0E= and Infantry checkpoints agree on full-value
   charge for damage received and half-value charge for damage dealt. The
   weighted terms are 4,000/0 without counterfire and 4,000/800 with
