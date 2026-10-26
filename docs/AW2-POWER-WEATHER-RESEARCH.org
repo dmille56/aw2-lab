@@ -553,6 +553,18 @@ that chooses mode 2 remains unidentified. The nonzero setup target source is
 identified as the record-byte loader; a battle-time writer that changes the
 target remains unidentified.
 
+A full-ROM byte scan found no direct branch or aligned function-pointer
+reference to the mode-2 setter at =0x08035548=. The byte sequence for its ROM
+address appears once at an unaligned location (=0x080A0522=), inside data; it
+does not establish a callback or event reference. This leaves a data-driven
+invocation possible, but unverified. Startup code at =0x08000FB8= also writes
+1 to offsets =+0x2E= and =+0x2F= through an EWRAM object pointer. The pointer's
+global is =0x0200B0B0= and is null in the captured settled-battle EWRAM image;
+the object has not been linked to the live IWRAM weather record. Treat this
+as an initialization lead, not evidence of an in-battle target change. A
+separate apparent =+0x2F= store at =0x08000D30= resolves to a table-based
+address rather than the weather record and is not a weather writer.
+
 The synchronized turn helper =sub_08035080= updates scratch counters at
 =0x03004493 + active_player= and reports whether participating players have
 matching counters. Helper =sub_080350E4= clears those counters and sets the

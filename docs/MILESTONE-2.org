@@ -319,8 +319,11 @@
      load targets =2= and =1= from record data; Random and CO-power samples
      keep the target at Clear. No battle-time target writer has been
      identified in the traced paths. The mode-2 setter's caller or data-driven
-     invocation remains unknown, as does whether a battle event can change
-     the target. The weather questions keep this composite item unfinished. See
+     invocation remains unknown: a full-ROM scan found no direct branch or
+     aligned function-pointer reference. A startup write to an unlinked EWRAM
+     object is only a lead, not proof of a battle-time target change. Whether
+     a battle event can change the target is still open. The weather questions
+     keep this composite item unfinished. See
      [[file:AW2-POWER-WEATHER-RESEARCH.org::*Rules-screen weather choices and settled weather bytes][the weather resolver findings]].
    - [X] Verify player and turn changes against manually inspected game states.
      Before/after screenshots and validated full-RAM snapshots confirm the
