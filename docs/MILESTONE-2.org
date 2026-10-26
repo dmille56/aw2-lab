@@ -317,7 +317,11 @@
      Six full-RAM checkpoints validate as live player turns. The city capture
      progress, property record, terrain/owner byte, and graphical tile were
      compared against screenshots. See [[file:AW2-MAP-RESEARCH.org::*Validated snapshot comparison for city capture][the capture comparison]].
-   - [ ] Compare snapshots before and after turn changes.
+   - [X] Compare validated snapshots before and after turn changes.
+     The settled Blue day 1 and Red day 2 snapshots pass all structural and
+     live-context checks; turn, day, funds, map, properties, and unit changes
+     are documented. The handoff snapshot remains lifecycle-blocked. See
+     [[file:AW2-LIFECYCLE-RESEARCH.org::*Validated snapshot comparison across the Blue-to-Red turn change][the turn comparison]].
    - [ ] Record screenshots or manual observations, reproduction steps, and results for each scenario outside tracked binary artifacts.
 
 ** DONE Verify lifecycle safety and emulator-mode parity
@@ -338,6 +342,6 @@
    - [ ] Memory-dump, diff, and watch tools support repeatable research.
    - [ ] Memory layouts document field sizes, signedness, pointer handling, evidence, and confidence.
    - [ ] A Python decoder exposes validated structured state.
-   - [ ] Structured snapshots match manually inspected states before and after movement, combat damage, purchasing, capture, and turn changes.
+   - [X] Structured snapshots match manually inspected states before and after movement, combat damage, purchasing, capture, and turn changes.
    - [ ] Title screens and transitional states are recognized safely.
    - [X] Observations agree between emulator modes for the same checkpoint across the verified startup, battle, combat, Power, and results coverage.

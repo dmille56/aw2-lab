@@ -706,6 +706,42 @@ COs, purchases/repairs and funds boundaries, power-meter/weather semantics,
 unit action resets, resumed/Campaign paths, runtime decoding, and frontend
 parity. No unit-status interpretation is adopted from incidental RAM changes.
 
+** Validated snapshot comparison across the Blue-to-Red turn change
+The full EWRAM/IWRAM snapshots for supplied states =aw2.ss4= through =aw2.ss7=
+were validated against the supported US ROM profile. All four have valid
+geometry, property, player, and unit structures (945 cells, 49 properties,
+two players, eight units). States 5 and 7 are settled =BATTLE_PLAYER_TURN=
+observations and permit live decoding. State 4's command menu and state 6's
+handoff checkpoint classify as =BATTLE_ENGINE_UNRESOLVED=, so their valid
+structure does not authorize live decoding.
+
+| State | Frame | Lifecycle / decode | Turn | Day | Red funds | Blue funds |
+|-------+-------+--------------------+------+-----+-----------+------------|
+| =aw2.ss5= | 6489 | =BATTLE_PLAYER_TURN= / allowed | 2 | 1 | 6,000 | 15,000 |
+| =aw2.ss6= | 6852 | =BATTLE_ENGINE_UNRESOLVED= / blocked | 1 | 2 | 16,000 | 15,000 |
+| =aw2.ss7= | 7038 | =BATTLE_PLAYER_TURN= / allowed | 1 | 2 | 16,000 | 15,000 |
+
+Between the two settled snapshots, the turn selector at =0x030033EC= changes
+from 2 to 1 and the day halfword at =0x03004080= changes from 1 to 2. Red's
+funds at =0x020232C0= increase from 6,000 to 16,000; Blue's at =0x020232FC=
+remain 15,000. The HUD screenshots show the corresponding Blue/Red player and
+fund balances. The map header, tile array, terrain/owner array, and full
+property table are byte-identical. The unit count stays at eight and unit
+positions and health stay the same.
+
+Four Blue infantry records at =0x02022990=, =0x0202299C=, =0x020229A8=, and
+=0x020229B4= change only raw byte +1, from =0x01= to =0x00=. This comparison
+does not assign that byte a meaning. Other changed player-record bytes at
+=+0x1C= for both players and Blue's =+0x2F= remain uninterpreted. The supplied
+snapshots establish the settled before/after fields, not the precise handoff
+frame; the intermediate state 6 remains blocked by lifecycle validation.
+
+The reproducible comparison is =compare_turn_snapshots.py= and its output is
+=turn-snapshot-comparison.json= in =/tmp/aw2-turn-reef-research/=. The report
+includes source and RAM hashes, validator results, raw player/unit changes,
+and explicit interpretation limits. The source states and screenshots remain
+outside the repository.
+
 * Finding: paired regular Power and SUPER checkpoints
 
 ** Claim and scope
