@@ -276,8 +276,16 @@
      counterfire from one with it. Original-ROM code explains their
      +4,000/+2,000 and +4,400/+2,800 gains as each side's full damage-value
      term plus half the opposing term, using whole-HP buckets and the ROM unit
-     table's meter coefficient. Other CO/unit adjustments and fractional-HP
-     boundaries remain to be checked. An instrumented near-cap replay verifies
+     table's meter coefficient. An Infantry/Sami attack independently confirms
+     its 100-per-HP coefficient, the same full/half rule, and whole-HP
+     rounding; Andy receives 300 while Sami receives 600 for six displayed HP
+     of damage. The ROM's nonzero CO adjustments are mapped: Kanbei +20,
+     Hachi -10/-50/-50, and Colin -20 (inactive/Power/Super). Runtime behavior
+     remains to be checked; a Hachi Battle Copter damage test predicts
+     coefficients 720 inactive and 400 during Power. An earlier Battle Copter
+     checkpoint has CO byte 10, which conflicts with the controlled roster
+     mapping of Hachi to ID 15; do not use it as Hachi evidence until its CO
+     identity is reconciled. An instrumented near-cap replay verifies
      clamping at Andy's and Sami's Super thresholds; natural near-cap evidence
      and later activation thresholds remain open. The Rules mode and adjacent
      weather bytes are only partly understood, so the composite item stays
