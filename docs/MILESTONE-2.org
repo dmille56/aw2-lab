@@ -341,9 +341,10 @@
    - Cargo progress: [[file:AW2-MAP-RESEARCH.org::*Finding: APC and Lander cargo relationships][APC/Lander snapshots]] support a one-based passenger slot reference in
      byte +7 for one red APC and one red Lander, including Lander unload/link
      clearing. A two-passenger Lander snapshot supports a second reference
-     at byte +8. Other transport types, armies beyond red/blue, and field
-     reuse remain unverified. ROM Load/Drop routines now establish status bit
-     3 as embarked passenger and bit 4 as carrier with cargo in those paths.
+     at byte +8. The Transport Copter pair is documented below. Armies beyond
+     red/blue and field reuse remain unverified. ROM Load/Drop routines now
+     establish status bit 3 as embarked passenger and bit 4 as carrier with
+     cargo in those paths.
      Load fills +7 then +8; dropping the first passenger compacts +8 into +7,
      and bit 4 clears when no cargo remains. A runtime two-drop sequence
      confirms compaction, clearing the last link, and both passengers becoming
@@ -351,7 +352,12 @@
      as established by the later red/blue cargo validation; the early red
      slot-plus-one interpretation is only the army-zero special case. Red
      Lander checkpoints now confirm embarked passengers retain status =0x0B=
-     across the owner's turn reset. Other transport types remain unverified.
+     across the owner's turn reset. A [[file:AW2-MAP-RESEARCH.org::*Finding: Transport Copter cargo reference and unload][Transport Copter load/unload pair]]
+     confirms +7 global passenger reference and clearing the cargo/embarked
+     flags on unload for one Red Copter carrying a Mech. The user confirms
+     APCs and Transport Copters carry one Infantry or Mech each, and Landers
+     carry two land units. Cargo behavior in other army blocks remains
+     unverified.
    - Supply progress: [[file:AW2-MAP-RESEARCH.org::*Finding: APC supply and paired unit fuel/ammo changes][APC supply pair]] matches the
      selected APC's HUD fuel to record byte +6 and shows three other records
      rise to 99. The user confirms APCs refill fuel and ammo for every unit
@@ -410,7 +416,8 @@
      meanings do not alone establish command readiness. See the status-bit
      trace above; no complete typed unit decoder is introduced here.
    - [ ] Investigate cargo relationships and special status; expose only verified values.
-     Remaining coverage includes other transport types and the unassigned
+     Sampled APC, Lander, and Transport Copter cargo links are documented.
+     Remaining coverage is broader army/passenger cases and the unassigned
      status/fuel bits; the runtime two-passenger drop and owner-turn reset are
      documented below.
      Six additional checkpoints contained no transports or cargo changes.

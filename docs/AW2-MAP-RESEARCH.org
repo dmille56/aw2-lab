@@ -1774,8 +1774,9 @@ binary artifacts remain external to the repository.
   files were restored independently with the same fingerprinted US ROM and
   mGBA setup. Source state hashes remained unchanged. The comparisons cover
   one passenger in a red APC, and one or two passengers in a red Lander. The
-  user confirms APC capacity is one and Lander capacity is two. Other
-  transports and army blocks remain unverified.
+  user confirms APCs and Transport Copters each carry one Infantry or Mech,
+  while Landers carry two land units. Army blocks beyond the sampled cases
+  remain unverified.
 - They match the observed 12-byte unit records and red army block beginning
   at =0x02022690=. The APC record at =0x0202269C= has byte +7 equal to =0x09=
   while the infantry at slot 8 (=0x020226F0=) is at the APC's coordinates.
@@ -1824,8 +1825,8 @@ binary artifacts remain external to the repository.
   [[file:AW2-STATE-VALIDATION.org::*Units and cargo][the later cargo validation]]. Resolve links as =UNIT_BASE + 12*reference=;
   the reference already includes the army block. The Load/Drop trace also
   establishes link insertion and compaction. The later runtime sequence
-  verifies the two drops and the observed UI order; other transports remain
-  unverified.
+  verifies the two drops and the observed UI order. Transport Copter evidence
+  is documented in the following finding.
 
 *** Reproduction and evidence
 Source states, full EWRAM/IWRAM dumps, and screenshots are external at
@@ -1835,13 +1836,40 @@ contains the relevant APC/Lander/passenger records and screenshot hashes. Its
 SHA-256 is =e63109b4b0637871d0a805ad9c6177cd825be99a65dbaa72abeee5a51c4ed33f=.
 
 *** Remaining questions
-- Confirm whether the same +7/+8 references apply to other transport types and
-  army blocks; test what happens to the links if a passenger is destroyed or
-  its slot is reused.
+- Test whether the references apply in additional army blocks; test what
+  happens to the links if a passenger is destroyed or its slot is reused.
 - Bits 0..4 now have the scoped interpretation in the status-bit trace.
-  Additional transport types remain useful runtime coverage. Passenger
-  coordinates need not follow the carrier during movement; see the later
-  cargo validation.
+  Passenger coordinates need not follow the carrier during movement; see the
+  later cargo validation.
+
+** Finding: Transport Copter cargo reference and unload
+
+*** Claim and scope
+- Date: 2026-10-26. Eight new battle checkpoints show one Red Transport
+  Copter (unit type =0x14=, global ref 6) loading one Mech (ref 7) and later
+  unloading it. The pre-load state has the Copter at =(1,9)= and the Mech at
+  =(1,8)=. In the loaded checkpoint (frame =47702=), the Copter is at
+  =(7,9)=, byte +7 is =0x07= (one-based global reference 7), and carrier
+  status is =0x11=. The Mech has status =0x0B= and retains its pre-load
+  coordinates =(1,9)= while aboard.
+- The post-unload checkpoint (frame =49066=) has the Copter at =(11,9)= with
+  byte +7 cleared and status =0x01=; the Mech is at =(11,8)= with status
+  =0x01=. Thus the observed Transport Copter uses the same +7 one-based global
+  passenger reference and bit-3/bit-4 status behavior as the sampled APC and
+  Lander, and clears both cargo link and embarked flags on unload. This is one
+  Red Copter and one Mech. The user confirms Transport Copters carry one
+  Infantry or Mech; this sample does not cover other army blocks.
+- During the loaded checkpoint the Mech's coordinates do not track the Copter;
+  the settled unload checkpoint assigns the Mech an adjacent coordinate.
+  Treat embarked coordinates as non-authoritative for this Transport Copter
+  sample.
+
+*** Reproduction and evidence
+The eight original save states, RAM dumps, screenshots, and source hashes are
+external at =/tmp/aw2-copter-cargo-research/=. =manifest.json= records frame
+numbers, ROM fingerprint, RAM hashes, and before/after save-state hashes; all
+source hashes match. The manifest SHA-256 is
+=2676a78755d420aa36a4b243ed24287e2858938f064945310b35a4dcea374a5d=.
 
 ** Finding: two-passenger Lander slot references
 
@@ -1892,9 +1920,8 @@ hashes. Its SHA-256 is
   the second drop clears the last link and carrier bit 4, and both drops can
   be completed during this activation. In this observed order, ref 3 from +7
   drops first and ref 4, compacted from +8 to +7, drops second.
-- This is runtime evidence for one Red Lander sequence; it does not generalize
-  link encoding to other transport types or establish passenger behavior over
-  an owner-turn reset.
+- This is runtime evidence for one Red Lander sequence; it does not establish
+  behavior in other army blocks or passenger behavior over an owner-turn reset.
 
 *** Reproduction and evidence
 The six original states, EWRAM/IWRAM captures, and screenshots are external
@@ -1922,7 +1949,8 @@ unchanged. Replay script SHA-256 is
 - This confirms the embarked-unit exception across the owning-turn reset in
   this Red Lander scenario: status bit 0 remains set while bit 3 is set. It
   matches =sub_08025EA0=, which skips clearing bit 0 for records with bit 3.
-  This does not verify other transport types or other armies.
+  This does not verify Transport Copters' behavior over an owner-turn reset or
+  cargo behavior in other armies.
 
 *** Reproduction and evidence
 The six source states, EWRAM/IWRAM captures, and screenshots are external at
@@ -2308,10 +2336,9 @@ use is bounded below.
   5..7 were all zero in the 21 prior Wait/APC/Lander captures and these six
   added checkpoints.
 - These findings do not change the supported cargo interpretation. The
-  six new captures are battle snapshots without transport units; runtime
-  coverage of other transport types remains open. The owner-turn-reset and
-  sequential two-passenger Lander findings below add the relevant cargo
-  runtime coverage.
+  six new captures are battle snapshots without transport units. The
+  owner-turn-reset and sequential two-passenger Lander findings below add the
+  relevant cargo runtime coverage.
 
 *** ROM readers and writers
 - =sub_080258CC= builds a logical lookup at =MAP_BASE+0x051A= and a visible
@@ -2344,8 +2371,9 @@ use is bounded below.
   and clears +8. At =0x0804296C..0x08042978= it clears carrier bit 4 if +7
   is now empty. This establishes insertion/compaction statically; a runtime
   two-drop sequence confirms compaction and clearing the final link. In the
-  observed UI sequence, passenger ref 3 from +7 drops before ref 4 from +8;
-  other transports remain unverified. See the sequential-drop finding.
+  observed UI sequence, passenger ref 3 from +7 drops before ref 4 from +8.
+  The Transport Copter pair separately confirms clearing its single +7 link;
+  see the Transport Copter finding.
 - Turn reset =sub_08025EA0= checks bit 3 before clearing bit 0. Its skip
   now has a concrete cargo context: an embarked passenger retains its acted
   flag. Red-Lander checkpoints show two embarked passengers retain status
