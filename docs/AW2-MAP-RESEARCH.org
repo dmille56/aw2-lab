@@ -373,7 +373,9 @@ observation without an isolated RAM comparison.
   an AI infantry at =(8,13)= while the cursor was over the red infantry. Resolve
   it only in an independently confirmed unit-selection/action context, check
   alignment and that the required record bytes lie inside EWRAM, and corroborate
-  the unit's coordinates. General unit-table bounds/identity are future research.
+  the unit's coordinates. Unit-table bounds and allocator behavior are
+  documented in [[file:AW2-STATE-VALIDATION.org::*Units and cargo][the later ROM-backed unit validation]]; stable identity
+  across checkpoints remains future research.
 - All interpretations assume a manually confirmed active battle. These fields
   do not yet provide a battle-lifecycle validity detector, and are not validated
   at title screens, menus, transitions, or in windowed-mode parity comparisons.
@@ -1546,8 +1548,9 @@ ROM/map agreement, all property entries, cursor positions, and turn/funds sample
   records align on 12-byte boundaries. Observed red records start at
   =0x02022690=; blue records start 64 records later at =0x02022990=, a
   =0x300=-byte separation. This supports a 12-byte record stride and a
-  per-army block in these two-player states. Full table bounds, all four army
-  blocks, occupancy rules, and slot reuse remain unverified.
+  per-army block in these two-player states. This was the initial observation;
+  later ROM analysis establishes the four-block pool and usable slot bounds,
+  documented in [[file:AW2-STATE-VALIDATION.org::*Units and cargo][the unit validation findings]].
 - In the supplied movement/menu snapshots, byte +1 of the record at
   =0x020226A8= changes from =0x00= to =0x06= while the surrounding 12-byte
   record, including bytes +2/+3, stays the same. The screen changes from the
@@ -1588,9 +1591,11 @@ damage forecast and settled result. Its SHA-256 is
 - Capture a controlled same-unit sequence before moving, at the movement
   destination, after Wait, before Fire, and after combat. Confirm record
   coordinates, action flags, and fuel/ammunition fields against the UI.
-- Verify table bounds and player-block count, then test slot allocation and
-  reuse under additional purchase/destruction cases. Decode ownership, type,
-  cargo, and status only after matching them against controlled examples.
+- Table bounds and player-block count were established by the later
+  [[file:AW2-STATE-VALIDATION.org::*Units and cargo][ROM-backed unit validation]]. Later purchase comparisons also show both
+  lowest-empty-slot selection and reuse in the red block. Runtime allocation
+  in other armies and exceptional states remain untested. Decode ownership,
+  type, cargo, and status only after matching them against controlled examples.
 
 ** Finding: destroyed infantry followed by a same-type purchase
 
@@ -1610,8 +1615,10 @@ damage forecast and settled result. Its SHA-256 is
   first empty slot in the observed red block.
 - This demonstrates that this purchase did not reuse the slot just vacated by
   the destroyed unit; it occupied an earlier empty slot. The sample supports
-  first-available-slot allocation for this case only and does not establish
-  the allocator's general ordering or complete table bounds.
+  first-available-slot allocation for this case only. Later repeat evidence
+  and ROM allocator analysis establish the bounded scan and observed ordering;
+  see [[file:AW2-STATE-VALIDATION.org::*Units and cargo][the unit validation]] and
+  [[*Validated structured comparison of purchase checkpoints][the combined purchase comparison]].
 - The map dimensions, tile grid, terrain/owner array, and row offsets remain
   unchanged across all four checkpoints. During the destruction transition,
   the enemy record at =0x020229FC= also changes at byte +4 from =0xE4= to
@@ -1626,9 +1633,9 @@ screenshot hashes; SHA-256
 =9fa62d8779e9ff814896fc081d23f1382c877c4aafec37a2f05c06c92a8815e8=.
 
 *** Remaining questions
-- Repeat with multiple destroyed units and purchases to determine slot
-  selection order, whether an exact freed slot is reused when no earlier slot
-  is free, and whether armies share or partition the record pool.
+- This single sequence did not establish general slot ordering or pool bounds.
+  Later repeat evidence and ROM analysis address those questions; runtime
+  purchase coverage in armies other than red remains open.
 
 ** Finding: repeat destruction/purchase reuses the freed unit slot
 
@@ -1646,8 +1653,10 @@ screenshot hashes; SHA-256
   destruction/purchase sequence above, slot 4 was the lowest empty slot and
   was chosen over the newly freed slot 12. Across these two observed cases,
   allocation is consistent with choosing the lowest-numbered empty record in
-  the observed red block. This is evidence for an ascending first-empty scan,
-  not proof of the policy for all armies, table bounds, or unusual states.
+  the observed red block. The original allocator at =0x08025AEC= confirms an
+  ascending first-empty scan across each army's supported slot range. Runtime
+  purchase examples are still limited to red, and unusual allocator states
+  remain untested.
 - During the destruction transition, the enemy record at =0x020229A8= changes
   at byte +4 from =0xBC= to =0xB2=, consistent with combat damage to the
   target.
@@ -1661,9 +1670,8 @@ and screenshot hashes; SHA-256
 =42742f89916f329f493393482737b3bac35e66cd2a8aef0e39309cca5310d42a=.
 
 *** Remaining questions
-- Confirm the allocation rule with more occupied/empty slot patterns and the
-  other army blocks; determine whether a slot is ever reserved or reused under
-  special unit states.
+- Runtime-test purchases in other army blocks and determine whether unusual
+  unit states reserve or otherwise affect slot reuse.
 
 ** Validated structured comparison of purchase checkpoints
 

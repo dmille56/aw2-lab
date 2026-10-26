@@ -313,15 +313,12 @@
      alone is not treated as an actionable player identity.
 
 ** TODO Decode unit records
-   - Research progress: [[file:AW2-MAP-RESEARCH.org::*Finding: unit movement menu and combat damage snapshots][new movement/combat snapshots]] support a 12-byte record stride,
-     a =0x300= separation between observed red and blue record blocks, and
-     combat-linked changes in raw unit fields. A destruction/purchase sequence
-     shows a destroyed unit's slot becoming empty, then a same-type purchase
-     occupying an earlier empty slot while the destroyed slot stays empty.
-     A second sequence reuses the newly freed slot while a later empty slot
-     remains unused. Together the cases support lowest-numbered empty-slot
-     allocation in the observed red block; full table bounds, other army
-     blocks, and coordinate/action/fuel fields remain unresolved.
+   - Research progress: [[file:AW2-MAP-RESEARCH.org::*Finding: unit movement menu and combat damage snapshots][movement/combat snapshots]] support a 12-byte record stride and
+     =0x300= block spacing. [[file:AW2-STATE-VALIDATION.org::*Units and cargo][ROM allocator analysis]] establishes four 64-record physical
+     blocks, with slots 1..50 usable per army and zero type marking an unused
+     slot. Two purchase sequences support ascending first-empty allocation
+     and reuse in the observed red block. Runtime purchases in other army
+     blocks and unusual allocator states remain untested.
    - Cargo progress: [[file:AW2-MAP-RESEARCH.org::*Finding: APC and Lander cargo relationships][APC/Lander snapshots]] support a one-based passenger slot reference in
      byte +7 for one red APC and one red Lander, including Lander unload/link
      clearing. A two-passenger Lander snapshot supports a second one-based
@@ -334,7 +331,13 @@
      fuel while the APC moves one tile and loses one fuel; a nearby Md Tank's
      raw byte +5 also rises by two, consistent with ammunition replenishment.
      Supply radius/trigger and byte +5 semantics still need controlled checks.
-   - [ ] Identify unit table layout, bounds, occupancy, and slot reuse.
+   - [X] Identify unit table layout, bounds, occupancy, and slot reuse.
+     The supported ROM pool has four 64-record blocks with 12-byte records;
+     the allocator uses slots 1..50 in each block. A zero type byte marks an
+     unused record, and two red-block sequences support lowest-empty-slot
+     allocation and reuse. See [[file:AW2-STATE-VALIDATION.org::*Units and cargo][the bounded unit checks]] and
+     [[file:AW2-MAP-RESEARCH.org::*Validated structured comparison of purchase checkpoints][the purchase comparisons]]. Runtime allocation in other armies and
+     exceptional states remain unverified.
    - [ ] Decode type, owner, position, and raw/displayed health.
    - [ ] Decode fuel, ammo, and action status.
    - [ ] Investigate cargo relationships and special status; expose only verified values.
