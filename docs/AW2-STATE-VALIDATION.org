@@ -162,7 +162,9 @@ pointer is converted to a host pointer. The stale current-unit pointer at
   scanned starting-unit entries have those source bits clear. Fuel byte +6
   bit 7 is excluded from the HUD, preserved by identified arithmetic updates
   when fuel remains, cleared on initialization or depletion, and propagated
-  by Join in an injected-flag replay; no natural setter or meaning was found.
+  by Join in an injected-flag replay; its natural setter and meaning remain
+  unknown. These high bits are explicitly deferred; see
+  [[file:AW2-MAP-RESEARCH.org::*Higher status bits and archived checkpoint audit][the higher-bit audit]].
   No flag alone establishes
   command readiness. Byte +5's upper five bits store
   capture progress in verified capture contexts; its low three bits carry
@@ -193,6 +195,36 @@ pointer is converted to a host pointer. The stale current-unit pointer at
   passenger/carrier coordinates. All reference targets remain occupied in the
   matching army. Coordinate equality at the loading checkpoint is not a general
   invariant while the carrier moves. Nested transports are allowed if acyclic.
+
+** Unit identity bookkeeping
+
+The RAM reference identifies a reusable table slot, not a unit lifetime. The
+[[file:../src/aw2_lab/unit_identity.py][UnitIdentityTracker]] assigns a host-side
+monotonic ID to each observed unit lifetime and retains the unit's global table
+reference and slot generation:
+
+- The same active reference and unit type keep their identity across snapshots;
+  coordinates and other mutable record fields do not participate in identity.
+- When a reference is absent from a complete validated snapshot, its identity
+  becomes an inactive tombstone. A later unit in that slot receives a new ID
+  and increments the slot generation, even when it has the same unit type.
+- A unit-type change in an occupied reference also starts a new identity. This
+  catches a directly observed replacement when an intermediate empty snapshot
+  was missed.
+- Checkpoint metadata stores the next ID and every observed slot, including
+  inactive tombstones. Serialize it beside the matching emulator checkpoint;
+  restore it with that checkpoint to recover the same active IDs and future
+  generation history. Match/revision metadata remains a separate concern; a
+  restored controller should advance its revision to invalidate stale requests.
+- Reconcile only complete unit rosters from validated live battle snapshots.
+  If a same-type unit is destroyed and its slot reused entirely between two
+  observations, RAM snapshots alone cannot distinguish that replacement.
+  Snapshot action boundaries or use write tracing when that distinction matters.
+
+The ROM-independent checks in =tests/test_unit_identity.py= cover movement,
+destruction, same-slot reuse, direct type replacement, metadata
+serialization/restoration, and invalid metadata. They validate the host
+bookkeeping contract; they do not infer identity from unverified RAM fields.
 
 * Lifecycle validity matrix
 

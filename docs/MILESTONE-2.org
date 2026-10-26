@@ -1,5 +1,5 @@
 #+TITLE: Milestone 2: Targeted AW2 Reverse Engineering
-#+TODO: TODO IN-PROGRESS | DONE BLOCKED
+#+TODO: TODO IN-PROGRESS | DONE BLOCKED DEFERRED
 
 * Prerequisites and research workflow
 
@@ -331,7 +331,7 @@
      selector mismatch remains blocked by lifecycle validation; the selector
      alone is not treated as an actionable player identity.
 
-** TODO Decode unit records
+** DONE Decode unit records
    - Research progress: [[file:AW2-MAP-RESEARCH.org::*Finding: unit movement menu and combat damage snapshots][movement/combat snapshots]] support a 12-byte record stride and
      =0x300= block spacing. [[file:AW2-STATE-VALIDATION.org::*Units and cargo][ROM allocator analysis]] establishes four 64-record physical
      blocks, with slots 1..50 usable per army and zero type marking an unused
@@ -420,21 +420,16 @@
      embarked passenger/carrier with cargo in the Load/Drop paths. These flag
      meanings do not alone establish command readiness. See the status-bit
      trace above; no complete typed unit decoder is introduced here.
-   - [ ] Investigate cargo relationships and special status; expose only verified values.
+   - [X] Investigate cargo relationships and verified special status; expose only verified values.
      Sampled APC, Lander, and Transport Copter cargo links are documented.
      APC load/drop now covers all four blocks, with human-control edits for
      Green/Yellow. ROM removal recursively processes both cargo links, and a
      two-passenger Lander destruction removes both passengers, and later
      purchases reuse both passenger slots. The inactive Lander may retain
      stale cargo references, which must not be followed once its type is zero.
-     Sub Dive/Rise sets/clears status bit 5. Injected-flag combat shows bits
-     6/7 affect an army marker at removal. The traced unit initialization and
-     ordinary status writers do not set them; scanned starting-unit entries
-     also have those bits clear. Their natural setters and downstream outcomes
-     remain open. Fuel byte bit 7 is cleared on initialization/depletion and
-     preserved during nonzero fuel arithmetic; Join only propagates an
-     existing bit. Its natural source and meaning remain unknown. See the
-     higher-bit audit in the map research file.
+     Sub Dive/Rise sets/clears status bit 5. Bits 6/7 and fuel bit 7 remain
+     explicitly unassigned and are tracked as a deferred investigation below.
+     No decoder exposes those unknown values as interpreted fields.
    - [X] Verify movement, damage, destruction, purchasing, and relevant status changes.
      Controlled snapshots verify coordinate changes on movement, health/ammo
      changes in combat, record removal on destruction, and slot reuse on
@@ -443,11 +438,30 @@
      the cargo flags. See the linked movement, firing, Wait, cargo, and
      destruction/purchase findings above.
 
-** TODO Define stable unit identity bookkeeping
-   - [ ] Preserve unit identity across movement.
-   - [ ] Distinguish a destroyed unit from a replacement reusing its internal slot.
-   - [ ] Define Python identity metadata needed for checkpoint restoration.
-   - [ ] Document identity behavior and verify destruction, slot reuse, and restoration scenarios.
+** DONE Define stable unit identity bookkeeping
+   - [X] Preserve unit identity across movement.
+   - [X] Distinguish a destroyed unit from a replacement reusing its internal slot.
+   - [X] Define Python identity metadata needed for checkpoint restoration.
+   - [X] Document identity behavior and verify destruction, slot reuse, and restoration scenarios.
+     =UnitIdentityTracker= assigns host-side IDs to global unit references and
+     increments a slot generation after an observed empty slot or type change.
+     Movement and other mutable fields do not change identity. Checkpoint
+     metadata stores the next ID and active/inactive slot history, including
+     tombstones, and can be serialized to JSON and restored. See
+     [[file:AW2-STATE-VALIDATION.org::*Unit identity bookkeeping][the identity contract]].
+     A same-type destruction and reuse entirely between observations cannot be
+     distinguished; callers must reconcile complete validated snapshots at
+     action boundaries. Command/state revision remains separate and invalidates
+     stale client references after restore.
+
+** DEFERRED Investigate meanings and natural setters for high unit flags
+   - Status byte +1 bits 6/7 affect an army marker during removal, but their
+     natural setters and full gameplay outcomes are unknown.
+   - Fuel byte +6 bit 7 is cleared on initialization/depletion, preserved by
+     nonzero fuel arithmetic, and propagated by Join when already set; its
+     natural source and meaning are unknown.
+   - Revisit only if a concrete behavior or modding need makes these fields
+     relevant. Evidence is in [[file:AW2-MAP-RESEARCH.org::*Higher status bits and archived checkpoint audit][the higher-bit audit]].
 
 ** TODO Decode UI state needed for future automation
    - [ ] Identify UI phase and cursor position.
