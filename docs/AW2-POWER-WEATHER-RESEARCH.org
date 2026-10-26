@@ -250,7 +250,32 @@ The attack artifacts are external in =/tmp/aw2-hachi-active-power/evidence/=;
 =aw2.ss2= SHA-256 is
 =3771eaf83ba907d2c89430fc062ccb29fcb993f4bdeb9034e8f7a51d8917f44d= and it
 was unchanged after restoration. Runtime verification of Hachi's Super
-adjustment and Kanbei/Colin adjustments remains open.
+adjustment and Kanbei/Colin adjustments remained open at this point.
+
+* Kanbei inactive meter adjustment
+
+The new =aw2.ss1= -> =aw2.ss2= pair restores at frames =32900= and =33164= as
+valid two-player battle states. Slot 1 is Kanbei (CO ID =6=), with active
+Power =0=; slot 2 is Andy (CO ID =1=), also with active Power =0=. Kanbei's
+Battle Copter (unit type =0x13=) at =0x02022690= loses one displayed HP:
+health byte +4 changes =0x64 -> 0x58= (100 -> 88, or 10 -> 9 displayed HP).
+Its ROM meter coefficient is =900=, so Kanbei's +20% adjustment predicts
+=900 * 120/100 = 1080= meter units. The meter changes =7500 -> 8580= (+1080),
+matching the prediction.
+
+Andy's unit at =0x020229FC= is type =0x03=; its health changes =100 -> 95=,
+which remains 10 displayed HP and contributes no whole-HP loss term. Andy's
+meter nevertheless increases =15000 -> 15540= (+540), exactly half of
+Kanbei's =1080= term. This confirms the inactive Kanbei +20% modifier and the
+opponent half-term in the same controlled sample.
+
+Both supplied states restore with valid geometry, property, player, and unit
+tables; each source file's SHA-256 was identical before and after restoration.
+The hashes are =aw2.ss1= =0750845c8409a7b6bf7fd659eb33e08b1278cd4af72920a480369900b45f8378=
+and =aw2.ss2= =ace65ef34193dcd38c3b2d6caf5f8fb0c7282b1624b8d2188a13c6b4b2fd33ba=.
+The full RAM dumps and parsed checkpoint records are in
+=/tmp/aw2-kanbei-meter-research/=. Hachi's Super adjustment and Colin's
+runtime adjustment remain unverified.
 
 The six supplied states restore as valid battle structures under the supported
 US ROM and pinned mGBA build. Full EWRAM/IWRAM dumps, screenshots, parsed unit
@@ -296,9 +321,11 @@ Type =0x0E= checks produce terms =4,000= and =0=, then =4,000= and =800=;
 the Infantry check produces =600= and =0=. These reproduce the observed meter
 changes for Andy, Sami, and the sampled CO ID 10. Hachi's inactive and Power
 adjustments are runtime-verified on Battle Copter type =0x13= (base
-coefficient =900=), producing adjusted coefficients =810= and =450=.
-Kanbei (ID 6), Hachi's Super adjustment, and Colin (ID 16) still need runtime
-checks. Rounding at fractional meter values also remains open. The
+coefficient =900=), producing adjusted coefficients =810= and =450=. A Kanbei
+(ID 6) Battle Copter checkpoint pair confirms the inactive +20% adjustment:
+one displayed HP lost adds =1080= to Kanbei and =540= to Andy. Hachi's Super
+adjustment and Colin (ID 16) still need runtime checks. Rounding at fractional
+meter values also remains open. The
 instrumented counter-0 replay below confirms the near-cap clamp for Andy and
 Sami; other caps and COs remain unverified.
 
@@ -489,9 +516,11 @@ The evidence manifest fingerprints the retained RAM and screenshot samples.
   adjustments are Kanbei +20, Hachi -10/-50/-50, and Colin -20 (inactive /
   Power / Super). Hachi's inactive -10% and Power -50% adjustments now match
   controlled attacks with type =0x13=, verified as B.Cpt by screenshot; its
-  base coefficient is 900, adjusted to 810 and 450. Kanbei and Colin runtime
-  checks and Hachi's Super adjustment remain open. Fractional meter rounding
-  remains open. The cap check used instrumented meter initialization; natural
+  base coefficient is 900, adjusted to 810 and 450. A Kanbei Battle Copter
+  sample verifies his inactive +20% adjustment with +1,080 meter for Kanbei
+  and +540 for Andy. Colin's runtime check and Hachi's Super adjustment remain
+  open. Fractional meter rounding remains open. The cap check used instrumented
+  meter initialization; natural
   near-cap evidence is still open.
 - Static ROM code defines counters 3..9 as 14,400..25,200 per star, counter
   10 and above as 18,000 per star, and saturates the use counter at 255.
