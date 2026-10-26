@@ -464,6 +464,32 @@
      relevant. Evidence is in [[file:AW2-MAP-RESEARCH.org::*Higher status bits and archived checkpoint audit][the higher-bit audit]].
 
 ** TODO Decode UI state needed for future automation
+   - Research progress: the current work has usable pieces, but no typed UI-state
+     decoder. [[file:../src/aw2_lab/lifecycle.py][The lifecycle classifier]] recognizes
+     tested Versus phases from callbacks, bounded process scripts, and controller
+     fields. Human turn, AI turn, combat, Power, and result phases have separate
+     classifications; recognized phases still do not describe the selected menu
+     item or guarantee that an input is accepted. The command menu remains
+     =BATTLE_ENGINE_UNRESOLVED= and Campaign/event flows remain unclassified.
+     [[file:AW2-MAP-RESEARCH.org][Map research]] captures two bytes at =0x03003140= and
+     records controlled cursor movement, map-edge clamping, and screenshot-matched
+     coordinates. These observations have not yet been turned into a typed cursor
+     field. The current-unit pointer at =0x030040D8= can be stale under the free
+     cursor, so it cannot identify the unit beneath the cursor; selection must be
+     established from a confirmed selection/action context and checked against the
+     unit record coordinates. Existing lifecycle and pointer evidence is summarized
+     in [[file:AW2-STATE-VALIDATION.org][battle structure validation]] and
+     [[file:AW2-LIFECYCLE-RESEARCH.org][lifecycle research]].
+   - Inventory for the UI decoder:
+
+     | UI information | Verified evidence | Still needed |
+     |----------------+-------------------+--------------|
+     | Phase | Tested Versus startup, menus, entry, player/AI turns, combat, powers, results, and transitions are classified; unknown contexts do not authorize live decoding. | A typed UI observation that combines the phase with its evidence and keeps Campaign and unrecognized processes explicit. |
+     | Cursor | The two-byte field at =0x03003140= changes with controlled map cursor movement; observed coordinates match screenshots and clamp to map bounds. | Verify byte order/coordinate extraction across lifecycle phases and distinguish map cursor from setup/menu cursors. |
+     | Selected unit | =0x030040D8= may point at an unrelated stale record under the free cursor. Selection/action checkpoints can be corroborated with unit records. | Identify a reliable selection signal and validate its reference, owner, and coordinates before publishing it. |
+     | Menu state | Lifecycle evidence blocks live decoding for the command menu, combat, powers, and known save/result dialogues. | Decode menu family, highlighted item, and actionable selection state; retain unresolved status when signals conflict or are absent. |
+     | Transitions | Tested Versus transitions use callback, process, controller, lock, and input-state evidence; unknown combinations remain unavailable. | Record validity conditions beside each typed transition and add Campaign/event and additional menu contexts. |
+
    - [ ] Identify UI phase and cursor position.
    - [ ] Identify selected unit and relevant menu state.
    - [ ] Document recognized transitions and their validity conditions.
