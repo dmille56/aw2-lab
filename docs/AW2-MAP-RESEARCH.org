@@ -1839,9 +1839,9 @@ SHA-256 is =e63109b4b0637871d0a805ad9c6177cd825be99a65dbaa72abeee5a51c4ed33f=.
   army blocks; test what happens to the links if a passenger is destroyed or
   its slot is reused.
 - Bits 0..4 now have the scoped interpretation in the status-bit trace.
-  Additional transport types and a loaded passenger across its owner's next
-  turn remain useful runtime coverage. Passenger coordinates need not follow
-  the carrier during movement; see the later cargo validation.
+  Additional transport types remain useful runtime coverage. Passenger
+  coordinates need not follow the carrier during movement; see the later
+  cargo validation.
 
 ** Finding: two-passenger Lander slot references
 
@@ -1908,6 +1908,29 @@ unchanged. Replay script SHA-256 is
 =53ab9eee9a79b7702220db10454a60a52e14ceaff6213ee440828d9ba11612c8=;
 =sequence-report.json= SHA-256 is
 =4b3b489fecf9dbe801d7a7ce1273e67bd46df107087774cafe8ecda35ec1bfc7=.
+
+** Finding: embarked passengers retain status over owner-turn reset
+
+*** Claim and scope
+- Date: 2026-10-26. New Lander checkpoints show Red carrying two passengers
+  before and after a full turn cycle. At frame =17834=, the turn selector is
+  Red (=1=) on day =2=. Lander global ref 5 has cargo links =+7:2, +8:1=;
+  passenger refs 1 and 2 have status =0x0B= (used this turn and embarked).
+  At frame =18801=, the selector is again Red (=1=) on day =3=, showing the
+  turn cycle returned to Red. The Lander still links refs 2 and 1, and both
+  passenger records remain byte-for-byte identical with status =0x0B=.
+- This confirms the embarked-unit exception across the owning-turn reset in
+  this Red Lander scenario: status bit 0 remains set while bit 3 is set. It
+  matches =sub_08025EA0=, which skips clearing bit 0 for records with bit 3.
+  This does not verify other transport types or other armies.
+
+*** Reproduction and evidence
+The six source states, EWRAM/IWRAM captures, and screenshots are external at
+=/tmp/aw2-owner-turn-cargo/=. =manifest.json= records each source state hash
+before and after restoration, frame, RAM hashes, and ROM fingerprint.
+=owner-turn-report.json= contains the extracted turn/day values and unit
+records; all source hashes match before and after inspection. Report SHA-256:
+=37c442a4ce8200d54ce85a049b023de257e772e9ff9993c79f84c67ffec2ce0c=.
 
 ** Finding: APC supply and paired unit fuel/ammo changes
 
@@ -2227,8 +2250,8 @@ with the pinned US ROM and inspecting its recorded frame and screenshot.
   cases, and units on allied properties; the five-point observation here is
   limited to Bombers.
 - The status-bit trace below resolves bits 1..4 in the observed action/cargo
-  paths. A runtime owning-turn reset with a passenger still embarked would
-  further check the statically established bit-3 reset exception.
+  paths. The owner-turn-reset finding adds runtime confirmation that bit 0
+  remains set on embarked passengers.
 
 ** Finding: unit status bits in map lookup and cargo routines
 
@@ -2286,9 +2309,9 @@ use is bounded below.
   added checkpoints.
 - These findings do not change the supported cargo interpretation. The
   six new captures are battle snapshots without transport units; runtime
-  coverage of other transport types and an embarked unit across owner-turn
-  reset remains open; sequential two-passenger Lander drops are documented
-  below.
+  coverage of other transport types remains open. The owner-turn-reset and
+  sequential two-passenger Lander findings below add the relevant cargo
+  runtime coverage.
 
 *** ROM readers and writers
 - =sub_080258CC= builds a logical lookup at =MAP_BASE+0x051A= and a visible
@@ -2325,8 +2348,8 @@ use is bounded below.
   other transports remain unverified. See the sequential-drop finding.
 - Turn reset =sub_08025EA0= checks bit 3 before clearing bit 0. Its skip
   now has a concrete cargo context: an embarked passenger retains its acted
-  flag. This rule is established statically; an owning-turn checkpoint pair
-  with the same passenger still embarked would add direct runtime coverage.
+  flag. Red-Lander checkpoints show two embarked passengers retain status
+  =0x0B= from Red day 2 to Red day 3; see the owner-turn-reset finding.
 - Fuel is byte +6's low seven bits, not the entire byte. HUD code at
   =0x0802AEA2..0x0802AEAA= extracts those bits before drawing fuel, and
   fuel writers preserve bit 7. Existing observed fuel values all fit in seven
