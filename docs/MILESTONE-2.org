@@ -272,8 +272,8 @@
      Blizzard and Drake's Typhoon both update the current-weather field and
      reset it during the next-turn transition, consistent with the documented
      CO effects. ROM analysis shows combat damage estimates feed both players'
-     meter gains. New Battle Copter checkpoints distinguish an attack without
-     counterfire from one with it. Original-ROM code explains their
+     meter gains. New attack/counterfire checkpoint pairs distinguish an
+     attack without counterfire from one with it. Original-ROM code explains their
      +4,000/+2,000 and +4,400/+2,800 gains as each side's full damage-value
      term plus half the opposing term, using whole-HP buckets and the ROM unit
      table's meter coefficient. An Infantry/Sami attack independently confirms
@@ -284,10 +284,12 @@
      verify the inactive -10% adjustment: type 0x13 has base coefficient 900;
      a six-HP loss and a two-HP counterloss predict meter terms 4,860 and
      1,800, exactly matching +5,760/+4,230. A second destruction sample
-     matches +7,290/+3,645 for nine displayed HP lost. Hachi's Power/Super
-     adjustments and Kanbei/Colin runtime behavior remain open. A Battle
-     Copter-specific test would predict coefficients 720 inactive and 400
-     during Power. An earlier Battle Copter checkpoint has CO byte 10, which
+     matches +7,290/+3,645 for nine displayed HP lost. A Hachi Battle Copter
+     attack with Power active loses one displayed HP to counterfire; the
+     opponent's +225 meter gain matches half of Hachi's adjusted 450 term.
+     This confirms Hachi's -50% Power adjustment as well as the inactive
+     -10% adjustment. Hachi's Super adjustment and Kanbei/Colin runtime
+     behavior remain open. An earlier attack checkpoint has CO byte 10, which
      conflicts with the controlled roster mapping of Hachi to ID 15; do not
      use it as Hachi evidence until its CO identity is reconciled. An
      instrumented near-cap replay verifies

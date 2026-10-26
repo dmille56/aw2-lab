@@ -104,7 +104,8 @@ changes to =0x58=, or 88 health. The two Red targets lose 56 and 55 raw health
 points respectively. This confirms the distinction between the supplied
 attack-only and counterfire examples.
 
-The changing Red and Blue records both have type =0x0E=, Battle Copter. Online
+The changing Red and Blue records both have type =0x0E=; their displayed unit
+names are not verified by this comparison. Online
 guides describe full-value charge for damage received and half-value charge
 for damage dealt, using whole HP rather than fractional health. The original
 ROM explains the apparent mismatch: it uses whole-HP loss and its meter-value
@@ -114,11 +115,11 @@ At =0x08041C32=, the combat-charge routine builds a weighted term for each
 combatant. It converts nonzero low-seven-bit health to a whole-HP bucket using
 =((health - 1) / 10) + 1=, looks up the unit's meter-value coefficient at
 =0x085D5ABC + 0x5C*unit_type + 6=, and applies a CO adjustment through
-=sub_08043270=. The Battle Copter coefficient at
-=0x085D5ABC + 0x5C*0x0E + 6= is =800=; this is the meter coefficient, not the
-nominal shop price. The adjustment words for Andy (CO ID 1) and the other
-participant (CO ID 10) with Battle Copters are zero in these states, so both
-use coefficient =800=.
+=sub_08043270=. The coefficient for unit type =0x0E= at
+=0x085D5ABC + 0x5C*0x0E + 6= is =800=; this is the meter coefficient, not
+the nominal shop price. The adjustment words for Andy (CO ID 1) and the other
+participant (CO ID 10) with type =0x0E= are zero in these states, so both use
+coefficient =800=.
 The checkpoints show Red losing five displayed HP in each attack and Blue
 losing one displayed HP in the counterfire. The resulting full-value terms
 are Red =5*800= = 4,000 and Blue =1*800= = 800.
@@ -136,7 +137,7 @@ term and =B= is Blue's, Red receives =R + floor(B/2)= and Blue receives
 This explains the apparent mismatch: the routine uses whole-HP damage terms
 weighted by the ROM's meter coefficient, not fractional stored-HP changes
 multiplied by nominal purchase prices. The online full/half rule matches the
-verified routine for both Infantry and Battle Copters. The tested Andy, Sami,
+verified routine for Infantry and unit type =0x0E=. The tested Andy, Sami,
 and CO ID 10 combinations have zero adjustment words; values for nonzero CO
 adjustments are mapped below, but their runtime effects remain to be checked. External
 references are GameSpot's AW2 walkthrough
@@ -164,7 +165,7 @@ confirm input. At frame 19511, Andy (slot 1) rose from 2,400 to 2,700 and Sami
 (slot 3) rose from 2,400 to 3,000; Max (slot 2) stayed at 1,550 and Flak
 (slot 4) at 1,900. The event later returned to a player turn at frame 19933.
 This nonlethal Infantry attack is an independent unit-type check against the
-Battle Copter samples above. The Green Infantry record at =0x02022CA8= has
+type =0x0E= samples above. The Green Infantry record at =0x02022CA8= has
 type =0x01= and byte +4 changes from =0x60= to =0x20=: low-seven-bit health
 falls from 96 to 32, or from 10 to 4 displayed HP. The Red unit record at
 =0x020226A8= has type =0x05=; its byte +4 changes from =0xE2= to =0xE0=, so
@@ -179,8 +180,8 @@ whole-HP boundary contributes no damage term. The original sample timeline is
 =damage-forecast-ewram.bin= and =check-damage-tail-175-ewram.bin=.
 
 The ROM coefficient lookup provides a second cross-check of CO adjustments.
-Infantry type =0x01= has base coefficient =100= and Battle Copter type
-=0x0E= has =800=. The adjustment words read by =sub_08043270= for the
+Infantry type =0x01= has base coefficient =100= and unit type =0x0E= has
+=800=. The adjustment words read by =sub_08043270= for the
 sampled IDs Andy (1), Sami (4), and the other participant (10) are zero in
 the sampled active states, so those combinations retain their base
 coefficients. Separately, controlled roster states identify Hachi as CO ID
@@ -198,11 +199,11 @@ division. The adjustment is selected by CO ID and the active-Power byte at
 =R(k)+0x1E=; it does not depend on unit type. Values for inactive,
 Power, and Super states are:
 
-| CO | ID | Adjustment: inactive / Power / Super | Infantry coefficient (base 100) | Battle Copter coefficient (base 800) |
+| CO | ID | Adjustment: inactive / Power / Super | Type 0x01 coefficient (base 100) | Type 0x13 (B.Cpt) coefficient (base 900) |
 |----+----+---------------------------------------+---------------------------------+--------------------------------------|
-| Kanbei | 6 | +20 / +20 / +20 | 120 / 120 / 120 | 960 / 960 / 960 |
-| Hachi | 15 | -10 / -50 / -50 | 90 / 50 / 50 | 720 / 400 / 400 |
-| Colin | 16 | -20 / -20 / -20 | 80 / 80 / 80 | 640 / 640 / 640 |
+| Kanbei | 6 | +20 / +20 / +20 | 120 / 120 / 120 | 1,080 / 1,080 / 1,080 |
+| Hachi | 15 | -10 / -50 / -50 | 90 / 50 / 50 | 810 / 450 / 450 |
+| Colin | 16 | -20 / -20 / -20 | 80 / 80 / 80 | 720 / 720 / 720 |
 
 The same states identify Andy =1=, Sami =4=, and CO ID =10= as
 zero-adjustment rows. The Hachi checkpoints now verify the inactive adjustment
@@ -223,10 +224,33 @@ record. The opposing unit remains at 100 displayed HP. Hachi's meter rises
 18,060 -> 25,350 (+7,290); Andy's rises 34,905 -> 38,550 (+3,645). The
 predicted full term is =9*810=7,290= and the opponent gets its half. This
 independently matches the Hachi inactive adjustment. Both players have active
-Power =0= in these checkpoints. Unit type =0x13= is identified by its record
-byte; these comparisons do not identify its displayed unit name. Runtime
-verification of Hachi's Power/Super adjustment, the other nonzero CO rows, and
-the Battle Copter-specific coefficient remains open.
+Power =0= in these checkpoints. The screenshot of Hachi's selected type
+=0x13= unit labels it =B.Cpt=, identifying the Battle Copter coefficient as
+=900=.
+
+The Power-state modifier was exercised in an isolated replay from =aw2.ss2=.
+Hachi's meter word was initialized in temporary emulator RAM to =27,000= so
+the game could activate Power through the normal command menu; the supplied
+state and cartridge SRAM were not changed. The game spent that charge and
+set Hachi's active-Power byte at =R(1)+0x1E= to =1=. The before/after attack
+pair is frame =28773= -> =28804= with Power still active. Hachi's type =0x13=
+Battle Copter at =0x020226A8= falls from byte +4 =0x23= (35, or 4 displayed
+HP) to =0x18= (24, or 3 displayed HP), losing one displayed HP to counterfire.
+The attacking Andy unit, type =0x05= at =0x020229D8=, changes from =0x64= to
+=0x62= (100 to 98), remaining at 10 displayed HP. Hachi's meter remains zero
+because the ROM suppresses charge while a Power is active; Andy's meter rises
+from =38,730= to =38,955= (+225). With Hachi's Power adjustment of -50%, the
+one-HP Hachi term is =1*900*50/100=450=, so Andy receives its half, =225=.
+This verifies the active-Power modifier through the opposing player's meter
+gain. The target's fractional raw-health loss produces no whole-HP term.
+
+The attack artifacts are external in =/tmp/aw2-hachi-active-power/evidence/=;
+=experiment.json= records the meter initialization and input sequence, while
+=metadata.json= records generated-state and full-RAM hashes. The source
+=aw2.ss2= SHA-256 is
+=3771eaf83ba907d2c89430fc062ccb29fcb993f4bdeb9034e8f7a51d8917f44d= and it
+was unchanged after restoration. Runtime verification of Hachi's Super
+adjustment and Kanbei/Colin adjustments remains open.
 
 The six supplied states restore as valid battle structures under the supported
 US ROM and pinned mGBA build. Full EWRAM/IWRAM dumps, screenshots, parsed unit
@@ -268,12 +292,13 @@ The call sites =0x08041CB8= and =0x08041CCA= invoke the meter adder for the
 two participants. The combat routine constructs weighted terms from whole-HP
 damage and the unit table's meter valuation, applies its CO adjustment,
 then gives each participant its own term plus half the opponent's term. The
-Battle Copter checks produce terms =4,000= and =0=, then =4,000= and =800=;
+Type =0x0E= checks produce terms =4,000= and =0=, then =4,000= and =800=;
 the Infantry check produces =600= and =0=. These reproduce the observed meter
-changes for Andy, Sami, and the sampled CO ID 10. The static table maps
-nonzero adjustments for Kanbei (ID 6), Hachi (ID 15), and Colin (ID 16), but
-their runtime effects remain unverified. Rounding at fractional meter values
-also remains open. The
+changes for Andy, Sami, and the sampled CO ID 10. Hachi's inactive and Power
+adjustments are runtime-verified on Battle Copter type =0x13= (base
+coefficient =900=), producing adjusted coefficients =810= and =450=.
+Kanbei (ID 6), Hachi's Super adjustment, and Colin (ID 16) still need runtime
+checks. Rounding at fractional meter values also remains open. The
 instrumented counter-0 replay below confirms the near-cap clamp for Andy and
 Sami; other caps and COs remain unverified.
 
@@ -456,17 +481,18 @@ The evidence manifest fingerprints the retained RAM and screenshot samples.
   them, capture Rules and settled-battle states for each weather choice, then
   sample one frame at a time through the first Random weather change and each
   CO weather override/expiry.
-- Original-ROM code and the Battle Copter and Infantry checkpoints agree on full-value
+- Original-ROM code and the type =0x0E= and Infantry checkpoints agree on full-value
   charge for damage received and half-value charge for damage dealt. The
   weighted terms are 4,000/0 without counterfire and 4,000/800 with
   counterfire, exactly matching +4,000/+2,000 and +4,400/+2,800; the Infantry
   sample independently matches 600/0 and +300/+600. The ROM's nonzero
   adjustments are Kanbei +20, Hachi -10/-50/-50, and Colin -20 (inactive /
-  Power / Super). Runtime-verify one with a controlled known-damage attack;
-  Hachi is a useful case because its predicted Battle Copter coefficient
-  changes from 720 to 400 during Power. Fractional meter rounding remains
-  open. The cap check used instrumented meter initialization; natural near-cap
-  evidence is still open.
+  Power / Super). Hachi's inactive -10% and Power -50% adjustments now match
+  controlled attacks with type =0x13=, verified as B.Cpt by screenshot; its
+  base coefficient is 900, adjusted to 810 and 450. Kanbei and Colin runtime
+  checks and Hachi's Super adjustment remain open. Fractional meter rounding
+  remains open. The cap check used instrumented meter initialization; natural
+  near-cap evidence is still open.
 - Static ROM code defines counters 3..9 as 14,400..25,200 per star, counter
   10 and above as 18,000 per star, and saturates the use counter at 255.
   Runtime behavior for later uses is still unverified; only test activations
