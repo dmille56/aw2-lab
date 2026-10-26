@@ -330,6 +330,12 @@
      unverified. A controlled move pair shows two adjacent units gain five
      fuel while the APC moves one tile and loses one fuel; a nearby Md Tank's
      raw byte +5 also rises by two, consistent with ammunition replenishment.
+     The low bits remain provisional without a matching ammo HUD/attack pair.
+     Byte +1 changes from 0 to 1 in the move pair, but other screenshots show
+     transient menu value 6; its action-state bits are unresolved. See
+     [[file:AW2-MAP-RESEARCH.org::*Finding: controlled APC move with adjacent supply changes][the controlled movement comparison]]. To close this item, compare an ammo-using
+     unit's HUD and byte +5 before/after firing, plus the same unit before and
+     after Wait and movement in settled human turns.
      Supply radius/trigger and byte +5 semantics still need controlled checks.
    - [X] Identify unit table layout, bounds, occupancy, and slot reuse.
      The supported ROM pool has four 64-record blocks with 12-byte records;

@@ -132,6 +132,16 @@ pointer is converted to a host pointer. The stale current-unit pointer at
   with displayed 4 HP, and combat checkpoints show this field changing with
   damage. These examples verify the field and mask, not every internal-to-HUD
   rounding case. See [[file:AW2-MAP-RESEARCH.org::*Finding: damaged-infantry Capture/Wait control][the damaged Infantry comparison]].
+- Byte +6 is fuel in the tested contexts: APC values =26= and =68= match the
+  selected-unit HUD, and one controlled APC move reduces it from =68= to =67=.
+  The supply comparison shows nearby units' byte +6 values rise, but does not
+  establish all unit-specific limits or supply rules.
+- Byte +1 changes with movement/action contexts (=0= to =1= in the controlled
+  APC move; =6= in observed movement/Fire-Wait UI states). These samples do
+  not define its bit meanings or stable action-status values. Byte +5's upper
+  five bits store capture progress in verified capture contexts; its low three
+  bits remain uninterpreted. A Md Tank's low bits rise from =1= to =3= during
+  the APC supply pair, which is only a candidate ammunition observation.
 - A zero type byte marks an unused record, regardless of stale flags,
   coordinates, or health. Active records need a supported observed type, a
   participating owner block, coordinates inside the map, health =1..100= after
