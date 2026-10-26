@@ -15,13 +15,14 @@ lifecycle gate.
 
 The study verifies meter storage, spending, and low activation-counter values,
 plus current Clear/Rain/Snow weather and the Olaf Blizzard and Drake Typhoon
-weather overrides through expiry. New paired checkpoints distinguish a
-nonlethal attack without counterfire from one with counterfire; an instrumented
-counter-0 replay also verifies clamping at two CO thresholds. Exact damage-term
-attribution, natural near-cap evidence, runtime high-counter activation, and
-weather mode/neighbor-byte meanings remain open. These findings extend the
-documented decoding subset; a typed state decoder and state API remain separate
-tasks.
+weather overrides through expiry. New paired checkpoints distinguish an attack
+without counterfire from one with counterfire. A trace of the original ROM's
+combat-charge routine explains all four observed meter deltas: each side gets
+its own damage-value term plus half the opposing term, using whole-HP damage
+and a meter valuation coefficient from the ROM unit table. Natural near-cap
+evidence, runtime high-counter activation, and weather mode/neighbor-byte
+meanings remain open. These findings extend the documented decoding subset; a
+typed state decoder and state API remain separate tasks.
 
 * Verified fields and raw observations
 
@@ -54,8 +55,9 @@ Other neighboring fields are retained as raw observations:
 Original-ROM routines =0x08044080= and =0x08044094= write/read a word at
 =R(k)+0x20=. The charge-adder at =0x080440E0= checks that CO Powers are
 enabled, ignores an active Power or a negative meter, and clamps positive
-growth to the Super threshold. This identifies the storage and clamping path;
-the formula converting individual combat events into charge is not established.
+growth to the Super threshold. The combat-event formula and its verification
+against the new checkpoints are described below; other CO/unit valuation
+adjustments remain open.
 
 The per-star charge routine at =0x0804419C= reads the byte at =R(k)+0x25=
 through =0x08044374=. For the observed counters 0, 1, and 2, its results are
@@ -98,10 +100,53 @@ the Blue attacker's =0xE4= is 100 health with bit 7 set, while the no-counter
 case changes it to =0x64= without changing health. In the counterfire case it
 changes to =0x58=, or 88 health. The two Red targets lose 56 and 55 raw health
 points respectively. This confirms the distinction between the supplied
-attack-only and counterfire examples. The meter changes are not yet a formula:
-the target damage differs by one raw point, and the counterfire case also
-damages the Blue unit. More controlled damage levels are needed to separate
-the charge contributions.
+attack-only and counterfire examples.
+
+The changing Red and Blue records both have type =0x0E=, Battle Copter. Online
+guides describe full-value charge for damage received and half-value charge
+for damage dealt, using whole HP rather than fractional health. The original
+ROM explains the apparent mismatch: it uses whole-HP loss and its meter-value
+coefficient, not nominal shop price and fractional stored-HP loss.
+
+At =0x08041C32=, the combat-charge routine builds a weighted term for each
+combatant. It converts nonzero low-seven-bit health to a whole-HP bucket using
+=((health - 1) / 10) + 1=, looks up the unit's meter-value coefficient at
+=0x085D5ABC + 0x5C*unit_type + 6=, and applies a CO/unit adjustment through
+=sub_08043270=. The Battle Copter coefficient at
+=0x085D5ABC + 0x5C*0x0E + 6= is =800=; this is the meter coefficient, not the
+nominal shop price. The CO/unit adjustment words for Andy and Hachi with
+Battle Copters are both zero in these states, so both use coefficient =800=.
+The checkpoints show Red losing five displayed HP in each attack and Blue
+losing one displayed HP in the counterfire. The resulting full-value terms
+are Red =5*800= = 4,000 and Blue =1*800= = 800.
+
+Instructions at =0x08041CAA= through =0x08041CC4= divide each term by two using
+integer division, then add it to the other side's full term. If =R= is Red's
+term and =B= is Blue's, Red receives =R + floor(B/2)= and Blue receives
+=B + floor(R/2)=:
+
+| Pair | Red term R | Blue term B | Predicted Red | Observed | Predicted Blue | Observed |
+|------+------------+-------------+---------------+----------+----------------+----------|
+| =aw2.ss1= -> =aw2.ss2= | 4,000 | 0 | 4,000 | 4,000 | 2,000 | 2,000 |
+| =aw2.ss2= -> =aw2.ss3= | 4,000 | 800 | 4,400 | 4,400 | 2,800 | 2,800 |
+
+This explains the apparent mismatch: the routine uses whole-HP damage terms
+weighted by the ROM's meter coefficient, not fractional stored-HP changes
+multiplied by nominal purchase prices. The online full/half rule matches the
+verified routine. CO-specific adjustments exist in code; their values and
+effects across other CO/unit combinations remain to be checked. External
+references are GameSpot's AW2 walkthrough
+([[https://www.gamespot.com/articles/advance-wars-2-black-hole-rising-walkthrough/1100-6072205/][CO meter explanation and example]]), the Wars Wiki's
+[[https://warswiki.org/wiki/Advance_Wars_2:_Black_Hole_Rising][AW2 unit data]] and
+[[https://warswiki.org/wiki/Hachi][Hachi entry]], and the AWBW
+[[https://awbw.fandom.com/wiki/CO][CO meter reference]].
+
+The direct listing from the checksum-verified ROM is
+=/tmp/aw2-weather-power-research/code-disassembly.txt=; it was generated from
+=rom-code.elf=, whose code bytes came from the supported ROM and whose source
+SHA-256 is the checksum recorded at the top of this document. The relevant
+listing ranges are =0x08041C30..0x08041CC4=, =0x08042C9C..0x08042CD0=,
+=0x08043270..0x080432A2=, and =0x080433D8..0x080433E4=.
 
 The source-state hashes, four-structure validation, full RAM, and screenshots
 are recorded externally in
@@ -151,13 +196,15 @@ At =0x08044354=, incrementing is capped at 255. These are static ROM
 calculations, not runtime-verified meter thresholds; activation at those
 counters has not been exercised.
 
-The ROM call sites at =0x08041CB8= and =0x08041CCA= invoke the meter adder
-from the combat damage calculation, once for each participating player. Each
-amount combines the two damage-estimate terms, halving one term before adding
-the other. The new attack-only and counterfire pairs confirm meter changes in
-both cases but do not yet assign the formula's two terms. The instrumented
-counter-0 replay below confirms the near-cap clamp for Andy and Sami; other
-caps and COs remain unverified.
+The call sites =0x08041CB8= and =0x08041CCA= invoke the meter adder for the
+two participants. The combat routine constructs weighted terms from whole-HP
+damage and the unit table's meter valuation, applies its CO/unit adjustment,
+then gives each participant its own term plus half the opponent's term. For
+the supplied Battle Copter checks, terms =4,000= and =0=, then =4,000= and
+=800=, exactly reproduce the observed meter changes. Other CO/unit adjustments
+and rounding boundaries remain unverified. The instrumented counter-0 replay
+below confirms the near-cap clamp for Andy and Sami; other caps and COs remain
+unverified.
 
 * Clear and Rain weather comparison
 
@@ -299,7 +346,9 @@ The evidence manifest fingerprints the retained RAM and screenshot samples.
 - ROM listings use an ELF wrapper generated by =make_elf.py= and the pinned
   LLVM =llvm-objdump --triple=thumbv4t= so literal-pool data cannot shift later
   instruction addresses. The early streaming-disassembly experiment is not
-  used as evidence.
+  used as evidence. The verified combat meter listing and relevant unit/CO
+  valuation words are in =code-disassembly.txt= and the supported ROM image
+  under =/tmp/aw2-weather-power-research/=.
 
 * Olaf Blizzard replay
 
@@ -336,12 +385,13 @@ The evidence manifest fingerprints the retained RAM and screenshot samples.
   them, capture Rules and settled-battle states for each weather choice, then
   sample one frame at a time through the first Random weather change and each
   CO weather override/expiry.
-- The new pair confirms attack-only gains of +4,000/+2,000 and counterfire
-  gains of +4,400/+2,800 for Andy/CO ID 10. Isolate the charge formula with
-  more damage levels and damage values while holding the unit matchup constant;
-  the current target damage differs by one raw point between cases. The cap
-  check used instrumented meter initialization; natural near-cap evidence is
-  still open.
+- Original-ROM code and the new Battle Copter checkpoints agree on full-value
+  charge for damage received and half-value charge for damage dealt. The
+  weighted terms are 4,000/0 without counterfire and 4,000/800 with
+  counterfire, exactly matching +4,000/+2,000 and +4,400/+2,800. Check CO/unit
+  valuation adjustments across more unit types and rounding at fractional-HP
+  boundaries. The cap check used instrumented meter initialization; natural
+  near-cap evidence is still open.
 - Static ROM code defines counters 3..9 as 14,400..25,200 per star, counter
   10 and above as 18,000 per star, and saturates the use counter at 255.
   Runtime behavior for later uses is still unverified; only test activations
