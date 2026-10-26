@@ -137,11 +137,16 @@ pointer is converted to a host pointer. The stale current-unit pointer at
   The supply comparison shows nearby units' byte +6 values rise, but does not
   establish all unit-specific limits or supply rules.
 - Byte +1 changes with movement/action contexts (=0= to =1= in the controlled
-  APC move; =6= in observed movement/Fire-Wait UI states). These samples do
-  not define its bit meanings or stable action-status values. Byte +5's upper
-  five bits store capture progress in verified capture contexts; its low three
-  bits remain uninterpreted. A Md Tank's low bits rise from =1= to =3= during
-  the APC supply pair, which is only a candidate ammunition observation.
+  APC move; =0= before a Tank shot, =6= in Fire/forecast UI, and =1= after
+  combat settles). These samples associate it with action processing but do
+  not define its bit meanings or Wait behavior. Byte +5's upper five bits store
+  capture progress in verified capture contexts; its low three bits remain
+  uninterpreted. A Tank shot leaves byte +5 at =4= while HUD ammo drops 9 -> 8,
+  so it is not the displayed ammo count. IWRAM byte =0x03000799= matches the
+  HUD values for the Tank (9 before, 8 after) and a Recon (3) in settled
+  checkpoints; treat it as a candidate display/cache field pending ROM tracing
+  and cross-unit confirmation. The earlier Md Tank supply change from +5 =1=
+  to =3= remains unexplained.
 - A zero type byte marks an unused record, regardless of stale flags,
   coordinates, or health. Active records need a supported observed type, a
   participating owner block, coordinates inside the map, health =1..100= after

@@ -1719,8 +1719,8 @@ states.
 The record comparison uses the validated snapshot and documented raw unit
 fields; a complete typed =GameState= and unit decoder is not implemented. Byte
 +1 has context-dependent action/menu values, and byte +5 combines capture
-progress in the upper bits with a provisional ammunition candidate in the
-lower bits; neither is fully decoded.
+progress in the upper bits with uninterpreted lower bits; neither is fully
+decoded.
 
 The full RAM, screenshots, source-state fingerprints, and comparisons are
 external at =/tmp/aw2-unit-reuse-research/= and
@@ -1936,10 +1936,9 @@ state's SHA-256 is
   and byte +6 rises =0x5E -> 0x63= (94 -> 99). A type =0x0B= unit record at
   =0x020227D4= remains at =(8,4)=; byte +6 rises =0x2D -> 0x32= (45 -> 50),
   while byte +5 rises =0x01 -> 0x03=. Byte +6 has matched displayed fuel in
-  prior checkpoints. The low-bit change in byte +5 is consistent with an
-  ammunition refill for this Md Tank, but that field interpretation remains
-  provisional because no matched ammunition HUD value or attack-consumption
-  pair is available.
+  prior checkpoints. The byte +5 change is unexplained; a later Tank firing
+  pair shows that these low bits do not directly equal displayed ammunition.
+  Do not interpret this change as an ammo refill without identifying the field.
 - Both recipients are diagonally adjacent to the APC before the move and
   orthogonally adjacent after it. Their simultaneous fuel increase, alongside
   the APC's one-point fuel decrease, supports supply occurring in this
@@ -1964,7 +1963,7 @@ state's SHA-256 is
 |------+---------+-----------------+-------------------|
 | APC | =0x02022804= | =07 00 07 05 64 00 44 00 00 00 00 04= -> =07 01 07 04 64 00 43 00 00 00 00 04= | Coordinates =(7,5) -> (7,4)=, HP 100 unchanged, fuel =68 -> 67=; screenshot confirms the adjacent move |
 | Infantry | =0x020226E4= | =01 00 06 04 64 00 5E 00 00 00 00 00= -> =01 00 06 04 64 00 63 00 00 00 00 00= | Position =(6,4)= and HP 100 unchanged; fuel =94 -> 99= |
-| Md Tank | =0x020227D4= | =0B 01 08 04 64 01 2D 00 00 00 00 04= -> =0B 01 08 04 64 03 32 00 00 00 00 04= | Position =(8,4)= and HP 100 unchanged; fuel =45 -> 50=; byte +5 =1 -> 3=, consistent with but not proof of ammo replenishment |
+| Md Tank | =0x020227D4= | =0B 01 08 04 64 01 2D 00 00 00 00 04= -> =0B 01 08 04 64 03 32 00 00 00 00 04= | Position =(8,4)= and HP 100 unchanged; fuel =45 -> 50=; byte +5 =1 -> 3=, meaning unknown |
 
 This comparison checks the manually interpreted, documented fields against
 the validated whole-battle snapshots and screenshots. The repository does not
@@ -1991,17 +1990,73 @@ above identify the exact checkpoints used.
 *** Remaining questions
 - Test a recipient inside the destination radius and another beyond it, with
   a no-move control, to isolate the supply trigger and range.
-- Verify whether byte +5 is ammunition and whether supply restores it to a
-  unit-specific maximum. Check whether other eligibility conditions apply.
+- Confirm the candidate IWRAM HUD-ammo byte =0x03000799= with ROM reader/writer
+  tracing and additional selected units. The Tank shot matches 9 -> 8 in both
+  the HUD and this byte; the byte also matches the Recon panel's displayed 3
+  in a settled after-shot checkpoint. Byte +5 stays =0x04= through the Tank
+  shot, so its lower bits are not the displayed ammo count. The earlier supply
+  pair's =1 -> 3= byte +5 change remains unexplained.
+- Check whether supply restores ammunition after identifying its storage, and
+  test other supply eligibility conditions.
 - Compare the same unit's byte +1 before and after Wait, movement, and Fire in
   settled human turns; do not interpret transient menu value =0x06= as a stable
   bit pattern without a ROM reader/writer trace.
 - The archived Fire/Wait-to-result pair changes byte +1 from =0x06= to =0x01=,
   but its checkpoints are not a controlled same-unit Wait-versus-Fire branch.
   Capture that direct comparison before assigning an action-state meaning.
-- For ammunition, capture an ammo-using unit's HUD and record byte +5 before
-  firing and after combat settles. A matched no-ammo state can test whether
-  remaining ammunition changes attack eligibility or counterfire behavior.
+- The supplied Tank pair now shows HUD ammo 9 -> 8 and matching IWRAM byte
+  =0x03000799= 9 -> 8. Confirm whether this is a display cache or the canonical
+  ammo field by tracing its ROM readers/writers and comparing additional units.
+  Byte +5 does not change. A matched no-ammo state can test attack eligibility
+  or counterfire behavior once the field is confirmed.
+- The user confirms that choosing Wait does not decrease unit ammunition. Use
+  before/after Wait checkpoints only to investigate byte +1 action status, not
+  to infer ammo storage or consumption. The Tank shot above supplies the
+  required ammo-decrement example; the remaining ammo task is validating the
+  candidate IWRAM display value against the ROM and other unit types.
+
+** Finding: Tank firing and HUD ammunition comparison
+
+*** Claim and scope
+- Date: 2026-10-26. Six supplied states trace a Tank on Road attacking a
+  neighboring Recon. States =aw2.ss1= and =ss5=/=ss6= are settled human turns;
+  =ss2= through =ss4= show action/menu and damage-forecast
+  contexts. The source files were not modified.
+- Before firing, the Tank at =0x02022690= is
+  =05 00 07 05 E4 04 3B 00 00 00 00 04=. The screenshot labels it Tank and
+  displays 10 HP, 9 ammo, and 59 fuel. The adjacent Recon at =0x02022990= is
+  =06 00 08 05 64 00 45 00 00 00 00 04=.
+- In the Fire/Wait and damage-forecast checkpoints, Tank byte +1 is =0x06=;
+  byte +5 stays =0x04= and byte +6 stays =0x3B= (59). The visible forecast is
+  80% damage.
+- After combat settles, the Tank record is
+  =05 01 07 05 63 04 3B 00 00 00 00 04= and the Recon record is
+  =06 00 08 05 06 00 45 00 00 00 00 04=. The Tank's low-seven-bit health
+  changes 100 -> 99, the Recon's changes 100 -> 6, and the Tank's byte +1
+  changes 0 -> 6 in action UI -> 1 after resolution.
+- The settled after-state screenshot shows the Tank with 8 ammo and 59 fuel.
+  Byte +5 remains =0x04= through the shot, so it is not a direct raw ammo count
+  for this Tank. IWRAM byte =0x03000799= changes 9 -> 8, matching the Tank's
+  HUD before and after; in settled =aw2.ss5= it is =3= while the Recon panel
+  displays 3 ammo. This is a strong candidate for the currently displayed
+  unit's ammo value, but its use as canonical unit storage is unverified.
+  Another IWRAM byte at =0x03007C91= also changes 9 -> 8 across the pair but
+  remains 8 while the Recon panel is shown; its meaning is unknown. Byte +6
+  remains consistent with fuel.
+- The action byte is context-sensitive: =0x06= appears in action/forecast
+  states and =0x01= after combat. This associates it with action processing,
+  but does not decode its bits or establish Wait behavior. A Wait comparison
+  may help isolate byte +1's action-state behavior; the user confirms Wait
+  does not consume ammo, so it cannot resolve ammunition fields.
+
+*** Reproduction and evidence
+The six source states, full RAM captures, and screenshots are external at
+=/tmp/aw2-firing-check/=. Source state hashes and captured frame/phase data are
+in =aw2-ss1.json= through =aw2-ss6.json=. The focused comparison
+=firing-field-comparison.json= has SHA-256
+=81d6412d0db0e2c0c1a845f9e818760186efccc1f1af1c01ec345a19c0823b56=.
+The ROM SHA-256 is
+=ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
 
 * Finding: three-player routing outcome and army records
 

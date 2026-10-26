@@ -329,15 +329,21 @@
      rise to 99. Supply range, eligibility, and other replenished fields remain
      unverified. A controlled move pair shows two adjacent units gain five
      fuel while the APC moves one tile and loses one fuel; a nearby Md Tank's
-     raw byte +5 also rises by two, consistent with ammunition replenishment.
-     The low bits remain provisional without a matching ammo HUD/attack pair.
+     raw byte +5 also rises by two during that move. A later Tank shot lowers
+     HUD ammo 9 -> 8 while byte +5 stays 4, ruling out +5 as the displayed ammo
+     count. IWRAM byte =0x03000799= matches the Tank's 9 -> 8 HUD change and a
+     Recon's displayed 3 in another settled checkpoint; this is a candidate
+     display/cache field pending ROM tracing and cross-unit confirmation.
+     The supply pair's +5 change remains unexplained.
      Byte +1 changes from 0 to 1 in the move pair, but other screenshots show
      value 6 in movement/Fire-Wait UI and value 1 after a settled attack; its
-     action-state bits are unresolved. The attack's Infantry byte +5 is zero,
-     so it does not test ammunition use. See
-     [[file:AW2-MAP-RESEARCH.org::*Finding: controlled APC move with adjacent supply changes][the controlled movement comparison]]. To close this item, compare an ammo-using
-     unit's HUD and byte +5 before/after firing, plus the same unit before and
-     after Wait and movement in settled human turns.
+     action-state bits are unresolved. The attack sequence confirms a shot
+     and correlates these values with its action flow, but the ammo storage
+     address is not yet confirmed as canonical storage. See
+     [[file:AW2-MAP-RESEARCH.org::*Finding: Tank firing and HUD ammunition comparison][the Tank firing comparison]]. To close this item, trace the ROM ammo
+     readers/writers and cross-check IWRAM byte =0x03000799= with additional
+     selected units. Compare before and after Wait separately for byte +1
+     action status; Wait does not consume ammo, as user-confirmed.
      Supply radius/trigger and byte +5 semantics still need controlled checks.
    - [X] Identify unit table layout, bounds, occupancy, and slot reuse.
      The supported ROM pool has four 64-record blocks with 12-byte records;
