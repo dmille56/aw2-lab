@@ -1417,29 +1417,60 @@ and 73397. No source checkpoint, ROM, or SRAM was modified.
 | Save | =3= | =3= | =13 / 1 / 0= |
 | End | =4= | =4= | =13 / 1 / 0= |
 
-The byte at =0x030014B2= is a strong observed row-index candidate for this
-sequence. =0x030014F0= mirrors it in the same samples, so the captures do not
-establish which is authoritative. Neither field has been traced to its ROM
-reader/writer, and the same =0x030014B2= byte is =4= in the free-cursor
-checkpoint; its value alone therefore cannot identify this menu or prove the
-highlight is current. The process pool is empty in the command-menu checkpoint,
-so the existing screen-process recognizer does not identify this menu either.
+ROM code confirms that =0x030014B2= is the selected row byte for the selector
+object based at =0x03001470=: =sub_08019D0C= reads object offset =+0x42= and
+uses it to update the highlighted-row display; =sub_08019B80= writes that
+offset when Up/Down changes the selection. The object's byte at =+0x41= is the
+row count (5 here), which the same routine uses for wrapping. The neighboring
+byte =0x030014F0= mirrors the row values in these captures but has not been
+traced and is not needed to identify the selected row. The row byte remains stale when
+the menu closes (it is =4= in the preceding free-cursor checkpoint and =0= on
+return), so it cannot identify the menu on its own. The command-menu checkpoint
+has no screen-process script; the existing lifecycle screen-process recognizer
+does not identify this menu.
 
 To check acceptance, the experiment restored the initial checkpoint, moved to
 Options, pressed A, and advanced 20 neutral frames. The resulting screenshot
 shows the Options submenu (Delete, Yield, Music On, No Visual, Exit Map), and
-=0x030014B2= reset to =0=. This confirms that the highlighted Options row
-accepted A in this sample. The controller state remained =13= with lock =1=;
-those fields do not distinguish an actionable row here, and this single probe
-does not establish the exact actionability condition or behavior of other rows.
+=0x030014B2= reset to =0=. The corresponding ROM A-handler, =sub_08019A60=,
+uses the selected row's configured item and dispatches its callback only after
+checking the item through =sub_08074410= and confirming that a callback exists.
+The Options transition confirms acceptance for that row. The controller state
+remained =13= with lock =1=, so those fields do not identify readiness. The
+helper's dynamic eligibility conditions remain to be verified before exposing
+an actionable flag. A menu-present signature must also use the selector's
+active object/table, not the stale row byte alone.
 
-This probe identifies the visible family, all five row labels, and a
-frame-correlated candidate index. It does not yet provide a safe general-family
-signature or a verified actionable flag, so the runtime observer should keep
-this context unresolved. Next evidence should trace accesses to the candidate
-bytes in the supported ROM and compare command-menu, free-cursor, and other
-overlay checkpoints, including a stable sample before and during each accepted
-input.
+This probe identifies the visible family, all five row labels, and the selected
+row byte through ROM use. It does not yet provide a validated general-family
+signature or a complete actionable-state predicate, so the runtime observer
+should keep this context unresolved. The next check is to validate the menu
+object/table signature against more live overlays and inspect the helper's
+eligibility conditions, including a stable sample immediately before A.
+
+** CO submenu and return checkpoints
+
+The additional supplied states =aw2.ss1= through =aw2.ss8= were restored in an
+isolated emulator session and visually inspected. Their screenshots, full RAM
+dumps, frame numbers, and source state hashes are in
+=/tmp/aw2-command-menu/new-states/=. State 1 is the free map cursor; states 2
+through 6 show the general command menu with CO, Intel, Options, Save, and End
+highlighted in order; state 7 shows Andy's CO submenu; and state 8 shows the map
+after closing it. The menu snapshots read row values =0..4= from
+=0x030014B2= and =0..4= from =0x030014F0=. The free-cursor state has a stale row
+value of =4=; the CO submenu and returned map have =0=.
+
+States 2 through 6 also share =0x0848A42C= at =0x03001470= and the command
+item-table pointer =0x0849AAC0= at =0x03001490=. The free-cursor and returned
+map states have zero at =0x03001470=. The unit-action checkpoint instead has
+=0x08499B4C= at =0x03001470=, while the tested sub-action menu shares the
+=0x0848A42C= first value but has a different item-table pointer at
+=0x03001490=. These are useful distinguishing candidates for the tested
+contexts, but still need broader overlay validation before they become a
+general menu-family signature. On the CO submenu, lifecycle controller state is
+=20= and the EWRAM process pool contains =0x08616BE4=, =0x08615CA0=,
+=0x08616B74=, and =0x0849AA68=. Returning to the map restores controller state
+=13= and clears the process pool.
 
 ** Reproduction and evidence
 

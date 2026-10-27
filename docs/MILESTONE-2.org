@@ -490,11 +490,12 @@
      tested unit-action menu script and publishes a selected unit only after
      pointer bounds, army, active-player, coordinates, and logical map-cell checks
      pass. The general CO/Intel/Options/Save/End menu and highlighted row remain
-     unresolved as typed state. A controlled navigation replay maps visible
-     rows CO through End to =0..4= at candidate byte =0x030014B2=, mirrored by
-     =0x030014F0=; pressing A on Options opens its submenu. Neither candidate
-     has ROM access tracing, and the index alone also occurs outside this menu,
-     so no safe menu-family or actionable-state guard is established. See
+     unresolved as typed state. Controlled checkpoints map CO through End to
+     rows =0..4= at =0x030014B2=; ROM code confirms the selector reads this
+     byte as its row index. A on Options opens its submenu, and supplied states
+     also show the CO submenu and return to the map. The row byte remains stale
+     outside the menu; the menu object/table signature and dynamic eligibility
+     helper need broader validation before an actionable-state guard is safe. See
      [[file:AW2-LIFECYCLE-RESEARCH.org::*General command-menu row probe][the command-menu probe]]. Existing lifecycle and pointer evidence is summarized in
      [[file:AW2-STATE-VALIDATION.org][battle structure validation]] and
      [[file:AW2-LIFECYCLE-RESEARCH.org][lifecycle research]].
@@ -505,7 +506,7 @@
      | Phase | Tested Versus startup, menus, entry, player/AI turns, combat, powers, results, and transitions are classified; unknown contexts do not authorize live decoding. | A typed UI observation that combines the phase with its evidence and keeps Campaign and unrecognized processes explicit. |
      | Cursor | The bytes at =0x03003140= are X then Y in 45 controlled samples on five maps; watchpoints and disassembly identify the input updater, cache writer, and two readers. A typed observer requires a validated player turn, valid geometry, matching source/cache values, and in-bounds coordinates. | Identify setup/menu selection cursors separately and extend cursor validity only with phase-specific evidence. |
      | Selected unit | The current-unit pointer can be stale under the free cursor. In the observed =0x0849BE38= action-menu process, four checkpoints resolve it to the active player's unit and match record coordinates plus the logical cell index. | Extend coverage to other action/process contexts; do not infer a selection from the pointer alone. |
-     | Menu state | The typed observer recognizes map input and the sampled unit-action menu. Controlled navigation maps CO/Intel/Options/Save/End to candidate row values 0..4; A on Options opens its submenu. | Trace row-field readers/writers and establish a menu-family signature and actionable-state condition; the row value alone is not unique to this menu. |
+     | Menu state | The typed observer recognizes map input and the sampled unit-action menu. Controlled navigation plus ROM code verifies CO/Intel/Options/Save/End row values 0..4 at =0x030014B2=; A on Options and the CO submenu entry/return were observed. | Validate the menu object/table signature across more overlays and trace the dynamic eligibility helper before deriving an actionable-state condition; the row byte remains stale outside the menu. |
      | Transitions | Tested Versus transitions use callback, process, controller, lock, and input-state evidence; unknown combinations remain unavailable. | Record validity conditions beside each typed transition and add Campaign/event and additional menu contexts. |
 
    - [X] Identify supported UI phase and map-cursor position.
