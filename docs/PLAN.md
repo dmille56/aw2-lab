@@ -157,6 +157,19 @@ Use existing decompilation/disassembly projects as leads; verify adopted address
 
 **Dependencies:** decoded battle/UI state from milestone 2.
 
+The implementation checklist is tracked in [MILESTONE-3.org](MILESTONE-3.org).
+Begin with client architecture design for web, Linux/macOS/Windows desktop,
+and Android/iOS clients, including Nix development/packaging and a NixOS
+compatibility prototype. Full frontend implementation remains deferred; the
+first playable release uses the Python SDK and example scripts.
+
+Nix/NixOS is the primary development and testing path and receives the most
+frequent verification. Prioritize reproducible Nix environments, Linux client
+packaging, and NixOS runtime checks when selecting client technologies. Web,
+macOS, Windows, Android, and iOS remain client design targets; record their
+verification coverage and native toolchain requirements explicitly before
+claiming support.
+
 **Deliverables:** command queue, initial actions, checkpoint recovery, HTTP API, Python SDK, persistent journal, and two-client example scripts.
 
 Automate cold-boot menu navigation into the fixed two-player Versus configuration. Both players are controlled through the server. Implement movement/wait, attack, capture, purchase, end turn, and surrender before expanding action coverage.

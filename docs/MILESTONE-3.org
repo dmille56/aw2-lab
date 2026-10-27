@@ -1,0 +1,198 @@
+#+TITLE: Milestone 3: First Playable Server/Client Release
+#+TODO: TODO IN-PROGRESS BLOCKED | DONE DEFERRED
+
+* Scope and completion rules
+
+Implement the first playable release defined in [[file:PLAN.md][PLAN.md]]: one active
+local match, two trusted external players, one built-in Versus map, fixed COs,
+and fog disabled. Both armies use external control through the server. AW2
+remains authoritative for movement, combat, randomness, and victory.
+
+This checklist describes planned work. Existing emulator primitives and
+Milestone 2 decoding are prerequisites, not completed Milestone 3 integration.
+Mark tasks complete only after their implementation and relevant checks pass;
+record live evidence separately from synthetic checks. Keep ROMs, saves,
+screenshots, and machine-specific paths outside Git and the Nix store.
+
+* Client architecture design
+
+** TODO Choose client technologies and verify platform compatibility
+   - [ ] Write a client architecture decision record before finalizing the public contract or starting frontend implementation.
+   - [ ] Establish Nix/NixOS as the primary development and testing path, with the most frequent verification; prioritize reproducible builds and NixOS runtime compatibility in technology selection.
+   - [ ] Compare candidate technologies for web browsers, Linux/macOS/Windows desktops, and Android/iOS; document the selected stack, alternatives, maintenance costs, and platform limitations.
+   - [ ] Decide where Python runs: retain the Python SDK for scripts/agents and specify how each UI client consumes the shared HTTP API, including platforms where Python is not bundled.
+   - [ ] Define shared API schemas, version compatibility, error handling, command polling/retries, screenshots, and player credential storage across clients.
+   - [ ] Specify development, packaging, installation, updates, and distribution for each platform, including mobile signing and store/toolchain requirements.
+   - [ ] Require reproducible Nix development environments and a Nix package for the Linux desktop client, with dependencies and runtime assets declared explicitly.
+   - [ ] Verify the proposed Linux client with a minimal packaged prototype on NixOS, including required graphical/runtime libraries, Wayland/X11 support, and connection to the local server.
+   - [ ] Verify the Python SDK and examples in the Nix environment and smoke-test browser access to the server on NixOS.
+   - [ ] Document which builds run under Nix and which require native macOS/Windows or Android/iOS tooling; do not assume Nix can replace proprietary platform SDKs or signing.
+   - [ ] Record a platform support matrix, test frequency/coverage, prototype results, remaining risks, and follow-up implementation tasks before accepting the technology decision; require platform-specific evidence before claiming support beyond NixOS.
+   - This milestone includes architecture and compatibility prototypes. Full
+     frontend implementation remains deferred; the initial playable clients
+     are the Python SDK and two-client examples. NixOS compatibility must be
+     demonstrated before claiming the chosen Linux stack is supported.
+
+* Match contract and state
+
+** TODO Define the fixed playable configuration and public contract
+   - [ ] Choose and document the built-in map, two fixed COs, player slots, and rules, including fog disabled and both armies externally controlled.
+   - [ ] Define supported actions and advertise unsupported features explicitly.
+   - [ ] Define typed match, player-slot, command, error, and checkpoint models with versioned serialization.
+   - [ ] Define match lifecycle states, including setup, playable, executing, finished, recovery-required, and closed.
+   - [ ] Specify zero-based coordinates and explicit movement paths, including an empty path for stationary actions.
+   - [ ] Document request IDs, expected revisions, command status, retry behavior, and player-slot credentials.
+   - Keep transport, match coordination, action execution, persistence, HTTP,
+     and SDK responsibilities separate as described in =PLAN.md=.
+
+** TODO Integrate decoded observations with match identity and revisions
+   - [ ] Attach match identity and a monotonic revision to coherent command-boundary observations.
+   - [ ] Integrate the existing unit identity ledger so movement preserves identity and destroyed/replaced units cannot reuse an old public identity.
+   - [ ] Persist and restore identity bookkeeping with emulator checkpoints.
+   - [ ] Resolve identity updates across multi-step actions, destruction, and slot reuse; fail safely when continuity cannot be established.
+   - [ ] Keep unknown fields explicit and distinguish readable state from readiness to execute a particular action.
+   - [ ] Ensure reads and screenshots do not advance emulation or change revisions.
+   - [ ] Ensure restore, rollback, and debug mutations invalidate stale revisions, including after restart.
+   - Reuse [[file:../src/aw2_lab/state_decoder.py][the decoder]] and
+     [[file:../src/aw2_lab/unit_identity.py][the identity ledger]]. The current decoder's unit reference is a reusable
+     RAM slot; it is not the public lifetime identity.
+
+* Serialized execution and recovery
+
+** TODO Add the authoritative match controller and command queue
+   - [ ] Own the single active match and serialize every emulator mutation, including debug operations and checkpoint restore.
+   - [ ] Create/join/inspect/close matches and coordinate ownership of the two player slots.
+   - [ ] Validate match identity, credentials, ownership, turn, revision, and action readiness when execution begins.
+   - [ ] Assign command IDs and expose queued, running, and terminal command status.
+   - [ ] Deduplicate request IDs, return the existing result for an identical retry, and reject conflicting reuse.
+   - [ ] Define queue bounds, shutdown, disconnect, and cancellation behavior so an accepted action is never silently abandoned or repeated.
+   - [ ] Publish coherent state at command boundaries and prevent reads from exposing a partially executed transaction as settled state.
+
+** TODO Add complete checkpoint storage and durable command journaling
+   - [ ] Define a checkpoint manifest containing emulator state/save RAM, ROM checksum, emulator build identity, decoder/schema versions, match metadata, revisions, and identity metadata.
+   - [ ] Reuse the verified full-state/save-RAM bridge primitives and validate manifest compatibility before restoration.
+   - [ ] Store journal entries for accepted commands, execution, and terminal results, including request-ID deduplication data.
+   - [ ] Define atomic write/commit ordering for checkpoints, journal entries, and the last committed checkpoint reference.
+   - [ ] Handle partial writes, missing/corrupt artifacts, incompatible builds, and storage failures with explicit diagnostics.
+   - [ ] Implement checkpoint create, export/import, and restore without exposing arbitrary server filesystem access through client requests.
+   - [ ] Store artifacts in configured local storage outside Git and the Nix store.
+
+** TODO Implement transaction rollback and restart recovery
+   - [ ] Save a recovery checkpoint before each high-level action.
+   - [ ] Restore emulator and Python metadata after an unexpected menu, failed postcondition, or timeout.
+   - [ ] Return completed, rejected, rolled-back, or recovery-required results with revision and diagnostics.
+   - [ ] Release held inputs on failure and prevent further mutations when recovery fails.
+   - [ ] Restore the last committed checkpoint on restart and reconcile unfinished commands without silently replaying them.
+   - [ ] Preserve deduplication and monotonic revisions across restart, restore, and rollback.
+   - [ ] Require explicit successful restoration before leaving recovery-required state.
+
+* Cold boot and controller-input automation
+
+** TODO Automate cold boot into the fixed two-player Versus match
+   - [ ] Navigate startup, mode selection, map selection, CO/team setup, and rules using controller inputs.
+   - [ ] Account for fresh and existing cartridge save data without depending on manually prepared unlocks or menu positions.
+   - [ ] Verify the selected map, COs, teams, rules, and settled first player turn before accepting gameplay.
+   - [ ] Recognize unexpected setup screens and stop or recover with diagnostics.
+   - [ ] Record reproduction steps and verify the same configuration in both emulator modes.
+
+** TODO Build bounded action navigation and readiness guards
+   - [ ] Implement reusable cursor movement, unit selection, menu navigation, target selection, and confirmation steps.
+   - [ ] Check recognized UI preconditions and postconditions at every step; extend UI research only where the initial actions require it.
+   - [ ] Use explicit frame budgets and state predicates, plus a wall-clock watchdog for an unresponsive emulator.
+   - [ ] Validate request shape, coordinates, path adjacency, and obvious state constraints while letting AW2 decide legality and outcomes.
+   - [ ] Keep gameplay on controller inputs; reserve memory writes and internal diagnostics for clearly named debug operations.
+   - [ ] Capture useful failure context such as the last recognized phase, frame, input sequence, and screenshot reference.
+   - Existing research and safe decoding boundaries are documented in
+     [[file:AW2-STATE-VALIDATION.org][state validation]] and [[file:AW2-LIFECYCLE-COVERAGE.org][lifecycle coverage]].
+
+** TODO Implement movement followed by Wait
+   - [ ] Execute the explicit path and choose Wait as one transaction, including an empty path.
+   - [ ] Verify final position, unit identity, action status, and return to a recognized control boundary.
+   - [ ] Reject or roll back invalid routes, unavailable units, and unexpected action menus.
+
+** TODO Implement movement followed by attack
+   - [ ] Select a target after the explicit path and execute the attack as one transaction.
+   - [ ] Handle combat animations, counterattacks, damage, destruction, and return to control.
+   - [ ] Verify resulting state without predicting damage or consuming randomness outside AW2.
+   - [ ] Detect battle-ending attacks and transition to finished-match handling.
+
+** TODO Implement movement followed by capture
+   - [ ] Choose Capture after the explicit path, including stationary capture continuation.
+   - [ ] Verify progress or ownership changes and the acting unit's status.
+   - [ ] Handle HQ capture and the resulting battle-ending sequence.
+
+** TODO Implement unit purchasing
+   - [ ] Select an owned production property, choose the requested supported unit type, and confirm purchase.
+   - [ ] Handle occupied properties, insufficient funds, and unavailable production choices safely.
+   - [ ] Verify funds, new unit identity, position, and action status after purchase.
+
+** TODO Implement end turn and surrender
+   - [ ] Navigate the general command menu and required confirmations for each action.
+   - [ ] Verify the next active player/day after end turn, including automatic upkeep and supply effects.
+   - [ ] Verify surrender outcome and drive the supported result/save-progress flow to a recognized boundary.
+   - [ ] Record victory/defeat outcomes for elimination and HQ capture without treating retained battle RAM as live state.
+   - [ ] Make finished matches inspectable and prevent further gameplay commands.
+
+* HTTP API and Python clients
+
+** TODO Expose the match controller through the HTTP API
+   - [ ] Add capabilities, create/join/inspect/close, structured state, screenshot, and command-status operations.
+   - [ ] Add initial gameplay and checkpoint operations with shared typed models.
+   - [ ] Route clearly named debug input/frame/memory/reset operations through the same queue and revision rules.
+   - [ ] Define stable error responses for illegal/stale requests, unsupported features, unavailable observations, and recovery-required matches.
+   - [ ] Keep loopback binding as the default and keep client credentials out of diagnostics and tracked artifacts.
+   - [ ] Distinguish HTTP health, emulator/bridge readiness, and playable-match readiness.
+   - [ ] Document routes, schemas, and examples without requiring clients to know Lua or mGBA details.
+
+** TODO Provide the Python SDK and two-client examples
+   - [ ] Follow the client architecture decision and keep the HTTP contract usable by the planned web, desktop, and mobile clients.
+   - [ ] Wrap capabilities, match lifecycle, observations, actions, command polling, and checkpoints with typed Python methods.
+   - [ ] Offer wait-for-completion helpers with bounded timeouts and structured failure results.
+   - [ ] Preserve request IDs across network retries and distinguish a client wait timeout from server command failure.
+   - [ ] Provide two scripts or interactive-session examples that join separate slots and take turns in the same match.
+   - [ ] Demonstrate starting, playing, finishing, saving, and resuming through the public API.
+   - [ ] Keep strategy and legal-move enumeration outside the SDK's initial scope.
+
+* Verification and acceptance
+
+** TODO Cover coordination, persistence, and HTTP/SDK behavior without a ROM
+   - [ ] Check concurrent submissions, execution-time stale revisions, wrong player/turn, duplicate requests, and conflicting request-ID reuse.
+   - [ ] Check action success, illegal actions, unknown menus, bounded timeouts, rollback, and rollback failure using controlled emulator observations.
+   - [ ] Check identity continuity/replacement, checkpoint metadata round trips, compatibility rejection, and revision changes.
+   - [ ] Exercise restart at journal/checkpoint commit boundaries, including unfinished commands, corrupt artifacts, and deduplication after restart.
+   - [ ] Cover HTTP serialization, error mapping, ownership, SDK retries, and completion polling through the public boundary.
+
+** TODO Verify the playable slice in headless and windowed modes
+   - [ ] Keep live checks opt-in with local ROM/artifact configuration; default checks remain ROM-independent.
+   - [ ] Cold boot into the fixed match with two Python clients in each mode.
+   - [ ] Execute purchase, move/wait, attack, capture, and turn changes; finish through surrender and natural victory scenarios.
+   - [ ] Save, restore, and restart/resume a match, checking save RAM, identities, revisions, and retry behavior.
+   - [ ] Exercise illegal/stale/duplicate commands and unexpected-menu/timeout recovery through the API.
+   - [ ] Compare observations after identical checkpoint/input sequences under both pinned frontends.
+   - [ ] Record ROM/build identity, reproduction steps, results, and external artifact fingerprints in an evidence index.
+   - [ ] Extend [[file:VERIFICATION.md][the verification workflow]] with commands, client examples, persistence setup, and recovery instructions.
+   - [ ] Run =pre-commit run --all-files=; retry with =nix develop -c pre-commit run --all-files= if required tools are missing.
+
+** TODO Confirm all Milestone 3 deliverables and acceptance criteria in [[file:PLAN.md][PLAN.md]]
+   - [ ] The client architecture decision covers all target platforms and records Nix/NixOS compatibility evidence and remaining native-toolchain requirements.
+   - [ ] Command queue, initial actions, checkpoint recovery, HTTP API, Python SDK, persistent journal, and two-client examples are implemented and documented.
+   - [ ] Two Python clients can start, play, finish, save, and resume a match in either emulator mode.
+   - [ ] Illegal or stale commands fail cleanly, and retries cannot duplicate actions.
+   - [ ] Unexpected menus and timeouts recover or explicitly stop the match.
+   - [ ] Restart restores the last committed checkpoint and reconciles unfinished commands safely.
+   - [ ] Link each acceptance claim to implementation, checks, and recorded live evidence; retain remaining limitations explicitly.
+
+* Deferred scope
+
+- Milestone 4: gameplay MCP tools and MCP acceptance scenarios. The existing
+  scaffold does not replace the HTTP/SDK work in this milestone.
+- Milestone 5: powers, joining, transport actions, resupply, diving/surfacing,
+  silos, configurable maps/COs/rules/weather/teams, and fog-enabled coverage.
+- Additional Milestone 2 research is needed only when it blocks this playable
+  subset. Campaign, theoretical capacities, and unresolved optional bits stay
+  deferred as recorded in [[file:MILESTONE-2.org][Milestone 2]].
+- Full frontend implementation (beyond the architecture/prototypes above),
+  public hosting/accounts, multiple simultaneous matches,
+  competitive visibility filtering, custom maps, campaign, link-cable play,
+  built-in strategy, legal-move enumeration, and forked rollouts remain outside
+  the initial roadmap scope.
