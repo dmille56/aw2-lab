@@ -58,7 +58,7 @@ fields require a documented compatibility decision and generated-client schema
 checks. Game-state decoder schema versions and unit-identity metadata versions
 remain separate from this API contract version.
 
-The model family covers:
+The Pydantic model family covers:
 
 - `Capabilities`, `FixedMatchConfiguration`, `MatchSummary`, and slot status.
 - `CommandRequest`, the discriminated gameplay action union, `CommandReceipt`,
@@ -68,9 +68,12 @@ The model family covers:
 
 Match IDs, command IDs, checkpoint IDs, and request IDs are UUIDs. Revisions are
 nonnegative integers no greater than `2^53 - 1`, so browser clients can represent
-them exactly. A state observation is associated with its match ID and revision;
-the existing versioned `GameState` remains the base decoder payload until the
-match-controller integration adds those fields.
+them exactly. The versioned `GameState` remains a pure decoder payload. The
+versioned `MatchObservation` wraps it with `match_id`, `revision`, identity
+status, per-unit lifetime IDs keyed by decoder reference, and action readiness.
+The wrapper is implemented by `aw2_lab.match_observation`; it does not alter the
+existing GameState schema. IDs are decimal strings so they remain exact in
+JavaScript clients.
 
 Lifecycle values are `setup`, `playable`, `executing`, `finished`,
 `recovery_required`, and `closed`. `playable` means the match is at a coherent
@@ -79,6 +82,11 @@ command boundary; it does not imply a particular submitted action is legal.
 committed boundary. A finished match remains inspectable but accepts no gameplay
 commands. Recovery-required blocks mutations until an explicit successful
 restore. Closed matches cannot be reopened.
+
+`ActionReadiness` describes whether the observed phase and UI boundary are
+recognized for beginning a command. `ready` is not a move validator and does
+not promise that a specific unit, route, target, purchase, or turn action is
+legal. Unknown RAM and UI fields remain unavailable/unknown in `GameState`.
 
 ## Commands, revisions, retries, and credentials
 
@@ -103,6 +111,14 @@ boundary but issues a fresh monotonic revision so stale clients cannot act on
 pre-rollback assumptions. Failed rollback transitions the match to
 `recovery_required`.
 
+The match observer advances revisions only when the controller commits a new
+boundary after a mutation. It supports explicit revision causes for debug
+mutations, rollback, and restore. `read()` returns the last immutable committed
+observation without calling the emulator, advancing frames, reconciling unit
+identities, or changing the revision. Screenshot metadata binds an image to
+that observation's match ID, revision, and frame; image capture itself does not
+publish a new observation.
+
 The server creates a high-entropy credential for each slot at join time and
 returns it only in that join response. Credentials are sent in the request body,
 held in client memory by default, never placed in URLs, and never returned by
@@ -123,7 +139,10 @@ incompatible checkpoints, and internal errors.
 A checkpoint manifest identifies its checkpoint and match, committed revision,
 ROM SHA-256, emulator build, decoder schema, identity schema, and creation time.
 The artifact also contains emulator state and save RAM, match configuration,
-revision metadata, and unit-identity ledger metadata. Storage format, atomic
+revision metadata, and unit-identity ledger metadata. On restore after restart,
+the observer requires the durable journal's revision high-water mark and starts
+above both it and the checkpoint revision. Restoring a checkpoint alone is not
+sufficient to guarantee revisions never repeat after restart. Storage format, atomic
 commit order, journal linkage, and compatibility checks are implemented in the
 checkpoint/persistence tasks; clients cannot supply arbitrary filesystem paths.
 

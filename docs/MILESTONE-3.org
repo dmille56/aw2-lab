@@ -51,14 +51,16 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - Keep transport, match coordination, action execution, persistence, HTTP,
      and SDK responsibilities separate as described in =PLAN.md=.
 
-** TODO Integrate decoded observations with match identity and revisions
-   - [ ] Attach match identity and a monotonic revision to coherent command-boundary observations.
-   - [ ] Integrate the existing unit identity ledger so movement preserves identity and destroyed/replaced units cannot reuse an old public identity.
-   - [ ] Persist and restore identity bookkeeping with emulator checkpoints.
-   - [ ] Resolve identity updates across multi-step actions, destruction, and slot reuse; fail safely when continuity cannot be established.
-   - [ ] Keep unknown fields explicit and distinguish readable state from readiness to execute a particular action.
-   - [ ] Ensure reads and screenshots do not advance emulation or change revisions.
-   - [ ] Ensure restore, rollback, and debug mutations invalidate stale revisions, including after restart.
+** DONE Integrate decoded observations with match identity and revisions
+   - [X] Attach match identity and a monotonic revision to coherent command-boundary observations.
+   - [X] Integrate the existing unit identity ledger so movement preserves identity and destroyed/replaced units cannot reuse an old public identity.
+   - [X] Persist and restore identity bookkeeping with emulator checkpoints.
+   - [X] Resolve identity updates across multi-step actions, destruction, and slot reuse; fail safely when continuity cannot be established.
+   - [X] Keep unknown fields explicit and distinguish readable state from readiness to execute a particular action.
+   - [X] Ensure reads and screenshots do not advance emulation or change revisions.
+   - [X] Ensure restore, rollback, and debug mutations invalidate stale revisions, including after restart.
+   - [X] Add focused regression coverage for boundary continuity, restore revision floors, and read immutability in [[file:../tests/test_match_observation.py][test_match_observation.py]].
+   - Implementation: [[file:../src/aw2_lab/match_observation.py][match_observation.py]] wraps the pure [[file:../src/aw2_lab/state_decoder.py][decoder]] and reuses the [[file:../src/aw2_lab/unit_identity.py][identity ledger]]. The observer publishes only validated player-turn boundaries, fails closed after uncertain continuity, and requires a durable revision floor on restore. The later checkpoint-storage task will persist this metadata and the durable journal floor.
    - Reuse [[file:../src/aw2_lab/state_decoder.py][the decoder]] and
      [[file:../src/aw2_lab/unit_identity.py][the identity ledger]]. The current decoder's unit reference is a reusable
      RAM slot; it is not the public lifetime identity.
