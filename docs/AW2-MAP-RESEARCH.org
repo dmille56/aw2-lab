@@ -108,6 +108,47 @@ the US ROM SHA-256 =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9
 checkpoint SHA-256 =166929e391d3f405dcc3d54d4eb67c0901a7a9dfa9bbecb4810b7076a7d087d5=,
 and write-log SHA-256 =160d792f7757dcb6d12eb85683d47de77ddea6d3ac1db69993ab0bcca964ea67=.
 
+** Selected unit and action-menu evidence
+
+The current-unit pointer at =0x030040D8= is not a unit-under-free-cursor
+signal. In the restored free-cursor checkpoint, it points to army slot 4,
+unit slot 6, while the active player is slot 1 and the cursor is at =(1,7)=.
+The general command menu checkpoint instead has the pointer at the reserved
+empty record and no active screen process; lifecycle classification remains
+=BATTLE_ENGINE_UNRESOLVED=. Neither case publishes a selected unit.
+
+Original-ROM tracing in =sub_0802DEFC= shows the A-selection path resolving the
+logical map-cell unit index, deriving its record address from the ROM unit-pool
+base, and storing that address in =0x030040D8=. Four restored action-menu
+checkpoints corroborate this relationship: the process script at =0x0849BE38=
+is present, the pointer resolves to an active-player unit record, record
+coordinates match the cached map cursor at =0x03003140=, and the logical map
+occupant index matches the unit's global table index.
+
+| Checkpoint | Menu shown | Current-unit pointer | Slot / coordinates | Logical cell index |
+|------------+------------+----------------------+--------------------+--------------------|
+| =damaged-capture-menu= | Capture / Wait | =0x02022690= | army 1, slot 1, =(4,4)= | =1= |
+| =unit-action-menu= | unit action | =0x020226A8= | army 1, slot 3, =(11,5)= | =3= |
+| =sub-action-menu= | unit action | =0x020226E4= | army 1, slot 8, =(4,7)= | =8= |
+| =silo-action-menu= | Launch / Wait | =0x02022690= | army 1, slot 1, =(2,20)= | =1= |
+
+The pointer validator requires 12-byte alignment, one of four 0x300-byte army
+blocks, usable slots 1..50, a supported active unit type, active-player/army
+agreement, cursor/record coordinate agreement, and a matching logical map-cell
+index. In action menus the source coordinate pair can refer to a target tile
+while the cache remains at the selected unit; the validator intentionally uses
+the cache. The menu observer in =aw2_lab.ui_state= recognizes this bounded
+unit-action family and returns the unit type ID, army slot, unit slot, record
+address, and coordinates. It leaves the general CO/Intel/Options/Save/End menu
+unresolved. The highlighted menu row and actionable-option state are not yet
+decoded.
+
+The full checkpoint replays and IWRAM/EWRAM dumps are external at
+=/tmp/aw2-ui-selection/=. The source checkpoints are the action-menu states in
+=/tmp/aw2-map-research-four/=, =/tmp/aw2-hachi-active-power/=,
+=/tmp/aw2-special-status-followup/=, and =/tmp/aw2-pipe-silo-research/=; the
+general command-menu counterexample is in =/tmp/aw2-lifecycle-control-research/=.
+
 * Map and property layout verification
 
 ** Historical finding: Initial map/property probe established no fields

@@ -486,8 +486,12 @@
      pointer at =0x030040D8= can be stale under the free
      cursor, so it cannot identify the unit beneath the cursor; selection must be
      established from a confirmed selection/action context and checked against the
-     unit record coordinates. Existing lifecycle and pointer evidence is summarized
-     in [[file:AW2-STATE-VALIDATION.org][battle structure validation]] and
+     unit record coordinates. [[file:../src/aw2_lab/ui_state.py][The UI observer]] now recognizes the
+     tested unit-action menu script and publishes a selected unit only after
+     pointer bounds, army, active-player, coordinates, and logical map-cell checks
+     pass. The general CO/Intel/Options/Save/End menu and highlighted row remain
+     unresolved. Existing lifecycle and pointer evidence is summarized in
+     [[file:AW2-STATE-VALIDATION.org][battle structure validation]] and
      [[file:AW2-LIFECYCLE-RESEARCH.org][lifecycle research]].
    - Inventory for the UI decoder:
 
@@ -495,8 +499,8 @@
      |----------------+-------------------+--------------|
      | Phase | Tested Versus startup, menus, entry, player/AI turns, combat, powers, results, and transitions are classified; unknown contexts do not authorize live decoding. | A typed UI observation that combines the phase with its evidence and keeps Campaign and unrecognized processes explicit. |
      | Cursor | The bytes at =0x03003140= are X then Y in 45 controlled samples on five maps; watchpoints and disassembly identify the input updater, cache writer, and two readers. A typed observer requires a validated player turn, valid geometry, matching source/cache values, and in-bounds coordinates. | Identify setup/menu selection cursors separately and extend cursor validity only with phase-specific evidence. |
-     | Selected unit | =0x030040D8= may point at an unrelated stale record under the free cursor. Selection/action checkpoints can be corroborated with unit records. | Identify a reliable selection signal and validate its reference, owner, and coordinates before publishing it. |
-     | Menu state | Lifecycle evidence blocks live decoding for the command menu, combat, powers, and known save/result dialogues. | Decode menu family, highlighted item, and actionable selection state; retain unresolved status when signals conflict or are absent. |
+     | Selected unit | The current-unit pointer can be stale under the free cursor. In the observed =0x0849BE38= action-menu process, four checkpoints resolve it to the active player's unit and match record coordinates plus the logical cell index. | Extend coverage to other action/process contexts; do not infer a selection from the pointer alone. |
+     | Menu state | The typed observer recognizes map input and the sampled unit-action menu. The general command menu stays unresolved. | Decode additional menu families, highlighted item, and actionable selection state; retain unresolved status when signals conflict or are absent. |
      | Transitions | Tested Versus transitions use callback, process, controller, lock, and input-state evidence; unknown combinations remain unavailable. | Record validity conditions beside each typed transition and add Campaign/event and additional menu contexts. |
 
    - [X] Identify supported UI phase and map-cursor position.
@@ -504,7 +508,11 @@
      is available only in a validated human player turn with matching source and
      cache coordinates inside verified map geometry. Setup/menu cursors remain
      separate and unresolved.
-   - [ ] Identify selected unit and relevant menu state.
+   - [X] Resolve the selected unit in the verified unit-action menu context.
+     The observer requires the recognized menu process, a bounded/aligned unit
+     record, active-player/army agreement, coordinate agreement, and a matching
+     logical map-cell index.
+   - [ ] Identify the general command-menu family, highlighted item, and actionable selection state.
    - [ ] Document recognized transitions and their validity conditions.
    - [ ] Represent unrecognized UI states explicitly.
 

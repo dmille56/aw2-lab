@@ -23,7 +23,7 @@ from aw2_lab.state_validation import (
     load_battle_layout,
     validate_battle_snapshot,
 )
-from aw2_lab.ui_state import CursorStatus, observe_map_cursor
+from aw2_lab.ui_state import CursorStatus, MenuFamily, observe_map_cursor, observe_menu
 
 
 @pytest.fixture
@@ -126,6 +126,67 @@ def test_map_cursor_observation_rejects_cross_frame_validation(memory) -> None:
     report = replace(validate_battle_snapshot(current), frame=current.frame + 1)
     with pytest.raises(ValueError, match="same frame"):
         observe_map_cursor(current, report)
+
+
+def test_unit_action_menu_resolves_selected_unit_against_table_and_map(memory) -> None:
+    _, ewram, iwram = memory
+    pack_into("<I", ewram, 0xD610, 0x0849BE38)
+    pack_into("<I", iwram, 0x40D8, 0x02022690)
+    pack_into("<H", iwram, 0x3334, 4)
+    ewram[0x22690:0x2269C] = bytes((1, 6, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
+    iwram[0x3140:0x3142] = bytes((1, 1))
+    ewram[0x1E450 + 0x51A + 3] = 1
+
+    current = snapshot(memory)
+    report = validate_battle_snapshot(current)
+    menu = observe_menu(current, report)
+    assert report.lifecycle.phase is LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+    assert menu.family is MenuFamily.UNIT_ACTION
+    assert menu.selected_unit is not None
+    assert menu.selected_unit.record_address == 0x02022690
+    assert (menu.selected_unit.army_slot, menu.selected_unit.unit_slot) == (1, 1)
+    assert menu.selected_unit.unit_type == 1
+    assert (menu.selected_unit.x, menu.selected_unit.y) == (1, 1)
+
+
+def test_unit_action_menu_rejects_a_pointer_from_another_army(memory) -> None:
+    _, ewram, iwram = memory
+    pack_into("<I", ewram, 0xD610, 0x0849BE38)
+    pack_into("<I", iwram, 0x40D8, 0x02022990)
+    ewram[0x22990:0x2299C] = bytes((1, 6, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
+    iwram[0x3140:0x3142] = bytes((1, 1))
+    ewram[0x1E450 + 0x51A + 3] = 65
+
+    current = snapshot(memory)
+    menu = observe_menu(current, validate_battle_snapshot(current))
+    assert menu.family is MenuFamily.UNIT_ACTION
+    assert menu.selected_unit is None
+    assert "does not match the active player" in menu.reasons[0]
+
+
+def test_general_command_menu_stays_unresolved_and_does_not_publish_stale_pointer(memory) -> None:
+    _, _, iwram = memory
+    pack_into("<I", iwram, 0x40D8, 0x02022690)
+    iwram[0x30F0] = 1
+    current = snapshot(memory)
+    menu = observe_menu(current, validate_battle_snapshot(current))
+    assert menu.family is MenuFamily.UNRESOLVED
+    assert menu.selected_unit is None
+
+
+def test_map_input_menu_does_not_treat_current_pointer_as_selection(memory) -> None:
+    pack_into("<I", memory[2], 0x40D8, 0x02022690)
+    current = snapshot(memory)
+    menu = observe_menu(current, validate_battle_snapshot(current))
+    assert menu.family is MenuFamily.MAP_INPUT
+    assert menu.selected_unit is None
+
+
+def test_menu_observation_rejects_cross_frame_validation(memory) -> None:
+    current = snapshot(memory)
+    report = replace(validate_battle_snapshot(current), frame=current.frame + 1)
+    with pytest.raises(ValueError, match="same frame"):
+        observe_menu(current, report)
 
 
 @pytest.mark.parametrize(
