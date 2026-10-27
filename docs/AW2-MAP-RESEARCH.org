@@ -25,6 +25,36 @@ Earlier findings retain their original scope. Labs remain a Campaign-specific
 follow-up per the user's scenario guidance; no lab layout is claimed without a
 Campaign observation.
 
+* IWRAM cursor coordinate pair
+
+The two bytes at =0x03003140= are the map cursor's zero-based X and Y in
+controlled Versus map observations: byte +0 is X and byte +1 is Y. The
+five-map verification at =/tmp/aw2-map-research-five/verify.py= compares the
+captured bytes directly with expected coordinates for 45 controlled cursor
+samples. Right changes X, Down changes Y, and edge probes show both values
+clamp to the map bounds. This establishes byte order and coordinate meaning
+for those playable-map samples.
+
+The field does not identify the active UI cursor in every phase. The startup,
+title, mode, map-select, Teams, and Rules checkpoints retain =00 00=; the
+first playable checkpoint has =01 09=. Restored command-menu, Options, Power,
+save-progress, and Yield overlays retain map-coordinate pairs such as
+=(01 07)=, =(04 08)=, and =(0A 05)=. Treat these as the last map cursor
+coordinates, not as a menu-row or selected-command index. The map cursor is
+visually present while the command menu is open, but the field alone does not
+prove input readiness; lifecycle and controller checks still apply.
+
+Static tracing is incomplete. An exact-address scan of the supported ROM
+found no literal reference to =0x03003140=, which suggests code may calculate
+the address from a nearby base or copy it indirectly. The matching decompilation
+contains readers of =gUnknown_03003100= at =0x0802927C= and =0x08028E3E=;
+those instructions read offsets 0 and 2 from that separate address and do not
+establish reads or writes of =0x03003140=. Thus the runtime meaning and byte
+order are verified, but the game's specific reader/writer routines and the
+field's validity outside the tested Versus map surface remain unresolved. A
+watchpoint or complete data-flow trace is needed before claiming ROM-level
+cross-reference coverage.
+
 * Map and property layout verification
 
 ** Historical finding: Initial map/property probe established no fields
