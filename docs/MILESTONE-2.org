@@ -478,9 +478,12 @@
      writer copies X/Y from =0x030033E4=; both readers resolve map cells and
      drive cursor-tile logic. The pair retains the last map coordinates through
      command and other overlays, so it is not a general menu-cursor field. The
-     source pair's setters and cursor validity outside playable Versus maps are
-     unresolved. The observations have not yet been turned into a typed cursor
-     field. The current-unit pointer at =0x030040D8= can be stale under the free
+     source-pair updater is =sub_0802361C=; other setup, restore, and scripted
+     paths also assign the pair. [[file:../src/aw2_lab/ui_state.py][The typed map-cursor observer]] exposes
+     coordinates only for a validated map and recognized player turn when
+     source/cache values match and are in bounds. Setup, transitions, combat,
+     Power, results, and unknown phases return unavailable. The current-unit
+     pointer at =0x030040D8= can be stale under the free
      cursor, so it cannot identify the unit beneath the cursor; selection must be
      established from a confirmed selection/action context and checked against the
      unit record coordinates. Existing lifecycle and pointer evidence is summarized
@@ -491,12 +494,16 @@
      | UI information | Verified evidence | Still needed |
      |----------------+-------------------+--------------|
      | Phase | Tested Versus startup, menus, entry, player/AI turns, combat, powers, results, and transitions are classified; unknown contexts do not authorize live decoding. | A typed UI observation that combines the phase with its evidence and keeps Campaign and unrecognized processes explicit. |
-     | Cursor | The bytes at =0x03003140= are X then Y in 45 controlled samples on five maps; movement and map-edge clamping agree with screenshots. Watchpoints and disassembly identify one cache writer and two map-cell/cursor readers. Command and other overlays retain the last map coordinates. | Trace setters of source pair =0x030033E4= and identify when the cached pair is valid; keep it separate from setup/menu selection cursors. |
+     | Cursor | The bytes at =0x03003140= are X then Y in 45 controlled samples on five maps; watchpoints and disassembly identify the input updater, cache writer, and two readers. A typed observer requires a validated player turn, valid geometry, matching source/cache values, and in-bounds coordinates. | Identify setup/menu selection cursors separately and extend cursor validity only with phase-specific evidence. |
      | Selected unit | =0x030040D8= may point at an unrelated stale record under the free cursor. Selection/action checkpoints can be corroborated with unit records. | Identify a reliable selection signal and validate its reference, owner, and coordinates before publishing it. |
      | Menu state | Lifecycle evidence blocks live decoding for the command menu, combat, powers, and known save/result dialogues. | Decode menu family, highlighted item, and actionable selection state; retain unresolved status when signals conflict or are absent. |
      | Transitions | Tested Versus transitions use callback, process, controller, lock, and input-state evidence; unknown combinations remain unavailable. | Record validity conditions beside each typed transition and add Campaign/event and additional menu contexts. |
 
-   - [ ] Identify UI phase and cursor position.
+   - [X] Identify supported UI phase and map-cursor position.
+     The lifecycle classifier supplies the phase; a typed map-cursor observation
+     is available only in a validated human player turn with matching source and
+     cache coordinates inside verified map geometry. Setup/menu cursors remain
+     separate and unresolved.
    - [ ] Identify selected unit and relevant menu state.
    - [ ] Document recognized transitions and their validity conditions.
    - [ ] Represent unrecognized UI states explicitly.

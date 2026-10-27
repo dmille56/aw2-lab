@@ -23,6 +23,7 @@ from aw2_lab.state_validation import (
     load_battle_layout,
     validate_battle_snapshot,
 )
+from aw2_lab.ui_state import CursorStatus, observe_map_cursor
 
 
 @pytest.fixture
@@ -66,6 +67,65 @@ def test_consistent_battle_allows_the_supported_live_fields(memory) -> None:
     assert report.players.count == 2
     assert report.units.count == 2
     report.require_live()
+
+
+def test_map_cursor_observation_requires_live_phase_and_matching_bounded_coordinates(
+    memory,
+) -> None:
+    _, _, iwram = memory
+    pack_into("<HH", iwram, 0x33E4, 1, 1)
+    iwram[0x3140:0x3142] = bytes((1, 1))
+    current = snapshot(memory)
+    report = validate_battle_snapshot(current)
+    cursor = observe_map_cursor(current, report)
+    assert cursor.status is CursorStatus.AVAILABLE
+    assert (cursor.x, cursor.y) == (1, 1)
+
+    iwram[0x3140:0x3142] = bytes((0, 1))
+    current = snapshot(memory)
+    cursor = observe_map_cursor(current, validate_battle_snapshot(current))
+    assert cursor.status is CursorStatus.UNAVAILABLE
+    assert cursor.x is None and cursor.y is None
+    assert "do not agree" in cursor.reasons[0]
+
+    pack_into("<HH", iwram, 0x33E4, 2, 1)
+    iwram[0x3140:0x3142] = bytes((2, 1))
+    current = snapshot(memory)
+    cursor = observe_map_cursor(current, validate_battle_snapshot(current))
+    assert cursor.status is CursorStatus.UNAVAILABLE
+    assert "outside the validated map" in cursor.reasons[0]
+
+
+@pytest.mark.parametrize(
+    ("script", "callbacks", "phase"),
+    [
+        (0x0849ECE0, SCREEN_CALLBACKS, LifecyclePhase.VERSUS_SETUP),
+        (0x084892C4, BATTLE_CALLBACKS, LifecyclePhase.BATTLE_TRANSITION),
+    ],
+)
+def test_map_cursor_is_unavailable_during_setup_and_battle_entry(
+    memory, script, callbacks, phase
+) -> None:
+    _, ewram, iwram = memory
+    pack_into("<HH", iwram, 0x33E4, 1, 1)
+    iwram[0x3140:0x3142] = bytes((1, 1))
+    pack_into("<I", ewram, 0xD610, script)
+    for offset, callback in zip((0x40D0, 0x40EC), callbacks, strict=True):
+        pack_into("<I", iwram, offset, callback)
+    current = snapshot(memory)
+    report = validate_battle_snapshot(current)
+    cursor = observe_map_cursor(current, report)
+    assert report.lifecycle.phase is phase
+    assert cursor.status is CursorStatus.UNAVAILABLE
+    assert cursor.x is None and cursor.y is None
+    assert "not a player turn" in cursor.reasons[0]
+
+
+def test_map_cursor_observation_rejects_cross_frame_validation(memory) -> None:
+    current = snapshot(memory)
+    report = replace(validate_battle_snapshot(current), frame=current.frame + 1)
+    with pytest.raises(ValueError, match="same frame"):
+        observe_map_cursor(current, report)
 
 
 @pytest.mark.parametrize(

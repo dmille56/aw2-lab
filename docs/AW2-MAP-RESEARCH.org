@@ -62,13 +62,51 @@ appear four bytes later (=0x0802B774/0x0802B776= and
 field offsets, explaining why an exact literal scan for =0x03003140= found no
 match.
 
-The source coordinate pair at =0x030033E4= has not had its own setters traced.
-The cache's runtime meaning and these consumers are verified for playable
-Versus maps, but its validity outside that surface remains unresolved. It
-retains the last map coordinates through overlays and is not a general menu
-cursor or evidence of input readiness; lifecycle and controller checks still
-apply. The watchpoint scripts and logs are retained outside the repository in
-=/tmp/aw2-cursor-watch/=.
+** Source-pair writers and cursor validity
+
+The four-byte source at =0x030033E4= stores two little-endian halfwords, X then
+Y. A dynamic write watchpoint on the restored playable checkpoint observed
+=sub_0802361C= updating these halfwords every frame through the pointer stored
+at ROM =0x08090A00= (=0x030033E4=). The controlled Right press changed X from
+2 to 3 at frame 2802; the reported watchpoint PC =0x08023678= maps to the
+store at =0x08023674= after accounting for mGBA's four-byte Thumb-PC offset.
+The Y writer reported PC =0x080236B8=, corresponding to =0x080236B4=. This
+routine applies directional deltas and map-edge bounds before storing the
+result, confirming it as the interactive free-map-cursor updater.
+
+The matching-ROM disassembly also shows other source assignments: initialization
+clears the pair in =sub_0802150C=; =sub_08022AAC= sets X/Y and their pixel-space
+counterparts; =sub_0802428C= restores the saved pair from =0x030040A4=; and
+navigation handlers =sub_0802925C=, =sub_080293A0=, =sub_080293C8=,
+=sub_08029880=, =sub_08029DF8=, =sub_0804087C=, and =sub_080408A0= copy
+coordinates from =0x03003100= or the active map object. Scripted targeting and
+map effects also assign the pair in =sub_0802C480=, =sub_0802DA18=, and
+=sub_08060324=/=sub_08060384=/=sub_080603D4=. These shared uses mean the
+source pair by itself is not proof that the interactive cursor is active.
+
+Archived full-IWRAM checkpoints establish the phase boundary. Startup, title,
+mode-select, and map-select samples have zero source/cache coordinates. The
+Rules-screen sample has a plausible matching pair =(8,4)=, but setup does not
+qualify as a live battle cursor observation. Battle entry includes both a
+matching pair =(1,7)= while the map is visible before the HUD settles and a
+transition gap where source =(1,7)= but cache =(0,0)=. Powers and their
+transitions also contain matching stale coordinates or mismatches such as
+source =(7,9)= and cache =(4,8)=. Save/result overlays can retain matching map
+coordinates. Consequently, source/cache equality and map bounds are necessary
+checks, but they do not establish phase or input readiness.
+
+The typed map-cursor observation is therefore available only when the
+lifecycle classifier reports =BATTLE_PLAYER_TURN=, map geometry validates,
+the source halfwords equal the cached X/Y bytes, and both coordinates are
+inside the map dimensions. Setup, transition, combat, Power, result, and
+unrecognized phases return unavailable even if the pair looks plausible. This
+observation describes the map cursor only; it does not identify a selected unit
+or guarantee that a particular input will be accepted. The ROM and context
+evidence are retained outside the repository in =/tmp/aw2-cursor-watch/=
+and the archived lifecycle checkpoint directories. The watchpoint replay used
+the US ROM SHA-256 =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=,
+checkpoint SHA-256 =166929e391d3f405dcc3d54d4eb67c0901a7a9dfa9bbecb4810b7076a7d087d5=,
+and write-log SHA-256 =160d792f7757dcb6d12eb85683d47de77ddea6d3ac1db69993ab0bcca964ea67=.
 
 * Map and property layout verification
 
