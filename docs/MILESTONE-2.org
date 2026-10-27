@@ -601,17 +601,27 @@ phases, invalid bounds/links, unknown values, ROM rejection, and frame drift.
 
 * Validation and acceptance
 
-** TODO Add ROM-independent research-tool and decoder checks
-   - [ ] Cover dump, diff, and watch behavior with synthetic memory data.
-   - [ ] Cover verified field decoding and explicit unknown values.
-   - [ ] Cover invalid pointers, bounds, unsupported profiles, and lifecycle guards.
-   - [ ] Cover unit identity across movement, destruction, slot reuse, and checkpoint metadata restoration.
+** DONE Add ROM-independent research-tool and decoder checks
+   - [X] Cover dump, diff, and watch behavior with synthetic memory data.
+     =tests/test_research.py= exercises memory-dump capture and serialization,
+     byte diffs and range constraints, and explicit frame-stepped watch samples
+     using mocked bridge snapshots.
+   - [X] Cover verified field decoding and explicit unknown values.
+     =tests/test_state_decoder.py= covers verified structured fields, unknown
+     weather and power observations, and schema serialization.
+   - [X] Cover invalid pointers, bounds, unsupported profiles, and lifecycle guards.
+     =tests/test_state_validation.py= and =tests/test_state_decoder.py= cover
+     invalid structures, unsupported ROMs, and battle-data lifecycle gating.
+   - [X] Cover unit identity across movement, destruction, slot reuse, and checkpoint metadata restoration.
+     =tests/test_unit_identity.py= checks movement identity preservation,
+     disappearance and same-type replacement, slot reuse, and checkpoint
+     round trips with tombstones.
 
 ** TODO Verify structured snapshots against manually inspected states
    - [X] Compare validated snapshots and documented unit fields before and after movement.
-     The controlled APC pair validates as live player turns in both states;
-     only the manually verified field subset is decoded until the typed unit
-     decoder is implemented. See [[file:AW2-MAP-RESEARCH.org::*Validated snapshot comparison][the movement comparison]].
+     The controlled APC pair validates as live player turns in both states,
+     and the typed unit decoder publishes its verified record fields. See
+     [[file:AW2-MAP-RESEARCH.org::*Validated snapshot comparison][the movement comparison]].
    - [X] Compare snapshots before and after combat damage and unit destruction.
      The controlled nonlethal attack, zero-health record, type clearing, and
      settled destruction snapshots were structurally validated and compared
