@@ -1563,6 +1563,28 @@ same IWRAM byte against =0..3= when deciding which visual behavior applies.
 This verifies the four mode values and the wraparound. It does not by itself
 resolve the general selector's full eligibility helper.
 
+** Save and End menu actions
+
+The latest =aw2.ss1= through =aw2.ss5= states are captured in
+=/tmp/aw2-command-menu/remaining-menu-states/=. State 1 shows Save selected at
+main-menu row =3= and the main menu table =0x0849AAC0=. States 2 and 3 show the
+overwrite prompt, “Save current data over existing data? Yes No”; its object is
+=0x08489530= and table pointer =0x086100CE=. Between these two prompt states,
+only byte =0x030014EE= changes (=0= to =1=), a candidate for the prompt's
+selection state. The states do not establish which answer is selected or
+confirm a save was written.
+
+State 4 shows End selected at main-menu row =4=. State 5 is back on the map
+with the command-menu object cleared, controller state =13=, and lock =0=.
+The active-player field changes from =1= to =2= while the day stays at =2=.
+This verifies that selecting End advances to the next player's turn and that
+live player-turn control resumes after the menu closes.
+
+These checkpoints cover the Save prompt and successful End action. Remaining
+menu research is the Delete unit-selection/deletion path, the Save prompt's
+Yes/No response and resulting persisted state, and the dynamic eligibility
+helper for deriving a general actionable-selection signal.
+
 ** Reproduction and evidence
 
 The row-navigation and Options-confirm captures are under =/tmp/aw2-command-menu/=
