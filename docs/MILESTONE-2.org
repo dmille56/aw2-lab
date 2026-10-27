@@ -546,11 +546,34 @@
 
 * Python state decoder
 
-** TODO Define a typed, versioned structured state
-   - [ ] Define the validated Milestone 2 subset of the planned =GameState=.
-   - [ ] Include emulator frame and the ROM/decoder context needed to interpret observations.
-   - [ ] Represent unknown or unavailable values explicitly rather than guessing.
-   - [ ] Keep future match identity, revision, and lifecycle integration requirements documented without implementing the Milestone 3 controller.
+** Define a typed, versioned structured state
+
+=src/aw2_lab/state_model.py= defines =GameState= schema version 1 as a
+frame-coherent envelope around the currently verified Milestone 2 observations:
+
+| Field | Contract |
+|-------+----------|
+| =schema_version= | Integer schema version; v1 is required and unknown versions are rejected. |
+| =frame= | Unsigned 32-bit emulator frame shared by validation and UI observations. Construction rejects cross-frame components. |
+| =context.rom_profile= | Verified =RomProfile= including profile name, SHA-256, memory-layout version, and decoder version. V1 rejects unsupported profiles. |
+| =validation= | Lifecycle classification plus geometry/property/player/unit validation statuses, counts, and reasons. =VALID=, =UNKNOWN=, and =INVALID= remain distinct. |
+| =ui= | Same-frame cursor and menu observations. Cursor availability, unresolved menu family, selected item/unit, actionability, and reasons remain explicit. |
+
+V1 does not claim that validated structures have been decoded into full map,
+property, player, or unit records. A later decoder change can add only fields
+supported by evidence and must update the schema version when its serialized
+contract changes. JSON output includes =schema_version= and serializes the
+versioned dataclass tree through =GameState.to_dict()=.
+
+Match identity and monotonic revision belong to the future controller/checkpoint
+contract; identity-ledger checkpoint metadata remains separate. Lifecycle phase
+is already nested in the validation report, but it does not introduce the
+Milestone 3 match lifecycle or command controller.
+
+   - [X] Define the validated Milestone 2 subset of the planned =GameState=.
+   - [X] Include emulator frame and the ROM/decoder context needed to interpret observations.
+   - [X] Represent unknown or unavailable values explicitly rather than guessing.
+   - [X] Keep future match identity, revision, and lifecycle integration requirements documented without implementing the Milestone 3 controller.
 
 ** TODO Implement coherent state decoding
    - [ ] Keep ROM profiles, decoding, emulator transport, and HTTP concerns separate.
