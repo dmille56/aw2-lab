@@ -256,8 +256,8 @@
      [[file:AW2-MAP-RESEARCH.org::*Finding: per-player team IDs in settled battle records][team battle comparison]] verifies a =u8= at =R(k)+0x2A= matching team IDs
      A–D across five four-player configurations; a three-player state also
      confirms A/B/B values for its active slots. Colors are fixed to player
-     slots in setup. Other player fields and power-meter semantics remain to
-     be checked.
+     slots in setup. Other player fields remain to be checked; verified power
+     meter and active-power observations are now decoded.
    - [X] Identify players, armies, teams, and COs.
    - [X] Decode funds, day, and active player.
      In the tested two-player Versus setup, funds are an unsigned LE u32 at
@@ -265,7 +265,7 @@
      is a u16 at =0x030033EC=; the settled values match the HUD. Interpret the
      selector only in a lifecycle-validated player turn. See
      [[file:AW2-LIFECYCLE-RESEARCH.org::*Validated snapshot comparison across the Blue-to-Red turn change][the validated turn comparison]].
-   - [ ] Investigate weather, power meters, and active powers; expose only verified values.
+   - [X] Investigate weather, power meters, and active powers; expose only verified values.
      [[file:AW2-POWER-WEATHER-RESEARCH.org][Power/weather research]] now verifies meter charge at =R(k)+0x20=,
      the =+0x25= use counter and spending for Andy/Max/Sami/Olaf/Drake, active
      Power values, and current Clear/Rain/Snow weather at =0x03003FEC=. Olaf's
@@ -307,7 +307,9 @@
      the same 54,000-point deduction predicted by the counter-10 branch. Static
      ROM analysis maps counters 3..9 and saturates the use counter at 255;
      further runtime counter testing above 10 and at saturation is deferred
-     per user request. Clear Rules settle with weather bytes
+     per user request. The typed state schema publishes the signed raw meter
+     charge when nonnegative and the use counter through 10; negative charge
+     and counters above 10 remain explicitly unknown. Clear Rules settle with weather bytes
      =[0,0,0,0]=; fixed Rain and Snow starts use mode =3= (the earlier
      "Random" label was a Rain Rules checkpoint).
      New Random-weather checkpoints verify both Clear→Rain→Clear and
@@ -548,12 +550,12 @@
 
 ** Define a typed, versioned structured state
 
-=src/aw2_lab/state_model.py= defines =GameState= schema version 2 as a
+=src/aw2_lab/state_model.py= defines =GameState= schema version 3 as a
 frame-coherent envelope around the currently verified Milestone 2 observations:
 
 | Field | Contract |
 |-------+----------|
-| =schema_version= | Integer schema version; v2 is required and other versions are rejected. |
+| =schema_version= | Integer schema version; v3 is required and other versions are rejected. |
 | =frame= | Unsigned 32-bit emulator frame shared by validation and UI observations. Construction rejects cross-frame components. |
 | =context.rom_profile= | Verified =RomProfile= including profile name, SHA-256, memory-layout version, and decoder version. Unsupported profiles are rejected. |
 | =validation= | Lifecycle classification plus geometry/property/player/unit validation statuses, counts, and reasons. =VALID=, =UNKNOWN=, and =INVALID= remain distinct. |
@@ -585,7 +587,7 @@ Milestone 3 match lifecycle or command controller.
    - [X] Publish only fields supported by documented verification evidence.
 
 =state_decoder.decode_snapshot= validates an immutable complete RAM snapshot,
-then emits schema-v2 =GameState=. Its async =capture_game_state= entry point
+then emits schema-v3 =GameState=. Its async =capture_game_state= entry point
 verifies the ROM before contacting the bridge and uses the existing coherent
 capture, which advances zero frames and rejects drift or incomplete reads.
 Battle data is available only when all four structures and the live lifecycle

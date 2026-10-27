@@ -27,6 +27,8 @@ def test_live_decoder_preserves_packed_fields_ownership_and_json_contract(memory
     raw[0x2269C:0x226A8] = bytes((1, 1, 1, 1, 65, 10 << 3, 50, 0, 0, 0, 0, 0))
     raw[0x22992:0x22994] = bytes((1, 0))
     pack_into("<I", raw, 0x232C0, 12345)
+    pack_into("<i", raw, 0x232E0, 32400)
+    raw[0x232E5] = 10
     control[0x3FEC] = 2
 
     state = decode_snapshot(snapshot(memory))
@@ -39,12 +41,14 @@ def test_live_decoder_preserves_packed_fields_ownership_and_json_contract(memory
     assert [(t.x, t.y) for t in battle.map.tiles] == [(0, 0), (1, 0), (0, 1), (1, 1)]
     assert [(p.terrain_class, p.owner_slot) for p in battle.properties] == [(6, 1), (6, 2)]
     assert battle.players[0].funds == 12345
+    assert battle.players[0].power_meter == ObservedValue(ValueStatus.AVAILABLE, 32400)
+    assert battle.players[0].power_use_counter == ObservedValue(ValueStatus.AVAILABLE, 10)
     tank, infantry, blue = battle.units
     assert (tank.internal_health, tank.ammo, tank.fuel, tank.used_this_turn) == (37, 9, 45, True)
     assert (infantry.internal_health, infantry.ammo, infantry.capture_points) == (65, 0, 10)
     assert (blue.reference, blue.army_slot, blue.unit_slot) == (65, 2, 1)
     encoded = json.loads(json.dumps(state.to_dict()))
-    assert encoded["schema_version"] == 2
+    assert encoded["schema_version"] == 3
     assert encoded["frame"] == state.validation.frame == state.ui.frame
     assert encoded["context"]["rom_profile"]["sha256"] == memory[0].profile.sha256
     assert encoded["battle"]["value"]["weather"] == {
@@ -52,6 +56,40 @@ def test_live_decoder_preserves_packed_fields_ownership_and_json_contract(memory
         "value": "rain",
         "reasons": [],
     }
+    assert encoded["battle"]["value"]["players"][0]["power_meter"] == {
+        "status": "available",
+        "value": 32400,
+        "reasons": [],
+    }
+
+
+@pytest.mark.parametrize(
+    ("meter", "counter", "meter_status", "counter_status"),
+    [
+        (0, 0, ValueStatus.AVAILABLE, ValueStatus.AVAILABLE),
+        (32400, 10, ValueStatus.AVAILABLE, ValueStatus.AVAILABLE),
+        (-1, 10, ValueStatus.UNKNOWN, ValueStatus.AVAILABLE),
+        (32400, 11, ValueStatus.AVAILABLE, ValueStatus.UNKNOWN),
+    ],
+)
+def test_player_power_observations_preserve_unverified_ranges(
+    memory, meter, counter, meter_status, counter_status
+) -> None:
+    raw = memory[1]
+    pack_into("<i", raw, 0x232E0, meter)
+    raw[0x232E5] = counter
+
+    battle = decode_snapshot(snapshot(memory)).battle.value
+    assert battle is not None
+    player = battle.players[0]
+    assert player.power_meter.status is meter_status
+    assert player.power_meter.value == (meter if meter_status is ValueStatus.AVAILABLE else None)
+    assert bool(player.power_meter.reasons) is (meter_status is ValueStatus.UNKNOWN)
+    assert player.power_use_counter.status is counter_status
+    assert player.power_use_counter.value == (
+        counter if counter_status is ValueStatus.AVAILABLE else None
+    )
+    assert bool(player.power_use_counter.reasons) is (counter_status is ValueStatus.UNKNOWN)
 
 
 @pytest.mark.parametrize(

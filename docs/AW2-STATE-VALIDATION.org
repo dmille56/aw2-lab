@@ -46,7 +46,7 @@ own capture provenance.
 ** Coherent structured decoding
 
 =state_decoder.decode_snapshot(snapshot)= performs validation internally before
-interpreting semantic battle fields. It returns schema-v2 =GameState= with the
+interpreting semantic battle fields. It returns schema-v3 =GameState= with the
 same-frame validation report, cursor/menu observations, ROM identity, and
 memory-layout/decoder versions. =capture_game_state(bridge, rom_path=...)= first
 checks the ROM checksum, then captures both RAM regions without advancing
@@ -59,7 +59,7 @@ mutation and accepts no caller-supplied validation report.
 | Turn | Day and active player slot, only after the live player-turn and participating/undefeated-player checks pass. |
 | Map | Width/height and row-major cells: zero-based X/Y, graphical tile ID, terrain class, and owner slot (0 neutral). |
 | Properties/features | Active coordinates, terrain class, owner; includes silos. Sentinel and unused records are omitted. |
-| Players | Participating slots only; control type (1 human, 2 computer), team ID, CO ID, unsigned funds, active Power (0 inactive, 1 Power, 2 Super). |
+| Players | Participating slots only; control type (1 human, 2 computer), team ID, CO ID, unsigned funds, active Power (0 inactive, 1 Power, 2 Super), nonnegative signed raw meter charge, and use counter 0–10. Negative meter values and counters above 10 are independent =unknown= observations. |
 | Units | Active usable slots only; global reusable reference, army/player slot, unit slot, numeric type ID, record X/Y, internal health, ammo, masked fuel, used-this-turn and embarked flags, capture points, validated cargo references. |
 | Weather | Clear/Snow/Rain from values 0/1/2. An unrecognized byte yields an independent unknown weather observation without fabricating a value. |
 
@@ -77,7 +77,10 @@ It masks fuel bit 7 and leaves unassigned flags/bytes uninterpreted. Embarked
 unit coordinates describe the unit record and may differ from its transport's
 current position. Cargo references are global slots, not persistent unit IDs;
 identity reconciliation/checkpoint metadata remain a separate integration.
-Power-meter interpretation, HUD health rounding, outcome inference, unsupported
+Meter charge is exposed as its raw nonnegative value; it does not imply a
+percentage or readiness. The use counter is exposed only through 10 because
+runtime verification above 10 was deferred. Negative meter values and larger
+counter values remain unknown. HUD health rounding, outcome inference, unsupported
 transport links, and Campaign-only structures remain outside the published
 subset. No command-readiness guarantee is implied.
 

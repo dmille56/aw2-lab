@@ -11,7 +11,7 @@ from aw2_lab.rom_profile import AW2_US_REVISION_0, RomProfile, UnsupportedRomErr
 from aw2_lab.state_validation import BattleValidationReport
 from aw2_lab.ui_state import MapCursorObservation, MenuObservation
 
-GAME_STATE_SCHEMA_VERSION = 2
+GAME_STATE_SCHEMA_VERSION = 3
 
 
 class ValueStatus(StrEnum):
@@ -76,6 +76,8 @@ class PlayerState:
     co_id: int
     funds: int
     active_power: int
+    power_meter: ObservedValue[int]
+    power_use_counter: ObservedValue[int]
 
 
 @dataclass(frozen=True, slots=True)

@@ -121,14 +121,38 @@ def _decode_battle(snapshot: BattleMemorySnapshot) -> BattleState:
         address = PLAYER_BASE + slot * PLAYER_STRIDE
         record = snapshot.read(address, PLAYER_STRIDE)
         if record[0x1B]:
+            raw_meter = int.from_bytes(snapshot.read(address + 0x20, 4), "little", signed=True)
+            meter = (
+                ObservedValue(ValueStatus.AVAILABLE, raw_meter)
+                if raw_meter >= 0
+                else ObservedValue[int](
+                    ValueStatus.UNKNOWN,
+                    None,
+                    (f"Negative power-meter value is not validated: {raw_meter}",),
+                )
+            )
+            raw_counter = record[0x25]
+            use_counter = (
+                ObservedValue(ValueStatus.AVAILABLE, raw_counter)
+                if raw_counter <= 10
+                else ObservedValue[int](
+                    ValueStatus.UNKNOWN,
+                    None,
+                    (
+                        f"Power-use counter above 10 is outside runtime-verified range: {raw_counter}",
+                    ),
+                )
+            )
             players.append(
                 PlayerState(
-                    slot,
-                    record[0x1B],
-                    record[0x2A],
-                    record[0x1D],
-                    snapshot.u32(address),
-                    record[0x1E],
+                    slot=slot,
+                    control_type=record[0x1B],
+                    team_id=record[0x2A],
+                    co_id=record[0x1D],
+                    funds=snapshot.u32(address),
+                    active_power=record[0x1E],
+                    power_meter=meter,
+                    power_use_counter=use_counter,
                 )
             )
 

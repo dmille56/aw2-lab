@@ -26,9 +26,10 @@ well as Hachi's inactive, Power, and Super modifiers. ROM analysis resolves
 fractional meter rounding for valid unit and CO values. Natural near-cap
 evidence and the individual meanings of weather mode/neighbor bytes remain
 open. Runtime testing above counter 10 and at counter saturation is deferred
-by user request. These findings extend the
-documented decoding subset; a typed state decoder and state API remain
-separate tasks.
+by user request. The structured state decoder now publishes the verified
+subset: active Power, nonnegative raw meter charge, use counter values through
+10, and current weather. Negative meter readings and counters above 10 remain
+unclassified. The state API remains a separate task.
 
 * Verified fields and raw observations
 
