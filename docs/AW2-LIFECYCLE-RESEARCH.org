@@ -1581,9 +1581,35 @@ This verifies that selecting End advances to the next player's turn and that
 live player-turn control resumes after the menu closes.
 
 These checkpoints cover the Save prompt and successful End action. Remaining
-menu research is the Delete unit-selection/deletion path, the Save prompt's
-Yes/No response and resulting persisted state, and the dynamic eligibility
-helper for deriving a general actionable-selection signal.
+menu research is the Save prompt's Yes/No response and resulting persisted
+state, and the dynamic eligibility helper for deriving a general
+actionable-selection signal.
+
+** Delete unit-selection flow
+
+The supplied =aw2.ss1= through =aw2.ss5= checkpoints are captured in
+=/tmp/aw2-command-menu/delete-states/=. State 1 shows Delete selected at row
+=0= in the Options table =0x0849AC60=. After choosing it, the command-menu
+object at =0x03001470= clears and control returns to the map with controller
+state =13= and lock =0=. The cursor can then target a unit directly; no
+confirmation dialogue appears in the captured sequence.
+
+The targeted unit is Red's first Infantry record at =0x02022690=, type =1=,
+at =(3,6)= with full health. Between states 3 and 4, its type byte changes to
+=0=, the logical map-cell occupant changes from global unit index =1= to =0=,
+and the supported active-unit count falls from eight to seven. The stale bytes
+in the cleared unit record retain the old coordinates and stats. Red and Blue
+funds stay at =309500= and =205000=. The cursor-cache byte pair lags the source
+coordinates for one checkpoint during deletion, then agrees at =(3,6)= in
+state 5.
+
+This confirms that Delete enters a map-targeting mode and removes the chosen
+unit record and map reference without charging or refunding funds in this
+sample. The targeting mode has a normal player-turn controller state, no
+screen-process script, and a map cursor; the UI observer must not assume every
+such cursor context is ordinary free map input. A dedicated Delete-target
+family or an explicit unresolved transition is still needed in the typed UI
+state.
 
 ** Reproduction and evidence
 
