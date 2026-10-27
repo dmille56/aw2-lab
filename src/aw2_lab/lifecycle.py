@@ -53,12 +53,18 @@ class BattleDecodeSafety(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class LifecycleAssessment:
-    """Conservative lifecycle result for one coherent memory observation."""
+    """Conservative lifecycle result and script evidence from one frame.
+
+    ``matched_scripts`` lists signals used by the classifier;
+    ``active_process_scripts`` preserves the nonzero script IDs in process-pool
+    order, including IDs that did not match a known phase.
+    """
 
     phase: LifecyclePhase
     engine: LifecycleEngine
     battle_decode_safety: BattleDecodeSafety
     matched_scripts: tuple[int, ...] = ()
+    active_process_scripts: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,7 +142,17 @@ def classify_lifecycle(
     certify field validity or that every command is currently available;
     ``battle_decode_safety`` remains unknown for that phase.
     """
-    scripts = frozenset(script for script in process_script_ids if script != 0)
+    active_scripts = tuple(script for script in process_script_ids if script != 0)
+    scripts = frozenset(active_scripts)
+
+    def assessment(
+        phase: LifecyclePhase,
+        engine: LifecycleEngine,
+        safety: BattleDecodeSafety,
+        matched: tuple[int, ...] = (),
+    ) -> LifecycleAssessment:
+        return LifecycleAssessment(phase, engine, safety, matched, active_scripts)
+
     matched_scripts = tuple(sorted(scripts & (set(_FRONTEND_SCRIPTS) | {_MAP_SELECT_SCRIPT})))
     result_scripts = tuple(sorted(scripts & _RESULT_SCRIPTS.keys()))
     engine = _engine_for(callback_a, callback_b)
@@ -147,14 +163,14 @@ def classify_lifecycle(
     if result_scripts:
         result_phases = {_RESULT_SCRIPTS[script] for script in result_scripts}
         if _CONFLICTING_RESULT_PHASES <= result_phases:
-            return LifecycleAssessment(
+            return assessment(
                 LifecyclePhase.UNKNOWN,
                 engine,
                 BattleDecodeSafety.UNKNOWN,
                 result_scripts,
             )
         phase = next(phase for phase in _RESULT_PRECEDENCE if phase in result_phases)
-        return LifecycleAssessment(
+        return assessment(
             phase,
             engine,
             BattleDecodeSafety.BLOCKED,
@@ -163,13 +179,13 @@ def classify_lifecycle(
 
     if _MAP_SELECT_SCRIPT in scripts:
         if engine is LifecycleEngine.SCREEN:
-            return LifecycleAssessment(
+            return assessment(
                 LifecyclePhase.VERSUS_MAP_SELECT,
                 engine,
                 BattleDecodeSafety.BLOCKED,
                 (_MAP_SELECT_SCRIPT,),
             )
-        return LifecycleAssessment(
+        return assessment(
             LifecyclePhase.UNKNOWN,
             engine,
             BattleDecodeSafety.UNKNOWN,
@@ -177,7 +193,7 @@ def classify_lifecycle(
         )
 
     if _POWER_SCRIPT in scripts and engine is LifecycleEngine.BATTLE:
-        return LifecycleAssessment(
+        return assessment(
             LifecyclePhase.BATTLE_POWER,
             engine,
             BattleDecodeSafety.BLOCKED,
@@ -197,7 +213,7 @@ def classify_lifecycle(
             LifecycleEngine.ANIMATION,
         }
     ):
-        return LifecycleAssessment(
+        return assessment(
             LifecyclePhase.BATTLE_COMBAT,
             engine,
             BattleDecodeSafety.BLOCKED,
@@ -210,7 +226,7 @@ def classify_lifecycle(
         LifecycleEngine.SCREEN,
         LifecycleEngine.BATTLE,
     }:
-        return LifecycleAssessment(
+        return assessment(
             LifecyclePhase.BATTLE_TRANSITION,
             engine,
             BattleDecodeSafety.BLOCKED,
@@ -221,10 +237,8 @@ def classify_lifecycle(
     if frontend_matches:
         phases = {_FRONTEND_SCRIPTS[script] for script in frontend_matches}
         if engine is LifecycleEngine.SCREEN and len(phases) == 1:
-            return LifecycleAssessment(
-                phases.pop(), engine, BattleDecodeSafety.BLOCKED, frontend_matches
-            )
-        return LifecycleAssessment(
+            return assessment(phases.pop(), engine, BattleDecodeSafety.BLOCKED, frontend_matches)
+        return assessment(
             LifecyclePhase.UNKNOWN,
             engine,
             BattleDecodeSafety.UNKNOWN,
@@ -241,7 +255,7 @@ def classify_lifecycle(
             and battle_control.input_gate == 0
             and battle_control.input_state == 0
         ):
-            return LifecycleAssessment(
+            return assessment(
                 LifecyclePhase.BATTLE_PLAYER_TURN
                 if battle_control.state == 13
                 else LifecyclePhase.BATTLE_COMPUTER_TURN,
@@ -250,13 +264,13 @@ def classify_lifecycle(
                 if battle_control.state == 13
                 else BattleDecodeSafety.BLOCKED,
             )
-        return LifecycleAssessment(
+        return assessment(
             LifecyclePhase.BATTLE_ENGINE_UNRESOLVED,
             engine,
             BattleDecodeSafety.UNKNOWN,
         )
 
-    return LifecycleAssessment(
+    return assessment(
         LifecyclePhase.UNKNOWN,
         engine,
         BattleDecodeSafety.UNKNOWN,

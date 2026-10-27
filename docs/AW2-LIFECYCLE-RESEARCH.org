@@ -1708,3 +1708,31 @@ victory/defeat/result/save processes. Campaign dialogue and broader
 configuration coverage remain open. The decoder intentionally has no
 universal input-ready phase: input substates, cursor alignment, and queued work
 can still gate individual commands inside an otherwise recognized player turn.
+
+* Explicit representation of unrecognized UI contexts
+
+=LifecycleAssessment.active_process_scripts= now retains every nonzero script
+word from the bounded process pool, including scripts that did not match a
+known phase. =matched_scripts= continues to identify only the script evidence
+used for the classification. For a menu family that is not recognized,
+=MenuObservation.family= is =UNRESOLVED= and its =unrecognized= value is an
+=UnrecognizedUIState= containing the same frame, lifecycle phase/engine/safety
+and matched/active script IDs, controller mode/state/lock/input gates, selector
+object and table pointers, and a reason. This keeps the unknown state and its
+diagnostic evidence together without interpreting retained unit, map, or
+selection bytes as a recognized UI.
+
+The Delete-target checkpoints are a concrete counterexample to free map input.
+In the captured targeting states, the engine is in Versus mode 1 with controller
+state 13, lock 0, gate 0, no active process scripts, and selector object/table
+both zero; the input substate at =0x03003334= is 2. The lifecycle predicate
+requires input substate 0 for =BATTLE_PLAYER_TURN=, so these samples remain
+=BATTLE_ENGINE_UNRESOLVED= and the menu observer returns =UNRESOLVED= with the
+raw controller/selector evidence attached. The target mode is not yet assigned
+a universal semantic name; the representation records it without guessing.
+
+This distinguishes three outcomes for consumers: a supported menu family and
+selection, an unresolved menu/UI context with preserved signals, or a known
+lifecycle phase where no supported menu observation applies. It does not expand
+the supported phase/menu inventory or make unknown states safe for live battle
+decoding.

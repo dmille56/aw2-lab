@@ -464,13 +464,15 @@
      relevant. Evidence is in [[file:AW2-MAP-RESEARCH.org::*Higher status bits and archived checkpoint audit][the higher-bit audit]].
 
 ** TODO Decode UI state needed for future automation
-   - Research progress: the current work has usable pieces, but no typed UI-state
-     decoder. [[file:../src/aw2_lab/lifecycle.py][The lifecycle classifier]] recognizes
+   - Research progress: typed lifecycle and UI observations now cover the
+     verified Versus subset, while a complete UI-state decoder is still future
+     work. [[file:../src/aw2_lab/lifecycle.py][The lifecycle classifier]] recognizes
      tested Versus phases from callbacks, bounded process scripts, and controller
      fields. Human turn, AI turn, combat, Power, and result phases have separate
-     classifications; recognized phases still do not describe the selected menu
-     item or guarantee that an input is accepted. The command menu remains
-     =BATTLE_ENGINE_UNRESOLVED= and Campaign/event flows remain unclassified.
+     classifications; recognized phases still do not guarantee that an input
+     is accepted. A command menu can be identified by the typed menu observer
+     even while its engine phase remains =BATTLE_ENGINE_UNRESOLVED=. Campaign/event
+     flows remain unclassified.
      [[file:AW2-MAP-RESEARCH.org::*IWRAM cursor coordinate pair][Map research]] verifies
      that bytes at =0x03003140= are X then Y for 45 controlled samples on five
      playable maps, including movement and edge clamps. Dynamic watchpoints and
@@ -514,10 +516,10 @@
 
      | UI information | Verified evidence | Still needed |
      |----------------+-------------------+--------------|
-     | Phase | Tested Versus startup, menus, entry, player/AI turns, combat, powers, results, and transitions are classified; unknown contexts do not authorize live decoding. | A typed UI observation that combines the phase with its evidence and keeps Campaign and unrecognized processes explicit. |
+     | Phase | Tested Versus startup, menus, entry, player/AI turns, combat, powers, results, and transitions are classified; unknown contexts do not authorize live decoding. Unrecognized UI results now retain active process IDs and controller/selector evidence. | Extend phase coverage to Campaign/events and compose lifecycle, menu, cursor, and other supported observations into the future structured state. |
      | Cursor | The bytes at =0x03003140= are X then Y in 45 controlled samples on five maps; watchpoints and disassembly identify the input updater, cache writer, and two readers. A typed observer requires a validated player turn, valid geometry, matching source/cache values, and in-bounds coordinates. | Identify setup/menu selection cursors separately and extend cursor validity only with phase-specific evidence. |
      | Selected unit | The current-unit pointer can be stale under the free cursor. In the observed =0x0849BE38= action-menu process, four checkpoints resolve it to the active player's unit and match record coordinates plus the logical cell index. | Extend coverage to other action/process contexts; do not infer a selection from the pointer alone. |
-     | Menu state | The typed observer recognizes map input, the sampled unit-action menu, and verified main/Intel/Options selectors with typed highlighted choices and an actionable flag. Original-ROM code traces the selector callback path and eligibility helper; the three table signatures are checked against their row counts and IDs. The row byte remains stale outside the menu. | Represent Delete targeting distinctly from free map input, confirm whether Save changes persisted bytes, and extend coverage to other menu/process contexts. |
+     | Menu state | The typed observer recognizes map input, the sampled unit-action menu, and verified main/Intel/Options selectors with typed highlighted choices and an actionable flag. Unrecognized contexts retain lifecycle phase, active process IDs, controller fields, selector pointers, and a reason instead of looking like map input. | Assign verified names to additional targeting/menu modes, confirm whether Save changes persisted bytes, and extend coverage to other contexts. |
      | Transitions | Lifecycle research records same-frame callback, process, controller, lock, and input-state predicates and precedence for recognized Versus screens, battle handoffs, combat, Powers, results, and player/AI turns. Unknown and conflicting contexts stay unavailable. | Extend the predicates to Campaign/event flows and additional configurations; a recognized phase does not prove every field or command is ready. |
 
    - [X] Identify supported UI phase and map-cursor position.
@@ -537,7 +539,10 @@
      Lifecycle research records the same-frame signals, precedence, and decode
      safety for recognized Versus phases and shared transitions. Campaign events
      and untested configurations remain outside that coverage.
-   - [ ] Represent unrecognized UI states explicitly.
+   - [X] Represent unrecognized UI states explicitly.
+     =MenuFamily.UNRESOLVED= carries a typed context with lifecycle assessment,
+     all active process script IDs, controller gates, selector pointers, and a
+     reason. Unknown input substates therefore stay distinct from free map input.
 
 * Python state decoder
 

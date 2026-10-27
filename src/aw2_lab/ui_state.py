@@ -5,7 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-from aw2_lab.lifecycle import LifecycleEngine, LifecyclePhase
+from aw2_lab.lifecycle import (
+    BattleControlObservation,
+    LifecycleAssessment,
+    LifecycleEngine,
+    LifecyclePhase,
+)
 from aw2_lab.state_validation import (
     ARMY_STRIDE,
     MAP_BASE,
@@ -129,6 +134,19 @@ class MenuObservation:
     reasons: tuple[str, ...] = ()
     selected_item: MenuItem | None = None
     actionable: bool | None = None
+    unrecognized: UnrecognizedUIState | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class UnrecognizedUIState:
+    """Raw classification evidence retained when no supported UI family fits."""
+
+    frame: int
+    lifecycle: LifecycleAssessment
+    controller: BattleControlObservation
+    selector_object: int
+    selector_table: int
+    reason: str
 
 
 def observe_map_cursor(
@@ -207,10 +225,10 @@ def observe_menu(
             for index in range(SCREEN_PROCESS_COUNT)
         )
     ):
-        return MenuObservation(
-            snapshot.frame,
-            MenuFamily.UNRESOLVED,
-            reasons=("No supported menu process identifies the current menu",),
+        return _unrecognized_menu(
+            snapshot,
+            validation,
+            "No supported menu matches the current lifecycle and process evidence",
         )
     if validation.geometry.status is not ValidationStatus.VALID:
         return MenuObservation(
@@ -304,18 +322,18 @@ def _observe_command_menu(
     selected_row = snapshot.read(SELECTOR_SELECTED_ROW, 1)[0]
     item_ids = tuple(snapshot.read(SELECTOR_ITEM_IDS, count)) if count <= 5 else ()
     if count != expected_count or item_ids != expected_items or selected_row >= count:
-        return MenuObservation(
-            snapshot.frame,
-            MenuFamily.UNRESOLVED,
-            reasons=("Active selector does not match a verified menu table",),
+        return _unrecognized_menu(
+            snapshot,
+            validation,
+            "Active selector does not match a verified menu table",
         )
 
     mode = snapshot.read(MENU_MODE, 1)[0]
     if mode >= _MENU_MODE_COUNT:
-        return MenuObservation(
-            snapshot.frame,
-            MenuFamily.UNRESOLVED,
-            reasons=("Menu eligibility mode is outside the verified rule table",),
+        return _unrecognized_menu(
+            snapshot,
+            validation,
+            "Menu eligibility mode is outside the verified rule table",
         )
 
     return MenuObservation(
@@ -323,4 +341,33 @@ def _observe_command_menu(
         MenuFamily(family_name),
         selected_item=_MENU_ITEMS[family_name][selected_row],
         actionable=_MENU_RULE_POINTERS[mode] == 0,
+    )
+
+
+def _unrecognized_menu(
+    snapshot: BattleMemorySnapshot,
+    validation: BattleValidationReport,
+    reason: str,
+) -> MenuObservation:
+    """Return unresolved status together with the evidence needed to revisit it."""
+    controller = BattleControlObservation(
+        mode=snapshot.u32(0x03003F3C),
+        state=snapshot.u16(CONTROLLER_STATE),
+        lock_count=snapshot.read(CONTROLLER_LOCK, 1)[0],
+        input_gate=int.from_bytes(snapshot.read(0x030040E4, 2), "little", signed=True),
+        input_state=snapshot.u16(0x03003334),
+    )
+    state = UnrecognizedUIState(
+        frame=snapshot.frame,
+        lifecycle=validation.lifecycle,
+        controller=controller,
+        selector_object=snapshot.u32(SELECTOR_OBJECT),
+        selector_table=snapshot.u32(SELECTOR_TABLE),
+        reason=reason,
+    )
+    return MenuObservation(
+        snapshot.frame,
+        MenuFamily.UNRESOLVED,
+        reasons=(reason,),
+        unrecognized=state,
     )
