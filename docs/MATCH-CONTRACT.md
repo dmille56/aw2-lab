@@ -126,6 +126,43 @@ match inspection. They coordinate trusted local players and do not provide
 competitive isolation. Credentials are independent of the request ID and are
 not persisted in ordinary checkpoint metadata.
 
+## Controller queue behavior
+
+`MatchController` is the single in-process owner of active match records and its
+one FIFO mutation queue. Its default queue capacity is 64 pending commands and
+its in-memory command/idempotency history is capped at 4,096 entries. A full
+queue or history rejects new work before acceptance with `command_capacity`.
+Accepted work has a command ID and remains tracked through a terminal status.
+Gameplay commands, setup activation, debug/frame/input operations, and
+checkpoint/restore callbacks use the same serialized lane; client-facing routes
+must expose only fixed named operations, not arbitrary callbacks.
+
+The controller validates player credentials, active slot, expected revision,
+turn, lifecycle, and readiness at execution time. Only one command runs at a
+time. A disconnect or client polling timeout does not cancel accepted work.
+Gameplay completion requires a new observation for the same match at a newer
+revision. The controller validates the full outcome before publishing its
+observation and summary together; invalid outcomes leave the prior committed
+boundary available and put the match into recovery-required state.
+
+Shutdown stops acceptance and drains accepted work for up to 30 seconds. If the
+deadline expires, the in-flight operation is marked `recovery_required` and
+queued-but-unstarted work is explicitly rejected with `server_shutting_down`.
+The worker exits after the current callback even if that callback catches
+cancellation, and late outcomes cannot replace committed state or command
+results. A separate cancellation grace period defaults to one second. If the
+callback still has not returned, shutdown raises an explicit recovery error;
+the API lifespan still runs emulator cleanup. Python callbacks must cooperate
+with cancellation to terminate their own work.
+An unexpected executor failure also blocks further mutations until recovery.
+
+The initial request-ID ledger is in memory. Durable deduplication across process
+restart is added with the command journal in the persistence task. The controller
+can be created without an action executor for ROM-independent coordination
+checks; gameplay requests are rejected as unsupported until a verified executor
+is configured. The API application owns the controller instance at
+`app.state.match_controller`; public routes are implemented in the next API task.
+
 ## Errors and checkpoints
 
 Errors use the stable `ErrorCode` enum and carry a human-readable message, a

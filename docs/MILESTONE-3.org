@@ -67,13 +67,14 @@ screenshots, and machine-specific paths outside Git and the Nix store.
 
 * Serialized execution and recovery
 
-** TODO Add the authoritative match controller and command queue
-   - [ ] Own the single active match and serialize every emulator mutation, including debug operations and checkpoint restore.
-   - [ ] Create/join/inspect/close matches and coordinate ownership of the two player slots.
-   - [ ] Validate match identity, credentials, ownership, turn, revision, and action readiness when execution begins.
-   - [ ] Assign command IDs and expose queued, running, and terminal command status.
-   - [ ] Deduplicate request IDs, return the existing result for an identical retry, and reject conflicting reuse.
-   - [ ] Define queue bounds, shutdown, disconnect, and cancellation behavior so an accepted action is never silently abandoned or repeated.
+** DONE Add the authoritative match controller and command queue
+   - [X] Own the single active match and serialize every emulator mutation, including debug operations and checkpoint restore.
+   - [X] Create/join/inspect/close matches and coordinate ownership of the two player slots.
+   - [X] Validate match identity, credentials, ownership, turn, revision, and action readiness when execution begins.
+   - [X] Assign command IDs and expose queued, running, and terminal command status.
+   - [X] Deduplicate request IDs, return the existing result for an identical retry, and reject conflicting reuse.
+   - [X] Define queue bounds, shutdown, disconnect, and cancellation behavior so an accepted action is never silently abandoned or repeated.
+   - Implementation: [[file:../src/aw2_lab/match_controller.py][match_controller.py]] provides the FIFO coordinator and injected executor boundary. [[file:../src/aw2_lab/api/app.py][The API lifespan]] starts/stops its single instance. Queue limits, shutdown handling, in-memory idempotency limits, and the deferred durable-journal boundary are recorded in [[file:MATCH-CONTRACT.md::*Controller queue behavior][the contract]]. HTTP routes and gameplay execution remain later items.
    - [ ] Publish coherent state at command boundaries and prevent reads from exposing a partially executed transaction as settled state.
 
 ** TODO Add complete checkpoint storage and durable command journaling

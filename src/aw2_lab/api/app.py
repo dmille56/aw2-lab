@@ -1,7 +1,7 @@
-"""HTTP and MCP application; match and emulator operations come in later milestones."""
+"""HTTP and MCP application lifecycle and shared match-controller owner."""
 
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Protocol
 
 from fastapi import FastAPI
@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from starlette.types import ASGIApp
 
 from aw2_lab.emulator import EmulatorLauncher, EmulatorSettings
+from aw2_lab.match_controller import MatchController
 from aw2_lab.mcp import server as mcp_server
 from aw2_lab.rom_profile import select_rom_profile
 
@@ -34,24 +35,28 @@ def create_app(
     *,
     settings: EmulatorSettings,
     launcher: Launcher | None = None,
+    match_controller: MatchController | None = None,
 ) -> FastAPI:
     """Create the API application and configure its emulator process."""
     emulator_launcher = launcher or EmulatorLauncher(settings)
+    controller = match_controller or MatchController()
     rom_profile = select_rom_profile(settings.rom_path)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         """Run mGBA and the mounted MCP session manager for the server lifetime."""
-        await emulator_launcher.start()
-        try:
+        async with AsyncExitStack() as stack:
+            await emulator_launcher.start()
+            stack.push_async_callback(emulator_launcher.stop)
+            stack.push_async_callback(controller.stop)
+            await controller.start()
             async with mcp_server.session_manager.run():
                 yield
-        finally:
-            await emulator_launcher.stop()
 
     application = FastAPI(title="AW2 Lab API", version="0.1.0", lifespan=lifespan)
     application.state.emulator_settings = settings
     application.state.emulator_launcher = emulator_launcher
+    application.state.match_controller = controller
     application.state.rom_profile = rom_profile
 
     @application.get("/health", response_model=HealthResponse, tags=["system"])

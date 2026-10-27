@@ -18,7 +18,7 @@ CoordinateValue = Annotated[int, Field(ge=0)]
 class ContractModel(BaseModel):
     """Base for public documents; additive-compatible fields require a version bump policy."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True, use_enum_values=True)
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     contract_version: Literal[1] = 1
 
@@ -223,6 +223,7 @@ class ErrorCode(StrEnum):
     INVALID_REQUEST = "invalid_request"
     UNSUPPORTED_FEATURE = "unsupported_feature"
     MATCH_NOT_FOUND = "match_not_found"
+    ACTIVE_MATCH_EXISTS = "active_match_exists"
     MATCH_CLOSED = "match_closed"
     MATCH_FINISHED = "match_finished"
     SLOT_UNAVAILABLE = "slot_unavailable"
@@ -231,6 +232,8 @@ class ErrorCode(StrEnum):
     STALE_REVISION = "stale_revision"
     REQUEST_ID_CONFLICT = "request_id_conflict"
     COMMAND_NOT_FOUND = "command_not_found"
+    COMMAND_CAPACITY = "command_capacity"
+    SERVER_SHUTTING_DOWN = "server_shutting_down"
     OBSERVATION_UNAVAILABLE = "observation_unavailable"
     ACTION_REJECTED = "action_rejected"
     TIMEOUT = "timeout"
