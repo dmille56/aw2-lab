@@ -201,14 +201,62 @@ class CommandResult(ContractModel):
     error: ErrorBody | None = None
 
 
+class CheckpointStateArtifact(ContractModel):
+    """Integrity and compatibility metadata for an opaque mGBA state blob."""
+
+    format: Literal["mgba-savestate"] = "mgba-savestate"
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    size_bytes: Annotated[int, Field(ge=1, le=3 * 1024 * 1024)]
+    includes_save_ram: Literal[True] = True
+
+
+class CheckpointIdentitySlot(ContractModel):
+    reference: Annotated[int, Field(ge=1, le=255)]
+    unit_type: Annotated[int, Field(ge=1, le=255)]
+    identity_id: Annotated[int, Field(ge=1)]
+    generation: Annotated[int, Field(ge=1)]
+    active: bool
+
+    @model_validator(mode="after")
+    def validate_reference(self) -> CheckpointIdentitySlot:
+        slot = (self.reference - 1) % 64 + 1
+        if slot > 50:
+            raise ValueError("Unit identity reference is outside a usable army slot")
+        return self
+
+
+class CheckpointIdentityMetadata(ContractModel):
+    """Typed unit lifetime ledger serialized beside the emulator state blob."""
+
+    schema_version: Annotated[int, Field(ge=1)]
+    next_identity_id: Annotated[int, Field(ge=1)]
+    slots: tuple[CheckpointIdentitySlot, ...]
+
+    @model_validator(mode="after")
+    def validate_unique_allocations(self) -> CheckpointIdentityMetadata:
+        references = [slot.reference for slot in self.slots]
+        identities = [slot.identity_id for slot in self.slots]
+        if len(references) != len(set(references)):
+            raise ValueError("Unit identity references must be unique")
+        if len(identities) != len(set(identities)):
+            raise ValueError("Unit identity IDs must be unique")
+        if identities and self.next_identity_id <= max(identities):
+            raise ValueError("Next identity ID must exceed every allocated identity")
+        return self
+
+
 class CheckpointManifest(ContractModel):
     checkpoint_id: UUID
-    match_id: UUID
-    revision: Revision
+    manifest_schema_version: Literal[1] = 1
+    match: MatchSummary
     rom_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     emulator_build: str = Field(min_length=1)
+    emulator_mode: Literal["headless", "windowed"]
+    state_artifact: CheckpointStateArtifact
     decoder_schema_version: Annotated[int, Field(ge=1)]
-    identity_schema_version: Annotated[int, Field(ge=1)]
+    observation_schema_version: Annotated[int, Field(ge=1)]
+    identity_metadata: CheckpointIdentityMetadata
+    last_frame: Annotated[int, Field(ge=0, le=(1 << 32) - 1)]
     created_at: datetime
 
 

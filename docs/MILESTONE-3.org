@@ -79,7 +79,8 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - Implementation: `MatchController.current_state()` returns lifecycle and the last committed observation atomically. While a mutation runs, the snapshot is explicitly unsettled; `current_observation()` rejects reads rather than returning an apparently ready stale boundary. Outcome validation and publication happen together under the controller state lock.
 
 ** TODO Add complete checkpoint storage and durable command journaling
-   - [ ] Define a checkpoint manifest containing emulator state/save RAM, ROM checksum, emulator build identity, decoder/schema versions, match metadata, revisions, and identity metadata.
+   - [X] Define a checkpoint manifest containing emulator state/save RAM, ROM checksum, emulator build identity, decoder/schema versions, match metadata, revisions, and identity metadata.
+   - Manifest model: [[file:../src/aw2_lab/match_contract.py][match_contract.py]] defines a versioned manifest with full match summary, ROM and emulator identity, frontend mode, schema versions, frame/revision, typed identity ledger, and a hashed/size-bounded state artifact explicitly marked as including save RAM. The bridge's state buffer uses =SAVESTATE.ALL=. Binary storage and runtime compatibility validation remain open below.
    - [ ] Reuse the verified full-state/save-RAM bridge primitives and validate manifest compatibility before restoration.
    - [ ] Store journal entries for accepted commands, execution, and terminal results, including request-ID deduplication data.
    - [ ] Define atomic write/commit ordering for checkpoints, journal entries, and the last committed checkpoint reference.

@@ -180,15 +180,20 @@ errors, wrong turn, stale revisions, request-ID conflicts, unavailable
 observations, action rejection, timeout, rollback failure, recovery-required,
 incompatible checkpoints, and internal errors.
 
-A checkpoint manifest identifies its checkpoint and match, committed revision,
-ROM SHA-256, emulator build, decoder schema, identity schema, and creation time.
-The artifact also contains emulator state and save RAM, match configuration,
-revision metadata, and unit-identity ledger metadata. On restore after restart,
-the observer requires the durable journal's revision high-water mark and starts
-above both it and the checkpoint revision. Restoring a checkpoint alone is not
-sufficient to guarantee revisions never repeat after restart. Storage format, atomic
-commit order, journal linkage, and compatibility checks are implemented in the
-checkpoint/persistence tasks; clients cannot supply arbitrary filesystem paths.
+The versioned `CheckpointManifest` records a complete `MatchSummary`, ROM
+SHA-256, emulator build and frontend mode, decoder/observation schema versions,
+last frame, and typed unit-identity ledger metadata. It points to an opaque mGBA
+state artifact by format, byte length, and SHA-256. The artifact must include
+save RAM; the bridge saves and loads states with `SAVESTATE.ALL`. Manifest and
+artifact are separate so large binary state data does not enter JSON. The
+manifest schema has its own version in addition to the public contract version.
+
+On restore after restart, the observer requires the durable journal's revision
+high-water mark and starts above both it and the checkpoint revision. Restoring
+a checkpoint alone is not sufficient to guarantee revisions never repeat after
+restart. Storage format, atomic commit order, journal linkage, and compatibility
+checks are implemented in the checkpoint/persistence tasks; clients cannot
+supply arbitrary filesystem paths.
 
 ## HTTP mapping
 
