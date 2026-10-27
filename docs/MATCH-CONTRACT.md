@@ -78,8 +78,13 @@ JavaScript clients.
 Lifecycle values are `setup`, `playable`, `executing`, `finished`,
 `recovery_required`, and `closed`. `playable` means the match is at a coherent
 command boundary; it does not imply a particular submitted action is legal.
-`executing` is not exposed as a settled observation: reads return the last
-committed boundary. A finished match remains inspectable but accepts no gameplay
+`executing` is not a settled state. `current_state()` atomically returns the
+summary and last committed observation; while a command runs, that snapshot
+reports `executing`, keeps the prior revision, and sets `settled` to false.
+`current_observation()` rejects reads during execution so a prior observation
+cannot be mistaken for the current playable boundary. When execution completes,
+the controller publishes the new observation and summary together at the next
+command boundary. A finished match remains inspectable but accepts no gameplay
 commands. Recovery-required blocks mutations until an explicit successful
 restore. Closed matches cannot be reopened.
 
@@ -115,8 +120,10 @@ The match observer advances revisions only when the controller commits a new
 boundary after a mutation. It supports explicit revision causes for debug
 mutations, rollback, and restore. `read()` returns the last immutable committed
 observation without calling the emulator, advancing frames, reconciling unit
-identities, or changing the revision. Screenshot metadata binds an image to
-that observation's match ID, revision, and frame; image capture itself does not
+identities, or changing the revision. Controller clients use `current_state()`
+for a coherent lifecycle/observation pair; its lock ensures the summary and
+observation revisions agree. Screenshot metadata binds an image to that
+observation's match ID, revision, and frame; image capture itself does not
 publish a new observation.
 
 The server creates a high-entropy credential for each slot at join time and

@@ -74,6 +74,23 @@ class MutationOutcome:
     error: ErrorBody | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class MatchStateSnapshot:
+    """Atomically read match metadata and its last committed observation."""
+
+    summary: MatchSummary
+    observation: MatchObservation | None
+
+    def __post_init__(self) -> None:
+        if self.observation is not None and self.observation.revision != self.summary.revision:
+            raise ValueError("Match summary and observation revisions must agree")
+
+    @property
+    def settled(self) -> bool:
+        """Whether the snapshot is at a boundary where no mutation is running."""
+        return self.summary.lifecycle is not MatchLifecycle.EXECUTING
+
+
 class ActionExecutor(Protocol):
     async def execute(
         self, request: CommandRequest, observation: MatchObservation
@@ -290,9 +307,23 @@ class MatchController:
         async with self._state_lock:
             return self._require_match(match_id).summary
 
-    async def current_observation(self, match_id: UUID) -> MatchObservation:
+    async def current_state(self, match_id: UUID) -> MatchStateSnapshot:
+        """Read lifecycle and the last committed observation under one lock."""
         async with self._state_lock:
             record = self._require_match(match_id)
+            return MatchStateSnapshot(record.summary, record.observation)
+
+    async def current_observation(self, match_id: UUID) -> MatchObservation:
+        """Read a settled observation, rejecting reads while a mutation is active."""
+        async with self._state_lock:
+            record = self._require_match(match_id)
+            if record.summary.lifecycle is MatchLifecycle.EXECUTING:
+                raise MatchControllerError(
+                    ErrorCode.OBSERVATION_UNAVAILABLE,
+                    "A command is executing; read the match state for the last committed boundary",
+                    retryable=True,
+                    details={"current_revision": record.summary.revision},
+                )
             if record.observation is None:
                 raise MatchControllerError(
                     ErrorCode.OBSERVATION_UNAVAILABLE,

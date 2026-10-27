@@ -75,7 +75,8 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - [X] Deduplicate request IDs, return the existing result for an identical retry, and reject conflicting reuse.
    - [X] Define queue bounds, shutdown, disconnect, and cancellation behavior so an accepted action is never silently abandoned or repeated.
    - Implementation: [[file:../src/aw2_lab/match_controller.py][match_controller.py]] provides the FIFO coordinator and injected executor boundary. [[file:../src/aw2_lab/api/app.py][The API lifespan]] starts/stops its single instance. Queue limits, shutdown handling, in-memory idempotency limits, and the deferred durable-journal boundary are recorded in [[file:MATCH-CONTRACT.md::*Controller queue behavior][the contract]]. HTTP routes and gameplay execution remain later items.
-   - [ ] Publish coherent state at command boundaries and prevent reads from exposing a partially executed transaction as settled state.
+   - [X] Publish coherent state at command boundaries and prevent reads from exposing a partially executed transaction as settled state.
+   - Implementation: `MatchController.current_state()` returns lifecycle and the last committed observation atomically. While a mutation runs, the snapshot is explicitly unsettled; `current_observation()` rejects reads rather than returning an apparently ready stale boundary. Outcome validation and publication happen together under the controller state lock.
 
 ** TODO Add complete checkpoint storage and durable command journaling
    - [ ] Define a checkpoint manifest containing emulator state/save RAM, ROM checksum, emulator build identity, decoder/schema versions, match metadata, revisions, and identity metadata.
