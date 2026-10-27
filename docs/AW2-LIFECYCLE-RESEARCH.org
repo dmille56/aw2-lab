@@ -1472,6 +1472,97 @@ general menu-family signature. On the CO submenu, lifecycle controller state is
 =0x08616B74=, and =0x0849AA68=. Returning to the map restores controller state
 =13= and clears the process pool.
 
+** Intel submenu and return checkpoints
+
+The next supplied set, restored as =aw2.ss1= through =aw2.ss9=, is captured in
+=/tmp/aw2-command-menu/intel-states/=. State 1 shows the command menu with CO
+selected; state 2 has Intel selected. State 3 is the Intel submenu with Status,
+Unit, and Rules. States 4, 6, and 8 show the corresponding status, unit-list,
+and rules pages. States 5 and 7 return to the Intel submenu with Unit and Rules
+selected, and state 9 returns to the main command menu with Intel still
+selected. The provided sequence confirms that backing out of Intel returns to
+the main battle menu.
+
+| State | Visible context | =0x03001470= | =0x03001490= | Row / count | Controller | Process scripts |
+|-------+-----------------+--------------+--------------+-------------+------------+-----------------|
+| =ss1= | Main menu / CO | =0x0848A42C= | =0x0849AAC0= | =0 / 5= | =13= | none |
+| =ss2= | Main menu / Intel | =0x0848A42C= | =0x0849AAC0= | =1 / 5= | =13= | none |
+| =ss3= | Intel submenu / Status | =0x0848A42C= | =0x0849ABC0= | =0 / 3= | =13= | none |
+| =ss4= | Status details | =0x084C1824= | =0= | not a selector | =20= | none |
+| =ss5= | Intel submenu / Unit | =0x0848A42C= | =0x0849ABC0= | =1 / 3= | =13= | none |
+| =ss6= | Unit list | =0x084C21C8= | =0x00140400= | not a selector | =20= | none |
+| =ss7= | Intel submenu / Rules | =0x0848A42C= | =0x0849ABC0= | =2 / 3= | =13= | none |
+| =ss8= | Rules page | =0x0849ADD0= | =0= | not a selector | =20= | =0x086140D4= |
+| =ss9= | Main menu / Intel | =0x0848A42C= | =0x0849AAC0= | =1 / 5= | =13= | none |
+
+The menu object/table pair now distinguishes the main command selector
+(=0x0848A42C= / =0x0849AAC0=, five rows) from its Intel selector
+(=0x0848A42C= / =0x0849ABC0=, three rows), and both preserve their visible
+selection in =0x030014B2=. On the status/unit details pages the object pointer
+changes and =0x030014B2= no longer contains a row index; the Rules page also has
+a process script. The pair is therefore a better menu-present candidate than
+the row byte alone, with the observed details pages and free cursor as negative
+controls. It still needs checks against additional live overlays before being
+used as a general runtime signature.
+
+The Intel submenu screenshots prove entry into the submenu and its three
+choices. The state sequence also shows each detail page and the return to the
+menu, but does not capture the exact one-frame A dispatch boundary or evaluate
+whether any row can be disabled. The original-ROM handler path remains
+=sub_08019A60= -> =sub_08074410= (item eligibility) -> the selected entry's
+callback; therefore an actionable flag requires resolving that eligibility
+helper and confirming callback availability for the selected table entry.
+
+** Options submenu, confirmation, and toggle checkpoints
+
+The additional =aw2.ss1= through =aw2.ss9= states are captured in
+=/tmp/aw2-command-menu/info-states/=. They show the main menu with Options
+selected, then its submenu with Delete, Yield, Music On/Off, No Visual, and Exit
+Map. The row values for Delete, Yield, Music, and No Visual are respectively
+=0=, =1=, =2=, and =3= at =0x030014B2=. The submenu uses object
+=0x0848A42C=, item table =0x0849AC60=, and row count =5=. This adds a second
+submenu table alongside Intel's =0x0849ABC0= and the main menu's
+=0x0849AAC0=.
+
+The Yield selection leads to a yes/no confirmation screen. Its UI object changes
+to =0x08489530= with table pointer =0x08610196= while controller state remains
+=13= and lock remains =1=. One later checkpoint shows the battle map with the
+menu object cleared and the old row byte retained, confirming that the row
+value alone is stale after backing out. The supplied set does not establish
+which confirmation response was chosen in the map checkpoint.
+
+Two Music checkpoints show the highlighted Music row with its label alternately
+reading =Music Off= and =Music On= while the Options submenu remains open. This
+is direct evidence that A can dispatch the selected toggle callback and return
+to the same actionable submenu. The No Visual checkpoint shows the selected row
+and its =No animation.= description. Screenshots, RAM snapshots, frames, and
+source state hashes are retained in the external artifact directory.
+
+Together with the observed CO, Intel, Options, and Music paths, this verifies
+that the general selector's row value and item-table pointer distinguish the
+tested main menu and submenu variants, and that active rows can dispatch A even
+with controller lock =1=. Exact eligibility remains row-specific: the ROM A
+handler checks =sub_08074410= and a non-null callback before dispatch. Save and
+End actions, disabled choices, and the helper's conditions remain open.
+
+The latest =aw2.ss1= through =aw2.ss9= set in
+=/tmp/aw2-command-menu/latest-info-states/= adds a controlled Visual-mode
+cycle and Exit Map sequence. States 1 through 5 keep the Options row index at
+=3= and the submenu item-table pointer at =0x0849AC60= while the displayed mode
+changes No Visual -> Visual A -> Visual B -> Visual C -> No Visual. This is a
+setting value change, not movement of the highlighted row. State 6 selects Exit
+Map at row index =4=; states 7 and 8 show the return-to-Select-Mode confirmation,
+and state 9 is the Select Mode screen after leaving the battle.
+
+The setting is independently supported by original-ROM code. =sub_0802CDA4=
+increments the byte at =0x03003FC9=, wraps values above =3= back to =0=, calls
+the mode-specific handler, and copies the result to =0x0200C42E=. The five
+checkpoints read =0, 1, 2, 3, 0= at both addresses, matching No Visual, Visual
+A, Visual B, Visual C, and No Visual. Related original-ROM routines compare the
+same IWRAM byte against =0..3= when deciding which visual behavior applies.
+This verifies the four mode values and the wraparound. It does not by itself
+resolve the general selector's full eligibility helper.
+
 ** Reproduction and evidence
 
 The row-navigation and Options-confirm captures are under =/tmp/aw2-command-menu/=

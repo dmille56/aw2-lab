@@ -491,11 +491,16 @@
      pointer bounds, army, active-player, coordinates, and logical map-cell checks
      pass. The general CO/Intel/Options/Save/End menu and highlighted row remain
      unresolved as typed state. Controlled checkpoints map CO through End to
-     rows =0..4= at =0x030014B2=; ROM code confirms the selector reads this
-     byte as its row index. A on Options opens its submenu, and supplied states
-     also show the CO submenu and return to the map. The row byte remains stale
-     outside the menu; the menu object/table signature and dynamic eligibility
-     helper need broader validation before an actionable-state guard is safe. See
+     rows =0..4= at =0x030014B2=; original-ROM code confirms the selector reads
+     this byte as its row index. The main command-menu object/table pair is
+     =0x0848A42C= /=0x0849AAC0=; the Intel submenu uses the same selector with a
+     three-row table and returns to the main menu with Intel still selected.
+     CO and Intel submenu entry/return are observed; Options checkpoints cover
+     Yield confirmation, Music toggle, Visual A/B/C/No Visual cycling, and the
+     Exit Map confirmation/return. ROM code verifies visual mode byte
+     =0x03003FC9= cycles =0..3= and mirrors it at =0x0200C42E=. The row byte
+     remains stale outside the menu, and the dynamic eligibility helper needs
+     resolution before an actionable-state guard is safe. See
      [[file:AW2-LIFECYCLE-RESEARCH.org::*General command-menu row probe][the command-menu probe]]. Existing lifecycle and pointer evidence is summarized in
      [[file:AW2-STATE-VALIDATION.org][battle structure validation]] and
      [[file:AW2-LIFECYCLE-RESEARCH.org][lifecycle research]].
@@ -506,7 +511,7 @@
      | Phase | Tested Versus startup, menus, entry, player/AI turns, combat, powers, results, and transitions are classified; unknown contexts do not authorize live decoding. | A typed UI observation that combines the phase with its evidence and keeps Campaign and unrecognized processes explicit. |
      | Cursor | The bytes at =0x03003140= are X then Y in 45 controlled samples on five maps; watchpoints and disassembly identify the input updater, cache writer, and two readers. A typed observer requires a validated player turn, valid geometry, matching source/cache values, and in-bounds coordinates. | Identify setup/menu selection cursors separately and extend cursor validity only with phase-specific evidence. |
      | Selected unit | The current-unit pointer can be stale under the free cursor. In the observed =0x0849BE38= action-menu process, four checkpoints resolve it to the active player's unit and match record coordinates plus the logical cell index. | Extend coverage to other action/process contexts; do not infer a selection from the pointer alone. |
-     | Menu state | The typed observer recognizes map input and the sampled unit-action menu. Controlled navigation plus ROM code verifies CO/Intel/Options/Save/End row values 0..4 at =0x030014B2=; A on Options and the CO submenu entry/return were observed. | Validate the menu object/table signature across more overlays and trace the dynamic eligibility helper before deriving an actionable-state condition; the row byte remains stale outside the menu. |
+     | Menu state | The typed observer recognizes map input and the sampled unit-action menu. Original-ROM code verifies =0x030014B2= as the selected row; main, Intel, and Options selectors are distinguished by item-table pointers, with highlighted rows, submenu returns, Yield confirmation, Music toggle, Visual A/B/C/No Visual cycle, and Exit Map confirmation documented. ROM code verifies visual mode at =0x03003FC9= and its =0..3= cycle. | Validate the object/table signature across more overlays and trace the dynamic eligibility helper before deriving an actionable-state condition; the row byte remains stale outside the menu. |
      | Transitions | Tested Versus transitions use callback, process, controller, lock, and input-state evidence; unknown combinations remain unavailable. | Record validity conditions beside each typed transition and add Campaign/event and additional menu contexts. |
 
    - [X] Identify supported UI phase and map-cursor position.
