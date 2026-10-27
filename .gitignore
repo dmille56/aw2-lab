@@ -6,4 +6,5 @@ __pycache__/
 .envrc-local
 result*
 result-*
+prototypes/client/target/
 tests/fixtures/save_states/*.ss*

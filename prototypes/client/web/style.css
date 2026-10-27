@@ -1,0 +1,5 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+body { margin: 2rem; }
+main { max-width: 40rem; }
+button { padding: 0.6rem 1rem; font: inherit; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; }

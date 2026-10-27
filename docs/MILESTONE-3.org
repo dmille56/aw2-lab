@@ -16,18 +16,23 @@ screenshots, and machine-specific paths outside Git and the Nix store.
 
 * Client architecture design
 
-** TODO Choose client technologies and verify platform compatibility
-   - [ ] Write a client architecture decision record before finalizing the public contract or starting frontend implementation.
-   - [ ] Establish Nix/NixOS as the primary development and testing path, with the most frequent verification; prioritize reproducible builds and NixOS runtime compatibility in technology selection.
-   - [ ] Compare candidate technologies for web browsers, Linux/macOS/Windows desktops, and Android/iOS; document the selected stack, alternatives, maintenance costs, and platform limitations.
-   - [ ] Decide where Python runs: retain the Python SDK for scripts/agents and specify how each UI client consumes the shared HTTP API, including platforms where Python is not bundled.
-   - [ ] Define shared API schemas, version compatibility, error handling, command polling/retries, screenshots, and player credential storage across clients.
-   - [ ] Specify development, packaging, installation, updates, and distribution for each platform, including mobile signing and store/toolchain requirements.
-   - [ ] Require reproducible Nix development environments and a Nix package for the Linux desktop client, with dependencies and runtime assets declared explicitly.
-   - [ ] Verify the proposed Linux client with a minimal packaged prototype on NixOS, including required graphical/runtime libraries, Wayland/X11 support, and connection to the local server.
-   - [ ] Verify the Python SDK and examples in the Nix environment and smoke-test browser access to the server on NixOS.
-   - [ ] Document which builds run under Nix and which require native macOS/Windows or Android/iOS tooling; do not assume Nix can replace proprietary platform SDKs or signing.
-   - [ ] Record a platform support matrix, test frequency/coverage, prototype results, remaining risks, and follow-up implementation tasks before accepting the technology decision; require platform-specific evidence before claiming support beyond NixOS.
+** DONE Choose client technologies and verify platform compatibility
+   - [X] Write a client architecture decision record before finalizing the public contract or starting frontend implementation.
+   - [X] Establish Nix/NixOS as the primary development and testing path, with the most frequent verification; prioritize reproducible builds and NixOS runtime compatibility in technology selection.
+   - [X] Compare candidate technologies for web browsers, Linux/macOS/Windows desktops, and Android/iOS; document the selected stack, alternatives, maintenance costs, and platform limitations.
+   - [X] Decide where Python runs: retain the Python SDK for scripts/agents and specify how each UI client consumes the shared HTTP API, including platforms where Python is not bundled.
+   - [X] Define shared API schemas, version compatibility, error handling, command polling/retries, screenshots, and player credential storage across clients.
+   - [X] Specify development, packaging, installation, updates, and distribution for each platform, including mobile signing and store/toolchain requirements.
+   - [X] Require reproducible Nix development environments and a Nix package for the Linux desktop client, with dependencies and runtime assets declared explicitly.
+   - [X] Verify the proposed Linux client with a minimal packaged prototype on NixOS, including required graphical/runtime libraries, Wayland/X11 support, and connection to the local server.
+   - [X] Smoke-test browser access to the server on NixOS.
+   - [X] Document which builds run under Nix and which require native macOS/Windows or Android/iOS tooling; do not assume Nix can replace proprietary platform SDKs or signing.
+   - [X] Record a platform support matrix, test frequency/coverage, prototype results, remaining risks, and follow-up implementation tasks before accepting the technology decision; require platform-specific evidence before claiming support beyond NixOS.
+   - Decision and evidence: [[file:CLIENT-ARCHITECTURE.md][ADR 001]] selects React/TypeScript/Vite with Tauri 2
+     native shells. [[file:../prototypes/client/README.md][The packaged prototype]] passed native X11/headless-Wayland
+     and browser HTTP checks against the real API. Graphics/input/scaling and
+     non-NixOS platforms retain explicit limits. Python SDK verification moved
+     to its implementation item below because that SDK does not exist yet.
    - This milestone includes architecture and compatibility prototypes. Full
      frontend implementation remains deferred; the initial playable clients
      are the Python SDK and two-client examples. NixOS compatibility must be
@@ -152,6 +157,7 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - [ ] Provide two scripts or interactive-session examples that join separate slots and take turns in the same match.
    - [ ] Demonstrate starting, playing, finishing, saving, and resuming through the public API.
    - [ ] Keep strategy and legal-move enumeration outside the SDK's initial scope.
+   - [ ] Verify the Python SDK and two-client examples in the Nix environment, completing the deferred client architecture integration check.
 
 * Verification and acceptance
 

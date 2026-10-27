@@ -1,0 +1,15 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AW2 Client Prototype",
+  "version": "0.1.0",
+  "identifier": "org.aw2lab.client-prototype",
+  "build": { "frontendDist": "web" },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [{ "title": "AW2 client compatibility check", "width": 680, "height": 400 }],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:43127"
+    }
+  },
+  "bundle": { "active": false }
+}

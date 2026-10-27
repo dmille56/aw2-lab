@@ -158,6 +158,8 @@ Use existing decompilation/disassembly projects as leads; verify adopted address
 **Dependencies:** decoded battle/UI state from milestone 2.
 
 The implementation checklist is tracked in [MILESTONE-3.org](MILESTONE-3.org).
+The client technology decision, prototype evidence and compatibility limits are recorded in
+[ADR 001](CLIENT-ARCHITECTURE.md).
 Begin with client architecture design for web, Linux/macOS/Windows desktop,
 and Android/iOS clients, including Nix development/packaging and a NixOS
 compatibility prototype. Full frontend implementation remains deferred; the

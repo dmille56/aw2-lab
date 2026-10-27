@@ -2,6 +2,62 @@
 
 Initial Python backend scaffold for the emulator-backed AW2 platform.
 
+## Launch the client prototype
+
+The current client checks connectivity to the API. The React gameplay UI is
+planned; this prototype displays the server and emulator health response.
+Run these commands from the repository root on Nix/NixOS.
+
+In one terminal, start the prototype server with your own supported AW2 ROM
+stored outside the repository:
+
+```sh
+nix shell
+PYTHONPATH="$PWD/src" python prototypes/client/serve.py --rom-path /path/to/aw2.gba
+```
+
+Alternatively, set `AW2_ROM_PATH` and omit `--rom-path`:
+
+```sh
+export AW2_ROM_PATH=/path/to/aw2.gba
+PYTHONPATH="$PWD/src" python prototypes/client/serve.py
+```
+
+An explicit `--rom-path` takes precedence over `AW2_ROM_PATH`.
+
+This starts the API and headless mGBA, serves the browser client, and enables the
+native prototype's HTTP origin. Stop any existing AW2 Lab server first: the
+prototype uses API port 43127 and bridge port 43128. Use this helper for the
+client checks below; the normal server command does not serve the prototype.
+
+For the **browser client**, open
+[http://127.0.0.1:43127/client/](http://127.0.0.1:43127/client/).
+
+For the **Linux desktop client**, open a second terminal in the repository root
+and launch it in your graphical session:
+
+```sh
+nix shell
+aw2-client-prototype
+```
+
+Both clients should display `Connected` and a health response with
+`"emulator": "running"`. Use **Check connection** to retry. Close the desktop
+window to stop that client; press Ctrl+C in the server terminal to stop the API
+and its emulator.
+
+The normal `nix shell` provides both the desktop client and Python with the
+server's runtime dependencies. Re-enter it after updating the flake to pick up
+the client command. `PYTHONPATH` above selects the server code from your checkout.
+
+The default development shell also includes `aw2-client-prototype`, including
+when loaded through lorri. After updating `.envrc`, run `direnv allow` and let
+lorri rebuild the environment. If you need a fresh lorri shell immediately, run
+`lorri shell --flake .`, then `aw2-client-prototype`.
+
+See the [prototype instructions](prototypes/client/README.md) for the client
+development shell, X11/Wayland smoke checks, and current compatibility limits.
+
 ## Development
 
 Enter the Nix development shell and start the local API:
@@ -19,7 +75,7 @@ The server binds to `127.0.0.1:43127` by default. `GET /health` reports HTTP res
 
 Starting the server requires your own legally obtained AW2 ROM. Provide it with `--rom /path/to/aw2.gba` or set `AW2_ROM_PATH=/path/to/aw2.gba`; the CLI option takes precedence, and the path must point to a file. Select the emulator frontend with `--emulator-mode headless|windowed` or `AW2_EMULATOR_MODE=headless|windowed`; the CLI option takes precedence and the default is `headless`. The default executables are `mgba-headless` for headless and `mgba-qt` for windowed. Override them with `--mgba-headless PATH` or `--mgba-windowed PATH`. The launcher passes the bundled Lua bridge using mGBA's `--script` startup option; override the script with `--lua-bridge PATH`. The Nix environment supplies both frontends from a pinned upstream 0.11 development revision with Lua scripting enabled. The server starts mGBA when it starts and stops it when the server shuts down. ROMs are not included with the project; keep them outside the repository and the Nix store.
 
-`nix shell` provides the packaged application, Python, Lua, Busted, mGBA, and mypy. `nix develop` also includes Ruff, pytest, pre-commit, mypy, and `pylsp`.
+`nix shell` provides the packaged application, the desktop client prototype, Python with server runtime dependencies, Lua, Busted, mGBA, and mypy. `nix develop` also includes Ruff, pytest, pre-commit, mypy, and `pylsp`.
 
 The mGBA source is pinned in `flake.nix` and `flake.lock` to upstream commit
 [`fd9dc5c2cbf234365068855851107e762fc6211b`](https://github.com/mgba-emu/mgba/commit/fd9dc5c2cbf234365068855851107e762fc6211b).

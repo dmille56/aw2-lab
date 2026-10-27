@@ -20,7 +20,6 @@
       ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
       toolNames = [
-        "python314"
         "lua"
         "pre-commit"
         "mypy"
@@ -34,19 +33,22 @@
           pkgs = import nixpkgs { inherit system; };
           pythonPackages = pkgs.python314Packages;
           mgba = import ./nix/mgba.nix { inherit pkgs mgbaSource; };
+          clientPrototype = import ./nix/client-prototype.nix { inherit pkgs; };
+          runtimeDependencies = with pythonPackages; [
+            fastapi
+            httpx
+            mcp
+            pydantic
+            uvicorn
+          ];
+          runtimePython = pkgs.python314.withPackages (_: runtimeDependencies);
           application = pythonPackages.buildPythonApplication {
             pname = "aw2-lab";
             version = "0.1.0";
             src = self;
             pyproject = true;
             build-system = [ pythonPackages.hatchling ];
-            dependencies = with pythonPackages; [
-              fastapi
-              httpx
-              mcp
-              pydantic
-              uvicorn
-            ];
+            dependencies = runtimeDependencies;
             nativeCheckInputs = [ pythonPackages.pytestCheckHook ];
             pythonImportsCheck = [ "aw2_lab" ];
             meta.mainProgram = "aw2-lab";
@@ -59,16 +61,13 @@
           ]
           ++ map (name: pkgs.${name}) toolNames;
           developmentPython = pkgs.python314.withPackages (
-            pythonPackages: with pythonPackages; [
-              fastapi
-              httpx
-              mcp
+            _:
+            runtimeDependencies
+            ++ (with pythonPackages; [
               mypy
-              pydantic
               pytest
               python-lsp-server
-              uvicorn
-            ]
+            ])
           );
           devTools = [
             developmentPython
@@ -81,17 +80,36 @@
             tools
             devTools
             mgba
+            clientPrototype
             ;
           defaultPackage = pkgs.symlinkJoin {
             name = "aw2-lab-tools";
-            paths = tools;
+            paths = tools ++ [
+              runtimePython
+              clientPrototype
+            ];
             meta.mainProgram = "aw2-lab";
           };
           devShell = pkgs.mkShell {
-            packages = tools ++ devTools;
+            packages = tools ++ devTools ++ [ clientPrototype ];
             shellHook = ''
               export PYTHONPATH="$PWD/src''${PYTHONPATH:+:$PYTHONPATH}"
             '';
+          };
+          clientShell = pkgs.mkShell {
+            nativeBuildInputs = [ pkgs.pkg-config ];
+            buildInputs = [
+              pkgs.gtk3
+              pkgs.webkitgtk_4_1
+              pkgs.librsvg
+            ];
+            packages = [
+              pkgs.cargo
+              pkgs.rustc
+              pkgs.rustfmt
+              pkgs.nodejs
+              pkgs.typescript
+            ];
           };
         };
       environments = forAllSystems environmentFor;
@@ -105,12 +123,14 @@
         {
           aw2-lab = env.application;
           inherit (env) mgba;
+          client-prototype = env.clientPrototype;
           default = env.defaultPackage;
         }
       );
 
       devShells = forAllSystems (system: {
         default = environments.${system}.devShell;
+        client = environments.${system}.clientShell;
       });
     };
 }
