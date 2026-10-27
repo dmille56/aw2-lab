@@ -40,13 +40,14 @@ screenshots, and machine-specific paths outside Git and the Nix store.
 
 * Match contract and state
 
-** TODO Define the fixed playable configuration and public contract
-   - [ ] Choose and document the built-in map, two fixed COs, player slots, and rules, including fog disabled and both armies externally controlled.
-   - [ ] Define supported actions and advertise unsupported features explicitly.
-   - [ ] Define typed match, player-slot, command, error, and checkpoint models with versioned serialization.
-   - [ ] Define match lifecycle states, including setup, playable, executing, finished, recovery-required, and closed.
-   - [ ] Specify zero-based coordinates and explicit movement paths, including an empty path for stationary actions.
-   - [ ] Document request IDs, expected revisions, command status, retry behavior, and player-slot credentials.
+** DONE Define the fixed playable configuration and public contract
+   - [X] Choose and document Bean Island, Andy/Max in Red/Blue slots 1/2, separate teams, standard fixed rules, fog disabled, and both armies externally controlled.
+   - [X] Define supported actions and advertise unsupported features explicitly.
+   - [X] Define typed match, player-slot, command, error, and checkpoint models with versioned serialization.
+   - [X] Define match lifecycle states, including setup, playable, executing, finished, recovery-required, and closed.
+   - [X] Specify zero-based coordinates and explicit movement paths, including an empty path for stationary actions.
+   - [X] Document request IDs, expected revisions, command status, retry behavior, and player-slot credentials.
+   - Public contract: [[file:MATCH-CONTRACT.md][version 1]], with Pydantic models in [[file:../src/aw2_lab/match_contract.py][match_contract.py]]. The models define the schema; controller behavior and routes remain later tasks.
    - Keep transport, match coordination, action execution, persistence, HTTP,
      and SDK responsibilities separate as described in =PLAN.md=.
 

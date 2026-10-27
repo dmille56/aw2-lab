@@ -52,8 +52,10 @@ Sources: [Electron](https://github.com/electron/electron),
 
 ## HTTP contract constraints
 
-The next checklist item defines concrete models and routes. This decision fixes
-the cross-client requirements without claiming those endpoints already exist:
+The public contract is defined in
+[MATCH-CONTRACT.md](MATCH-CONTRACT.md), with Pydantic models in
+`aw2_lab.match_contract`. Routes and controller behavior remain future work.
+Cross-client requirements are:
 
 - Pydantic models and FastAPI OpenAPI are the schema authority. Generate
   TypeScript types from the versioned schema; retain Python SDK types from shared
