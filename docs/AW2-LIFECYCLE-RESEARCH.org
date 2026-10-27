@@ -1399,6 +1399,56 @@ supplied pre-attack checkpoint already begins with decoding blocked. The
 terminal result path remains blocked through map selection; a new battle was
 not started from that menu.
 
+** General command-menu row probe
+
+The external checkpoint =/tmp/aw2-lifecycle-control-research/battle-command-menu.ss0=
+opens the battle command menu with CO highlighted. In an isolated headless
+session using the supported US ROM, one Down press followed by five neutral
+frames advanced the visible highlight once per sample through CO, Intel,
+Options, Save, and End. The screenshots and full IWRAM/EWRAM snapshots are in
+=/tmp/aw2-command-menu/=; the captured frames were 73373, 73379, 73385, 73391,
+and 73397. No source checkpoint, ROM, or SRAM was modified.
+
+| Visible row | =0x030014B2= | =0x030014F0= | Controller / lock / input state |
+|-------------+--------------+--------------+---------------------------------|
+| CO | =0= | =0= | =13 / 1 / 0= |
+| Intel | =1= | =1= | =13 / 1 / 0= |
+| Options | =2= | =2= | =13 / 1 / 0= |
+| Save | =3= | =3= | =13 / 1 / 0= |
+| End | =4= | =4= | =13 / 1 / 0= |
+
+The byte at =0x030014B2= is a strong observed row-index candidate for this
+sequence. =0x030014F0= mirrors it in the same samples, so the captures do not
+establish which is authoritative. Neither field has been traced to its ROM
+reader/writer, and the same =0x030014B2= byte is =4= in the free-cursor
+checkpoint; its value alone therefore cannot identify this menu or prove the
+highlight is current. The process pool is empty in the command-menu checkpoint,
+so the existing screen-process recognizer does not identify this menu either.
+
+To check acceptance, the experiment restored the initial checkpoint, moved to
+Options, pressed A, and advanced 20 neutral frames. The resulting screenshot
+shows the Options submenu (Delete, Yield, Music On, No Visual, Exit Map), and
+=0x030014B2= reset to =0=. This confirms that the highlighted Options row
+accepted A in this sample. The controller state remained =13= with lock =1=;
+those fields do not distinguish an actionable row here, and this single probe
+does not establish the exact actionability condition or behavior of other rows.
+
+This probe identifies the visible family, all five row labels, and a
+frame-correlated candidate index. It does not yet provide a safe general-family
+signature or a verified actionable flag, so the runtime observer should keep
+this context unresolved. Next evidence should trace accesses to the candidate
+bytes in the supported ROM and compare command-menu, free-cursor, and other
+overlay checkpoints, including a stable sample before and during each accepted
+input.
+
+** Reproduction and evidence
+
+The row-navigation and Options-confirm captures are under =/tmp/aw2-command-menu/=
+in =capture.py= and =results.json=, with per-row screenshots and RAM dumps. The
+input sequence is Down once plus five neutral frames per row; the Options branch
+restores the checkpoint, advances to row 2, presses A once, then advances 20
+neutral frames. The directory is outside Git and its artifacts are disposable.
+
 ** Reproduction and evidence
 
 Artifacts are external at =/tmp/aw2-final-elimination/=. =focused-findings.json=
