@@ -151,6 +151,8 @@ Use existing decompilation/disassembly projects as leads; verify adopted address
 
 **Acceptance criteria:** structured snapshots match manually inspected states before and after movement, combat damage, purchasing, capture, and turn changes. Title screens and transitional states are recognized safely. Observations agree between emulator modes for the same checkpoint.
 
+**Status:** accepted for the documented checksum-verified US revision-0 Versus subset. The [Milestone 2 acceptance audit](MILESTONE-2.org) links each deliverable and criterion to implementation, tests, and recorded emulator evidence, and preserves the remaining research limits and Milestone 3 integration work.
+
 ### 3. First playable server/client release
 
 **Dependencies:** decoded battle/UI state from milestone 2.

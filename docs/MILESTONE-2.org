@@ -1,6 +1,20 @@
 #+TITLE: Milestone 2: Targeted AW2 Reverse Engineering
 #+TODO: TODO IN-PROGRESS | DONE BLOCKED DEFERRED
 
+* Acceptance status
+
+Milestone 2 satisfies the deliverables and acceptance criteria in
+[[file:PLAN.md][PLAN.md]] for the documented checksum-verified US revision-0 Versus
+subset. The [[#milestone-2-acceptance-audit][acceptance audit]] below links each criterion to implementation, checks,
+and recorded emulator evidence. This audit uses the existing live evidence;
+it does not claim a new emulator integration run.
+
+Research progress entries below retain the scope of their original observations.
+The current published subset and exclusions are defined by
+[[file:AW2-STATE-VALIDATION.org::*Coherent structured decoding][the decoder contract]] and [[file:VERIFICATION.md][the verification workflow]]. Unknown values,
+untested configurations, and the follow-up research at the end of this file
+remain outside the acceptance claim.
+
 * Prerequisites and research workflow
 
 ** DONE Confirm Milestone 1 primitives are ready for AW2 research
@@ -111,7 +125,7 @@
 
 * Battle lifecycle and state research
 
-** TODO Recognize battle lifecycle safely
+** DONE Recognize battle lifecycle safely
    - Research progress: [[file:AW2-LIFECYCLE-RESEARCH.org][eight supplied lifecycle states]] establish screen-process
      associations and engine callbacks, with 89 controlled observations. Valid
      dimensions, day/properties, battle callbacks, and an empty screen-process
@@ -197,7 +211,7 @@
      open. See [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: fresh final-unit elimination through results and map selection][the final-elimination trace]].
    - [X] Verify that non-battle and transitional memory is not interpreted as a valid battle.
 
-** TODO Decode map and property state
+** DONE Decode map and property state
    - Research progress: [[file:AW2-MAP-RESEARCH.org::*Finding: two-player HQ capture completes the battle and changes ownership][HQ capture comparison]] verifies an
      HQ owner change from Blue to Red in both the terrain grid and property
      table, capture progress reset, and the opponent defeated marker set at
@@ -231,7 +245,7 @@
      coordinates, and cursor observations. See
      [[file:AW2-MAP-RESEARCH.org::*Initial Versus map and property layout][the map layout]].
 
-** TODO Decode players and turn state
+** DONE Decode players and turn state
    - Research progress: [[file:AW2-LIFECYCLE-RESEARCH.org::*Finding: Results, save-progress exit, and powers][result/power observations]] verify the player-record stride,
      a defeated halfword, and active-power values 0/1/2 within the tested contexts.
      Normal Power activation is reproduced; SUPER is verified in a supplied
@@ -465,7 +479,7 @@
    - Revisit only if a concrete behavior or modding need makes these fields
      relevant. Evidence is in [[file:AW2-MAP-RESEARCH.org::*Higher status bits and archived checkpoint audit][the higher-bit audit]].
 
-** TODO Decode UI state needed for future automation
+** DONE Decode UI state needed for future automation
    - Research progress: typed lifecycle and UI observations now cover the
      verified Versus subset, while a complete UI-state decoder is still future
      work. [[file:../src/aw2_lab/lifecycle.py][The lifecycle classifier]] recognizes
@@ -518,7 +532,7 @@
 
      | UI information | Verified evidence | Still needed |
      |----------------+-------------------+--------------|
-     | Phase | Tested Versus startup, menus, entry, player/AI turns, combat, powers, results, and transitions are classified; unknown contexts do not authorize live decoding. Unrecognized UI results now retain active process IDs and controller/selector evidence. | Extend phase coverage to Campaign/events and compose lifecycle, menu, cursor, and other supported observations into the future structured state. |
+     | Phase | Tested Versus startup, menus, entry, player/AI turns, combat, powers, results, and transitions are classified; unknown contexts do not authorize live decoding. Unrecognized UI results retain active process IDs and controller/selector evidence, and GameState includes lifecycle, menu, and cursor observations. | Extend phase coverage to Campaign/events and other untested contexts. |
      | Cursor | The bytes at =0x03003140= are X then Y in 45 controlled samples on five maps; watchpoints and disassembly identify the input updater, cache writer, and two readers. A typed observer requires a validated player turn, valid geometry, matching source/cache values, and in-bounds coordinates. | Identify setup/menu selection cursors separately and extend cursor validity only with phase-specific evidence. |
      | Selected unit | The current-unit pointer can be stale under the free cursor. In the observed =0x0849BE38= action-menu process, four checkpoints resolve it to the active player's unit and match record coordinates plus the logical cell index. | Extend coverage to other action/process contexts; do not infer a selection from the pointer alone. |
      | Menu state | The typed observer recognizes map input, the sampled unit-action menu, and verified main/Intel/Options selectors with typed highlighted choices and an actionable flag. Unrecognized contexts retain lifecycle phase, active process IDs, controller fields, selector pointers, and a reason instead of looking like map input. | Assign verified names to additional targeting/menu modes, confirm whether Save changes persisted bytes, and extend coverage to other contexts. |
@@ -617,7 +631,7 @@ phases, invalid bounds/links, unknown values, ROM rejection, and frame drift.
      disappearance and same-type replacement, slot reuse, and checkpoint
      round trips with tombstones.
 
-** TODO Verify structured snapshots against manually inspected states
+** DONE Verify structured snapshots against manually inspected states
    - [X] Compare validated snapshots and documented unit fields before and after movement.
      The controlled APC pair validates as live player turns in both states,
      and the typed unit decoder publishes its verified record fields. See
@@ -661,11 +675,69 @@ phases, invalid bounds/links, unknown values, ROM rejection, and frame drift.
      [[file:VERIFICATION.md][verification workflow]]. The full pre-commit suite
      passed after this documentation update.
 
-** TODO Confirm all Milestone 2 deliverables and acceptance criteria in [[file:PLAN.md][PLAN.md]]
-   - [ ] One checksum-verified US retail ROM profile is available, and unsupported images are rejected.
-   - [ ] Memory-dump, diff, and watch tools support repeatable research.
-   - [ ] Memory layouts document field sizes, signedness, pointer handling, evidence, and confidence.
-   - [ ] A Python decoder exposes validated structured state.
+** DONE Confirm all Milestone 2 deliverables and acceptance criteria in [[file:PLAN.md][PLAN.md]]
+   :PROPERTIES:
+   :CUSTOM_ID: milestone-2-acceptance-audit
+   :END:
+   - [X] One checksum-verified US retail ROM profile is available, and unsupported images are rejected.
+     [[file:../src/aw2_lab/rom_profile.py][ROM profile selection]] checks SHA-256 before choosing the supported layout.
+     =tests/test_rom_profile.py= covers profile metadata, hashing, selection,
+     and rejection; decoder and application checks reject unsupported ROMs
+     before bridge operations. The retail checksum and revision are recorded
+     under [[*Identify and verify one unmodified US retail ROM][supported ROM identity]].
+   - [X] Memory-dump, diff, and watch tools support repeatable research.
+     [[file:../src/aw2_lab/research.py][Research tooling]] and the CLI provide coherent, contextual dumps,
+     offline diffs requiring identical ranges, and explicit neutral-frame
+     watch steps. =tests/test_research.py= and =tests/test_cli.py= cover the
+     behavior and failure paths. Commands and artifact formats are documented
+     in [[file:AW2-RESEARCH-NOTES.org][the research workflow]].
+   - [X] Memory layouts document field sizes, signedness, pointer handling, evidence, and confidence.
+     [[file:AW2-MAP-RESEARCH.org][Map/unit research]], [[file:AW2-LIFECYCLE-RESEARCH.org][lifecycle/player research]], and
+     [[file:AW2-POWER-WEATHER-RESEARCH.org][power/weather research]] record the verified addresses, packed fields,
+     byte order, evidence, and unresolved interpretations. The bounded readers
+     and validity rules are summarized in [[file:AW2-STATE-VALIDATION.org][structure validation]].
+   - [X] A Python decoder exposes validated structured state.
+     [[file:../src/aw2_lab/state_decoder.py][The coherent decoder]] emits schema-v3 =GameState= with ROM/frame context,
+     validation, UI observations, and supported battle fields. Synthetic
+     decoder/validation checks cover packed fields, unknown values, stale
+     memory, invalid bounds and links, unsupported ROMs, and incoherent captures.
+     [[file:AW2-STATE-VALIDATION.org::*Coherent structured decoding][The published contract]] explicitly excludes unverified fields and future
+     HTTP/controller integration.
    - [X] Structured snapshots match manually inspected states before and after movement, combat damage, purchasing, capture, and turn changes.
-   - [ ] Title screens and transitional states are recognized safely.
+     [[file:AW2-SNAPSHOT-EVIDENCE.org][The scenario evidence index]] links each comparison to its manual observations,
+     reproduction steps, source fingerprints, results, and external artifacts.
+     These comparisons verify the documented field subset; synthetic decoder
+     checks cover its serialization and interpretation.
+   - [X] Title screens and transitional states are recognized safely.
+     [[file:../src/aw2_lab/lifecycle.py][The lifecycle classifier]] and per-structure gates keep retained battle RAM
+     unavailable during setup, transitions, combat, Powers, results, menus,
+     and unknown contexts. =tests/test_lifecycle.py= and the validation/decoder
+     checks cover the guards. Recorded startup/title/entry and control-boundary
+     observations are in [[file:AW2-LIFECYCLE-COVERAGE.org][lifecycle coverage]]. Campaign flows remain outside
+     the recognized subset and cannot authorize live decoding without a
+     supported player-control context and passing structure checks.
    - [X] Observations agree between emulator modes for the same checkpoint across the verified startup, battle, combat, Power, and results coverage.
+     [[file:AW2-LIFECYCLE-COVERAGE.org][The parity record]] compares identical checkpoint/input sequences under both
+     pinned frontends: frame numbers, full EWRAM/IWRAM hashes, screenshots,
+     lifecycle classifications, validation, and live-decoding decisions agree.
+     This is evidence for those checkpoints and inputs, rather than a claim
+     about every configuration. The [[file:VERIFICATION.md][verification workflow]] distinguishes
+     these recorded scenarios from the opt-in automated frame-gate checks.
+
+* Follow-up work beyond the accepted Milestone 2 subset
+
+The acceptance audit leaves these limitations explicit. They do not require
+expanding Milestone 2 beyond the initial Versus scope in =PLAN.md=:
+
+- Campaign event/dialogue flows, Campaign labs, and additional untested
+  lifecycle/UI configurations require new controlled evidence before decoding.
+- Setup/menu cursor meanings, additional unit-selection/targeting contexts,
+  and other unknown UI states require context-specific observation and guards.
+- Theoretical map/property capacity and the unassigned high unit/fuel bits
+  remain deferred as previously agreed. Other unresolved interpretations stay
+  documented in their research records; no meaning is inferred by the decoder.
+- Natural near-cap meter evidence, counters above 10, and unresolved weather
+  scheduling details remain outside the verified power/weather subset.
+- Match identity/revision, identity-ledger checkpoint integration, the HTTP
+  state endpoint, and action execution/readiness belong to Milestone 3. The
+  current decoded unit reference remains a reusable memory slot.
