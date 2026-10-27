@@ -489,8 +489,9 @@
      unit record coordinates. [[file:../src/aw2_lab/ui_state.py][The UI observer]] now recognizes the
      tested unit-action menu script and publishes a selected unit only after
      pointer bounds, army, active-player, coordinates, and logical map-cell checks
-     pass. The general CO/Intel/Options/Save/End menu and highlighted row remain
-     unresolved as typed state. Controlled checkpoints map CO through End to
+     pass. The observer also recognizes verified CO/Intel/Options selector
+     tables, their highlighted item, and ROM-backed actionable status.
+     Controlled checkpoints map CO through End to
      rows =0..4= at =0x030014B2=; original-ROM code confirms the selector reads
      this byte as its row index. The main command-menu object/table pair is
      =0x0848A42C= /=0x0849AAC0=; the Intel submenu uses the same selector with a
@@ -517,7 +518,7 @@
      | Cursor | The bytes at =0x03003140= are X then Y in 45 controlled samples on five maps; watchpoints and disassembly identify the input updater, cache writer, and two readers. A typed observer requires a validated player turn, valid geometry, matching source/cache values, and in-bounds coordinates. | Identify setup/menu selection cursors separately and extend cursor validity only with phase-specific evidence. |
      | Selected unit | The current-unit pointer can be stale under the free cursor. In the observed =0x0849BE38= action-menu process, four checkpoints resolve it to the active player's unit and match record coordinates plus the logical cell index. | Extend coverage to other action/process contexts; do not infer a selection from the pointer alone. |
      | Menu state | The typed observer recognizes map input, the sampled unit-action menu, and verified main/Intel/Options selectors with typed highlighted choices and an actionable flag. Original-ROM code traces the selector callback path and eligibility helper; the three table signatures are checked against their row counts and IDs. The row byte remains stale outside the menu. | Represent Delete targeting distinctly from free map input, confirm whether Save changes persisted bytes, and extend coverage to other menu/process contexts. |
-     | Transitions | Tested Versus transitions use callback, process, controller, lock, and input-state evidence; unknown combinations remain unavailable. | Record validity conditions beside each typed transition and add Campaign/event and additional menu contexts. |
+     | Transitions | Lifecycle research records same-frame callback, process, controller, lock, and input-state predicates and precedence for recognized Versus screens, battle handoffs, combat, Powers, results, and player/AI turns. Unknown and conflicting contexts stay unavailable. | Extend the predicates to Campaign/event flows and additional configurations; a recognized phase does not prove every field or command is ready. |
 
    - [X] Identify supported UI phase and map-cursor position.
      The lifecycle classifier supplies the phase; a typed map-cursor observation
@@ -532,7 +533,10 @@
      The typed observer recognizes the verified main, Intel, and Options selector
      tables, bounds-checks their selected row and reports a choice as actionable
      only when the traced ROM eligibility gate and callback conditions pass.
-   - [ ] Document recognized transitions and their validity conditions.
+   - [X] Document recognized transitions and their validity conditions.
+     Lifecycle research records the same-frame signals, precedence, and decode
+     safety for recognized Versus phases and shared transitions. Campaign events
+     and untested configurations remain outside that coverage.
    - [ ] Represent unrecognized UI states explicitly.
 
 * Python state decoder

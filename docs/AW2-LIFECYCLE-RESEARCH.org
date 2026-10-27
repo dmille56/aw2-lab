@@ -1668,3 +1668,43 @@ item for the verified Versus selectors. The observer still leaves Delete map
 targeting and unrecognized menu/process contexts unresolved. Rule-list contents
 for any future non-null mode row are not implemented because none of the eight
 supported rows uses one.
+
+* Lifecycle transition predicates and validity conditions
+
+These are the exact recognition conditions implemented by
+=classify_lifecycle= for the supported US ROM profile. Callback values include
+the Thumb low bit. Process IDs come from the script word in each of the 32
+bounded screen-process slots (stride =0x6C=); a zero script word is inactive.
+Callback pair, process words, and controller fields must come from one coherent
+paused frame. The snapshot capture rejects a frame change between RAM reads.
+
+| Observation | Required same-frame evidence | Classification / safety | Limits |
+|-------------+-----------------------------+--------------------------+--------|
+| Startup / Title / Mode Select / Versus Setup | Screen callback pair =(0x08036885,0x080368E9)= and exactly one matching script: =0x08581500= / =0x08581C68= / =0x0849E818= / =0x0849ECE0= | Corresponding screen phase; blocked | Multiple frontend phases or a non-screen engine yields =UNKNOWN=. |
+| Versus map selection | Screen callback pair and active script =0x08616C54= | =VERSUS_MAP_SELECT=; blocked | Same script with another engine is =UNKNOWN=. |
+| Battle entry / turn handoff | A script in ={0x0848927C,0x0848929C,0x084892C4,0x0849E750,0x08499E18}= with screen or battle callback pair | =BATTLE_TRANSITION=; blocked | These effects are shared by initial entry and ordinary turn changes; they do not identify which transition is underway. |
+| Human attack / combat | Battle or animation callback pair, Fire parent =0x0849A9F8=, and one resolver =0x0849FEF8= or =0x0849FFB0= | =BATTLE_COMBAT=; blocked | A lone parent, resolver, animation callback, or animation child is insufficient. |
+| Computer attack / combat | Battle or animation callback pair, a resolver =0x0849FEF8= or =0x0849FFB0=, and controller mode =1= / state =14= | =BATTLE_COMBAT=; blocked | The sampled AI attack uses an alternate resolver and has no human Fire parent. Other AI animation paths remain unverified. |
+| CO Power sequence | Battle callback pair and active script =0x0849D77C= | =BATTLE_POWER=; blocked | Does not assert whether the power has taken effect or identify the exact quote/effect boundary. |
+| Victory / defeat / result / save prompt | Any known result script: =0x0849D56C=, =0x08615CB0=, =0x08615DD8=, =0x08615FB4=, =0x084C327C=, or =0x0849F330= | Result phase; blocked | Result scripts precede generic transition/controller signals. If victory and defeat presentations conflict, phase is =UNKNOWN=. Phase marks process sequence, not pixel-exact dialogue timing. |
+| Human map input | Battle callback pair; no active process scripts; mode =1=, state =13=, lock =0=, input gate =0=, input substate =0= | =BATTLE_PLAYER_TURN=; decode safety remains unknown pending structure validation | Recognizes tested ordinary map control, not command readiness. |
+| Computer turn | Battle callback pair; no active process scripts; mode =1=, state =14=, lock =0=, input gate =0=, input substate =0= | =BATTLE_COMPUTER_TURN=; blocked | Sampled Versus controller path only. |
+| Other battle callback states | Battle callback pair with any missing/changed controller gate, unrecognized process, busy state, or menu overlay | =BATTLE_ENGINE_UNRESOLVED=; safety unknown | Retained map/unit values do not override this result. |
+| Unknown engine or conflicting evidence | Callback pair not recognized, or contradictory frontend/result signals | =UNKNOWN=; safety unknown | No live battle decoding is authorized. |
+
+Precedence is deliberate: result/prompt processes win over retained battle
+callbacks and generic fades; map selection is recognized next; then Power,
+combat, and shared transition processes; frontend scripts follow; only then can
+the process-free controller predicate recognize a player or computer turn.
+Unknown active scripts prevent the process-free turn predicates from matching.
+This table records recognition validity, not a guarantee that RAM structures
+are internally consistent. Geometry, properties, players, and units retain
+their separate validators.
+
+The classifier's direct Versus evidence includes Rules-to-battle entry gaps,
+the day banner, ordinary End-to-AI-to-next-human handoff, animated and
+non-animated attacks through cleanup, regular/Super Power sequences, and
+victory/defeat/result/save processes. Campaign dialogue and broader
+configuration coverage remain open. The decoder intentionally has no
+universal input-ready phase: input substates, cursor alignment, and queued work
+can still gate individual commands inside an otherwise recognized player turn.
