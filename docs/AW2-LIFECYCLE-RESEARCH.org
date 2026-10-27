@@ -1570,9 +1570,20 @@ The latest =aw2.ss1= through =aw2.ss5= states are captured in
 main-menu row =3= and the main menu table =0x0849AAC0=. States 2 and 3 show the
 overwrite prompt, “Save current data over existing data? Yes No”; its object is
 =0x08489530= and table pointer =0x086100CE=. Between these two prompt states,
-only byte =0x030014EE= changes (=0= to =1=), a candidate for the prompt's
-selection state. The states do not establish which answer is selected or
-confirm a save was written.
+only byte =0x030014EE= changes (=0= to =1=). The later Save-flow set at
+=/tmp/aw2-command-menu/save-flow-states/= records =0= with Yes selected and
+=1= with No selected. It then shows the save-in-progress prompt, return to the
+map, and the command menu again.
+
+The second set, =aw2.ss6= and =aw2.ss7=, shows the No selection and return to
+the map. An isolated replay from the Yes prompt advances to “Save complete!”
+and then returns to the map; a replay from the No prompt returns to the map
+without a save message. The replay artifacts are in
+=/tmp/aw2-command-menu/save-flow-replay/=. Both branches ran against temporary
+ROM/SRAM copies; the supplied files were not modified. The isolated SRAM clone
+hash was identical before and after the Yes replay, so these observations verify
+the UI outcome but do not establish whether the persisted save bytes changed
+(the saved contents may already have matched).
 
 State 4 shows End selected at main-menu row =4=. State 5 is back on the map
 with the command-menu object cleared, controller state =13=, and lock =0=.
@@ -1580,10 +1591,10 @@ The active-player field changes from =1= to =2= while the day stays at =2=.
 This verifies that selecting End advances to the next player's turn and that
 live player-turn control resumes after the menu closes.
 
-These checkpoints cover the Save prompt and successful End action. Remaining
-menu research is the Save prompt's Yes/No response and resulting persisted
-state, and the dynamic eligibility helper for deriving a general
-actionable-selection signal.
+These checkpoints cover both Save prompt responses and the successful End
+action. Remaining menu research includes the dynamic eligibility helper for
+deriving a general actionable-selection signal and the exact SRAM persistence
+behavior of the Save command.
 
 ** Delete unit-selection flow
 
