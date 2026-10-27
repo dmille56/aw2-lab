@@ -652,11 +652,14 @@ phases, invalid bounds/links, unknown values, ROM rejection, and frame drift.
    - [X] Compare combat, regular/Super Power, and result-flow checkpoints across headless and windowed modes.
    - [X] Confirm observations remain coherent and idle wall time does not advance the emulator.
 
-** TODO Document and run the verification workflow
-   - [ ] Keep default checks ROM-independent and separate optional AW2 integration checks.
-   - [ ] Document local ROM/checkpoint configuration and commands for reproducing integration results.
-   - [ ] Record verified behavior, unresolved fields, and build/ROM-specific limitations.
-   - [ ] Run =pre-commit run --all-files=; if required tools are missing, retry with =nix develop -c pre-commit run --all-files=.
+** DONE Document and run the verification workflow
+   - [X] Keep default checks ROM-independent and separate optional AW2 integration checks.
+   - [X] Document local ROM/checkpoint configuration and commands for reproducing integration results.
+   - [X] Record verified behavior, unresolved fields, and build/ROM-specific limitations.
+   - [X] Run =pre-commit run --all-files=; if required tools are missing, retry with =nix develop -c pre-commit run --all-files=.
+   - Workflow, commands, environment requirements, evidence links, and limits:
+     [[file:VERIFICATION.md][verification workflow]]. The full pre-commit suite
+     passed after this documentation update.
 
 ** TODO Confirm all Milestone 2 deliverables and acceptance criteria in [[file:PLAN.md][PLAN.md]]
    - [ ] One checksum-verified US retail ROM profile is available, and unsupported images are rejected.
