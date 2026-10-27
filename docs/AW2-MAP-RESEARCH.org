@@ -44,16 +44,31 @@ coordinates, not as a menu-row or selected-command index. The map cursor is
 visually present while the command menu is open, but the field alone does not
 prove input readiness; lifecycle and controller checks still apply.
 
-Static tracing is incomplete. An exact-address scan of the supported ROM
-found no literal reference to =0x03003140=, which suggests code may calculate
-the address from a nearby base or copy it indirectly. The matching decompilation
-contains readers of =gUnknown_03003100= at =0x0802927C= and =0x08028E3E=;
-those instructions read offsets 0 and 2 from that separate address and do not
-establish reads or writes of =0x03003140=. Thus the runtime meaning and byte
-order are verified, but the game's specific reader/writer routines and the
-field's validity outside the tested Versus map surface remain unresolved. A
-watchpoint or complete data-flow trace is needed before claiming ROM-level
-cross-reference coverage.
+Dynamic mGBA watchpoints and matching-ROM disassembly identify the cache's
+writer and two readers. =sub_0802B750= copies the source coordinates from
+=0x030033E4= to =gUnknown_03003130+0x10/+0x11=, which are
+=0x03003140/+0x03003141=. The byte stores are at ROM =0x0802B756= (X) and
+=0x0802B75A= (Y). A restored playable checkpoint with X=2, Y=9 showed the
+copy each frame; injecting Right changed X from 2 to 3. mGBA reports the
+Thumb PC four bytes after the executing instruction, so the watchpoint PCs
+were =0x0802B75A= and =0x0802B75E=.
+
+Two read sites consume the pair. In =sub_0802B768=, loads at
+=0x0802B770/0x0802B772= read X/Y and feed =sub_0802B6C8=, which resolves the
+map cell. In =sub_0802AA78=, loads at =0x0802AA8A/0x0802AA8C= read X/Y before
+the same map-cell resolution and cursor-tile logic. Watchpoint PCs likewise
+appear four bytes later (=0x0802B774/0x0802B776= and
+=0x0802AA8E/0x0802AA90=). The ROM obtains the cache base by pointer and uses
+field offsets, explaining why an exact literal scan for =0x03003140= found no
+match.
+
+The source coordinate pair at =0x030033E4= has not had its own setters traced.
+The cache's runtime meaning and these consumers are verified for playable
+Versus maps, but its validity outside that surface remains unresolved. It
+retains the last map coordinates through overlays and is not a general menu
+cursor or evidence of input readiness; lifecycle and controller checks still
+apply. The watchpoint scripts and logs are retained outside the repository in
+=/tmp/aw2-cursor-watch/=.
 
 * Map and property layout verification
 
