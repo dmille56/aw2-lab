@@ -1437,16 +1437,12 @@ uses the selected row's configured item and dispatches its callback only after
 checking the item through =sub_08074410= and confirming that a callback exists.
 The Options transition confirms acceptance for that row. The controller state
 remained =13= with lock =1=, so those fields do not identify readiness. The
-helper's dynamic eligibility conditions remain to be verified before exposing
-an actionable flag. A menu-present signature must also use the selector's
-active object/table, not the stale row byte alone.
+helper and selector signatures are resolved later in the ROM-trace section.
 
 This probe identifies the visible family, all five row labels, and the selected
-row byte through ROM use. It does not yet provide a validated general-family
-signature or a complete actionable-state predicate, so the runtime observer
-should keep this context unresolved. The next check is to validate the menu
-object/table signature against more live overlays and inspect the helper's
-eligibility conditions, including a stable sample immediately before A.
+row byte through ROM use. At this stage the object/table signature and helper
+were still unverified; subsequent selector checkpoints and the ROM trace below
+complete that work.
 
 ** CO submenu and return checkpoints
 
@@ -1502,16 +1498,16 @@ selection in =0x030014B2=. On the status/unit details pages the object pointer
 changes and =0x030014B2= no longer contains a row index; the Rules page also has
 a process script. The pair is therefore a better menu-present candidate than
 the row byte alone, with the observed details pages and free cursor as negative
-controls. It still needs checks against additional live overlays before being
-used as a general runtime signature.
+controls. Additional Options, Save, End, and Delete checkpoints, together with
+the ROM trace below, now bound its supported runtime use to the three known
+selector tables.
 
 The Intel submenu screenshots prove entry into the submenu and its three
 choices. The state sequence also shows each detail page and the return to the
 menu, but does not capture the exact one-frame A dispatch boundary or evaluate
-whether any row can be disabled. The original-ROM handler path remains
+whether any row can be disabled. The original-ROM handler path is
 =sub_08019A60= -> =sub_08074410= (item eligibility) -> the selected entry's
-callback; therefore an actionable flag requires resolving that eligibility
-helper and confirming callback availability for the selected table entry.
+A callback.
 
 ** Options submenu, confirmation, and toggle checkpoints
 
@@ -1539,11 +1535,10 @@ and its =No animation.= description. Screenshots, RAM snapshots, frames, and
 source state hashes are retained in the external artifact directory.
 
 Together with the observed CO, Intel, Options, and Music paths, this verifies
-that the general selector's row value and item-table pointer distinguish the
-tested main menu and submenu variants, and that active rows can dispatch A even
-with controller lock =1=. Exact eligibility remains row-specific: the ROM A
-handler checks =sub_08074410= and a non-null callback before dispatch. Save and
-End actions, disabled choices, and the helper's conditions remain open.
+that the selector's row value and item-table pointer distinguish the tested
+main menu and submenu variants, and that active rows can dispatch A even with
+controller lock =1=. Save and End actions are covered in the following
+checkpoints; the helper's behavior is resolved in the ROM-trace section below.
 
 The latest =aw2.ss1= through =aw2.ss9= set in
 =/tmp/aw2-command-menu/latest-info-states/= adds a controlled Visual-mode
@@ -1560,8 +1555,8 @@ the mode-specific handler, and copies the result to =0x0200C42E=. The five
 checkpoints read =0, 1, 2, 3, 0= at both addresses, matching No Visual, Visual
 A, Visual B, Visual C, and No Visual. Related original-ROM routines compare the
 same IWRAM byte against =0..3= when deciding which visual behavior applies.
-This verifies the four mode values and the wraparound. It does not by itself
-resolve the general selector's full eligibility helper.
+This verifies the four mode values and the wraparound; these setting values are
+separate from the menu eligibility mode byte at =0x03003FC2=.
 
 ** Save and End menu actions
 
@@ -1592,9 +1587,7 @@ This verifies that selecting End advances to the next player's turn and that
 live player-turn control resumes after the menu closes.
 
 These checkpoints cover both Save prompt responses and the successful End
-action. Remaining menu research includes the dynamic eligibility helper for
-deriving a general actionable-selection signal and the exact SRAM persistence
-behavior of the Save command.
+action. The exact SRAM persistence behavior of the Save command remains open.
 
 ** Delete unit-selection flow
 
@@ -1640,3 +1633,38 @@ victory-process transition; =decode-block-boundary.json= and
 directory also preserves the supplied screenshots, complete EWRAM/IWRAM
 snapshots, generated mGBA branches, =result-flow.json=, =verification-results.json=,
 and the hash manifest. The supplied ROM and state files were not modified.
+
+** ROM trace: selector eligibility and actionable choices
+
+The original ROM's =sub_08019A60= reads the selected row at selector offset
+=+0x42= and the row-to-item ID at =+0x31+row=. It resolves a 0x20-byte entry
+from the active item table, passes its type byte to =sub_08074410= with a zero
+argument, and proceeds only when that helper returns zero and the entry's A
+callback at =+0x14= is non-null. A nonzero helper result blocks dispatch.
+
+=sub_08074410= obtains a mode row selected by byte =0x03003FC2= from the ROM
+table at =0x085C77A0= with a 0x5C-byte stride. It reads the rule-list pointer
+at row offset =+4=; a null pointer returns zero immediately, meaning no rule
+blocks the menu choice. All eight mode rows (0 through 7) have a null pointer
+at this offset in the supported ROM. The three verified selector tables have
+non-null A callbacks for every listed item ID: main command =0x0849AAC0= with
+IDs =(0,1,4,5,6)=, Intel =0x0849ABC0= with =(0,2,3)=, and Options
+=0x0849AC60= with =(0,1,2,7,8)=.
+
+The typed observer now recognizes these selectors only when the battle
+controller remains in state 13 with lock 1, the selector object pointer is
+=0x0848A42C=, the table/count/item-ID sequence exactly matches a verified
+family, and the selected row is within that count. It reports the typed row
+and =actionable=true= only for a mode byte in the traced 0..7 range. If a
+signature is incomplete, stale, or outside those bounds, the result stays
+unresolved. Dialogs use different object/table pointers; Delete targeting
+clears the selector and has lock 0, so neither is misreported as an actionable
+general-menu choice. This flag means the selected row passes the ROM's current
+eligibility gate and has a dispatch callback; it does not mean an A-button
+press occurred or that a later confirmation has been accepted.
+
+This closes the general command-menu family, highlight, and actionable-choice
+item for the verified Versus selectors. The observer still leaves Delete map
+targeting and unrecognized menu/process contexts unresolved. Rule-list contents
+for any future non-null mode row are not implemented because none of the eight
+supported rows uses one.

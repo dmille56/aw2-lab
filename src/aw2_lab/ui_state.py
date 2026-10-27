@@ -1,4 +1,4 @@
-"""Typed observations for the map cursor in the verified Versus battle context."""
+"""Typed UI observations for the verified Versus battle context."""
 
 from __future__ import annotations
 
@@ -26,6 +26,25 @@ UNIT_ACTION_MENU_SCRIPT = 0x0849BE38
 SCREEN_PROCESS_POOL = 0x0200D610
 SCREEN_PROCESS_STRIDE = 0x6C
 SCREEN_PROCESS_COUNT = 32
+SELECTOR_OBJECT = 0x03001470
+SELECTOR_TABLE = 0x03001490
+SELECTOR_ROW_COUNT = 0x030014B1
+SELECTOR_SELECTED_ROW = 0x030014B2
+SELECTOR_ITEM_IDS = 0x030014A1
+CONTROLLER_STATE = 0x030032D8
+CONTROLLER_LOCK = 0x030030F0
+MENU_MODE = 0x03003FC2
+
+# Original-ROM table signatures for the three selectors verified in the
+# supplied Versus battle checkpoints. Each item ID has a non-null A callback;
+# their eligibility rule-list pointers are null for every supported menu mode.
+_MENU_TABLES = {
+    0x0849AAC0: ("command", 5, (0, 1, 4, 5, 6)),
+    0x0849ABC0: ("intel", 3, (0, 2, 3)),
+    0x0849AC60: ("options", 5, (0, 1, 2, 7, 8)),
+}
+_MENU_MODE_COUNT = 8
+_MENU_RULE_POINTERS = (0,) * _MENU_MODE_COUNT
 
 
 class CursorStatus(StrEnum):
@@ -50,8 +69,42 @@ class MenuFamily(StrEnum):
     """Menu contexts supported by the current UI research subset."""
 
     MAP_INPUT = "map_input"
+    COMMAND = "command"
+    INTEL = "intel"
+    OPTIONS = "options"
     UNIT_ACTION = "unit_action"
     UNRESOLVED = "unresolved"
+
+
+class MenuItem(StrEnum):
+    """Choices resolved from the verified general battle selectors."""
+
+    CO = "co"
+    INTEL = "intel"
+    OPTIONS = "options"
+    SAVE = "save"
+    END = "end"
+    STATUS = "status"
+    UNIT = "unit"
+    RULES = "rules"
+    DELETE = "delete"
+    YIELD = "yield"
+    MUSIC = "music"
+    VISUAL_MODE = "visual_mode"
+    EXIT_MAP = "exit_map"
+
+
+_MENU_ITEMS = {
+    "command": (MenuItem.CO, MenuItem.INTEL, MenuItem.OPTIONS, MenuItem.SAVE, MenuItem.END),
+    "intel": (MenuItem.STATUS, MenuItem.UNIT, MenuItem.RULES),
+    "options": (
+        MenuItem.DELETE,
+        MenuItem.YIELD,
+        MenuItem.MUSIC,
+        MenuItem.VISUAL_MODE,
+        MenuItem.EXIT_MAP,
+    ),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,12 +121,14 @@ class SelectedUnitObservation:
 
 @dataclass(frozen=True, slots=True)
 class MenuObservation:
-    """Recognized menu family and any unit selected for its action menu."""
+    """Recognized menu context and its current typed selection, when known."""
 
     frame: int
     family: MenuFamily
     selected_unit: SelectedUnitObservation | None = None
     reasons: tuple[str, ...] = ()
+    selected_item: MenuItem | None = None
+    actionable: bool | None = None
 
 
 def observe_map_cursor(
@@ -125,15 +180,20 @@ def observe_map_cursor(
 def observe_menu(
     snapshot: BattleMemorySnapshot, validation: BattleValidationReport
 ) -> MenuObservation:
-    """Recognize map input or a verified unit-action menu and resolve its unit.
+    """Recognize verified command selectors, map input, or a unit-action menu.
 
-    The general command menu and its highlighted item remain unresolved. A
-    current-unit pointer is accepted only in the observed unit-action process,
-    after checking its army/slot bounds, active-player ownership, record
-    coordinates, and logical map-cell reference.
+    Command choices are exposed only for the ROM-profile-specific selector
+    tables whose row mappings, callbacks, and eligibility rules were traced.
+    A current-unit pointer is accepted only in the observed unit-action
+    process, after checking its army/slot bounds, active-player ownership,
+    record coordinates, and logical map-cell reference.
     """
     if snapshot.frame != validation.frame:
         raise ValueError("Menu snapshot and validation must describe the same frame")
+
+    command_menu = _observe_command_menu(snapshot, validation)
+    if command_menu is not None:
+        return command_menu
 
     if validation.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN:
         return MenuObservation(snapshot.frame, MenuFamily.MAP_INPUT)
@@ -220,3 +280,47 @@ def observe_menu(
 
     selected = SelectedUnitObservation(pointer, army_slot, unit_slot, record[0], x, y)
     return MenuObservation(snapshot.frame, MenuFamily.UNIT_ACTION, selected)
+
+
+def _observe_command_menu(
+    snapshot: BattleMemorySnapshot, validation: BattleValidationReport
+) -> MenuObservation | None:
+    """Resolve only known, active selector objects in the battle menu state."""
+    if (
+        validation.lifecycle.phase is not LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+        or validation.lifecycle.engine is not LifecycleEngine.BATTLE
+        or snapshot.u16(CONTROLLER_STATE) != 13
+        or snapshot.read(CONTROLLER_LOCK, 1)[0] != 1
+        or snapshot.u32(SELECTOR_OBJECT) != 0x0848A42C
+    ):
+        return None
+
+    table = snapshot.u32(SELECTOR_TABLE)
+    table_spec = _MENU_TABLES.get(table)
+    if table_spec is None:
+        return None
+    family_name, expected_count, expected_items = table_spec
+    count = snapshot.read(SELECTOR_ROW_COUNT, 1)[0]
+    selected_row = snapshot.read(SELECTOR_SELECTED_ROW, 1)[0]
+    item_ids = tuple(snapshot.read(SELECTOR_ITEM_IDS, count)) if count <= 5 else ()
+    if count != expected_count or item_ids != expected_items or selected_row >= count:
+        return MenuObservation(
+            snapshot.frame,
+            MenuFamily.UNRESOLVED,
+            reasons=("Active selector does not match a verified menu table",),
+        )
+
+    mode = snapshot.read(MENU_MODE, 1)[0]
+    if mode >= _MENU_MODE_COUNT:
+        return MenuObservation(
+            snapshot.frame,
+            MenuFamily.UNRESOLVED,
+            reasons=("Menu eligibility mode is outside the verified rule table",),
+        )
+
+    return MenuObservation(
+        snapshot.frame,
+        MenuFamily(family_name),
+        selected_item=_MENU_ITEMS[family_name][selected_row],
+        actionable=_MENU_RULE_POINTERS[mode] == 0,
+    )
