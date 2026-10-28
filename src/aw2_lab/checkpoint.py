@@ -4,20 +4,59 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal, Protocol
 
-from aw2_lab.match_contract import CheckpointManifest, CheckpointStateArtifact, MatchLifecycle
+from pydantic import ValidationError
+
+from aw2_lab.bridge import BridgeError
+from aw2_lab.match_contract import (
+    CheckpointCommitPointer,
+    CheckpointManifest,
+    CheckpointStateArtifact,
+    ErrorBody,
+    ErrorCode,
+    MatchLifecycle,
+)
 from aw2_lab.match_observation import MATCH_OBSERVATION_SCHEMA_VERSION
 from aw2_lab.state_model import GAME_STATE_SCHEMA_VERSION
 from aw2_lab.unit_identity import IDENTITY_SCHEMA_VERSION
 
 
-class CheckpointCompatibilityError(ValueError):
+class CheckpointError(RuntimeError):
+    """Checkpoint failure with a stable, safe diagnostic for clients and logs."""
+
+    def __init__(
+        self,
+        code: ErrorCode,
+        message: str,
+        *,
+        retryable: bool = False,
+        details: dict[str, str | int | bool | None] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.body = ErrorBody(
+            code=code,
+            message=message,
+            retryable=retryable,
+            details=details or {},
+        )
+
+
+class CheckpointCompatibilityError(CheckpointError):
     """Raised before restoration when a checkpoint does not match this runtime."""
 
 
-class CheckpointArtifactError(ValueError):
-    """Raised when checkpoint state bytes do not match the manifest."""
+class CheckpointArtifactError(CheckpointError):
+    """Raised when checkpoint files or state bytes are missing or corrupt."""
+
+
+class CheckpointStorageError(CheckpointError):
+    """Raised when trusted checkpoint storage cannot be read."""
+
+
+class CheckpointRestoreError(CheckpointError):
+    """Raised when the emulator cannot restore an otherwise validated artifact."""
 
 
 class CheckpointBridge(Protocol):
@@ -33,6 +72,120 @@ class CapturedCheckpointState:
     data: bytes
     artifact: CheckpointStateArtifact
     frame: int
+
+
+def read_checkpoint_manifest(path: Path) -> CheckpointManifest:
+    """Read and validate a bounded manifest without exposing the local path."""
+    try:
+        size = path.stat().st_size
+        if size > 1024 * 1024:
+            raise CheckpointArtifactError(
+                ErrorCode.CHECKPOINT_CORRUPT,
+                "Checkpoint manifest exceeds the size limit",
+                details={"artifact": "manifest", "size_bytes": size},
+            )
+        data = path.read_bytes()
+    except FileNotFoundError as error:
+        raise CheckpointArtifactError(
+            ErrorCode.CHECKPOINT_CORRUPT,
+            "Checkpoint manifest is missing",
+            details={"artifact": "manifest"},
+        ) from error
+    except OSError as error:
+        raise _storage_error("read manifest", error) from error
+    try:
+        return CheckpointManifest.model_validate_json(data)
+    except ValidationError as error:
+        raise CheckpointArtifactError(
+            ErrorCode.CHECKPOINT_CORRUPT,
+            "Checkpoint manifest is malformed or uses an unsupported schema",
+            details={"artifact": "manifest", "cause": type(error).__name__},
+        ) from error
+
+
+def read_checkpoint_pointer(
+    path: Path, *, allow_missing: bool = False
+) -> CheckpointCommitPointer | None:
+    """Read CURRENT, distinguishing an empty store from a missing requested pointer."""
+    try:
+        size = path.stat().st_size
+        if size > 64 * 1024:
+            raise CheckpointArtifactError(
+                ErrorCode.CHECKPOINT_CORRUPT,
+                "Checkpoint pointer exceeds the size limit",
+                details={"artifact": "current_pointer", "size_bytes": size},
+            )
+        data = path.read_bytes()
+    except FileNotFoundError as error:
+        if allow_missing:
+            return None
+        raise CheckpointArtifactError(
+            ErrorCode.CHECKPOINT_CORRUPT,
+            "The committed checkpoint pointer is missing",
+            details={"artifact": "current_pointer"},
+        ) from error
+    except OSError as error:
+        raise _storage_error("read current pointer", error) from error
+    try:
+        return CheckpointCommitPointer.model_validate_json(data)
+    except ValidationError as error:
+        raise CheckpointArtifactError(
+            ErrorCode.CHECKPOINT_CORRUPT,
+            "The committed checkpoint pointer is malformed",
+            details={"artifact": "current_pointer", "cause": type(error).__name__},
+        ) from error
+
+
+def read_checkpoint_state(path: Path, manifest: CheckpointManifest) -> bytes:
+    """Read a bounded state blob and verify its manifest digest before restore."""
+    try:
+        size = path.stat().st_size
+        if size != manifest.state_artifact.size_bytes:
+            raise CheckpointArtifactError(
+                ErrorCode.CHECKPOINT_CORRUPT,
+                "Checkpoint state size does not match its manifest",
+                details={"artifact": "state", "expected_bytes": manifest.state_artifact.size_bytes},
+            )
+        state = path.read_bytes()
+    except FileNotFoundError as error:
+        raise CheckpointArtifactError(
+            ErrorCode.CHECKPOINT_CORRUPT,
+            "Checkpoint state artifact is missing",
+            details={"artifact": "state"},
+        ) from error
+    except OSError as error:
+        raise _storage_error("read state", error) from error
+    validate_checkpoint_state(manifest, state)
+    return state
+
+
+def validate_checkpoint_pointer(
+    pointer: CheckpointCommitPointer,
+    manifest: CheckpointManifest,
+    manifest_bytes: bytes,
+) -> None:
+    """Check that CURRENT and its manifest refer to the same committed state."""
+    mismatches: list[str] = []
+    if hashlib.sha256(manifest_bytes).hexdigest() != pointer.manifest_sha256:
+        mismatches.append("manifest digest")
+    if pointer.checkpoint_id != manifest.checkpoint_id:
+        mismatches.append("checkpoint ID")
+    if pointer.match_id != manifest.match.match_id:
+        mismatches.append("match ID")
+    if pointer.revision != manifest.match.revision:
+        mismatches.append("revision")
+    result = pointer.command_result
+    if result is None:
+        if manifest.originating_command_id is not None:
+            mismatches.append("originating command ID")
+    elif result.command_id != manifest.originating_command_id:
+        mismatches.append("command ID")
+    if mismatches:
+        raise CheckpointArtifactError(
+            ErrorCode.CHECKPOINT_CORRUPT,
+            "Checkpoint pointer and manifest disagree",
+            details={"fields": ", ".join(mismatches)},
+        )
 
 
 async def capture_checkpoint_state(bridge: CheckpointBridge) -> CapturedCheckpointState:
@@ -75,19 +228,33 @@ def validate_checkpoint_compatibility(
         mismatches.append("state does not include save RAM")
     if mismatches:
         raise CheckpointCompatibilityError(
-            "Checkpoint is incompatible with this runtime: " + ", ".join(mismatches)
+            ErrorCode.CHECKPOINT_INCOMPATIBLE,
+            "Checkpoint is incompatible with this runtime",
+            details={"fields": ", ".join(mismatches)},
         )
 
 
 def validate_checkpoint_state(manifest: CheckpointManifest, state: bytes) -> None:
     """Verify checkpoint blob size and digest before passing it to mGBA."""
     if not isinstance(state, bytes) or not state:
-        raise CheckpointArtifactError("Checkpoint state must be non-empty bytes")
+        raise CheckpointArtifactError(
+            ErrorCode.CHECKPOINT_CORRUPT,
+            "Checkpoint state must be non-empty bytes",
+            details={"artifact": "state"},
+        )
     artifact = manifest.state_artifact
     if len(state) != artifact.size_bytes:
-        raise CheckpointArtifactError("Checkpoint state size does not match its manifest")
+        raise CheckpointArtifactError(
+            ErrorCode.CHECKPOINT_CORRUPT,
+            "Checkpoint state size does not match its manifest",
+            details={"artifact": "state", "expected_bytes": artifact.size_bytes},
+        )
     if hashlib.sha256(state).hexdigest() != artifact.sha256:
-        raise CheckpointArtifactError("Checkpoint state SHA-256 does not match its manifest")
+        raise CheckpointArtifactError(
+            ErrorCode.CHECKPOINT_CORRUPT,
+            "Checkpoint state SHA-256 does not match its manifest",
+            details={"artifact": "state", "cause": "sha256_mismatch"},
+        )
 
 
 async def restore_checkpoint_state(
@@ -107,9 +274,33 @@ async def restore_checkpoint_state(
         emulator_mode=emulator_mode,
     )
     validate_checkpoint_state(manifest, state)
-    restored_frame = await bridge.load_state_buffer(state)
+    try:
+        restored_frame = await bridge.load_state_buffer(state)
+    except BridgeError as error:
+        raise CheckpointRestoreError(
+            ErrorCode.RECOVERY_REQUIRED,
+            "The emulator could not restore the validated checkpoint",
+            details={"cause": type(error).__name__},
+        ) from error
     if restored_frame != manifest.last_frame:
         raise CheckpointArtifactError(
-            "Restored emulator frame does not match the checkpoint manifest"
+            ErrorCode.CHECKPOINT_CORRUPT,
+            "Restored emulator frame does not match the checkpoint manifest",
+            details={"expected_frame": manifest.last_frame, "restored_frame": restored_frame},
         )
     return restored_frame
+
+
+def _storage_error(operation: str, error: OSError) -> CheckpointStorageError:
+    details: dict[str, str | int | bool | None] = {
+        "operation": operation,
+        "cause": type(error).__name__,
+    }
+    if error.errno is not None:
+        details["errno"] = error.errno
+    return CheckpointStorageError(
+        ErrorCode.STORAGE_UNAVAILABLE,
+        "Checkpoint storage is unavailable",
+        retryable=True,
+        details=details,
+    )

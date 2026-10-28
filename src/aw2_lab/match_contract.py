@@ -316,6 +316,9 @@ class ErrorCode(StrEnum):
     ROLLBACK_FAILED = "rollback_failed"
     RECOVERY_REQUIRED = "recovery_required"
     CHECKPOINT_INCOMPATIBLE = "checkpoint_incompatible"
+    CHECKPOINT_CORRUPT = "checkpoint_corrupt"
+    JOURNAL_CORRUPT = "journal_corrupt"
+    STORAGE_UNAVAILABLE = "storage_unavailable"
     INTERNAL_ERROR = "internal_error"
 
 

@@ -62,6 +62,28 @@ checkpoint append their terminal event before publishing their result.
   back to an older pointer or replay an unresolved game action silently.
 
 The storage implementation must validate every hash and cross-reference before
-loading emulator state. Handling truncated journal tails, partial writes,
-corrupt artifacts, and unavailable storage will be specified alongside the
-storage implementation.
+loading emulator state. Diagnostics for partial writes, corrupt artifacts, and
+unavailable storage are defined below; persistence integration and recovery
+remain open checklist work.
+
+## Failure diagnostics
+
+Persistence failures use stable `ErrorCode` values and bounded details; messages
+never include the configured local path:
+
+- `storage_unavailable` identifies the failed operation, exception class, and
+  OS error number when available. Journal append failures stop command
+  acceptance. A terminal append failure leaves the match recovery-required.
+- `journal_corrupt` reports malformed complete records with a line number. An
+  incomplete final JSONL record is truncated to the last complete newline,
+  `fsync`ed, and returned as a diagnostic with its discarded byte count; the
+  caller must reconcile unresolved commands before accepting new work.
+- `checkpoint_corrupt` identifies a missing pointer, manifest, or state blob;
+  malformed metadata; pointer/manifest disagreement; size mismatch; digest
+  mismatch; or restored-frame mismatch.
+- `checkpoint_incompatible` reports the mismatched ROM, emulator build/mode, or
+  schema fields before the bridge is asked to load state.
+
+These diagnostics distinguish a repairable incomplete journal tail from a
+malformed complete record. They do not authorize replay or fallback to an older
+checkpoint. Recovery remains explicit when the committed state is uncertain.

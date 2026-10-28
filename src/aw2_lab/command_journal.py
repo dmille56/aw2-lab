@@ -4,15 +4,22 @@ from __future__ import annotations
 
 import asyncio
 import os
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal, Protocol
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import Field, ValidationError, model_validator
 
-from aw2_lab.match_contract import CommandStatus, ContractModel, ErrorBody, Revision
+from aw2_lab.match_contract import (
+    CommandStatus,
+    ContractModel,
+    ErrorBody,
+    ErrorCode,
+    Revision,
+)
 
 
 class JournalEvent(StrEnum):
@@ -60,8 +67,18 @@ class CommandJournal(Protocol):
     async def append(self, entry: CommandJournalEntry) -> None: ...
 
 
+@dataclass(frozen=True, slots=True)
+class JournalReadResult:
+    entries: tuple[CommandJournalEntry, ...]
+    diagnostics: tuple[ErrorBody, ...] = ()
+
+
 class CommandJournalError(OSError):
-    """Raised when an entry could not be durably appended."""
+    """Structured journal corruption or storage failure with a safe public diagnostic."""
+
+    def __init__(self, body: ErrorBody) -> None:
+        super().__init__(body.message)
+        self.body = body
 
 
 class JsonlCommandJournal:
@@ -77,8 +94,17 @@ class JsonlCommandJournal:
             try:
                 await asyncio.to_thread(self._append_sync, line)
             except OSError as error:
-                detail = error.strerror or "I/O error"
-                raise CommandJournalError(f"Could not append command journal: {detail}") from error
+                raise CommandJournalError(_storage_error("append journal", error)) from error
+
+    async def read_entries(self) -> JournalReadResult:
+        """Read valid entries and report/recover an incomplete final JSONL record."""
+        async with self._lock:
+            try:
+                return await asyncio.to_thread(self._read_sync)
+            except CommandJournalError:
+                raise
+            except OSError as error:
+                raise CommandJournalError(_storage_error("read journal", error)) from error
 
     def _append_sync(self, line: bytes) -> None:
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -93,6 +119,78 @@ class JsonlCommandJournal:
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
+
+    def _read_sync(self) -> JournalReadResult:
+        try:
+            data = self.path.read_bytes()
+        except FileNotFoundError:
+            return JournalReadResult(())
+
+        diagnostics: tuple[ErrorBody, ...] = ()
+        if data and not data.endswith(b"\n"):
+            last_newline = data.rfind(b"\n")
+            valid_end = last_newline + 1
+            truncated_bytes = len(data) - valid_end
+            try:
+                with self.path.open("r+b") as journal_file:
+                    journal_file.truncate(valid_end)
+                    journal_file.flush()
+                    os.fsync(journal_file.fileno())
+            except OSError as error:
+                raise CommandJournalError(
+                    _storage_error("repair truncated journal tail", error)
+                ) from error
+            diagnostics = (
+                ErrorBody(
+                    code=ErrorCode.JOURNAL_CORRUPT,
+                    message="An incomplete trailing journal record was removed",
+                    retryable=False,
+                    details={
+                        "truncated_bytes": truncated_bytes,
+                        "recovery_required": True,
+                    },
+                ),
+            )
+            data = data[:valid_end]
+
+        entries: list[CommandJournalEntry] = []
+        for line_number, line in enumerate(data.splitlines(), start=1):
+            if not line:
+                raise CommandJournalError(
+                    ErrorBody(
+                        code=ErrorCode.JOURNAL_CORRUPT,
+                        message="Command journal contains an empty record",
+                        retryable=False,
+                        details={"line": line_number},
+                    )
+                )
+            try:
+                entries.append(CommandJournalEntry.model_validate_json(line))
+            except ValidationError as error:
+                raise CommandJournalError(
+                    ErrorBody(
+                        code=ErrorCode.JOURNAL_CORRUPT,
+                        message="Command journal contains a malformed record",
+                        retryable=False,
+                        details={"line": line_number, "cause": type(error).__name__},
+                    )
+                ) from error
+        return JournalReadResult(tuple(entries), diagnostics)
+
+
+def _storage_error(operation: str, error: OSError) -> ErrorBody:
+    details: dict[str, str | int | bool | None] = {
+        "operation": operation,
+        "cause": type(error).__name__,
+    }
+    if error.errno is not None:
+        details["errno"] = error.errno
+    return ErrorBody(
+        code=ErrorCode.STORAGE_UNAVAILABLE,
+        message="Command journal storage is unavailable",
+        retryable=True,
+        details=details,
+    )
 
 
 def new_journal_entry(

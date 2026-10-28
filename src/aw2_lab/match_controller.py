@@ -168,6 +168,7 @@ class MatchController:
         self._stopped = False
         self._forced_shutdown = False
         self._journal_failed = False
+        self._journal_diagnostic: ErrorBody | None = None
         self._running: _CommandRecord | None = None
 
     async def start(self) -> None:
@@ -532,9 +533,11 @@ class MatchController:
                 except CommandJournalError as error:
                     self._journal_failed = True
                     self._accepting = False
+                    self._journal_diagnostic = error.body
                     await self._require_recovery(
                         record,
                         f"Command journal write failed ({type(error).__name__})",
+                        diagnostic=error.body,
                     )
                 except CommandRejected as error:
                     await self._restore_lifecycle_after_rejection(record)
@@ -729,11 +732,19 @@ class MatchController:
                 match.observation = outcome.observation
             match.summary = next_summary
 
-    async def _require_recovery(self, record: _CommandRecord, message: str) -> None:
+    async def _require_recovery(
+        self,
+        record: _CommandRecord,
+        message: str,
+        *,
+        diagnostic: ErrorBody | None = None,
+    ) -> None:
+        details = _diagnostic_details(diagnostic)
         error = ErrorBody(
             code=ErrorCode.RECOVERY_REQUIRED,
             message=message,
             retryable=False,
+            details=details,
         )
         async with self._state_lock:
             match = self._matches.get(record.receipt.match_id)
@@ -777,6 +788,7 @@ class MatchController:
         except CommandJournalError as journal_error:
             self._journal_failed = True
             self._accepting = False
+            self._journal_diagnostic = journal_error.body
             persisted = False
             status = CommandStatus.RECOVERY_REQUIRED
             resulting_revision = None
@@ -785,6 +797,7 @@ class MatchController:
                 message=(
                     f"Could not persist terminal command result ({type(journal_error).__name__})"
                 ),
+                details=_diagnostic_details(journal_error.body),
             )
         result = CommandResult(
             command_id=record.receipt.command_id,
@@ -884,9 +897,12 @@ class MatchController:
             self._requests.pop(record.receipt.request_id, None)
             self._journal_failed = True
             self._accepting = False
+            self._journal_diagnostic = error.body
             raise MatchControllerError(
                 ErrorCode.RECOVERY_REQUIRED,
                 "The command was not accepted because its journal entry could not be stored",
+                retryable=error.body.retryable,
+                details=_diagnostic_details(error.body),
             ) from error
         self._enqueue(record)
 
@@ -922,9 +938,13 @@ class MatchController:
         except CommandJournalError:
             raise
         except Exception as journal_error:
-            raise CommandJournalError(
-                f"Journal backend raised {type(journal_error).__name__}"
-            ) from journal_error
+            diagnostic = ErrorBody(
+                code=ErrorCode.STORAGE_UNAVAILABLE,
+                message="Command journal backend failed",
+                retryable=True,
+                details={"cause": type(journal_error).__name__},
+            )
+            raise CommandJournalError(diagnostic) from journal_error
 
     def _check_capacity(self) -> None:
         if len(self._commands) >= self._command_capacity:
@@ -939,6 +959,7 @@ class MatchController:
             raise MatchControllerError(
                 ErrorCode.RECOVERY_REQUIRED,
                 "The command journal failed; controller recovery is required before accepting work",
+                details=_diagnostic_details(self._journal_diagnostic),
             )
         if not self._accepting or self._stopped:
             raise MatchControllerError(
@@ -982,6 +1003,14 @@ class MatchController:
 def _fingerprint(value: Mapping[str, Any]) -> str:
     serialized = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _diagnostic_details(diagnostic: ErrorBody | None) -> dict[str, str | int | bool | None]:
+    if diagnostic is None:
+        return {}
+    details = dict(diagnostic.details)
+    details["failure_code"] = diagnostic.code.value
+    return details
 
 
 def _without_credentials(value: Any) -> Any:

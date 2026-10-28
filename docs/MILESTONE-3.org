@@ -87,7 +87,8 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - Implementation: [[file:../src/aw2_lab/command_journal.py][command_journal.py]] appends versioned JSONL entries with request IDs, command IDs, redacted payloads, fingerprints, revisions, status, and errors. [[file:../src/aw2_lab/match_controller.py][The controller]] persists acceptance before returning a receipt, running before execution, and terminal status before publishing it. Journal write failures stop new acceptance and fail the command closed. Startup replay and configured server storage remain open below.
    - [X] Define atomic write/commit ordering for checkpoints, journal entries, and the last committed checkpoint reference.
    - Ordering: [[file:PERSISTENCE.md][the checkpoint and journal protocol]] makes the atomic replacement of =CURRENT= the durable state commit point, then records terminal journal status before publishing results. It specifies the crash cases on either side of that point.
-   - [ ] Handle partial writes, missing/corrupt artifacts, incompatible builds, and storage failures with explicit diagnostics.
+   - [X] Handle partial writes, missing/corrupt artifacts, incompatible builds, and storage failures with explicit diagnostics.
+   - Diagnostics: [[file:PERSISTENCE.md][the persistence protocol]] and [[file:../src/aw2_lab/command_journal.py][command_journal.py]] distinguish truncated tails from malformed journal records. [[file:../src/aw2_lab/checkpoint.py][checkpoint.py]] reports missing/corrupt metadata and state, cross-reference/hash/frame mismatches, incompatible ROM/build/schema identities, and storage I/O failures with stable codes and bounded details.
    - [ ] Implement checkpoint create, export/import, and restore without exposing arbitrary server filesystem access through client requests.
    - [ ] Store artifacts in configured local storage outside Git and the Nix store.
 

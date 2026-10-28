@@ -183,7 +183,9 @@ code, not message text. The initial codes distinguish malformed requests,
 unsupported features, missing/closed/finished matches, slot and credential
 errors, wrong turn, stale revisions, request-ID conflicts, unavailable
 observations, action rejection, timeout, rollback failure, recovery-required,
-incompatible checkpoints, and internal errors.
+incompatible or corrupt checkpoints, corrupt journals, unavailable storage,
+and internal errors. Persistence errors include bounded operation/cause details
+without exposing server paths.
 
 The versioned `CheckpointManifest` records a complete `MatchSummary`, ROM
 SHA-256, emulator build and frontend mode, decoder/observation schema versions,
