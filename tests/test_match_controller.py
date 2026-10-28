@@ -167,6 +167,7 @@ async def test_stale_revision_and_wrong_turn_are_rejected_at_execution(memory) -
     stale_receipt = await controller.submit_command(stale)
     stale_result = await controller.wait_for_command(match_id, stale_receipt.command_id, timeout=1)
     assert stale_result.status is CommandStatus.REJECTED
+    assert stale_result.resulting_revision == observation.revision
     assert stale_result.error is not None
     assert stale_result.error.code is ErrorCode.STALE_REVISION
 
@@ -183,6 +184,7 @@ async def test_stale_revision_and_wrong_turn_are_rejected_at_execution(memory) -
         match_id, wrong_turn_receipt.command_id, timeout=1
     )
     assert wrong_turn_result.status is CommandStatus.REJECTED
+    assert wrong_turn_result.resulting_revision == observation.revision
     assert wrong_turn_result.error is not None
     assert wrong_turn_result.error.code is ErrorCode.NOT_YOUR_TURN
     assert (await controller.inspect_match(match_id)).lifecycle is MatchLifecycle.PLAYABLE
@@ -337,6 +339,7 @@ async def test_gameplay_without_observation_requires_recovery(memory) -> None:
         result = await controller.wait_for_command(match_id, receipt.command_id, timeout=1)
 
         assert result.status is CommandStatus.RECOVERY_REQUIRED
+        assert result.resulting_revision == before.revision
         summary = await controller.inspect_match(match_id)
         assert summary.lifecycle is MatchLifecycle.RECOVERY_REQUIRED
         assert summary.revision == before.revision

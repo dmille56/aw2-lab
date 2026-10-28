@@ -110,11 +110,13 @@ identical retry and returns `request_id_conflict` if that ID was used with a
 different payload. Credentials are excluded from logs, diagnostics, and
 idempotency payload comparison.
 
-On successful completion, the result names the resulting revision. A rejected
-command does not advance gameplay revision. Rollback restores the prior game
-boundary but issues a fresh monotonic revision so stale clients cannot act on
-pre-rollback assumptions. Failed rollback transitions the match to
-`recovery_required`.
+Every terminal command result reports the resulting revision when the match
+boundary is known. Rejected commands retain the current revision. Rollback
+restores the prior game boundary but issues a fresh monotonic revision so stale
+clients cannot act on pre-rollback assumptions. Failed rollback transitions
+the match to `recovery_required` and reports the last committed revision with
+the failure code and diagnostic details; clients must restore successfully
+before submitting another mutation.
 
 The match observer advances revisions only when the controller commits a new
 boundary after a mutation. It supports explicit revision causes for debug

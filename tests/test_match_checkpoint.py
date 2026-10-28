@@ -289,6 +289,10 @@ async def test_failed_restore_requires_recovery_and_successful_restore_unblocks(
         )
         failure = await controller.wait_for_command(match_id, receipt.command_id, timeout=2)
         assert failure.status is CommandStatus.RECOVERY_REQUIRED
+        assert failure.resulting_revision == before.revision
+        assert failure.error is not None
+        assert failure.error.details["failure_code"] == ErrorCode.RECOVERY_REQUIRED.value
+        assert "could not restore" in failure.error.details["failure_message"]
         assert (
             await controller.inspect_match(match_id)
         ).lifecycle is MatchLifecycle.RECOVERY_REQUIRED

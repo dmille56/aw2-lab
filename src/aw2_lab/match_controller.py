@@ -859,7 +859,11 @@ class MatchController:
                 diagnostic=ErrorBody(
                     code=ErrorCode.RECOVERY_REQUIRED,
                     message="Checkpoint restoration failed",
-                    details={"cause": type(restore_error).__name__},
+                    details={
+                        "cause": type(restore_error).__name__,
+                        "action_failure_code": original_error.code.value,
+                        "action_failure": original_error.message[:200],
+                    },
                 ),
             )
 
@@ -884,6 +888,10 @@ class MatchController:
     ) -> bool:
         if record.result is not None:
             return True
+        if resulting_revision is None:
+            match = self._matches.get(record.receipt.match_id)
+            if match is not None:
+                resulting_revision = match.summary.revision
         persisted = True
         try:
             await self._append_journal(
@@ -900,7 +908,6 @@ class MatchController:
             self._journal_diagnostic = journal_error.body
             persisted = False
             status = CommandStatus.RECOVERY_REQUIRED
-            resulting_revision = None
             checkpoint_id = None
             error = ErrorBody(
                 code=ErrorCode.RECOVERY_REQUIRED,
@@ -1122,6 +1129,7 @@ def _diagnostic_details(diagnostic: ErrorBody | None) -> dict[str, str | int | b
         return {}
     details = dict(diagnostic.details)
     details["failure_code"] = diagnostic.code.value
+    details["failure_message"] = diagnostic.message[:200]
     return details
 
 
