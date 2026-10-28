@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Literal
@@ -248,9 +249,10 @@ class CheckpointIdentityMetadata(ContractModel):
 
 class CheckpointManifest(ContractModel):
     checkpoint_id: UUID
-    manifest_schema_version: Literal[1] = 1
+    manifest_schema_version: Literal[1, 2] = 2
     match: MatchSummary
     originating_command_id: UUID | None = None
+    slot_credential_hashes: dict[PlayerSlot, str] = Field(default_factory=dict)
     rom_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     emulator_build: str = Field(min_length=1)
     emulator_mode: Literal["headless", "windowed"]
@@ -260,6 +262,15 @@ class CheckpointManifest(ContractModel):
     identity_metadata: CheckpointIdentityMetadata
     last_frame: Annotated[int, Field(ge=0, le=(1 << 32) - 1)]
     created_at: datetime
+
+    @model_validator(mode="after")
+    def validate_slot_credential_hashes(self) -> CheckpointManifest:
+        if any(
+            not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value)
+            for value in self.slot_credential_hashes.values()
+        ):
+            raise ValueError("Slot credential hashes must be SHA-256 digests")
+        return self
 
 
 class CheckpointReference(ContractModel):

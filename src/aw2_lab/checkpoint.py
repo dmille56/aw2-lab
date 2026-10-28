@@ -231,7 +231,7 @@ def validate_checkpoint_compatibility(
 ) -> None:
     """Reject incompatible checkpoint metadata before touching emulator state."""
     mismatches: list[str] = []
-    if manifest.manifest_schema_version != 1:
+    if manifest.manifest_schema_version not in {1, 2}:
         mismatches.append("manifest schema")
     if manifest.rom_sha256 != rom_sha256:
         mismatches.append("ROM checksum")

@@ -2,7 +2,7 @@
 
 import asyncio
 from dataclasses import replace
-from uuid import uuid4
+from uuid import uuid4, uuid5
 
 import pytest
 from pydantic import SecretStr
@@ -12,10 +12,20 @@ from test_state_validation import snapshot
 
 from aw2_lab.checkpoint import CheckpointError
 from aw2_lab.checkpoint_store import CheckpointStore
-from aw2_lab.command_journal import JournalEvent
+from aw2_lab.command_journal import JournalEvent, JsonlCommandJournal, new_journal_entry
 from aw2_lab.match_checkpoint import CheckpointRuntime, CheckpointSession, MatchCheckpointService
-from aw2_lab.match_contract import CommandStatus, ErrorCode, MatchLifecycle
-from aw2_lab.match_controller import MatchControllerError, MutationOutcome
+from aw2_lab.match_contract import (
+    CommandStatus,
+    ErrorCode,
+    MatchLifecycle,
+)
+from aw2_lab.match_controller import (
+    MatchController,
+    MatchControllerError,
+    MutationOutcome,
+    _fingerprint,
+)
+from aw2_lab.match_observation import MatchObservationTracker
 from aw2_lab.state_decoder import decode_snapshot
 
 
@@ -258,6 +268,222 @@ async def test_input_release_failure_requires_recovery_and_blocks_mutations(memo
         assert blocked_result.status is CommandStatus.RECOVERY_REQUIRED
         assert blocked_result.error is not None
         assert blocked_result.error.code is ErrorCode.RECOVERY_REQUIRED
+    finally:
+        await controller.stop()
+
+
+@run_async_test
+async def test_startup_restores_current_checkpoint_and_preserves_credentials(memory, tmp_path):
+    journal = JsonlCommandJournal(tmp_path / "commands.jsonl")
+    service, controller, match_id, credential, _, bridge = await prepare(
+        memory, tmp_path, journal=journal
+    )
+    saved = await create(service, controller, match_id, credential)
+    prior = await controller.current_observation(match_id)
+    await controller.stop()
+
+    memory[1][0x22692] = 1
+    bridge.frame += 7
+    restarted = MatchController(journal=journal, checkpoint_store=service.store)
+    new_service = MatchCheckpointService(
+        controller=restarted,
+        store=service.store,
+        bridge=bridge,
+        session=CheckpointSession(MatchObservationTracker(match_id), bridge.decoded),
+        runtime=service.runtime,
+        journal=journal,
+    )
+    try:
+        pointer = service.store.current()
+        assert pointer is not None
+        await new_service.restore_startup_checkpoint(
+            pointer.checkpoint_id,
+            durable_revision_floor=pointer.revision,
+        )
+        await restarted.start()
+
+        restored = await restarted.current_observation(match_id)
+        assert restored.game_state == prior.game_state
+        assert restored.revision > prior.revision
+        assert (await restarted.inspect_match(match_id)).lifecycle is MatchLifecycle.PLAYABLE
+        await restarted.require_joined_credential(match_id, credential)
+        new_pointer = service.store.current()
+        assert new_pointer is not None
+        assert new_pointer.revision == restored.revision
+        assert new_pointer.checkpoint_id != saved.checkpoint_id
+    finally:
+        await restarted.stop()
+
+
+@run_async_test
+async def test_startup_rolls_back_running_command_without_replaying_it(memory, tmp_path):
+    journal = JsonlCommandJournal(tmp_path / "commands.jsonl")
+    service, controller, match_id, credential, _, bridge = await prepare(
+        memory, tmp_path, journal=journal
+    )
+    saved = await create(service, controller, match_id, credential)
+    before = await controller.current_observation(match_id)
+    receipt_id = uuid4()
+    command_id = uuid4()
+    recovery_id = uuid5(match_id, f"manual-recovery:{command_id}")
+    payload_fingerprint = _fingerprint(
+        {
+            "kind": "synthetic_action",
+            "match_id": str(match_id),
+            "expected_revision": before.revision,
+            "mutates_emulator": True,
+            "allow_recovery": False,
+            "payload": {},
+        }
+    )
+    manifest, state = service.store.load(saved.checkpoint_id)
+    recovery_manifest = manifest.model_copy(
+        update={"checkpoint_id": recovery_id, "originating_command_id": command_id}
+    )
+    service.store.save(recovery_manifest, state)
+    accepted = new_journal_entry(
+        event=JournalEvent.ACCEPTED,
+        command_id=command_id,
+        request_id=receipt_id,
+        match_id=match_id,
+        operation_name="synthetic_action",
+        payload_fingerprint=payload_fingerprint,
+        payload={},
+        accepted_revision=before.revision,
+        expected_revision=before.revision,
+        status=CommandStatus.QUEUED,
+    )
+    running = new_journal_entry(
+        event=JournalEvent.RUNNING,
+        command_id=command_id,
+        request_id=receipt_id,
+        match_id=match_id,
+        recovery_checkpoint_id=recovery_id,
+        operation_name="synthetic_action",
+        payload_fingerprint=payload_fingerprint,
+        payload={},
+        accepted_revision=before.revision,
+        expected_revision=before.revision,
+        status=CommandStatus.RUNNING,
+    )
+    await journal.append(accepted)
+    await journal.append(running)
+    await controller.stop()
+
+    memory[1][0x22692] = 1
+    bridge.frame += 3
+    restarted = MatchController(journal=journal, checkpoint_store=service.store)
+    restarted_service = MatchCheckpointService(
+        controller=restarted,
+        store=service.store,
+        bridge=bridge,
+        session=CheckpointSession(MatchObservationTracker(match_id), bridge.decoded),
+        runtime=service.runtime,
+        journal=journal,
+    )
+    try:
+        await restarted_service.restore_startup_checkpoint(
+            recovery_id,
+            durable_revision_floor=before.revision,
+            interrupted_command=running,
+        )
+        await restarted.start()
+        recovered = await restarted.command_status(match_id, command_id)
+        assert recovered.status is CommandStatus.ROLLED_BACK
+        assert recovered.resulting_revision is not None
+        assert recovered.error is not None
+        assert "not replayed" in recovered.error.message
+        assert (await restarted.current_observation(match_id)).game_state == before.game_state
+        replayed = False
+
+        async def forbidden_replay():
+            nonlocal replayed
+            replayed = True
+            return MutationOutcome()
+
+        retry = await restarted.submit_serialized_mutation(
+            match_id=match_id,
+            request_id=receipt_id,
+            operation_name="synthetic_action",
+            payload={},
+            expected_revision=before.revision,
+            handler=forbidden_replay,
+        )
+        assert retry.command_id == command_id
+        assert retry.status is CommandStatus.ROLLED_BACK
+        assert not replayed
+        entries = (await journal.read_entries()).entries
+        assert (
+            sum(
+                entry.command_id == command_id and entry.event is JournalEvent.TERMINAL
+                for entry in entries
+            )
+            == 1
+        )
+    finally:
+        await restarted.stop()
+
+
+@run_async_test
+async def test_startup_rejects_accepted_only_command_and_restores_deduplication(tmp_path):
+    journal = JsonlCommandJournal(tmp_path / "commands.jsonl")
+    match_id, command_id, request_id = uuid4(), uuid4(), uuid4()
+    fingerprint = _fingerprint(
+        {
+            "kind": "not_started",
+            "match_id": str(match_id),
+            "expected_revision": 4,
+            "mutates_emulator": True,
+            "allow_recovery": False,
+            "payload": {},
+        }
+    )
+    await journal.append(
+        new_journal_entry(
+            event=JournalEvent.ACCEPTED,
+            command_id=command_id,
+            request_id=request_id,
+            match_id=match_id,
+            operation_name="not_started",
+            payload_fingerprint=fingerprint,
+            payload={},
+            accepted_revision=4,
+            expected_revision=4,
+            status=CommandStatus.QUEUED,
+        )
+    )
+    controller = MatchController(journal=journal)
+    await controller.start()
+    try:
+        result = await controller.command_status(match_id, command_id)
+        assert result.status is CommandStatus.REJECTED
+        assert result.resulting_revision == 4
+        replayed = False
+
+        async def forbidden_replay():
+            nonlocal replayed
+            replayed = True
+            return MutationOutcome()
+
+        retry = await controller.submit_serialized_mutation(
+            match_id=match_id,
+            request_id=request_id,
+            operation_name="not_started",
+            payload={},
+            expected_revision=4,
+            handler=forbidden_replay,
+        )
+        assert retry.command_id == command_id
+        assert retry.status is CommandStatus.REJECTED
+        assert not replayed
+        entries = (await journal.read_entries()).entries
+        assert (
+            sum(
+                entry.command_id == command_id and entry.event is JournalEvent.TERMINAL
+                for entry in entries
+            )
+            == 1
+        )
     finally:
         await controller.stop()
 

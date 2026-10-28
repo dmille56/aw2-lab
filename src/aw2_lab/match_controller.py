@@ -16,8 +16,10 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, SecretStr
 
 from aw2_lab.checkpoint import CheckpointError
+from aw2_lab.checkpoint_store import CheckpointStore
 from aw2_lab.command_journal import (
     CommandJournal,
+    CommandJournalEntry,
     CommandJournalError,
     JournalEvent,
     new_journal_entry,
@@ -161,6 +163,7 @@ class MatchController:
         recovery_checkpoint_provider: RecoveryCheckpointProvider | None = None,
         recovery_rollback_provider: RecoveryRollbackProvider | None = None,
         input_release_provider: InputReleaseProvider | None = None,
+        checkpoint_store: CheckpointStore | None = None,
         queue_capacity: int = 64,
         command_capacity: int = 4096,
         shutdown_timeout: float = 30.0,
@@ -175,6 +178,7 @@ class MatchController:
         self._recovery_checkpoint_provider = recovery_checkpoint_provider
         self._recovery_rollback_provider = recovery_rollback_provider
         self._input_release_provider = input_release_provider
+        self._checkpoint_store = checkpoint_store
         self._queue: asyncio.Queue[_CommandRecord | None] = asyncio.Queue(queue_capacity)
         self._command_capacity = command_capacity
         self._shutdown_timeout = shutdown_timeout
@@ -199,8 +203,172 @@ class MatchController:
                 raise RuntimeError("A stopped match controller cannot be restarted")
             if self._worker is not None:
                 return
-            self._accepting = True
+            await self._reconcile_durable_commands()
+            self._accepting = not self._journal_failed
             self._worker = asyncio.create_task(self._run_queue(), name="aw2-match-command-queue")
+
+    async def _reconcile_durable_commands(self) -> None:
+        """Rebuild idempotency history and terminalize work without replaying it."""
+        journal = self._journal
+        if journal is None:
+            return
+        reader = getattr(journal, "read_entries", None)
+        if not callable(reader):
+            return
+        try:
+            read_result = await reader()
+            pointer = (
+                await asyncio.to_thread(self._checkpoint_store.current)
+                if self._checkpoint_store is not None
+                else None
+            )
+        except (CommandJournalError, CheckpointError) as error:
+            diagnostic = error.body
+            self._journal_failed = True
+            self._journal_diagnostic = diagnostic
+            return
+
+        grouped: dict[UUID, list[CommandJournalEntry]] = {}
+        for entry in read_result.entries:
+            grouped.setdefault(entry.command_id, []).append(entry)
+        for command_id, events in grouped.items():
+            accepted = [entry for entry in events if entry.event is JournalEvent.ACCEPTED]
+            running = [entry for entry in events if entry.event is JournalEvent.RUNNING]
+            terminal = [entry for entry in events if entry.event is JournalEvent.TERMINAL]
+            if len(accepted) != 1 or len(running) > 1 or len(terminal) > 1:
+                self._journal_failed = True
+                self._journal_diagnostic = ErrorBody(
+                    code=ErrorCode.JOURNAL_CORRUPT,
+                    message="Command journal lifecycle events are inconsistent",
+                    details={"command_id": str(command_id)},
+                )
+                return
+            first = accepted[0]
+            if any(
+                entry.request_id != first.request_id
+                or entry.match_id != first.match_id
+                or entry.payload_fingerprint != first.payload_fingerprint
+                for entry in events
+            ):
+                self._journal_failed = True
+                self._journal_diagnostic = ErrorBody(
+                    code=ErrorCode.JOURNAL_CORRUPT,
+                    message="Command journal events disagree about command identity",
+                    details={"command_id": str(command_id)},
+                )
+                return
+
+            if terminal:
+                terminal_entry = terminal[0]
+                status = terminal_entry.status
+                result = CommandResult(
+                    command_id=command_id,
+                    request_id=first.request_id,
+                    match_id=first.match_id,
+                    status=status,
+                    accepted_revision=first.accepted_revision,
+                    resulting_revision=terminal_entry.resulting_revision,
+                    error=terminal_entry.error,
+                    checkpoint_id=terminal_entry.checkpoint_id,
+                )
+            else:
+                current = pointer.command_result if pointer is not None else None
+                if (
+                    running
+                    and current is not None
+                    and current.command_id == command_id
+                    and current.request_id == first.request_id
+                    and current.match_id == first.match_id
+                ):
+                    result = current
+                    status = result.status
+                elif running:
+                    status = CommandStatus.RECOVERY_REQUIRED
+                    result = CommandResult(
+                        command_id=command_id,
+                        request_id=first.request_id,
+                        match_id=first.match_id,
+                        status=status,
+                        accepted_revision=first.accepted_revision,
+                        resulting_revision=(
+                            pointer.revision
+                            if pointer is not None and pointer.match_id == first.match_id
+                            else first.accepted_revision
+                        ),
+                        error=ErrorBody(
+                            code=ErrorCode.RECOVERY_REQUIRED,
+                            message=(
+                                "Server restarted during command; it was not replayed and "
+                                "requires checkpoint recovery"
+                            ),
+                        ),
+                    )
+                    self._journal_failed = True
+                    self._journal_diagnostic = result.error
+                else:
+                    status = CommandStatus.REJECTED
+                    result = CommandResult(
+                        command_id=command_id,
+                        request_id=first.request_id,
+                        match_id=first.match_id,
+                        status=status,
+                        accepted_revision=first.accepted_revision,
+                        resulting_revision=(
+                            pointer.revision
+                            if pointer is not None and pointer.match_id == first.match_id
+                            else first.accepted_revision
+                        ),
+                        error=ErrorBody(
+                            code=ErrorCode.SERVER_SHUTTING_DOWN,
+                            message="Server stopped before the accepted command began",
+                            retryable=True,
+                        ),
+                    )
+                latest = running[0] if running else first
+                await journal.append(
+                    new_journal_entry(
+                        event=JournalEvent.TERMINAL,
+                        command_id=command_id,
+                        request_id=first.request_id,
+                        match_id=first.match_id,
+                        recovery_checkpoint_id=latest.recovery_checkpoint_id,
+                        checkpoint_id=result.checkpoint_id,
+                        operation_name=first.operation_name,
+                        payload_fingerprint=first.payload_fingerprint,
+                        payload=first.payload,
+                        accepted_revision=first.accepted_revision,
+                        expected_revision=first.expected_revision,
+                        status=status,
+                        resulting_revision=result.resulting_revision,
+                        error=result.error,
+                    )
+                )
+
+            if first.request_id in self._requests:
+                self._journal_failed = True
+                self._journal_diagnostic = ErrorBody(
+                    code=ErrorCode.JOURNAL_CORRUPT,
+                    message="Request ID appears more than once in the command journal",
+                )
+                return
+            record = _CommandRecord(
+                receipt=CommandReceipt(
+                    command_id=command_id,
+                    request_id=first.request_id,
+                    match_id=first.match_id,
+                    status=status,
+                    accepted_revision=first.accepted_revision,
+                ),
+                payload_fingerprint=first.payload_fingerprint,
+                operation_name=first.operation_name,
+                journal_payload=first.payload,
+                expected_revision=first.expected_revision,
+                recovery_checkpoint_id=(running[0].recovery_checkpoint_id if running else None),
+                result=result,
+            )
+            record.completed.set()
+            self._commands[command_id] = record
+            self._requests[first.request_id] = record
 
     def set_recovery_checkpoint_provider(self, provider: RecoveryCheckpointProvider) -> None:
         """Install the trusted checkpoint capture used before emulator mutations."""
@@ -279,6 +447,39 @@ class MatchController:
             )
             self._matches[match_id] = _MatchRecord(summary)
             return summary
+
+    async def adopt_recovered_match(
+        self,
+        summary: MatchSummary,
+        observation: MatchObservation,
+        credential_hashes: Mapping[PlayerSlot, str],
+    ) -> None:
+        """Restore the active match owner from a validated durable checkpoint."""
+        if (
+            summary.lifecycle is not MatchLifecycle.PLAYABLE
+            or observation.match_id != summary.match_id
+            or observation.revision != summary.revision
+            or len(credential_hashes) != 2
+        ):
+            raise ValueError("Recovered match metadata is incomplete or inconsistent")
+        credentials = {slot: bytes.fromhex(digest) for slot, digest in credential_hashes.items()}
+        if any(len(digest) != 32 for digest in credentials.values()):
+            raise ValueError("Recovered credential hashes must be SHA-256 digests")
+        async with self._state_lock:
+            if self._matches:
+                raise MatchControllerError(
+                    ErrorCode.ACTIVE_MATCH_EXISTS,
+                    "Cannot adopt a recovered match when controller state already exists",
+                )
+            self._matches[summary.match_id] = _MatchRecord(
+                summary=summary, credentials=credentials, observation=observation
+            )
+
+    async def credential_hashes(self, match_id: UUID) -> dict[PlayerSlot, str]:
+        """Return private one-way verifiers for persistence beside trusted checkpoints."""
+        async with self._state_lock:
+            match = self._require_match(match_id)
+            return {slot: digest.hex() for slot, digest in match.credentials.items()}
 
     async def join_slot(
         self,

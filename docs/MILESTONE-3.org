@@ -94,7 +94,7 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - [X] Store artifacts in configured local storage outside Git and the Nix store.
    - Configuration: server startup wires `commands.jsonl` and `checkpoints/` under the per-user data directory; `--storage-dir` / `AW2_STORAGE_DIR` override it. Paths inside the checkout and `/nix/store` are rejected. See [[file:PERSISTENCE.md][the persistence protocol]].
 
-** TODO Implement transaction rollback and restart recovery
+** DONE Implement transaction rollback and restart recovery
    - [X] Save a recovery checkpoint before each high-level action.
    - Implementation: [[file:../src/aw2_lab/match_checkpoint.py][MatchCheckpointService]] installs a controller checkpoint hook. The controller captures and persists a full state plus identity metadata before writing the running journal event, and that event records the recovery checkpoint ID. Capture failure rejects the command before its mutation handler runs. Synthetic regression coverage is in [[file:../tests/test_match_checkpoint.py][test_match_checkpoint.py]]; this does not yet claim live action-executor coverage.
    - [X] Restore emulator and Python metadata after an unexpected menu, failed postcondition, or timeout.
@@ -103,9 +103,10 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - Implementation: terminal results include the last committed or newly committed revision whenever match state is known. Recovery-required results retain that revision and include the originating failure code/message in diagnostic details. See [[file:../src/aw2_lab/match_controller.py][match_controller.py]] and [[file:MATCH-CONTRACT.md::*Commands, revisions, retries, and credentials][the command contract]].
    - [X] Release held inputs on failure and prevent further mutations when recovery fails.
    - Implementation: failure paths send a zero key mask and require bridge confirmation before rollback. An unconfirmed release enters =recovery_required=. Only the explicit =checkpoint_restore= mutation is accepted in that lifecycle; failed-release and blocked-mutation regressions are in [[file:../tests/test_match_checkpoint.py][test_match_checkpoint.py]].
-   - [ ] Restore the last committed checkpoint on restart and reconcile unfinished commands without silently replaying them.
-   - [ ] Preserve deduplication and monotonic revisions across restart, restore, and rollback.
-   - [ ] Require explicit successful restoration before leaving recovery-required state.
+   - [X] Restore the last committed checkpoint on restart and reconcile unfinished commands without silently replaying them.
+   - [X] Preserve deduplication and monotonic revisions across restart, restore, and rollback.
+   - [X] Require explicit successful restoration before leaving recovery-required state.
+   - Implementation: server startup restores =CURRENT=, or the recorded pre-action checkpoint for an unfinished command, before starting the queue. The command is durably marked rolled back; a commit-pointer-before-journal crash is reconciled from the pointer result. Accepted-only work is rejected, terminal command/request records are reloaded for idempotency, and observation revisions advance above checkpoint, pointer, and journal floors. Both slots' SHA-256 credential verifiers are persisted in checkpoint manifests for re-adoption. Recovery-required matches accept only the named checkpoint restore operation and become playable only after restore validation succeeds. Synthetic restart and no-replay coverage is in [[file:../tests/test_match_checkpoint.py][test_match_checkpoint.py]].
 
 * Cold boot and controller-input automation
 

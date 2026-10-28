@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
+import shutil
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -59,6 +61,8 @@ class EmulatorLauncher:
     def __init__(self, settings: EmulatorSettings) -> None:
         self.settings = settings
         self.process: asyncio.subprocess.Process | None = None
+        self.bridge: LuaBridgeClient | None = None
+        self.build_identity: str | None = None
 
     @property
     def is_running(self) -> bool:
@@ -72,6 +76,8 @@ class EmulatorLauncher:
             if self.settings.mode is EmulatorMode.HEADLESS
             else self.settings.windowed_executable or "mgba-qt"
         )
+        resolved_executable = shutil.which(executable) or executable
+        self.build_identity = await asyncio.to_thread(_build_identity, Path(resolved_executable))
         script = self.settings.bridge_script
         if script is None:
             script = Path(__file__).resolve().parent / "lua" / "bridge.lua"
@@ -102,12 +108,14 @@ class EmulatorLauncher:
             ) from error
         self.process = process
         bridge = LuaBridgeClient(timeout=1.0)
+        self.bridge = bridge
         deadline = asyncio.get_running_loop().time() + self.settings.bridge_ready_timeout
         last_error = "no response"
         while True:
             if process.returncode is not None:
                 return_code = process.returncode
                 self.process = None
+                self.bridge = None
                 if self.settings.mode is EmulatorMode.WINDOWED:
                     startup_hint = (
                         "check that this build supports Lua scripting and --script, and that a "
@@ -157,6 +165,7 @@ class EmulatorLauncher:
         """Terminate mGBA, escalating to kill if it does not exit promptly."""
         process = self.process
         self.process = None
+        self.bridge = None
         if process is None or process.returncode is not None:
             return
 
@@ -169,3 +178,15 @@ class EmulatorLauncher:
         except TimeoutError:
             process.kill()
             await process.wait()
+
+
+def _build_identity(executable: Path) -> str:
+    resolved = executable.resolve()
+    if not resolved.is_file():
+        return f"path:{resolved}"
+    try:
+        with resolved.open("rb") as binary:
+            digest = hashlib.file_digest(binary, "sha256").hexdigest()
+    except OSError:
+        return f"path:{resolved}"
+    return f"sha256:{digest}"

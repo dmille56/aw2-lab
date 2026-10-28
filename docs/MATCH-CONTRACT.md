@@ -133,7 +133,9 @@ returns it only in that join response. Credentials are sent in the request body,
 held in client memory by default, never placed in URLs, and never returned by
 match inspection. They coordinate trusted local players and do not provide
 competitive isolation. Credentials are independent of the request ID and are
-not persisted in ordinary checkpoint metadata.
+never stored raw. Checkpoint manifests retain one-way SHA-256 credential
+verifiers so a committed match can be re-adopted after restart; journal entries
+continue to exclude credentials and their verifiers.
 
 ## Controller queue behavior
 
@@ -170,8 +172,9 @@ events to a JSONL journal before acknowledging acceptance, starting execution,
 or publishing a terminal result. Entries include request IDs and payload
 fingerprints for deduplication, but exclude player credentials. The journal
 backend accepts a trusted local path; API clients cannot select it. Startup
-replay and restoring deduplication state from those entries remain open. The
-controller can be created without an action executor or journal for
+reconciles accepted/running events without replaying actions and reconstructs
+terminal results and request-ID deduplication. The controller can be created
+without an action executor or journal for
 ROM-independent coordination checks; gameplay requests are rejected as
 unsupported until a verified executor is configured. The API application owns
 the controller instance at

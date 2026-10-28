@@ -14,7 +14,11 @@ choose paths. There is one writer, the serialized match controller.
 
 - A state blob contains the mGBA savestate, including save RAM. Its immutable
   manifest records the state digest and length, ROM/build/schema identities,
-  match summary and revision, frame, and unit identity ledger.
+  match summary and revision, frame, unit identity ledger, and one-way SHA-256
+  verifiers for the joined player credentials. Manifest schema 2 adds those
+  verifiers; schema 1 remains readable for transfer and manual restoration, but
+  cannot adopt joined players automatically after restart. Raw credentials are
+  never stored.
 - `CURRENT` is a `CheckpointCommitPointer`. It identifies the checkpoint and
   manifest digest that represent the last committed state. For a command
   checkpoint it also carries the terminal `CommandResult`; for a standalone
@@ -157,7 +161,10 @@ executors must use its replacement `tracker`. The service receives an injected
 game-state capture function and bridge, so synthetic checks need no ROM.
 The default storage root and durable journal are wired into server startup;
 `CheckpointStore` is available as `app.state.checkpoint_store` for the
-checkpoint service. HTTP/SDK routes, restart adoption of a saved match, and
-durable journal replay remain later checklist items. The current
-checks verify filesystem/archive/controller behavior with a synthetic emulator;
-they do not claim a new live mGBA end-to-end checkpoint run.
+checkpoint service. Startup restores `CURRENT` or an interrupted command's
+pre-action checkpoint, adopts the saved match and credential verifiers, and
+reconciles the journal before accepting commands. Unfinished commands are
+terminalized as rejected or rolled back and are never replayed. HTTP/SDK routes
+remain later checklist items. The current checks verify filesystem,
+archive/controller, and restart behavior with a synthetic emulator; they do not
+claim a new live mGBA end-to-end restart run.

@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
-from uuid import UUID, uuid5
+from uuid import UUID, uuid4, uuid5
 
 from pydantic import SecretStr
 
@@ -21,6 +21,12 @@ from aw2_lab.checkpoint import (
     validate_checkpoint_compatibility,
 )
 from aw2_lab.checkpoint_store import CheckpointStore
+from aw2_lab.command_journal import (
+    CommandJournalEntry,
+    JournalEvent,
+    JsonlCommandJournal,
+    new_journal_entry,
+)
 from aw2_lab.match_contract import (
     CheckpointIdentityMetadata,
     CheckpointManifest,
@@ -32,6 +38,8 @@ from aw2_lab.match_contract import (
     ErrorCode,
     MatchLifecycle,
     MatchSummary,
+    PlayerSlot,
+    SlotStatus,
 )
 from aw2_lab.match_controller import CommandRejected, MatchController, MutationOutcome
 from aw2_lab.match_observation import (
@@ -70,12 +78,14 @@ class MatchCheckpointService:
         bridge: CheckpointBridge,
         session: CheckpointSession,
         runtime: CheckpointRuntime,
+        journal: JsonlCommandJournal | None = None,
     ) -> None:
         self.controller = controller
         self.store = store
         self.bridge = bridge
         self.session = session
         self.runtime = runtime
+        self.journal = journal
         self.controller.set_recovery_checkpoint_provider(self.capture_recovery_checkpoint)
         self.controller.set_recovery_rollback_provider(self.restore_recovery_checkpoint)
         self.controller.set_input_release_provider(self.release_inputs)
@@ -89,6 +99,135 @@ class MatchCheckpointService:
                 "The emulator did not confirm release of held inputs",
                 details={"reported_keys": keys},
             )
+
+    async def restore_startup_checkpoint(
+        self,
+        checkpoint_id: UUID,
+        *,
+        durable_revision_floor: int,
+        interrupted_command: CommandJournalEntry | None = None,
+    ) -> CommandResult | None:
+        """Restore a committed boundary before accepting work; never replay commands."""
+        manifest, state = await asyncio.to_thread(self.store.load, checkpoint_id)
+        self._compatible(manifest)
+        if manifest.match.lifecycle is not MatchLifecycle.PLAYABLE:
+            raise CheckpointError(
+                ErrorCode.CHECKPOINT_INCOMPATIBLE,
+                "Startup recovery requires a playable checkpoint",
+            )
+        if set(manifest.slot_credential_hashes) != {PlayerSlot.SLOT_1, PlayerSlot.SLOT_2}:
+            raise CheckpointError(
+                ErrorCode.CHECKPOINT_INCOMPATIBLE,
+                "Checkpoint lacks player credential verifiers required for restart adoption",
+            )
+        if any(slot.status is not SlotStatus.JOINED for slot in manifest.match.slots):
+            raise CheckpointError(
+                ErrorCode.CHECKPOINT_INCOMPATIBLE,
+                "Startup checkpoint does not have both player slots joined",
+            )
+        if self.session.tracker.match_id != manifest.match.match_id:
+            raise CheckpointError(
+                ErrorCode.CHECKPOINT_INCOMPATIBLE,
+                "Startup observer does not match the checkpoint",
+            )
+        tracker = MatchObservationTracker.from_checkpoint(
+            checkpoint_observation_metadata(manifest),
+            durable_revision_floor=durable_revision_floor,
+        )
+        await self.release_inputs()
+        await restore_checkpoint_state(
+            self.bridge,
+            manifest,
+            state,
+            rom_sha256=self.runtime.rom_sha256,
+            emulator_build=self.runtime.emulator_build,
+            emulator_mode=self.runtime.emulator_mode,
+        )
+        decoded = await self.session.capture_game_state()
+        _validate_restored_units(manifest, decoded)
+        observation = tracker.commit_boundary(decoded, cause=RevisionCause.RESTORE)
+        if observation.action_readiness is not ActionReadiness.READY:
+            raise CheckpointError(
+                ErrorCode.RECOVERY_REQUIRED,
+                "Startup checkpoint did not restore to a playable input boundary",
+            )
+        captured = await capture_checkpoint_state(self.bridge)
+        if captured.frame != decoded.frame:
+            raise CheckpointError(
+                ErrorCode.RECOVERY_REQUIRED,
+                "Emulator advanced during startup checkpoint restoration",
+            )
+        summary = manifest.match.model_copy(
+            update={"revision": observation.revision, "lifecycle": MatchLifecycle.PLAYABLE}
+        )
+        new_checkpoint_id = uuid4()
+        result = None
+        if interrupted_command is not None:
+            if self.journal is None or interrupted_command.event is not JournalEvent.RUNNING:
+                raise CheckpointError(
+                    ErrorCode.JOURNAL_CORRUPT,
+                    "Interrupted command cannot be reconciled without its durable journal",
+                )
+            result = CommandResult(
+                command_id=interrupted_command.command_id,
+                request_id=interrupted_command.request_id,
+                match_id=interrupted_command.match_id,
+                status=CommandStatus.ROLLED_BACK,
+                accepted_revision=interrupted_command.accepted_revision,
+                resulting_revision=observation.revision,
+                error=ErrorBody(
+                    code=ErrorCode.RECOVERY_REQUIRED,
+                    message=(
+                        "Server restarted during execution; the pre-action checkpoint was "
+                        "restored and the command was not replayed"
+                    ),
+                ),
+                checkpoint_id=new_checkpoint_id,
+            )
+        fresh_manifest = CheckpointManifest(
+            checkpoint_id=new_checkpoint_id,
+            match=summary,
+            originating_command_id=result.command_id if result is not None else None,
+            slot_credential_hashes=manifest.slot_credential_hashes,
+            rom_sha256=self.runtime.rom_sha256,
+            emulator_build=self.runtime.emulator_build,
+            emulator_mode=self.runtime.emulator_mode,
+            state_artifact=captured.artifact,
+            decoder_schema_version=GAME_STATE_SCHEMA_VERSION,
+            observation_schema_version=MATCH_OBSERVATION_SCHEMA_VERSION,
+            identity_metadata=CheckpointIdentityMetadata.model_validate(
+                tracker.checkpoint_metadata().identity_metadata.to_dict()
+            ),
+            last_frame=captured.frame,
+            created_at=datetime.now(UTC),
+        )
+        await asyncio.to_thread(self.store.save, fresh_manifest, captured.data)
+        await asyncio.to_thread(self.store.commit, new_checkpoint_id, command_result=result)
+        if interrupted_command is not None:
+            assert result is not None and self.journal is not None
+            await self.journal.append(
+                new_journal_entry(
+                    event=JournalEvent.TERMINAL,
+                    command_id=interrupted_command.command_id,
+                    request_id=interrupted_command.request_id,
+                    match_id=interrupted_command.match_id,
+                    recovery_checkpoint_id=interrupted_command.recovery_checkpoint_id,
+                    checkpoint_id=new_checkpoint_id,
+                    operation_name=interrupted_command.operation_name,
+                    payload_fingerprint=interrupted_command.payload_fingerprint,
+                    payload=interrupted_command.payload,
+                    accepted_revision=interrupted_command.accepted_revision,
+                    expected_revision=interrupted_command.expected_revision,
+                    status=result.status,
+                    resulting_revision=result.resulting_revision,
+                    error=result.error,
+                )
+            )
+        self.session.tracker = tracker
+        await self.controller.adopt_recovered_match(
+            summary, observation, manifest.slot_credential_hashes
+        )
+        return result
 
     async def capture_recovery_checkpoint(
         self, match_id: UUID, command_id: UUID, expected_revision: int | None
@@ -123,10 +262,12 @@ class MatchCheckpointService:
                 "Emulator moved beyond the committed boundary before action execution",
             )
         checkpoint_id = uuid5(match_id, f"recovery-before:{command_id}")
+        credential_hashes = await self.controller.credential_hashes(match_id)
         manifest = CheckpointManifest(
             checkpoint_id=checkpoint_id,
             match=snapshot.summary,
             originating_command_id=command_id,
+            slot_credential_hashes=credential_hashes,
             rom_sha256=self.runtime.rom_sha256,
             emulator_build=self.runtime.emulator_build,
             emulator_mode=self.runtime.emulator_mode,
@@ -199,11 +340,13 @@ class MatchCheckpointService:
         summary = current.summary.model_copy(
             update={"revision": observation.revision, "lifecycle": MatchLifecycle.PLAYABLE}
         )
+        credential_hashes = await self.controller.credential_hashes(match_id)
         checkpoint = self._outcome(
             uuid5(match_id, f"rollback:{command_id}"),
             summary,
             captured,
             restored_tracker.checkpoint_metadata(),
+            credential_hashes,
         )
         return MutationOutcome(
             observation=observation,
@@ -249,7 +392,10 @@ class MatchCheckpointService:
                 raise CheckpointError(
                     ErrorCode.RECOVERY_REQUIRED, "Emulator moved beyond the committed boundary"
                 )
-            return self._outcome(checkpoint_id, snapshot.summary, captured, metadata)
+            credential_hashes = await self.controller.credential_hashes(match_id)
+            return self._outcome(
+                checkpoint_id, snapshot.summary, captured, metadata, credential_hashes
+            )
 
         return await self.controller.submit_serialized_mutation(
             match_id=match_id,
@@ -367,7 +513,11 @@ class MatchCheckpointService:
                 }
             )
             outcome = self._outcome(
-                new_checkpoint_id, summary, captured, restored_tracker.checkpoint_metadata()
+                new_checkpoint_id,
+                summary,
+                captured,
+                restored_tracker.checkpoint_metadata(),
+                await self.controller.credential_hashes(match_id),
             )
             return MutationOutcome(
                 observation=observation,
@@ -411,12 +561,14 @@ class MatchCheckpointService:
         summary: MatchSummary,
         captured: CapturedCheckpointState,
         metadata: MatchObservationMetadata,
+        credential_hashes: dict[PlayerSlot, str],
     ) -> MutationOutcome:
         async def commit(result: CommandResult) -> None:
             manifest = CheckpointManifest(
                 checkpoint_id=checkpoint_id,
                 match=summary,
                 originating_command_id=result.command_id,
+                slot_credential_hashes=credential_hashes,
                 rom_sha256=self.runtime.rom_sha256,
                 emulator_build=self.runtime.emulator_build,
                 emulator_mode=self.runtime.emulator_mode,
