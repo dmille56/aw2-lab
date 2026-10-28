@@ -117,6 +117,7 @@ class ActionExecutor(Protocol):
 
 MutationHandler = Callable[[], Awaitable[MutationOutcome]]
 RecoveryCheckpointProvider = Callable[[UUID, UUID, int | None], Awaitable[UUID]]
+RecoveryRollbackProvider = Callable[[UUID, UUID, UUID, ErrorBody], Awaitable[MutationOutcome]]
 
 
 @dataclass(slots=True)
@@ -157,6 +158,7 @@ class MatchController:
         executor: ActionExecutor | None = None,
         journal: CommandJournal | None = None,
         recovery_checkpoint_provider: RecoveryCheckpointProvider | None = None,
+        recovery_rollback_provider: RecoveryRollbackProvider | None = None,
         queue_capacity: int = 64,
         command_capacity: int = 4096,
         shutdown_timeout: float = 30.0,
@@ -169,6 +171,7 @@ class MatchController:
         self._executor = executor
         self._journal = journal
         self._recovery_checkpoint_provider = recovery_checkpoint_provider
+        self._recovery_rollback_provider = recovery_rollback_provider
         self._queue: asyncio.Queue[_CommandRecord | None] = asyncio.Queue(queue_capacity)
         self._command_capacity = command_capacity
         self._shutdown_timeout = shutdown_timeout
@@ -201,6 +204,12 @@ class MatchController:
         if self._recovery_checkpoint_provider is not None:
             return
         self._recovery_checkpoint_provider = provider
+
+    def set_recovery_rollback_provider(self, provider: RecoveryRollbackProvider) -> None:
+        """Install the trusted restore operation for failed emulator mutations."""
+        if self._recovery_rollback_provider is not None:
+            return
+        self._recovery_rollback_provider = provider
 
     async def stop(self) -> None:
         """Stop accepting work, drain accepted commands, and surface shutdown failures."""
@@ -585,22 +594,26 @@ class MatchController:
                     if record.previous_lifecycle is None:
                         await self._finish(record, CommandStatus.REJECTED, error=error.body)
                     else:
-                        await self._require_recovery(record, str(error), diagnostic=error.body)
+                        await self._rollback_or_require_recovery(record, error.body)
                 except MatchControllerError as error:
                     if record.previous_lifecycle is not None:
-                        await self._require_recovery(
-                            record,
-                            f"Mutation failed after execution began: {error}",
-                        )
+                        await self._rollback_or_require_recovery(record, error.body)
                     else:
                         await self._finish(record, CommandStatus.REJECTED, error=error.body)
                 except asyncio.CancelledError:
                     await self._require_recovery(record, "Controller stopped during execution")
                     raise
                 except Exception as error:  # noqa: BLE001 -- unknown executor failures require recovery
-                    await self._require_recovery(
+                    await self._rollback_or_require_recovery(
                         record,
-                        f"Unexpected executor failure: {type(error).__name__}: {error}",
+                        ErrorBody(
+                            code=ErrorCode.RECOVERY_REQUIRED,
+                            message=(
+                                "Mutation failed after execution began; restoring its recovery "
+                                f"checkpoint ({type(error).__name__})"
+                            ),
+                            details={"cause": type(error).__name__},
+                        ),
                     )
                 finally:
                     self._running = None
@@ -813,6 +826,42 @@ class MatchController:
                     update={"lifecycle": MatchLifecycle.RECOVERY_REQUIRED}
                 )
         await self._finish(record, CommandStatus.RECOVERY_REQUIRED, error=error)
+
+    async def _rollback_or_require_recovery(
+        self, record: _CommandRecord, original_error: ErrorBody
+    ) -> None:
+        provider = self._recovery_rollback_provider
+        checkpoint_id = record.recovery_checkpoint_id
+        if provider is None or checkpoint_id is None:
+            await self._require_recovery(
+                record,
+                "Mutation failed and no recovery checkpoint restore is available",
+                diagnostic=original_error,
+            )
+            return
+        try:
+            outcome = await provider(
+                record.receipt.match_id,
+                record.receipt.command_id,
+                checkpoint_id,
+                original_error,
+            )
+            if outcome.status is not CommandStatus.ROLLED_BACK or outcome.observation is None:
+                raise RuntimeError("Recovery restore did not return a rolled-back observation")
+            async with self._state_lock:
+                match = self._require_match(record.receipt.match_id)
+                revision = match.summary.revision
+            await self._apply_outcome(match, record, outcome, current_revision=revision)
+        except Exception as restore_error:  # noqa: BLE001 -- failed restore requires explicit recovery
+            await self._require_recovery(
+                record,
+                "Action failed and its recovery checkpoint could not be restored",
+                diagnostic=ErrorBody(
+                    code=ErrorCode.RECOVERY_REQUIRED,
+                    message="Checkpoint restoration failed",
+                    details={"cause": type(restore_error).__name__},
+                ),
+            )
 
     async def _restore_lifecycle_after_rejection(self, record: _CommandRecord) -> None:
         if record.previous_lifecycle is None:

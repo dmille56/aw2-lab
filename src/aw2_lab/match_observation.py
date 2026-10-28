@@ -244,8 +244,8 @@ class MatchObservationTracker:
             raise RuntimeError(
                 "Unit identity continuity is unknown; restore a checkpoint before publishing"
             )
-        if self._restore_pending and cause is not RevisionCause.RESTORE:
-            raise ValueError("The first boundary after checkpoint restore must use cause=RESTORE")
+        if self._restore_pending and cause not in {RevisionCause.RESTORE, RevisionCause.ROLLBACK}:
+            raise ValueError("Checkpoint load requires cause=RESTORE or cause=ROLLBACK")
         if game_state.schema_version != GAME_STATE_SCHEMA_VERSION:
             raise ValueError("GameState schema does not match this observer")
         if game_state.battle.status is not ValueStatus.AVAILABLE or game_state.battle.value is None:

@@ -34,6 +34,15 @@ capture fails, the command is rejected before its handler can touch the
 emulator. Explicit checkpoint restoration skips this pre-action capture because
 it is itself the recovery operation.
 
+When an emulator mutation fails after execution starts, the controller uses the
+recovery checkpoint ID from that command's journal record. The checkpoint
+service validates and loads the saved emulator state, reconstructs the unit
+identity ledger, advances the observation revision beyond the live and durable
+revision floors, and verifies a settled playable boundary. It then commits a
+fresh checkpoint and terminal `rolled_back` result before publishing the
+restored observation. If any restore or validation step fails, the tracker
+remains unavailable and the match enters `recovery_required`.
+
 After an action reaches a validated boundary, the controller commits its state
 in this order:
 

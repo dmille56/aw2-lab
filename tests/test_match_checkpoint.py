@@ -175,6 +175,42 @@ async def test_mutation_persists_recovery_checkpoint_before_running(memory, tmp_
 
 
 @run_async_test
+async def test_failed_mutation_restores_emulator_and_tracker_from_recovery_checkpoint(
+    memory, tmp_path
+):
+    service, controller, match_id, _, _, bridge = await prepare(memory, tmp_path)
+    try:
+        before = await controller.current_observation(match_id)
+
+        async def fail_after_mutation():
+            memory[1][0x22692] = 1
+            bridge.frame += 20
+            raise TimeoutError("synthetic navigation timeout")
+
+        receipt = await controller.submit_serialized_mutation(
+            match_id=match_id,
+            request_id=uuid4(),
+            operation_name="timeout_fixture",
+            payload={},
+            expected_revision=before.revision,
+            handler=fail_after_mutation,
+        )
+        result = await controller.wait_for_command(match_id, receipt.command_id, timeout=2)
+        restored = await controller.current_observation(match_id)
+
+        assert result.status is CommandStatus.ROLLED_BACK
+        assert result.error is not None
+        assert result.resulting_revision == restored.revision
+        assert restored.revision > before.revision
+        assert restored.game_state == before.game_state
+        assert service.session.tracker.read() == restored
+        assert bridge.frame == before.game_state.frame
+        assert service.store.current().command_result == result
+    finally:
+        await controller.stop()
+
+
+@run_async_test
 async def test_create_retries_capture_once_and_exports_import_without_loading(memory, tmp_path):
     service, controller, match_id, credential, _, bridge = await prepare(memory, tmp_path)
     try:

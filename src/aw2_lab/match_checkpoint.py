@@ -27,6 +27,8 @@ from aw2_lab.match_contract import (
     CheckpointReference,
     CommandReceipt,
     CommandResult,
+    CommandStatus,
+    ErrorBody,
     ErrorCode,
     MatchLifecycle,
     MatchSummary,
@@ -75,6 +77,7 @@ class MatchCheckpointService:
         self.session = session
         self.runtime = runtime
         self.controller.set_recovery_checkpoint_provider(self.capture_recovery_checkpoint)
+        self.controller.set_recovery_rollback_provider(self.restore_recovery_checkpoint)
 
     async def capture_recovery_checkpoint(
         self, match_id: UUID, command_id: UUID, expected_revision: int | None
@@ -127,6 +130,77 @@ class MatchCheckpointService:
         )
         await asyncio.to_thread(self.store.save, manifest, captured.data)
         return checkpoint_id
+
+    async def restore_recovery_checkpoint(
+        self,
+        match_id: UUID,
+        command_id: UUID,
+        checkpoint_id: UUID,
+        original_error: ErrorBody,
+    ) -> MutationOutcome:
+        """Restore the pre-action state and rebuild Python observation metadata."""
+        current = await self.controller.current_state(match_id)
+        self.session.tracker.mark_uncertain("Action failed; recovery restore is in progress")
+        manifest, state = await asyncio.to_thread(self.store.load, checkpoint_id)
+        self._compatible(manifest)
+        self._same_match(manifest, current.summary)
+        if manifest.match.lifecycle is not MatchLifecycle.PLAYABLE:
+            raise CheckpointError(
+                ErrorCode.CHECKPOINT_INCOMPATIBLE,
+                "Recovery checkpoint is not at a playable boundary",
+            )
+        pointer = await asyncio.to_thread(self.store.current)
+        floor = max(current.summary.revision, self.session.tracker.revision)
+        if pointer is not None and pointer.match_id == match_id:
+            floor = max(floor, pointer.revision)
+        restored_tracker = MatchObservationTracker.from_checkpoint(
+            checkpoint_observation_metadata(manifest), durable_revision_floor=floor
+        )
+        try:
+            await restore_checkpoint_state(
+                self.bridge,
+                manifest,
+                state,
+                rom_sha256=self.runtime.rom_sha256,
+                emulator_build=self.runtime.emulator_build,
+                emulator_mode=self.runtime.emulator_mode,
+            )
+            decoded = await self.session.capture_game_state()
+            _validate_restored_units(manifest, decoded)
+            observation = restored_tracker.commit_boundary(decoded, cause=RevisionCause.ROLLBACK)
+            if observation.action_readiness is not ActionReadiness.READY:
+                raise CheckpointError(
+                    ErrorCode.RECOVERY_REQUIRED,
+                    "Restored recovery checkpoint is not ready for commands",
+                )
+            captured = await capture_checkpoint_state(self.bridge)
+            if captured.frame != decoded.frame:
+                raise CheckpointError(
+                    ErrorCode.RECOVERY_REQUIRED,
+                    "Emulator advanced during recovery checkpoint restoration",
+                )
+        except BaseException:
+            self.session.tracker.mark_uncertain("Action rollback did not complete")
+            raise
+
+        self.session.tracker = restored_tracker
+        summary = current.summary.model_copy(
+            update={"revision": observation.revision, "lifecycle": MatchLifecycle.PLAYABLE}
+        )
+        checkpoint = self._outcome(
+            uuid5(match_id, f"rollback:{command_id}"),
+            summary,
+            captured,
+            restored_tracker.checkpoint_metadata(),
+        )
+        return MutationOutcome(
+            observation=observation,
+            lifecycle=MatchLifecycle.PLAYABLE,
+            status=CommandStatus.ROLLED_BACK,
+            error=original_error,
+            checkpoint_id=checkpoint.checkpoint_id,
+            commit_checkpoint=checkpoint.commit_checkpoint,
+        )
 
     async def create(
         self,
