@@ -76,6 +76,13 @@ def main() -> None:
         help="Lua bridge script to load (default: bundled lua/bridge.lua)",
     )
     parser.add_argument(
+        "--storage-dir",
+        type=Path,
+        default=os.environ.get("AW2_STORAGE_DIR"),
+        metavar="PATH",
+        help="durable local data directory (default: AW2_STORAGE_DIR or per-user data directory)",
+    )
+    parser.add_argument(
         "--scripting-console",
         action=argparse.BooleanOptionalAction,
         default=None,
@@ -121,7 +128,8 @@ def main() -> None:
     from aw2_lab.api.app import create_app
 
     try:
-        application = create_app(settings=settings)
+        storage_root = args.storage_dir.expanduser().resolve() if args.storage_dir else None
+        application = create_app(settings=settings, storage_root=storage_root)
     except UnsupportedRomError as error:
         parser.error(str(error))
 

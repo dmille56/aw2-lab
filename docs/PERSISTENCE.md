@@ -1,9 +1,14 @@
 # Checkpoint and journal commit protocol
 
 This document defines the crash-safe commit order for the local checkpoint
-store. The configured storage root is trusted server configuration, outside the
-Git checkout and Nix store. Clients refer to checkpoint IDs; they never choose
-paths. There is one writer, the serialized match controller.
+store. The storage root defaults to the per-user data directory
+(`$XDG_DATA_HOME/aw2-lab` on Linux,
+`~/Library/Application Support/aw2-lab` on macOS, and `%LOCALAPPDATA%/aw2-lab`
+on Windows). Set `AW2_STORAGE_DIR` or pass `--storage-dir PATH` to choose
+another trusted local directory. The server rejects paths inside the source
+checkout or `/nix/store`. Checkpoints live under `checkpoints/`; the append-only
+journal is `commands.jsonl`. Clients refer to checkpoint IDs; they never
+choose paths. There is one writer, the serialized match controller.
 
 ## Stored records
 
@@ -128,7 +133,9 @@ until an explicit successful restore.
 Executors and the service share a `CheckpointSession`; after restoration,
 executors must use its replacement `tracker`. The service receives an injected
 game-state capture function and bridge, so synthetic checks need no ROM.
-Default storage configuration, HTTP/SDK routes, restart adoption of a saved
-match, and durable journal replay remain later checklist items. The current
+The default storage root and durable journal are wired into server startup;
+`CheckpointStore` is available as `app.state.checkpoint_store` for the
+checkpoint service. HTTP/SDK routes, restart adoption of a saved match, and
+durable journal replay remain later checklist items. The current
 checks verify filesystem/archive/controller behavior with a synthetic emulator;
 they do not claim a new live mGBA end-to-end checkpoint run.

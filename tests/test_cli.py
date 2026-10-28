@@ -74,6 +74,16 @@ def test_cli_rom_overrides_environment(monkeypatch: pytest.MonkeyPatch, tmp_path
     assert application.state.emulator_settings.rom_path == cli_rom.resolve()
 
 
+def test_cli_configures_storage_directory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    rom = tmp_path / "aw2.gba"
+    storage = tmp_path / "aw2-data"
+    rom.touch()
+
+    application, _ = invoke_cli(monkeypatch, rom, "--storage-dir", str(storage))
+
+    assert application.state.storage_root == storage.resolve()
+
+
 def test_missing_rom_file_is_rejected(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     rom = tmp_path / "missing.gba"
     monkeypatch.setattr("sys.argv", ["aw2-lab", "--rom", str(rom)])
