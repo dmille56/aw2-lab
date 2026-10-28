@@ -48,6 +48,14 @@ class MemoryBridge:
         return decode_snapshot(replace(snapshot(self.memory), frame=self.frame))
 
 
+class CapturingJournal:
+    def __init__(self):
+        self.entries = []
+
+    async def append(self, entry):
+        self.entries.append(entry)
+
+
 async def prepare(memory, tmp_path, *, journal=None):
     controller, match_id, first, second, executor = await setup_controller(memory, journal=journal)
     bridge = MemoryBridge(memory)
@@ -103,6 +111,7 @@ async def test_create_move_restore_preserves_ids_and_credentials_with_fresh_revi
             handler=move,
         )
         await controller.wait_for_command(match_id, moved.command_id, timeout=2)
+        assert bridge.saves == 2
         revision = (await controller.inspect_match(match_id)).revision
         receipt = await service.restore(
             match_id,
@@ -121,6 +130,46 @@ async def test_create_move_restore_preserves_ids_and_credentials_with_fresh_revi
         assert service.store.current().command_result == result
         assert result.checkpoint_id != saved.checkpoint_id
         await controller.require_joined_credential(match_id, SecretStr(second.credential))
+    finally:
+        await controller.stop()
+
+
+@run_async_test
+async def test_mutation_persists_recovery_checkpoint_before_running(memory, tmp_path):
+    journal = CapturingJournal()
+    service, controller, match_id, _, _, bridge = await prepare(memory, tmp_path, journal=journal)
+    try:
+        before = await controller.current_observation(match_id)
+
+        async def mutate():
+            memory[1][0x22692] = 1
+            bridge.frame += 1
+            observation = service.session.tracker.commit_boundary(await bridge.decoded())
+            return MutationOutcome(observation=observation, lifecycle=MatchLifecycle.PLAYABLE)
+
+        receipt = await controller.submit_serialized_mutation(
+            match_id=match_id,
+            request_id=uuid4(),
+            operation_name="test_mutation",
+            payload={},
+            expected_revision=before.revision,
+            handler=mutate,
+        )
+        result = await controller.wait_for_command(match_id, receipt.command_id, timeout=2)
+        running = next(
+            entry
+            for entry in journal.entries
+            if entry.command_id == receipt.command_id and entry.event is JournalEvent.RUNNING
+        )
+
+        assert running.recovery_checkpoint_id is not None
+        manifest, state = service.store.load(running.recovery_checkpoint_id)
+        assert manifest.originating_command_id == receipt.command_id
+        assert manifest.match.revision == before.revision
+        assert manifest.last_frame == before.game_state.frame
+        assert int.from_bytes(state[:4], "little") == before.game_state.frame
+        assert result.status is CommandStatus.COMPLETED
+        assert bridge.saves == 1
     finally:
         await controller.stop()
 

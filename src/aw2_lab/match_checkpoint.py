@@ -74,6 +74,59 @@ class MatchCheckpointService:
         self.bridge = bridge
         self.session = session
         self.runtime = runtime
+        self.controller.set_recovery_checkpoint_provider(self.capture_recovery_checkpoint)
+
+    async def capture_recovery_checkpoint(
+        self, match_id: UUID, command_id: UUID, expected_revision: int | None
+    ) -> UUID:
+        """Durably capture the current playable boundary before a queued mutation runs."""
+        snapshot = await self.controller.current_state(match_id)
+        observation = snapshot.observation
+        if (
+            snapshot.summary.lifecycle is not MatchLifecycle.PLAYABLE
+            or observation is None
+            or observation.action_readiness is not ActionReadiness.READY
+        ):
+            raise CheckpointError(
+                ErrorCode.OBSERVATION_UNAVAILABLE,
+                "A recovery checkpoint needs a settled playable boundary",
+            )
+        if expected_revision is not None and snapshot.summary.revision != expected_revision:
+            raise CheckpointError(
+                ErrorCode.STALE_REVISION,
+                "The match changed before its recovery checkpoint was captured",
+            )
+        if self.session.tracker.read() != observation:
+            raise CheckpointError(
+                ErrorCode.OBSERVATION_UNAVAILABLE,
+                "Checkpoint observer does not match the controller boundary",
+            )
+        captured = await capture_checkpoint_state(self.bridge)
+        metadata = self.session.tracker.checkpoint_metadata()
+        if captured.frame != metadata.last_frame:
+            raise CheckpointError(
+                ErrorCode.RECOVERY_REQUIRED,
+                "Emulator moved beyond the committed boundary before action execution",
+            )
+        checkpoint_id = uuid5(match_id, f"recovery-before:{command_id}")
+        manifest = CheckpointManifest(
+            checkpoint_id=checkpoint_id,
+            match=snapshot.summary,
+            originating_command_id=command_id,
+            rom_sha256=self.runtime.rom_sha256,
+            emulator_build=self.runtime.emulator_build,
+            emulator_mode=self.runtime.emulator_mode,
+            state_artifact=captured.artifact,
+            decoder_schema_version=GAME_STATE_SCHEMA_VERSION,
+            observation_schema_version=MATCH_OBSERVATION_SCHEMA_VERSION,
+            identity_metadata=CheckpointIdentityMetadata.model_validate(
+                metadata.identity_metadata.to_dict()
+            ),
+            last_frame=captured.frame,
+            created_at=datetime.now(UTC),
+        )
+        await asyncio.to_thread(self.store.save, manifest, captured.data)
+        return checkpoint_id
 
     async def create(
         self,

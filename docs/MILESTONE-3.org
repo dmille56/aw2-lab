@@ -95,7 +95,8 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - Configuration: server startup wires `commands.jsonl` and `checkpoints/` under the per-user data directory; `--storage-dir` / `AW2_STORAGE_DIR` override it. Paths inside the checkout and `/nix/store` are rejected. See [[file:PERSISTENCE.md][the persistence protocol]].
 
 ** TODO Implement transaction rollback and restart recovery
-   - [ ] Save a recovery checkpoint before each high-level action.
+   - [X] Save a recovery checkpoint before each high-level action.
+   - Implementation: [[file:../src/aw2_lab/match_checkpoint.py][MatchCheckpointService]] installs a controller checkpoint hook. The controller captures and persists a full state plus identity metadata before writing the running journal event, and that event records the recovery checkpoint ID. Capture failure rejects the command before its mutation handler runs. Synthetic regression coverage is in [[file:../tests/test_match_checkpoint.py][test_match_checkpoint.py]]; this does not yet claim live action-executor coverage.
    - [ ] Restore emulator and Python metadata after an unexpected menu, failed postcondition, or timeout.
    - [ ] Return completed, rejected, rolled-back, or recovery-required results with revision and diagnostics.
    - [ ] Release held inputs on failure and prevent further mutations when recovery fails.

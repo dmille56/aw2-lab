@@ -116,6 +116,7 @@ class ActionExecutor(Protocol):
 
 
 MutationHandler = Callable[[], Awaitable[MutationOutcome]]
+RecoveryCheckpointProvider = Callable[[UUID, UUID, int | None], Awaitable[UUID]]
 
 
 @dataclass(slots=True)
@@ -134,6 +135,7 @@ class _CommandRecord:
     operation_name: str | None = None
     journal_payload: dict[str, Any] = field(default_factory=dict)
     expected_revision: int | None = None
+    recovery_checkpoint_id: UUID | None = None
     mutates_emulator: bool = False
     allow_recovery: bool = False
     previous_lifecycle: MatchLifecycle | None = None
@@ -154,6 +156,7 @@ class MatchController:
         *,
         executor: ActionExecutor | None = None,
         journal: CommandJournal | None = None,
+        recovery_checkpoint_provider: RecoveryCheckpointProvider | None = None,
         queue_capacity: int = 64,
         command_capacity: int = 4096,
         shutdown_timeout: float = 30.0,
@@ -165,6 +168,7 @@ class MatchController:
             raise ValueError("Shutdown timeouts must be positive")
         self._executor = executor
         self._journal = journal
+        self._recovery_checkpoint_provider = recovery_checkpoint_provider
         self._queue: asyncio.Queue[_CommandRecord | None] = asyncio.Queue(queue_capacity)
         self._command_capacity = command_capacity
         self._shutdown_timeout = shutdown_timeout
@@ -191,6 +195,12 @@ class MatchController:
                 return
             self._accepting = True
             self._worker = asyncio.create_task(self._run_queue(), name="aw2-match-command-queue")
+
+    def set_recovery_checkpoint_provider(self, provider: RecoveryCheckpointProvider) -> None:
+        """Install the trusted checkpoint capture used before emulator mutations."""
+        if self._recovery_checkpoint_provider is not None:
+            return
+        self._recovery_checkpoint_provider = provider
 
     async def stop(self) -> None:
         """Stop accepting work, drain accepted commands, and surface shutdown failures."""
@@ -544,6 +554,16 @@ class MatchController:
                             ),
                         )
                         continue
+                    if (
+                        record.mutates_emulator
+                        and not record.allow_recovery
+                        and self._recovery_checkpoint_provider is not None
+                    ):
+                        record.recovery_checkpoint_id = await self._recovery_checkpoint_provider(
+                            record.receipt.match_id,
+                            record.receipt.command_id,
+                            record.expected_revision,
+                        )
                     await self._append_journal(record, JournalEvent.RUNNING, CommandStatus.RUNNING)
                     if record.request is not None:
                         await self._execute_gameplay(record)
@@ -562,7 +582,10 @@ class MatchController:
                     await self._restore_lifecycle_after_rejection(record)
                     await self._finish(record, CommandStatus.REJECTED, error=error.body)
                 except CheckpointError as error:
-                    await self._require_recovery(record, str(error), diagnostic=error.body)
+                    if record.previous_lifecycle is None:
+                        await self._finish(record, CommandStatus.REJECTED, error=error.body)
+                    else:
+                        await self._require_recovery(record, str(error), diagnostic=error.body)
                 except MatchControllerError as error:
                     if record.previous_lifecycle is not None:
                         await self._require_recovery(
@@ -963,6 +986,7 @@ class MatchController:
                 command_id=record.receipt.command_id,
                 request_id=record.receipt.request_id,
                 match_id=record.receipt.match_id,
+                recovery_checkpoint_id=record.recovery_checkpoint_id,
                 checkpoint_id=checkpoint_id,
                 operation_name=record.operation_name or "unknown",
                 payload_fingerprint=record.payload_fingerprint,

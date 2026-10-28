@@ -25,9 +25,17 @@ choose paths. There is one writer, the serialized match controller.
 
 ## Commit order
 
-Acceptance and execution events are flushed to the journal before the receipt
-is returned and before the action starts. After an action reaches a validated
-boundary, the controller commits its state in this order:
+Acceptance is flushed to the journal before the receipt is returned. Before an
+emulator mutation is recorded as running, the controller asks the installed
+checkpoint service to capture the last settled playable boundary. The service
+writes an immutable recovery checkpoint without changing `CURRENT`; only after
+it is durable does the running event include its recovery checkpoint ID. If
+capture fails, the command is rejected before its handler can touch the
+emulator. Explicit checkpoint restoration skips this pre-action capture because
+it is itself the recovery operation.
+
+After an action reaches a validated boundary, the controller commits its state
+in this order:
 
 1. Capture mGBA state and save RAM, plus the matching summary, observation
    revision, frame, and identity metadata, while still on the serialized lane.
