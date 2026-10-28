@@ -249,6 +249,7 @@ class CheckpointManifest(ContractModel):
     checkpoint_id: UUID
     manifest_schema_version: Literal[1] = 1
     match: MatchSummary
+    originating_command_id: UUID | None = None
     rom_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     emulator_build: str = Field(min_length=1)
     emulator_mode: Literal["headless", "windowed"]
@@ -265,6 +266,33 @@ class CheckpointReference(ContractModel):
     match_id: UUID
     revision: Revision
     created_at: datetime
+
+
+class CheckpointCommitPointer(ContractModel):
+    """Atomic current-checkpoint reference and optional committed command result."""
+
+    pointer_schema_version: Literal[1] = 1
+    checkpoint_id: UUID
+    manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    match_id: UUID
+    revision: Revision
+    command_result: CommandResult | None = None
+    committed_at: datetime
+
+    @model_validator(mode="after")
+    def validate_command_result(self) -> CheckpointCommitPointer:
+        if self.command_result is None:
+            return self
+        if self.command_result.match_id != self.match_id:
+            raise ValueError("Checkpoint command result belongs to another match")
+        if self.command_result.status in {CommandStatus.QUEUED, CommandStatus.RUNNING}:
+            raise ValueError("Checkpoint commit pointer requires a terminal command result")
+        if (
+            self.command_result.resulting_revision is not None
+            and self.command_result.resulting_revision != self.revision
+        ):
+            raise ValueError("Checkpoint command result revision must match the pointer")
+        return self
 
 
 class ErrorCode(StrEnum):

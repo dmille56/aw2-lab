@@ -64,7 +64,7 @@ The Pydantic model family covers:
 - `CommandRequest`, the discriminated gameplay action union, `CommandReceipt`,
   and `CommandResult`.
 - Stable `ErrorCode`, `ErrorBody`, and `ErrorResponse` envelopes.
-- `CheckpointManifest` and `CheckpointReference`.
+- `CheckpointManifest`, `CheckpointReference`, and `CheckpointCommitPointer`.
 
 Match IDs, command IDs, checkpoint IDs, and request IDs are UUIDs. Revisions are
 nonnegative integers no greater than `2^53 - 1`, so browser clients can represent
@@ -201,8 +201,11 @@ On restore after restart, the observer requires the durable journal's revision
 high-water mark and starts above both it and the checkpoint revision. Restoring
 a checkpoint alone is not sufficient to guarantee revisions never repeat after
 restart. Atomic commit order, journal linkage, durable storage, and restore
-recovery are implemented in the remaining checkpoint/persistence work; clients
-cannot supply arbitrary filesystem paths.
+recovery still need implementation according to [[file:PERSISTENCE.md][the protocol]];
+clients cannot supply arbitrary filesystem paths.
+
+The intended ordering and crash cases are specified in
+[[file:PERSISTENCE.md][the checkpoint and journal protocol]].
 
 ## HTTP mapping
 

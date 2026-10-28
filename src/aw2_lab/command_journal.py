@@ -30,6 +30,7 @@ class CommandJournalEntry(ContractModel):
     command_id: UUID
     request_id: UUID
     match_id: UUID
+    checkpoint_id: UUID | None = None
     operation_name: str = Field(min_length=1)
     payload_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     payload: dict[str, Any]
@@ -50,6 +51,8 @@ class CommandJournalEntry(ContractModel):
             CommandStatus.RUNNING,
         }:
             raise ValueError("Terminal journal entries require terminal status")
+        if self.checkpoint_id is not None and self.event is not JournalEvent.TERMINAL:
+            raise ValueError("Only terminal journal entries may reference a committed checkpoint")
         return self
 
 
@@ -98,6 +101,7 @@ def new_journal_entry(
     command_id: UUID,
     request_id: UUID,
     match_id: UUID,
+    checkpoint_id: UUID | None = None,
     operation_name: str,
     payload_fingerprint: str,
     payload: dict[str, Any],
@@ -113,6 +117,7 @@ def new_journal_entry(
         command_id=command_id,
         request_id=request_id,
         match_id=match_id,
+        checkpoint_id=checkpoint_id,
         operation_name=operation_name,
         payload_fingerprint=payload_fingerprint,
         payload=payload,

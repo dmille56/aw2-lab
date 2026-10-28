@@ -78,6 +78,7 @@ class MutationOutcome:
     lifecycle: MatchLifecycle | None = None
     status: CommandStatus = CommandStatus.COMPLETED
     error: ErrorBody | None = None
+    checkpoint_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -717,6 +718,7 @@ class MatchController:
                 outcome.status,
                 resulting_revision=current_revision,
                 error=outcome.error,
+                checkpoint_id=outcome.checkpoint_id,
             )
             if not persisted:
                 match.summary = match.summary.model_copy(
@@ -758,6 +760,7 @@ class MatchController:
         *,
         resulting_revision: int | None = None,
         error: ErrorBody | None = None,
+        checkpoint_id: UUID | None = None,
     ) -> bool:
         if record.result is not None:
             return True
@@ -769,6 +772,7 @@ class MatchController:
                 status,
                 resulting_revision=resulting_revision,
                 error=error,
+                checkpoint_id=checkpoint_id,
             )
         except CommandJournalError as journal_error:
             self._journal_failed = True
@@ -894,6 +898,7 @@ class MatchController:
         *,
         resulting_revision: int | None = None,
         error: ErrorBody | None = None,
+        checkpoint_id: UUID | None = None,
     ) -> None:
         if self._journal is None:
             return
@@ -903,6 +908,7 @@ class MatchController:
                 command_id=record.receipt.command_id,
                 request_id=record.receipt.request_id,
                 match_id=record.receipt.match_id,
+                checkpoint_id=checkpoint_id,
                 operation_name=record.operation_name or "unknown",
                 payload_fingerprint=record.payload_fingerprint,
                 payload=record.journal_payload,
