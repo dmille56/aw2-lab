@@ -163,11 +163,16 @@ the API lifespan still runs emulator cleanup. Python callbacks must cooperate
 with cancellation to terminate their own work.
 An unexpected executor failure also blocks further mutations until recovery.
 
-The initial request-ID ledger is in memory. Durable deduplication across process
-restart is added with the command journal in the persistence task. The controller
-can be created without an action executor for ROM-independent coordination
-checks; gameplay requests are rejected as unsupported until a verified executor
-is configured. The API application owns the controller instance at
+When configured, the controller appends accepted, running, and terminal command
+events to a JSONL journal before acknowledging acceptance, starting execution,
+or publishing a terminal result. Entries include request IDs and payload
+fingerprints for deduplication, but exclude player credentials. The journal
+backend accepts a trusted local path; API clients cannot select it. Startup
+replay and restoring deduplication state from those entries remain open. The
+controller can be created without an action executor or journal for
+ROM-independent coordination checks; gameplay requests are rejected as
+unsupported until a verified executor is configured. The API application owns
+the controller instance at
 `app.state.match_controller`; public routes are implemented in the next API task.
 
 ## Errors and checkpoints

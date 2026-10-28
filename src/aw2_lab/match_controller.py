@@ -15,6 +15,12 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, SecretStr
 
+from aw2_lab.command_journal import (
+    CommandJournal,
+    CommandJournalError,
+    JournalEvent,
+    new_journal_entry,
+)
 from aw2_lab.match_contract import (
     CommandReceipt,
     CommandRequest,
@@ -114,6 +120,7 @@ class _CommandRecord:
     request: CommandRequest | None = None
     handler: MutationHandler | None = None
     operation_name: str | None = None
+    journal_payload: dict[str, Any] = field(default_factory=dict)
     expected_revision: int | None = None
     mutates_emulator: bool = False
     allow_recovery: bool = False
@@ -134,6 +141,7 @@ class MatchController:
         self,
         *,
         executor: ActionExecutor | None = None,
+        journal: CommandJournal | None = None,
         queue_capacity: int = 64,
         command_capacity: int = 4096,
         shutdown_timeout: float = 30.0,
@@ -144,6 +152,7 @@ class MatchController:
         if shutdown_timeout <= 0 or shutdown_cancel_timeout <= 0:
             raise ValueError("Shutdown timeouts must be positive")
         self._executor = executor
+        self._journal = journal
         self._queue: asyncio.Queue[_CommandRecord | None] = asyncio.Queue(queue_capacity)
         self._command_capacity = command_capacity
         self._shutdown_timeout = shutdown_timeout
@@ -157,6 +166,7 @@ class MatchController:
         self._accepting = False
         self._stopped = False
         self._forced_shutdown = False
+        self._journal_failed = False
         self._running: _CommandRecord | None = None
 
     async def start(self) -> None:
@@ -187,7 +197,7 @@ class MatchController:
             self._forced_shutdown = True
             if self._running is not None:
                 await self._require_recovery(self._running, "Controller shutdown deadline expired")
-            self._reject_pending_shutdown()
+            await self._reject_pending_shutdown()
             worker.cancel()
             done, _ = await asyncio.wait({worker}, timeout=self._shutdown_cancel_timeout)
             if worker not in done:
@@ -385,9 +395,12 @@ class MatchController:
                 accepted_revision=request.expected_revision,
                 fingerprint=fingerprint,
                 request=request,
+                operation_name="gameplay",
+                journal_payload=payload,
+                expected_revision=request.expected_revision,
                 mutates_emulator=True,
             )
-            self._enqueue(record)
+            await self._journal_and_enqueue(record)
             return record.receipt
 
     async def submit_serialized_mutation(
@@ -444,11 +457,12 @@ class MatchController:
                 fingerprint=fingerprint,
                 handler=handler,
                 operation_name=operation_name,
+                journal_payload=_without_credentials(payload_dict),
                 expected_revision=expected_revision,
                 mutates_emulator=mutates_emulator,
                 allow_recovery=allow_recovery,
             )
-            self._enqueue(record)
+            await self._journal_and_enqueue(record)
             return record.receipt
 
     async def command_status(self, match_id: UUID, command_id: UUID) -> CommandResult:
@@ -499,13 +513,31 @@ class MatchController:
                 self._running = record
                 record.receipt = record.receipt.model_copy(update={"status": CommandStatus.RUNNING})
                 try:
+                    if self._journal_failed:
+                        await self._finish(
+                            record,
+                            CommandStatus.RECOVERY_REQUIRED,
+                            error=ErrorBody(
+                                code=ErrorCode.RECOVERY_REQUIRED,
+                                message="Command journal failed; queued work was not executed",
+                            ),
+                        )
+                        continue
+                    await self._append_journal(record, JournalEvent.RUNNING, CommandStatus.RUNNING)
                     if record.request is not None:
                         await self._execute_gameplay(record)
                     else:
                         await self._execute_mutation(record)
+                except CommandJournalError as error:
+                    self._journal_failed = True
+                    self._accepting = False
+                    await self._require_recovery(
+                        record,
+                        f"Command journal write failed ({type(error).__name__})",
+                    )
                 except CommandRejected as error:
                     await self._restore_lifecycle_after_rejection(record)
-                    self._finish(record, CommandStatus.REJECTED, error=error.body)
+                    await self._finish(record, CommandStatus.REJECTED, error=error.body)
                 except MatchControllerError as error:
                     if record.previous_lifecycle is not None:
                         await self._require_recovery(
@@ -513,7 +545,7 @@ class MatchController:
                             f"Mutation failed after execution began: {error}",
                         )
                     else:
-                        self._finish(record, CommandStatus.REJECTED, error=error.body)
+                        await self._finish(record, CommandStatus.REJECTED, error=error.body)
                 except asyncio.CancelledError:
                     await self._require_recovery(record, "Controller stopped during execution")
                     raise
@@ -679,14 +711,18 @@ class MatchController:
             next_summary = match.summary.model_copy(
                 update={"revision": current_revision, "lifecycle": lifecycle}
             )
-            # Finish validation before publishing either component. There are no
-            # awaits here, so status waiters see the complete committed boundary.
-            self._finish(
+            # Persist the terminal record before publishing the result or state.
+            persisted = await self._finish(
                 record,
                 outcome.status,
                 resulting_revision=current_revision,
                 error=outcome.error,
             )
+            if not persisted:
+                match.summary = match.summary.model_copy(
+                    update={"lifecycle": MatchLifecycle.RECOVERY_REQUIRED}
+                )
+                return
             if outcome.observation is not None:
                 match.observation = outcome.observation
             match.summary = next_summary
@@ -703,7 +739,7 @@ class MatchController:
                 match.summary = match.summary.model_copy(
                     update={"lifecycle": MatchLifecycle.RECOVERY_REQUIRED}
                 )
-        self._finish(record, CommandStatus.RECOVERY_REQUIRED, error=error)
+        await self._finish(record, CommandStatus.RECOVERY_REQUIRED, error=error)
 
     async def _restore_lifecycle_after_rejection(self, record: _CommandRecord) -> None:
         if record.previous_lifecycle is None:
@@ -715,16 +751,37 @@ class MatchController:
                     update={"lifecycle": record.previous_lifecycle}
                 )
 
-    def _finish(
+    async def _finish(
         self,
         record: _CommandRecord,
         status: CommandStatus,
         *,
         resulting_revision: int | None = None,
         error: ErrorBody | None = None,
-    ) -> None:
+    ) -> bool:
         if record.result is not None:
-            return
+            return True
+        persisted = True
+        try:
+            await self._append_journal(
+                record,
+                JournalEvent.TERMINAL,
+                status,
+                resulting_revision=resulting_revision,
+                error=error,
+            )
+        except CommandJournalError as journal_error:
+            self._journal_failed = True
+            self._accepting = False
+            persisted = False
+            status = CommandStatus.RECOVERY_REQUIRED
+            resulting_revision = None
+            error = ErrorBody(
+                code=ErrorCode.RECOVERY_REQUIRED,
+                message=(
+                    f"Could not persist terminal command result ({type(journal_error).__name__})"
+                ),
+            )
         result = CommandResult(
             command_id=record.receipt.command_id,
             request_id=record.receipt.request_id,
@@ -737,8 +794,9 @@ class MatchController:
         record.receipt = record.receipt.model_copy(update={"status": status})
         record.result = result
         record.completed.set()
+        return persisted
 
-    def _reject_pending_shutdown(self) -> None:
+    async def _reject_pending_shutdown(self) -> None:
         while True:
             try:
                 record = self._queue.get_nowait()
@@ -746,7 +804,7 @@ class MatchController:
                 break
             try:
                 if record is not None:
-                    self._finish(
+                    await self._finish(
                         record,
                         CommandStatus.REJECTED,
                         error=ErrorBody(
@@ -768,6 +826,7 @@ class MatchController:
         request: CommandRequest | None = None,
         handler: MutationHandler | None = None,
         operation_name: str | None = None,
+        journal_payload: dict[str, Any] | None = None,
         expected_revision: int | None = None,
         mutates_emulator: bool = False,
         allow_recovery: bool = False,
@@ -784,6 +843,7 @@ class MatchController:
             request=request,
             handler=handler,
             operation_name=operation_name,
+            journal_payload=journal_payload or {},
             expected_revision=expected_revision,
             mutates_emulator=mutates_emulator,
             allow_recovery=allow_recovery,
@@ -804,6 +864,62 @@ class MatchController:
                 retryable=True,
             ) from error
 
+    async def _journal_and_enqueue(self, record: _CommandRecord) -> None:
+        if self._queue.full():
+            self._commands.pop(record.receipt.command_id, None)
+            self._requests.pop(record.receipt.request_id, None)
+            raise MatchControllerError(
+                ErrorCode.COMMAND_CAPACITY,
+                "The command queue is full; no command was accepted",
+                retryable=True,
+            )
+        try:
+            await self._append_journal(record, JournalEvent.ACCEPTED, CommandStatus.QUEUED)
+        except CommandJournalError as error:
+            self._commands.pop(record.receipt.command_id, None)
+            self._requests.pop(record.receipt.request_id, None)
+            self._journal_failed = True
+            self._accepting = False
+            raise MatchControllerError(
+                ErrorCode.RECOVERY_REQUIRED,
+                "The command was not accepted because its journal entry could not be stored",
+            ) from error
+        self._enqueue(record)
+
+    async def _append_journal(
+        self,
+        record: _CommandRecord,
+        event: JournalEvent,
+        status: CommandStatus,
+        *,
+        resulting_revision: int | None = None,
+        error: ErrorBody | None = None,
+    ) -> None:
+        if self._journal is None:
+            return
+        try:
+            entry = new_journal_entry(
+                event=event,
+                command_id=record.receipt.command_id,
+                request_id=record.receipt.request_id,
+                match_id=record.receipt.match_id,
+                operation_name=record.operation_name or "unknown",
+                payload_fingerprint=record.payload_fingerprint,
+                payload=record.journal_payload,
+                accepted_revision=record.receipt.accepted_revision,
+                expected_revision=record.expected_revision,
+                status=status,
+                resulting_revision=resulting_revision,
+                error=error,
+            )
+            await self._journal.append(entry)
+        except CommandJournalError:
+            raise
+        except Exception as journal_error:
+            raise CommandJournalError(
+                f"Journal backend raised {type(journal_error).__name__}"
+            ) from journal_error
+
     def _check_capacity(self) -> None:
         if len(self._commands) >= self._command_capacity:
             raise MatchControllerError(
@@ -813,6 +929,11 @@ class MatchController:
             )
 
     def _require_accepting(self) -> None:
+        if self._journal_failed:
+            raise MatchControllerError(
+                ErrorCode.RECOVERY_REQUIRED,
+                "The command journal failed; controller recovery is required before accepting work",
+            )
         if not self._accepting or self._stopped:
             raise MatchControllerError(
                 ErrorCode.SERVER_SHUTTING_DOWN,
@@ -855,3 +976,15 @@ class MatchController:
 def _fingerprint(value: Mapping[str, Any]) -> str:
     serialized = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _without_credentials(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            key: _without_credentials(item)
+            for key, item in value.items()
+            if key not in {"credential", "credentials"}
+        }
+    if isinstance(value, (list, tuple)):
+        return [_without_credentials(item) for item in value]
+    return value
