@@ -203,11 +203,14 @@ On restore after restart, the observer requires the durable journal's revision
 high-water mark and starts above both it and the checkpoint revision. Restoring
 a checkpoint alone is not sufficient to guarantee revisions never repeat after
 restart. Atomic commit order, journal linkage, durable storage, and restore
-recovery still need implementation according to [[file:PERSISTENCE.md][the protocol]];
-clients cannot supply arbitrary filesystem paths.
+recovery follow [the protocol](PERSISTENCE.md). The local store and queued
+checkpoint service implement create, export/import, and same-match playable-turn
+restore; configuring default server storage and replaying the journal on restart
+remain later work. Checkpoint commands return their UUID in `CommandResult`.
+Clients cannot supply arbitrary filesystem paths.
 
 The intended ordering and crash cases are specified in
-[[file:PERSISTENCE.md][the checkpoint and journal protocol]].
+[the checkpoint and journal protocol](PERSISTENCE.md).
 
 ## HTTP mapping
 

@@ -18,7 +18,7 @@ from aw2_lab.match_contract import (
     ErrorCode,
     MatchLifecycle,
 )
-from aw2_lab.match_observation import MATCH_OBSERVATION_SCHEMA_VERSION
+from aw2_lab.match_observation import MATCH_OBSERVATION_SCHEMA_VERSION, MatchObservationMetadata
 from aw2_lab.state_model import GAME_STATE_SCHEMA_VERSION
 from aw2_lab.unit_identity import IDENTITY_SCHEMA_VERSION
 
@@ -72,6 +72,27 @@ class CapturedCheckpointState:
     data: bytes
     artifact: CheckpointStateArtifact
     frame: int
+
+
+def checkpoint_observation_metadata(manifest: CheckpointManifest) -> MatchObservationMetadata:
+    """Convert the persisted public ledger to the observer's validated metadata."""
+    try:
+        return MatchObservationMetadata.from_dict(
+            {
+                "schema_version": manifest.observation_schema_version,
+                "match_id": str(manifest.match.match_id),
+                "revision": manifest.match.revision,
+                "last_frame": manifest.last_frame,
+                "identity_metadata": manifest.identity_metadata.model_dump(
+                    mode="json", exclude={"contract_version"}
+                ),
+            }
+        )
+    except (TypeError, ValueError) as error:
+        raise CheckpointArtifactError(
+            ErrorCode.CHECKPOINT_CORRUPT,
+            "Checkpoint identity metadata is invalid or unsupported",
+        ) from error
 
 
 def read_checkpoint_manifest(path: Path) -> CheckpointManifest:

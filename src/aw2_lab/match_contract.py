@@ -199,6 +199,7 @@ class CommandResult(ContractModel):
     accepted_revision: Revision
     resulting_revision: Revision | None = None
     error: ErrorBody | None = None
+    checkpoint_id: UUID | None = None
 
 
 class CheckpointStateArtifact(ContractModel):
@@ -285,6 +286,8 @@ class CheckpointCommitPointer(ContractModel):
             return self
         if self.command_result.match_id != self.match_id:
             raise ValueError("Checkpoint command result belongs to another match")
+        if self.command_result.checkpoint_id != self.checkpoint_id:
+            raise ValueError("Checkpoint command result must reference the committed checkpoint")
         if self.command_result.status in {CommandStatus.QUEUED, CommandStatus.RUNNING}:
             raise ValueError("Checkpoint commit pointer requires a terminal command result")
         if (

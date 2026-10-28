@@ -26,11 +26,12 @@ boundary, the controller commits its state in this order:
 
 1. Capture mGBA state and save RAM, plus the matching summary, observation
    revision, frame, and identity metadata, while still on the serialized lane.
-2. Write the state blob to a temporary file in the checkpoint directory; flush
-   and `fsync` it; rename it to its immutable checkpoint filename; then `fsync`
-   the directory.
-3. Write the manifest to a temporary file in that directory; flush and `fsync`
-   it; rename it to its immutable filename; then `fsync` the directory.
+2. Write `state.bin` in a private staging directory under the storage root;
+   flush and `fsync` it.
+3. Write `manifest.json` in the same staging directory; flush and `fsync` it,
+   then `fsync` the staging directory. Rename the complete directory to the
+   checkpoint UUID and `fsync` the storage root. Readers can now see the complete
+   immutable pair.
 4. Write a temporary `CheckpointCommitPointer` naming the checkpoint and
    manifest digest. Include the command result and command ID when this state
    commits a command. Flush and `fsync` the temporary file, atomically replace
@@ -87,3 +88,47 @@ never include the configured local path:
 These diagnostics distinguish a repairable incomplete journal tail from a
 malformed complete record. They do not authorize replay or fallback to an older
 checkpoint. Recovery remains explicit when the committed state is uncertain.
+
+## Checkpoint service
+
+`CheckpointStore` implements the local files and `CURRENT` protocol. It uses a
+trusted root supplied by server configuration on a local filesystem supporting
+atomic rename and directory `fsync` (verified with the synthetic checks on
+NixOS). `MatchCheckpointService` supplies the authenticated operations:
+
+| Operation | Inputs | Result |
+| --- | --- | --- |
+| `create` | Match ID, joined credential, request ID, expected revision | Queued command; its terminal result contains `checkpoint_id` |
+| `export` | Match ID, checkpoint UUID, joined credential | ZIP archive bytes |
+| `import_archive` | Match ID, archive bytes, joined credential | Checkpoint reference; does not load the emulator or change `CURRENT` |
+| `restore` | Match ID, checkpoint UUID, joined credential, request ID, expected revision | Queued command; a successful result has a fresh revision and new checkpoint UUID |
+
+Create and restore run on the same controller lane as gameplay and debug
+mutations. A successful checkpoint commit precedes the terminal journal event
+and observation publication. The controller returns the checkpoint UUID in
+`CommandResult`; no server path is part of an operation input or result.
+
+Archives have exactly two uncompressed members, `manifest.json` (at most 1 MiB)
+and `state.bin` (at most 3 MiB), with a bounded total archive size. Import reads
+members into memory and never extracts archive paths. Extra members, duplicate
+names, compression, encryption, invalid metadata, and state digest/size
+mismatches are rejected. An existing checkpoint UUID can be imported again
+only when its manifest and state match exactly.
+
+The service currently restores checkpoints belonging to the same active match
+and fixed configuration, with the same ROM, build, and frontend mode. Creation
+and restoration require the observer's supported playable-turn boundary;
+finished/setup checkpoints are not advertised as restorable. Restore preserves
+the current joined credentials and slot claims, restores the saved unit ledger,
+and commits above the live tracker, controller, source checkpoint, and current
+pointer revisions. The saved frame and active unit records are checked before
+the restored observation is published. Failures after loading block gameplay
+until an explicit successful restore.
+
+Executors and the service share a `CheckpointSession`; after restoration,
+executors must use its replacement `tracker`. The service receives an injected
+game-state capture function and bridge, so synthetic checks need no ROM.
+Default storage configuration, HTTP/SDK routes, restart adoption of a saved
+match, and durable journal replay remain later checklist items. The current
+checks verify filesystem/archive/controller behavior with a synthetic emulator;
+they do not claim a new live mGBA end-to-end checkpoint run.

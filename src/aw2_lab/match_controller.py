@@ -15,6 +15,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, SecretStr
 
+from aw2_lab.checkpoint import CheckpointError
 from aw2_lab.command_journal import (
     CommandJournal,
     CommandJournalError,
@@ -65,9 +66,18 @@ class MatchControllerError(RuntimeError):
 class CommandRejected(Exception):
     """Executor rejection known to have happened before any mutation."""
 
-    def __init__(self, code: ErrorCode, message: str, *, retryable: bool = False) -> None:
+    def __init__(
+        self,
+        code: ErrorCode,
+        message: str,
+        *,
+        retryable: bool = False,
+        details: Mapping[str, str | int | bool | None] | None = None,
+    ) -> None:
         super().__init__(message)
-        self.body = ErrorBody(code=code, message=message, retryable=retryable)
+        self.body = ErrorBody(
+            code=code, message=message, retryable=retryable, details=dict(details or {})
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +89,7 @@ class MutationOutcome:
     status: CommandStatus = CommandStatus.COMPLETED
     error: ErrorBody | None = None
     checkpoint_id: UUID | None = None
+    commit_checkpoint: Callable[[CommandResult], Awaitable[None]] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -319,6 +330,14 @@ class MatchController:
         async with self._state_lock:
             return self._require_match(match_id).summary
 
+    async def require_joined_credential(self, match_id: UUID, credential: SecretStr) -> None:
+        """Authorize a named server operation without exposing stored credentials."""
+        async with self._state_lock:
+            if not self._has_any_credential(self._require_match(match_id), credential):
+                raise MatchControllerError(
+                    ErrorCode.INVALID_CREDENTIAL, "A joined player credential is required"
+                )
+
     async def current_state(self, match_id: UUID) -> MatchStateSnapshot:
         """Read lifecycle and the last committed observation under one lock."""
         async with self._state_lock:
@@ -542,6 +561,8 @@ class MatchController:
                 except CommandRejected as error:
                     await self._restore_lifecycle_after_rejection(record)
                     await self._finish(record, CommandStatus.REJECTED, error=error.body)
+                except CheckpointError as error:
+                    await self._require_recovery(record, str(error), diagnostic=error.body)
                 except MatchControllerError as error:
                     if record.previous_lifecycle is not None:
                         await self._require_recovery(
@@ -651,7 +672,7 @@ class MatchController:
                     details={"current_revision": match.summary.revision},
                 )
             current_revision = match.summary.revision
-            if record.mutates_emulator and lifecycle is not MatchLifecycle.RECOVERY_REQUIRED:
+            if record.mutates_emulator:
                 match.summary = match.summary.model_copy(
                     update={"lifecycle": MatchLifecycle.EXECUTING}
                 )
@@ -715,6 +736,22 @@ class MatchController:
             next_summary = match.summary.model_copy(
                 update={"revision": current_revision, "lifecycle": lifecycle}
             )
+            if outcome.commit_checkpoint is not None:
+                if outcome.checkpoint_id is None:
+                    raise RuntimeError("Checkpoint commit needs a checkpoint ID")
+                proposed_result = CommandResult(
+                    command_id=record.receipt.command_id,
+                    request_id=record.receipt.request_id,
+                    match_id=record.receipt.match_id,
+                    status=outcome.status,
+                    accepted_revision=record.receipt.accepted_revision,
+                    resulting_revision=current_revision,
+                    error=outcome.error,
+                    checkpoint_id=outcome.checkpoint_id,
+                )
+                await outcome.commit_checkpoint(proposed_result)
+                if self._forced_shutdown:
+                    return
             # Persist the terminal record before publishing the result or state.
             persisted = await self._finish(
                 record,
@@ -792,6 +829,7 @@ class MatchController:
             persisted = False
             status = CommandStatus.RECOVERY_REQUIRED
             resulting_revision = None
+            checkpoint_id = None
             error = ErrorBody(
                 code=ErrorCode.RECOVERY_REQUIRED,
                 message=(
@@ -807,6 +845,7 @@ class MatchController:
             accepted_revision=record.receipt.accepted_revision,
             resulting_revision=resulting_revision,
             error=error,
+            checkpoint_id=checkpoint_id,
         )
         record.receipt = record.receipt.model_copy(update={"status": status})
         record.result = result
