@@ -76,14 +76,20 @@ nix develop -c python -m aw2_lab record-cold-boot \
   --output /tmp/aw2-coldboot-automated-headless
 ```
 
+For an existing save, use `--save-mode existing --existing-save
+/absolute/path/to/aw2.sav` and choose a new output directory.
+
 Use `--mode windowed` to watch the same sequence. Mode and Continue/New menus
 are navigated using verified selector signatures rather than a fixed starting
 cursor. If the existing save presents an overwrite confirmation, automation
 confirms it only after recognizing the prompt and its Yes selection; this
 affects only the isolated save copy. It stops with diagnostics if the selected
 map, team setup, lifecycle phase, or first playable state differ from the
-supported configuration. The Rules screenshot is saved for visual checking;
-Fog Off currently has no verified runtime RAM postcondition.
+supported configuration. In the recognized Rules screen, IWRAM byte
+`0x03001698` is checked as `0` with the default Fog ON and `1` after Down
+selects Fog OFF. Manual fresh/existing traces plus automated fresh headless and
+existing headless/windowed runs agree with the screenshots. Automation waits
+for the Rules screen to render and stops if either value differs.
 
 ## Fresh-save windowed trace (2026-10-28)
 
@@ -108,8 +114,8 @@ The final coherent RAM capture confirms map ID 1 at 16 x 15, active player
 slots 1 and 2 with CO IDs 1 (Andy) and 2 (Max), team IDs 0 and 1, day 1, clear
 weather, and player 1's turn. The Rules screenshot shows Fog OFF, Weather
 Random, Funds 1000, Turn Off, Capture Off, and Power ON. This establishes the
-fresh-save windowed path. The fresh-save sequence also completed in headless
-automation. Existing-save automation and windowed automation remain unverified.
+fresh-save windowed path. The fresh-save headless automation is also recorded
+above.
 
 ## Existing-save windowed trace (2026-10-28)
 
@@ -129,7 +135,8 @@ The automatic path completed with the existing save in both modes. The
 windowed replay presented Continue/New and the overwrite confirmation; the
 headless replay went directly to New with the same source save. Both reached
 the first player turn with the supported configuration verified. These runs
-are preserved at `/tmp/aw2-coldboot-automated-existing-windowed-final` and
-`/tmp/aw2-coldboot-automated-existing-headless-final`. Automation supports
-either observed branch and confirms an overwrite only for the recognized prompt
-inside its isolated copy. The different frontend paths remain a research note.
+are preserved at `/tmp/aw2-coldboot-fog-existing-windowed` and
+`/tmp/aw2-coldboot-fog-existing-headless`. The fresh-save headless run is at
+`/tmp/aw2-coldboot-fog-fresh-headless`. Automation supports either observed
+branch and confirms an overwrite only for the recognized prompt inside its
+isolated copy. The different frontend paths remain a research note.

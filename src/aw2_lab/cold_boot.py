@@ -23,6 +23,8 @@ _LOCK = (0x030030F0, 1)
 _INPUT_GATE = (0x030040E4, 2)
 _INPUT_STATE = (0x03003334, 2)
 _FRONTEND_SELECTOR = (0x03001470, 0x80)
+# Correlated with the Rules-screen Fog label in fresh and existing save traces.
+_FOG_RULE = (0x03001698, 1)
 _POLL_FRAMES = 30
 _MAX_PHASE_FRAMES = 1800
 _KEY_A = 1
@@ -70,6 +72,7 @@ class _FrontendState:
     selector_object: int
     selector_table: int
     yes_no_selection: int
+    fog_rule: int
 
 
 async def boot_fixed_versus_match(
@@ -100,6 +103,7 @@ async def boot_fixed_versus_match(
             _INPUT_GATE,
             _INPUT_STATE,
             _FRONTEND_SELECTOR,
+            _FOG_RULE,
         ]
         snapshot = await bridge.read_memory_snapshot(ranges)
         (
@@ -112,6 +116,7 @@ async def boot_fixed_versus_match(
             gate,
             input_state,
             selector,
+            fog_rule,
         ) = snapshot.ranges
         scripts = tuple(unpack_from("<I", pool, index * 0x6C)[0] for index in range(32))
         lifecycle = classify_lifecycle(
@@ -135,6 +140,7 @@ async def boot_fixed_versus_match(
             selector_object=unpack_from("<I", selector)[0],
             selector_table=unpack_from("<I", selector, 0x20)[0],
             yes_no_selection=selector[0x7E],
+            fog_rule=fog_rule[0],
         )
 
     async def checkpoint(
@@ -390,6 +396,16 @@ async def boot_fixed_versus_match(
 
         await tap("open-rules", _KEY_A)
         rules = await wait_for(LifecyclePhase.VERSUS_SETUP, setup_subphase=2)
+        rules = await settle()
+        if rules.phase is not LifecyclePhase.VERSUS_SETUP or rules.setup_subphase != 2:
+            raise ColdBootError(
+                f"Rules screen did not settle: {rules.phase.value}/{rules.setup_subphase}"
+            )
+        if rules.fog_rule != 0:
+            raise ColdBootError(
+                "Expected Fog to be ON before changing the default; "
+                f"observed runtime flag {rules.fog_rule}"
+            )
         await checkpoint("rules-before-fog-change", rules)
 
         await tap("disable-fog", _KEY_DOWN)
@@ -398,6 +414,11 @@ async def boot_fixed_versus_match(
             raise ColdBootError(
                 f"Unexpected phase after selecting Fog Off: {rules.phase.value}/"
                 f"{rules.setup_subphase}"
+            )
+        if rules.fog_rule != 1:
+            raise ColdBootError(
+                "Fog Off input did not set the verified Rules flag; "
+                f"observed runtime flag {rules.fog_rule}"
             )
         await checkpoint("rules-fog-off", rules)
 
