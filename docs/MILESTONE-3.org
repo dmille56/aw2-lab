@@ -80,8 +80,9 @@ screenshots, and machine-specific paths outside Git and the Nix store.
 
 ** TODO Add complete checkpoint storage and durable command journaling
    - [X] Define a checkpoint manifest containing emulator state/save RAM, ROM checksum, emulator build identity, decoder/schema versions, match metadata, revisions, and identity metadata.
-   - Manifest model: [[file:../src/aw2_lab/match_contract.py][match_contract.py]] defines a versioned manifest with full match summary, ROM and emulator identity, frontend mode, schema versions, frame/revision, typed identity ledger, and a hashed/size-bounded state artifact explicitly marked as including save RAM. The bridge's state buffer uses =SAVESTATE.ALL=. Binary storage and runtime compatibility validation remain open below.
-   - [ ] Reuse the verified full-state/save-RAM bridge primitives and validate manifest compatibility before restoration.
+   - Manifest model: [[file:../src/aw2_lab/match_contract.py][match_contract.py]] defines a versioned manifest with full match summary, ROM and emulator identity, frontend mode, schema versions, frame/revision, typed identity ledger, and a hashed/size-bounded state artifact explicitly marked as including save RAM. The bridge's state buffer uses =SAVESTATE.ALL=. Durable storage remains open below.
+   - [X] Reuse the verified full-state/save-RAM bridge primitives and validate manifest compatibility before restoration.
+   - Implementation: [[file:../src/aw2_lab/checkpoint.py][checkpoint.py]] captures the bridge state buffer with its frame and checks artifact hash/size before load. It rejects ROM, mGBA build/mode, decoder, observation, identity-schema, and unsettled-match mismatches before invoking restore. [[file:../src/aw2_lab/bridge.py][The bridge]] uses =SAVESTATE.ALL= for both save and load.
    - [ ] Store journal entries for accepted commands, execution, and terminal results, including request-ID deduplication data.
    - [ ] Define atomic write/commit ordering for checkpoints, journal entries, and the last committed checkpoint reference.
    - [ ] Handle partial writes, missing/corrupt artifacts, incompatible builds, and storage failures with explicit diagnostics.

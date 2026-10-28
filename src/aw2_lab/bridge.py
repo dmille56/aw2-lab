@@ -191,6 +191,11 @@ class LuaBridgeClient:
 
     async def save_state_buffer(self) -> bytes:
         """Save emulator state, including save RAM, and return it as bytes."""
+        state, _ = await self.save_state_buffer_with_frame()
+        return state
+
+    async def save_state_buffer_with_frame(self) -> tuple[bytes, int]:
+        """Save emulator state and return its bytes and associated frame."""
         result = await self.request("save_state_buffer")
         try:
             encoded = result["state_base64"]
@@ -199,9 +204,12 @@ class LuaBridgeClient:
             state = base64.b64decode(encoded, validate=True)
             if not state or len(state) > _MAX_STATE_BYTES:
                 raise ValueError("state buffer is empty or exceeds the size limit")
+            frame = result["frame"]
+            if isinstance(frame, bool) or not isinstance(frame, int) or not 0 <= frame < 1 << 32:
+                raise ValueError("frame must be an unsigned 32-bit integer")
         except (KeyError, TypeError, binascii.Error, ValueError) as error:
             raise BridgeError(f"Lua bridge returned an invalid state buffer: {error}") from error
-        return state
+        return state, frame
 
     async def load_state_buffer(self, state: bytes) -> int:
         """Restore emulator state from bytes and return the restored frame."""

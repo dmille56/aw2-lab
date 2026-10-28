@@ -187,13 +187,17 @@ state artifact by format, byte length, and SHA-256. The artifact must include
 save RAM; the bridge saves and loads states with `SAVESTATE.ALL`. Manifest and
 artifact are separate so large binary state data does not enter JSON. The
 manifest schema has its own version in addition to the public contract version.
+Before restore, the checkpoint helper checks the manifest against runtime ROM,
+emulator build and mode, and schema identities, then verifies the artifact's
+size and digest before calling the bridge load operation. A post-load frame
+mismatch is reported as an artifact error and requires recovery handling.
 
 On restore after restart, the observer requires the durable journal's revision
 high-water mark and starts above both it and the checkpoint revision. Restoring
 a checkpoint alone is not sufficient to guarantee revisions never repeat after
-restart. Storage format, atomic commit order, journal linkage, and compatibility
-checks are implemented in the checkpoint/persistence tasks; clients cannot
-supply arbitrary filesystem paths.
+restart. Atomic commit order, journal linkage, durable storage, and restore
+recovery are implemented in the remaining checkpoint/persistence work; clients
+cannot supply arbitrary filesystem paths.
 
 ## HTTP mapping
 
