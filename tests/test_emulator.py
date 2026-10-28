@@ -67,11 +67,18 @@ async def test_launcher_uses_mode_executable_and_stops_process(
     bridge.touch()
     calls: list[str] = []
     environment: dict[str, str] = {}
+    output_settings: dict[str, int | None] = {}
     process = FakeProcess()
 
-    async def create_process(*args: str, env: dict[str, str]) -> FakeProcess:
+    async def create_process(
+        *args: str,
+        env: dict[str, str],
+        stdout: int | None = None,
+        stderr: int | None = None,
+    ) -> FakeProcess:
         calls.extend(args)
         environment.update(env)
+        output_settings.update(stdout=stdout, stderr=stderr)
         return process
 
     monkeypatch.setattr(asyncio, "create_subprocess_exec", create_process)
@@ -93,6 +100,7 @@ async def test_launcher_uses_mode_executable_and_stops_process(
     assert environment["AW2_MGBA_SUPPRESS_TEMP_ROM_WARNING"] == (
         "1" if mode is EmulatorMode.WINDOWED else "0"
     )
+    assert output_settings == {"stdout": None, "stderr": None}
     assert launcher.is_running
     await launcher.stop()
     assert process.terminated
@@ -108,7 +116,12 @@ async def test_launcher_enables_scripting_console_when_requested_in_windowed_mod
     bridge.touch()
     environment: dict[str, str] = {}
 
-    async def create_process(*args: str, env: dict[str, str]) -> FakeProcess:
+    async def create_process(
+        *args: str,
+        env: dict[str, str],
+        stdout: int | None = None,
+        stderr: int | None = None,
+    ) -> FakeProcess:
         environment.update(env)
         return FakeProcess()
 
@@ -125,6 +138,41 @@ async def test_launcher_enables_scripting_console_when_requested_in_windowed_mod
     await launcher.start()
 
     assert environment["AW2_MGBA_SCRIPTING_CONSOLE"] == "1"
+
+
+@pytest.mark.anyio
+async def test_launcher_can_suppress_emulator_output(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr("aw2_lab.emulator.LuaBridgeClient.connect", bridge_ready)
+    bridge = tmp_path / "bridge.lua"
+    bridge.touch()
+    output_settings: dict[str, int | None] = {}
+
+    async def create_process(
+        *args: str,
+        env: dict[str, str],
+        stdout: int | None = None,
+        stderr: int | None = None,
+    ) -> FakeProcess:
+        output_settings.update(stdout=stdout, stderr=stderr)
+        return FakeProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", create_process)
+    launcher = EmulatorLauncher(
+        EmulatorSettings(
+            rom_path=tmp_path / "aw2.gba",
+            bridge_script=bridge,
+            suppress_emulator_output=True,
+        )
+    )
+
+    await launcher.start()
+
+    assert output_settings == {
+        "stdout": asyncio.subprocess.DEVNULL,
+        "stderr": asyncio.subprocess.DEVNULL,
+    }
 
 
 @pytest.mark.anyio

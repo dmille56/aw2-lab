@@ -3,6 +3,7 @@
 local pending_chunks = {}
 local sent_data = ""
 local active_client
+local close_count
 local frame_callback
 local complete_callback
 local queued_request
@@ -41,6 +42,11 @@ function client.send(_self, data, first, last)
     end
     active_client = nil
     return finish
+end
+function client.close(_self)
+    close_count = close_count + 1
+    active_client = nil
+    return 1
 end
 
 local listener = {}
@@ -153,6 +159,7 @@ describe("mGBA Lua bridge", function()
         pending_chunks = {}
         sent_data = ""
         active_client = nil
+        close_count = 0
         frame = 100
         keys = 0
         frames_run = 0
@@ -211,10 +218,12 @@ describe("mGBA Lua bridge", function()
         frame_callback() -- Handle the request from the frontend's paused poll loop.
 
         assert.are.equal(100, frame)
+        assert.are.equal(0, close_count)
         assert.are.equal("", sent_data)
         assert.are.same({frames = 4, keys = 1, release = true}, queued_request)
         frame_callback() -- Another poll cannot process a second request mid-budget.
         finish_native_request()
+        assert.are.equal(1, close_count)
         assert.are.equal(104, frame)
         assert.are.equal(4, #input_samples)
         assert.are.same({1, 1, 1, 1}, input_samples)
@@ -532,5 +541,13 @@ describe("mGBA Lua bridge", function()
         frame_callback()
         assert.is_truthy(sent_data:match('"id":13'))
         assert.is_truthy(sent_data:match('"id":14'))
+        assert.are.equal(2, close_count)
+    end)
+
+    it("closes a client after dropping an incomplete disconnected request", function()
+        pending_chunks = {{error = "disconnected", partial = ""}}
+        frame_callback()
+        frame_callback()
+        assert.are.equal(1, close_count)
     end)
 end)

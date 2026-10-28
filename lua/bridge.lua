@@ -312,6 +312,10 @@ local function send_response(client, response)
     return true
 end
 
+local function close_client(client)
+    if client then pcall(function() client:close() end) end
+end
+
 local function handle_line(client, line)
     local ok, request = pcall(decode_json, line)
     local response
@@ -349,6 +353,7 @@ function bridge.poll()
     chunk = chunk or partial
     if not chunk then
         if receive_error then
+            close_client(client)
             client = nil
             buffer = nil
         end
@@ -359,6 +364,7 @@ function bridge.poll()
         send_response(
             client, error_response(nil, "message_too_large", "Request exceeds the size limit")
         )
+        close_client(client)
         client = nil
         buffer = nil
         return
@@ -368,9 +374,11 @@ function bridge.poll()
         local deferred = handle_line(client, buffer:sub(1, newline - 1))
         if deferred then return end
         -- The Python client uses one request per connection.
+        close_client(client)
         client = nil
         buffer = nil
     elseif receive_error and receive_error ~= "timeout" then
+        close_client(client)
         client = nil
         buffer = nil
     end
@@ -407,6 +415,7 @@ function bridge.complete()
         }
     end
     send_response(client, response)
+    close_client(client)
     client = nil
     buffer = nil
 end

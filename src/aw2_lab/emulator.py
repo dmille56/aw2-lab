@@ -30,6 +30,7 @@ class EmulatorSettings:
     windowed_executable: str | None = None
     bridge_script: Path | None = None
     show_scripting_console: bool = False
+    suppress_emulator_output: bool = False
     bridge_ready_timeout: float = 15.0
 
 
@@ -101,6 +102,12 @@ class EmulatorLauncher:
                 str(script),
                 str(self.settings.rom_path),
                 env=environment,
+                stdout=(
+                    asyncio.subprocess.DEVNULL if self.settings.suppress_emulator_output else None
+                ),
+                stderr=(
+                    asyncio.subprocess.DEVNULL if self.settings.suppress_emulator_output else None
+                ),
             )
         except OSError as error:
             raise EmulatorLaunchError(

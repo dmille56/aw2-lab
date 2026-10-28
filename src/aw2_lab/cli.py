@@ -28,6 +28,9 @@ from aw2_lab.rom_profile import UnsupportedRomError
 
 
 def main() -> None:
+    if sys.argv[1:2] == ["record-cold-boot"]:
+        _record_cold_boot(sys.argv[2:])
+        return
     if sys.argv[1:2] == ["dump-memory"]:
         _dump_memory(sys.argv[2:])
         return
@@ -41,7 +44,7 @@ def main() -> None:
         prog="aw2-lab",
         epilog=(
             "Research tools: aw2-lab dump-memory --help; aw2-lab diff-memory --help; "
-            "aw2-lab watch-memory --help"
+            "aw2-lab watch-memory --help; aw2-lab record-cold-boot --help"
         ),
     )
     parser.add_argument("--host", default="127.0.0.1", help="HTTP bind address (default: loopback)")
@@ -138,6 +141,12 @@ def main() -> None:
         host=args.host,
         port=args.port,
     )
+
+
+def _record_cold_boot(arguments: list[str]) -> None:
+    from aw2_lab.cold_boot_recorder import recorder_main
+
+    recorder_main(arguments)
 
 
 def _memory_range(value: str) -> tuple[int, int]:

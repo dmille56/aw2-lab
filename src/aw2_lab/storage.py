@@ -25,8 +25,25 @@ def resolve_storage_root(path: Path | str | None = None) -> Path:
     root = root.resolve()
     repository = Path(__file__).resolve().parents[2]
     nix_store = Path("/nix/store")
-    if root == repository or repository in root.parents:
+    if (
+        root == repository
+        or repository in root.parents
+        or any(_is_aw2_lab_checkout(candidate) for candidate in (root, *root.parents))
+    ):
         raise ValueError("Storage directory must be outside the aw2-lab source checkout")
     if root == nix_store or nix_store in root.parents:
         raise ValueError("Storage directory must be outside the Nix store")
     return root
+
+
+def _is_aw2_lab_checkout(candidate: Path) -> bool:
+    """Recognize the repository when this module is imported from an installed wheel."""
+    project_file = candidate / "pyproject.toml"
+    source_package = candidate / "src" / "aw2_lab"
+    if not project_file.is_file() or not source_package.is_dir():
+        return False
+    try:
+        project = project_file.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return 'name = "aw2-lab"' in project
