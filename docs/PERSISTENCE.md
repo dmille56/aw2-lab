@@ -43,6 +43,11 @@ fresh checkpoint and terminal `rolled_back` result before publishing the
 restored observation. If any restore or validation step fails, the tracker
 remains unavailable and the match enters `recovery_required`.
 
+Failure handling first sends a zero key mask through the bridge and requires
+confirmation before rollback. Failure to release keys blocks rollback and
+places the match in `recovery_required`. In that lifecycle, serialized
+mutations are rejected; only the named checkpoint restore operation may run.
+
 After an action reaches a validated boundary, the controller commits its state
 in this order:
 

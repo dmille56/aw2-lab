@@ -64,6 +64,8 @@ class CheckpointBridge(Protocol):
 
     async def load_state_buffer(self, state: bytes) -> int: ...
 
+    async def set_keys(self, keys: int) -> int: ...
+
 
 @dataclass(frozen=True, slots=True)
 class CapturedCheckpointState:

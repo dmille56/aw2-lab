@@ -118,6 +118,7 @@ class ActionExecutor(Protocol):
 MutationHandler = Callable[[], Awaitable[MutationOutcome]]
 RecoveryCheckpointProvider = Callable[[UUID, UUID, int | None], Awaitable[UUID]]
 RecoveryRollbackProvider = Callable[[UUID, UUID, UUID, ErrorBody], Awaitable[MutationOutcome]]
+InputReleaseProvider = Callable[[], Awaitable[None]]
 
 
 @dataclass(slots=True)
@@ -159,6 +160,7 @@ class MatchController:
         journal: CommandJournal | None = None,
         recovery_checkpoint_provider: RecoveryCheckpointProvider | None = None,
         recovery_rollback_provider: RecoveryRollbackProvider | None = None,
+        input_release_provider: InputReleaseProvider | None = None,
         queue_capacity: int = 64,
         command_capacity: int = 4096,
         shutdown_timeout: float = 30.0,
@@ -172,6 +174,7 @@ class MatchController:
         self._journal = journal
         self._recovery_checkpoint_provider = recovery_checkpoint_provider
         self._recovery_rollback_provider = recovery_rollback_provider
+        self._input_release_provider = input_release_provider
         self._queue: asyncio.Queue[_CommandRecord | None] = asyncio.Queue(queue_capacity)
         self._command_capacity = command_capacity
         self._shutdown_timeout = shutdown_timeout
@@ -210,6 +213,12 @@ class MatchController:
         if self._recovery_rollback_provider is not None:
             return
         self._recovery_rollback_provider = provider
+
+    def set_input_release_provider(self, provider: InputReleaseProvider) -> None:
+        """Install the trusted bridge operation that releases every held button."""
+        if self._input_release_provider is not None:
+            return
+        self._input_release_provider = provider
 
     async def stop(self) -> None:
         """Stop accepting work, drain accepted commands, and surface shutdown failures."""
@@ -588,18 +597,42 @@ class MatchController:
                         diagnostic=error.body,
                     )
                 except CommandRejected as error:
+                    release_error = await self._release_held_inputs()
+                    if release_error is not None:
+                        await self._require_recovery(
+                            record,
+                            "Command failed and held inputs could not be released",
+                            diagnostic=release_error,
+                        )
+                        continue
                     await self._restore_lifecycle_after_rejection(record)
                     await self._finish(record, CommandStatus.REJECTED, error=error.body)
                 except CheckpointError as error:
                     if record.previous_lifecycle is None:
-                        await self._finish(record, CommandStatus.REJECTED, error=error.body)
+                        release_error = await self._release_held_inputs()
+                        if release_error is not None:
+                            await self._require_recovery(
+                                record,
+                                "Command failed and held inputs could not be released",
+                                diagnostic=release_error,
+                            )
+                        else:
+                            await self._finish(record, CommandStatus.REJECTED, error=error.body)
                     else:
                         await self._rollback_or_require_recovery(record, error.body)
                 except MatchControllerError as error:
                     if record.previous_lifecycle is not None:
                         await self._rollback_or_require_recovery(record, error.body)
                     else:
-                        await self._finish(record, CommandStatus.REJECTED, error=error.body)
+                        release_error = await self._release_held_inputs()
+                        if release_error is not None:
+                            await self._require_recovery(
+                                record,
+                                "Command failed and held inputs could not be released",
+                                diagnostic=release_error,
+                            )
+                        else:
+                            await self._finish(record, CommandStatus.REJECTED, error=error.body)
                 except asyncio.CancelledError:
                     await self._require_recovery(record, "Controller stopped during execution")
                     raise
@@ -694,9 +727,12 @@ class MatchController:
                 raise MatchControllerError(ErrorCode.MATCH_CLOSED, "The match is closed")
             if lifecycle is MatchLifecycle.FINISHED and not record.allow_recovery:
                 raise MatchControllerError(ErrorCode.MATCH_FINISHED, "The match is finished")
-            if lifecycle is MatchLifecycle.RECOVERY_REQUIRED and not record.allow_recovery:
+            if lifecycle is MatchLifecycle.RECOVERY_REQUIRED and (
+                not record.allow_recovery or record.operation_name != "checkpoint_restore"
+            ):
                 raise MatchControllerError(
-                    ErrorCode.RECOVERY_REQUIRED, "Restore a checkpoint before mutating the match"
+                    ErrorCode.RECOVERY_REQUIRED,
+                    "Only explicit checkpoint restoration is allowed while recovery is required",
                 )
             if (
                 record.expected_revision is not None
@@ -733,6 +769,17 @@ class MatchController:
             CommandStatus.RECOVERY_REQUIRED,
         }:
             raise RuntimeError("Executor returned a nonterminal command status")
+        if outcome.status is CommandStatus.RECOVERY_REQUIRED:
+            release_error = await self._release_held_inputs()
+            if release_error is not None:
+                outcome = MutationOutcome(
+                    observation=outcome.observation,
+                    lifecycle=MatchLifecycle.RECOVERY_REQUIRED,
+                    status=CommandStatus.RECOVERY_REQUIRED,
+                    error=_combine_errors(outcome.error, release_error),
+                    checkpoint_id=outcome.checkpoint_id,
+                    commit_checkpoint=outcome.commit_checkpoint,
+                )
         async with self._state_lock:
             if self._forced_shutdown:
                 return
@@ -797,9 +844,14 @@ class MatchController:
                 checkpoint_id=outcome.checkpoint_id,
             )
             if not persisted:
+                release_error = await self._release_held_inputs()
                 match.summary = match.summary.model_copy(
                     update={"lifecycle": MatchLifecycle.RECOVERY_REQUIRED}
                 )
+                if release_error is not None and record.result is not None:
+                    record.result = record.result.model_copy(
+                        update={"error": _combine_errors(record.result.error, release_error)}
+                    )
                 return
             if outcome.observation is not None:
                 match.observation = outcome.observation
@@ -812,7 +864,11 @@ class MatchController:
         *,
         diagnostic: ErrorBody | None = None,
     ) -> None:
+        release_error = await self._release_held_inputs()
         details = _diagnostic_details(diagnostic)
+        if release_error is not None:
+            details.update(_diagnostic_details(release_error))
+            details["input_release_failed"] = True
         error = ErrorBody(
             code=ErrorCode.RECOVERY_REQUIRED,
             message=message,
@@ -830,6 +886,14 @@ class MatchController:
     async def _rollback_or_require_recovery(
         self, record: _CommandRecord, original_error: ErrorBody
     ) -> None:
+        release_error = await self._release_held_inputs()
+        if release_error is not None:
+            await self._require_recovery(
+                record,
+                "Action failed and held inputs could not be released",
+                diagnostic=_combine_errors(original_error, release_error),
+            )
+            return
         provider = self._recovery_rollback_provider
         checkpoint_id = record.recovery_checkpoint_id
         if provider is None or checkpoint_id is None:
@@ -866,6 +930,20 @@ class MatchController:
                     },
                 ),
             )
+
+    async def _release_held_inputs(self) -> ErrorBody | None:
+        provider = self._input_release_provider
+        if provider is None:
+            return None
+        try:
+            await provider()
+        except Exception as error:  # noqa: BLE001 -- unknown key state requires recovery
+            return ErrorBody(
+                code=ErrorCode.RECOVERY_REQUIRED,
+                message="Could not confirm release of held emulator inputs",
+                details={"cause": type(error).__name__},
+            )
+        return None
 
     async def _restore_lifecycle_after_rejection(self, record: _CommandRecord) -> None:
         if record.previous_lifecycle is None:
@@ -1131,6 +1209,18 @@ def _diagnostic_details(diagnostic: ErrorBody | None) -> dict[str, str | int | b
     details["failure_code"] = diagnostic.code.value
     details["failure_message"] = diagnostic.message[:200]
     return details
+
+
+def _combine_errors(primary: ErrorBody | None, secondary: ErrorBody) -> ErrorBody:
+    details = _diagnostic_details(primary)
+    details["secondary_failure_code"] = secondary.code.value
+    details["secondary_failure_message"] = secondary.message[:200]
+    details.update({f"secondary_{key}": value for key, value in secondary.details.items()})
+    return ErrorBody(
+        code=ErrorCode.RECOVERY_REQUIRED,
+        message="Mutation recovery could not release emulator inputs",
+        details=details,
+    )
 
 
 def _without_credentials(value: Any) -> Any:

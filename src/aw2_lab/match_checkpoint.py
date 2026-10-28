@@ -78,6 +78,17 @@ class MatchCheckpointService:
         self.runtime = runtime
         self.controller.set_recovery_checkpoint_provider(self.capture_recovery_checkpoint)
         self.controller.set_recovery_rollback_provider(self.restore_recovery_checkpoint)
+        self.controller.set_input_release_provider(self.release_inputs)
+
+    async def release_inputs(self) -> None:
+        """Release all GBA buttons and require the bridge to confirm a neutral mask."""
+        keys = await self.bridge.set_keys(0)
+        if keys != 0:
+            raise CheckpointError(
+                ErrorCode.RECOVERY_REQUIRED,
+                "The emulator did not confirm release of held inputs",
+                details={"reported_keys": keys},
+            )
 
     async def capture_recovery_checkpoint(
         self, match_id: UUID, command_id: UUID, expected_revision: int | None
@@ -157,6 +168,7 @@ class MatchCheckpointService:
             checkpoint_observation_metadata(manifest), durable_revision_floor=floor
         )
         try:
+            await self.release_inputs()
             await restore_checkpoint_state(
                 self.bridge,
                 manifest,
@@ -322,6 +334,7 @@ class MatchCheckpointService:
 
             # From here onward any failure must keep the match recovery-required.
             try:
+                await self.release_inputs()
                 await restore_checkpoint_state(
                     self.bridge,
                     manifest,

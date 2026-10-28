@@ -26,6 +26,9 @@ class MemoryBridge:
         self.loads = 0
         self.saves = 0
         self.fail_load = False
+        self.fail_release = False
+        self.keys = 0
+        self.release_calls = 0
 
     async def save_state_buffer_with_frame(self):
         self.saves += 1
@@ -43,6 +46,14 @@ class MemoryBridge:
         ewram[:] = state[4 : 4 + len(ewram)]
         iwram[:] = state[4 + len(ewram) :]
         return self.frame
+
+    async def set_keys(self, keys):
+        if keys == 0:
+            self.release_calls += 1
+            if self.fail_release:
+                raise RuntimeError("synthetic input-release failure")
+        self.keys = keys
+        return keys
 
     async def decoded(self):
         return decode_snapshot(replace(snapshot(self.memory), frame=self.frame))
@@ -183,6 +194,7 @@ async def test_failed_mutation_restores_emulator_and_tracker_from_recovery_check
         before = await controller.current_observation(match_id)
 
         async def fail_after_mutation():
+            bridge.keys = 3
             memory[1][0x22692] = 1
             bridge.frame += 20
             raise TimeoutError("synthetic navigation timeout")
@@ -205,7 +217,47 @@ async def test_failed_mutation_restores_emulator_and_tracker_from_recovery_check
         assert restored.game_state == before.game_state
         assert service.session.tracker.read() == restored
         assert bridge.frame == before.game_state.frame
+        assert bridge.keys == 0
+        assert bridge.release_calls >= 1
         assert service.store.current().command_result == result
+    finally:
+        await controller.stop()
+
+
+@run_async_test
+async def test_input_release_failure_requires_recovery_and_blocks_mutations(memory, tmp_path):
+    _service, controller, match_id, credential, _, bridge = await prepare(memory, tmp_path)
+    try:
+        before = await controller.current_observation(match_id)
+        bridge.keys = 1
+        bridge.fail_release = True
+
+        async def fail_action():
+            raise TimeoutError("synthetic action timeout")
+
+        receipt = await controller.submit_serialized_mutation(
+            match_id=match_id,
+            request_id=uuid4(),
+            operation_name="input_release_failure",
+            payload={},
+            expected_revision=before.revision,
+            handler=fail_action,
+        )
+        result = await controller.wait_for_command(match_id, receipt.command_id, timeout=2)
+
+        assert result.status is CommandStatus.RECOVERY_REQUIRED
+        assert result.resulting_revision == before.revision
+        assert result.error is not None
+        assert result.error.details["input_release_failed"] is True
+        assert bridge.loads == 0
+        assert (await controller.inspect_match(match_id)).lifecycle is (
+            MatchLifecycle.RECOVERY_REQUIRED
+        )
+        blocked = await controller.close_match(match_id, credential, request_id=uuid4())
+        blocked_result = await controller.wait_for_command(match_id, blocked.command_id, timeout=2)
+        assert blocked_result.status is CommandStatus.RECOVERY_REQUIRED
+        assert blocked_result.error is not None
+        assert blocked_result.error.code is ErrorCode.RECOVERY_REQUIRED
     finally:
         await controller.stop()
 
@@ -280,6 +332,7 @@ async def test_failed_restore_requires_recovery_and_successful_restore_unblocks(
         before = await controller.current_observation(match_id)
         saved = await create(service, controller, match_id, credential)
         bridge.fail_load = True
+        bridge.keys = 31
         receipt = await service.restore(
             match_id,
             saved.checkpoint_id,
@@ -293,11 +346,18 @@ async def test_failed_restore_requires_recovery_and_successful_restore_unblocks(
         assert failure.error is not None
         assert failure.error.details["failure_code"] == ErrorCode.RECOVERY_REQUIRED.value
         assert "could not restore" in failure.error.details["failure_message"]
+        assert bridge.keys == 0
+        assert bridge.release_calls > 0
         assert (
             await controller.inspect_match(match_id)
         ).lifecycle is MatchLifecycle.RECOVERY_REQUIRED
         assert await controller.current_observation(match_id) is before
         assert not service.session.tracker.continuity_valid
+        close = await controller.close_match(match_id, credential, request_id=uuid4())
+        close_result = await controller.wait_for_command(match_id, close.command_id, timeout=2)
+        assert close_result.status is CommandStatus.REJECTED
+        assert close_result.error is not None
+        assert close_result.error.code is ErrorCode.RECOVERY_REQUIRED
         missing = await service.restore(
             match_id,
             uuid4(),
