@@ -111,11 +111,12 @@ screenshots, and machine-specific paths outside Git and the Nix store.
 * Cold boot and controller-input automation
 
 ** TODO Automate cold boot into the fixed two-player Versus match
-   - [ ] Navigate startup, mode selection, map selection, CO/team setup, and rules using controller inputs.
-   - [ ] Account for fresh and existing cartridge save data without depending on manually prepared unlocks or menu positions.
+   - [X] Navigate startup, mode selection, map selection, CO/team setup, and rules using controller inputs.
+   - [X] Account for fresh and existing cartridge save data without depending on manually prepared unlocks or menu positions.
    - [ ] Verify the selected map, COs, teams, rules, and settled first player turn before accepting gameplay.
-   - [ ] Recognize unexpected setup screens and stop or recover with diagnostics.
-   - [ ] Record reproduction steps and verify the same configuration in both emulator modes.
+   - [X] Recognize unexpected setup screens and stop or recover with diagnostics.
+   - [X] Record reproduction steps and verify the same configuration in both emulator modes.
+   - Implementation and evidence: [[file:../src/aw2_lab/cold_boot.py][cold_boot.py]] uses bounded selector-table navigation for variable mode-menu starts, handles Continue/New and the recognized overwrite prompt in the isolated save copy, and verifies the first playable state. Fresh and existing-save captures are documented in [[file:COLD-BOOT-RESEARCH.md][the cold-boot research log]]. Fog Off is still evidenced by the Rules screenshot only; its runtime postcondition remains unverified.
 
 ** TODO Build bounded action navigation and readiness guards
    - [ ] Implement reusable cursor movement, unit selection, menu navigation, target selection, and confirmation steps.

@@ -81,7 +81,7 @@ def recorder_main(arguments: list[str]) -> None:
     parser.add_argument(
         "--automate-fixed-match",
         action="store_true",
-        help="run the captured fresh-save path automatically and stop at the first player turn",
+        help="run the recognized fresh or existing-save path to the first player turn",
     )
     args = parser.parse_args(arguments)
 
@@ -94,8 +94,6 @@ def recorder_main(arguments: list[str]) -> None:
         parser.error("--existing-save is required when --save-mode is existing")
     if args.save_mode == "fresh" and args.existing_save is not None:
         parser.error("--existing-save cannot be used with --save-mode fresh")
-    if args.automate_fixed_match and args.save_mode != "fresh":
-        parser.error("--automate-fixed-match is only verified for --save-mode fresh")
     if args.existing_save is not None and not args.existing_save.expanduser().is_file():
         parser.error(f"existing save is not a file: {args.existing_save}")
 
@@ -210,6 +208,7 @@ def recorder_main(arguments: list[str]) -> None:
                 result = await boot_fixed_versus_match(
                     bridge,
                     rom_path=rom_path,
+                    save_mode=args.save_mode,
                     checkpoint_recorder=record_checkpoint,
                 )
                 battle = result.game_state.battle.value

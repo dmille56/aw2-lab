@@ -64,8 +64,10 @@ The manual trace remains the source evidence for the automated cold-boot
 sequence. Without `--automate-fixed-match`, the recorder does not navigate menus
 or claim that a particular setup is correct.
 
-To run the captured fresh-save path automatically and record its recognized
-screen boundaries, add `--automate-fixed-match`:
+To run the fixed-match path automatically and record its recognized screen
+boundaries, add `--automate-fixed-match`. Fresh saves use `--save-mode fresh`;
+existing saves must also specify the source `.sav` file, which is copied into
+the isolated output directory before mGBA starts:
 
 ```sh
 nix develop -c python -m aw2_lab record-cold-boot \
@@ -74,12 +76,14 @@ nix develop -c python -m aw2_lab record-cold-boot \
   --output /tmp/aw2-coldboot-automated-headless
 ```
 
-Use `--mode windowed` to watch the same sequence. The automatic path is only
-enabled for fresh saves until existing-save behavior is recorded. It stops with
-diagnostics if the selected map, initial teams/COs, lifecycle phase, or first
-playable state differ from the supported configuration. The Rules screenshot is
-saved for visual checking; Fog Off currently has no verified runtime RAM
-postcondition.
+Use `--mode windowed` to watch the same sequence. Mode and Continue/New menus
+are navigated using verified selector signatures rather than a fixed starting
+cursor. If the existing save presents an overwrite confirmation, automation
+confirms it only after recognizing the prompt and its Yes selection; this
+affects only the isolated save copy. It stops with diagnostics if the selected
+map, team setup, lifecycle phase, or first playable state differ from the
+supported configuration. The Rules screenshot is saved for visual checking;
+Fog Off currently has no verified runtime RAM postcondition.
 
 ## Fresh-save windowed trace (2026-10-28)
 
@@ -104,5 +108,28 @@ The final coherent RAM capture confirms map ID 1 at 16 x 15, active player
 slots 1 and 2 with CO IDs 1 (Andy) and 2 (Max), team IDs 0 and 1, day 1, clear
 weather, and player 1's turn. The Rules screenshot shows Fog OFF, Weather
 Random, Funds 1000, Turn Off, Capture Off, and Power ON. This establishes the
-fresh-save windowed path. Existing-save behavior and automated headless replay
-remain unverified.
+fresh-save windowed path. The fresh-save sequence also completed in headless
+automation. Existing-save automation and windowed automation remain unverified.
+
+## Existing-save windowed trace (2026-10-28)
+
+The completed run is preserved outside Git at
+`/tmp/aw2-coldboot-windowed-existing`. It used the same ROM and windowed mGBA
+build as the fresh-save run. The trace contains 80 captures through frame 3327,
+where the lifecycle recognizes `battle_player_turn`.
+
+The main-menu cursor can open on the most recently played mode, so it is not
+safe to assume Campaign is selected. In this run, Versus had a saved battle:
+selecting Versus opened a `Continue`/`New` choice. Choosing `New` then opened a
+separate confirmation that the saved game would be overwritten. After that
+confirmation, the trace followed the same Bean Island, CO/team, and rules setup
+path as the fresh-save run.
+
+The automatic path completed with the existing save in both modes. The
+windowed replay presented Continue/New and the overwrite confirmation; the
+headless replay went directly to New with the same source save. Both reached
+the first player turn with the supported configuration verified. These runs
+are preserved at `/tmp/aw2-coldboot-automated-existing-windowed-final` and
+`/tmp/aw2-coldboot-automated-existing-headless-final`. Automation supports
+either observed branch and confirms an overwrite only for the recognized prompt
+inside its isolated copy. The different frontend paths remain a research note.

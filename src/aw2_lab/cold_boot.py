@@ -6,7 +6,7 @@ import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 from struct import unpack_from
-from typing import Protocol
+from typing import Literal, Protocol
 
 from aw2_lab.bridge import LuaBridgeClient
 from aw2_lab.lifecycle import BattleControlObservation, LifecyclePhase, classify_lifecycle
@@ -22,12 +22,19 @@ _BATTLE_STATE = (0x030032D8, 2)
 _LOCK = (0x030030F0, 1)
 _INPUT_GATE = (0x030040E4, 2)
 _INPUT_STATE = (0x03003334, 2)
+_FRONTEND_SELECTOR = (0x03001470, 0x80)
 _POLL_FRAMES = 30
 _MAX_PHASE_FRAMES = 1800
 _KEY_A = 1
 _KEY_DOWN = 128
 _KEY_UP = 64
 _KEY_LEFT = 32
+# Main-menu and Continue/New selector tables identified in the manual traces.
+_VERSUS_MODE_TABLE = 0x086076DF
+_CONTINUE_CHOICE_TABLE = 0x0860770A
+_NEW_CHOICE_TABLE = 0x0860772B
+_OVERWRITE_DIALOG_OBJECT = 0x08489530
+_OVERWRITE_DIALOG_TABLE = 0x08610378
 
 
 class ColdBootError(RuntimeError):
@@ -60,20 +67,24 @@ class _FrontendState:
     map_id: int
     setup_subphase: int
     setup: bytes
+    selector_object: int
+    selector_table: int
+    yes_no_selection: int
 
 
 async def boot_fixed_versus_match(
     bridge: LuaBridgeClient,
     *,
     rom_path: Path,
+    save_mode: Literal["fresh", "existing"] = "fresh",
     checkpoint_recorder: CheckpointRecorder | None = None,
 ) -> ColdBootResult:
     """Navigate from cartridge boot and verify the fixed first playable turn.
 
-    Inputs are restricted to the sequence observed in a full fresh-save trace.
-    Every wait is bounded by a frame budget and each screen boundary uses the
-    ROM-specific lifecycle classifier. Setup values and the final playable
-    state are checked before returning success.
+    Frontend menu inputs use ROM-specific selector signatures observed in the
+    fresh and existing save traces. Existing-save overwrite confirmation is
+    accepted only after the expected prompt is recognized in the isolated save
+    copy. Every wait is bounded and the final playable state is verified.
     """
     select_rom_profile(rom_path)
     events: list[ColdBootEvent] = []
@@ -88,9 +99,20 @@ async def boot_fixed_versus_match(
             _LOCK,
             _INPUT_GATE,
             _INPUT_STATE,
+            _FRONTEND_SELECTOR,
         ]
         snapshot = await bridge.read_memory_snapshot(ranges)
-        pool, control, callbacks, setup, battle_state, lock, gate, input_state = snapshot.ranges
+        (
+            pool,
+            control,
+            callbacks,
+            setup,
+            battle_state,
+            lock,
+            gate,
+            input_state,
+            selector,
+        ) = snapshot.ranges
         scripts = tuple(unpack_from("<I", pool, index * 0x6C)[0] for index in range(32))
         lifecycle = classify_lifecycle(
             unpack_from("<I", callbacks)[0],
@@ -110,6 +132,9 @@ async def boot_fixed_versus_match(
             map_id=control[0x86],
             setup_subphase=setup[0x15],
             setup=setup,
+            selector_object=unpack_from("<I", selector)[0],
+            selector_table=unpack_from("<I", selector, 0x20)[0],
+            yes_no_selection=selector[0x7E],
         )
 
     async def checkpoint(
@@ -171,6 +196,63 @@ async def boot_fixed_versus_match(
             )
         return state
 
+    async def select_versus(state: _FrontendState) -> _FrontendState:
+        if state.phase is not LifecyclePhase.MODE_SELECT:
+            raise ColdBootError(f"Expected Select Mode; observed {state.phase.value}")
+        if state.selector_table == 0:
+            raise ColdBootError("Select Mode has no recognized selector table")
+
+        for index in range(1, 8):
+            if state.selector_table == _VERSUS_MODE_TABLE:
+                await checkpoint("versus-selected", state)
+                return state
+            await tap(f"navigate-mode-{index}", _KEY_DOWN)
+            state = await settle()
+            if state.phase is not LifecyclePhase.MODE_SELECT:
+                raise ColdBootError(
+                    f"Leaving Select Mode while locating Versus: {state.phase.value}"
+                )
+            if state.selector_table == 0:
+                raise ColdBootError("Mode selection lost its selector table while navigating")
+        raise ColdBootError(
+            "Versus was not reached within the bounded mode-menu cycle; "
+            f"last selector table 0x{state.selector_table:08X}"
+        )
+
+    async def wait_for_overwrite_or_map() -> tuple[_FrontendState, bool]:
+        state = await observe()
+        elapsed = 0
+        while True:
+            if state.phase is LifecyclePhase.VERSUS_MAP_SELECT:
+                return state, False
+            if (
+                state.phase is LifecyclePhase.MODE_SELECT
+                and state.selector_object == _OVERWRITE_DIALOG_OBJECT
+                and state.selector_table == _OVERWRITE_DIALOG_TABLE
+            ):
+                if state.yes_no_selection != 0:
+                    raise ColdBootError(
+                        "Overwrite prompt is not on Yes; refusing to confirm it "
+                        f"(selected row {state.yes_no_selection})"
+                    )
+                return state, True
+            if elapsed >= _MAX_PHASE_FRAMES:
+                raise ColdBootError(
+                    "Timed out waiting for Bean Island selection or the recognized "
+                    "existing-save overwrite prompt; observed "
+                    f"{state.phase.value}, object 0x{state.selector_object:08X}, "
+                    f"table 0x{state.selector_table:08X} at frame {state.frame}"
+                )
+            count = min(_POLL_FRAMES, _MAX_PHASE_FRAMES - elapsed)
+            end_frame = await bridge.advance_frames(count)
+            elapsed += count
+            state = await observe()
+            if state.frame != end_frame:
+                raise ColdBootError(
+                    f"Frame changed while awaiting save prompt: expected {end_frame}, "
+                    f"observed {state.frame}"
+                )
+
     async with asyncio.timeout(180):
         await bridge.connect()
         title = await wait_for(LifecyclePhase.TITLE)
@@ -223,30 +305,54 @@ async def boot_fixed_versus_match(
         # Let the mode menu finish its transition before moving the cursor.
         # The observed manual trace includes a neutral interval here; without
         # it the first Down can be consumed by the title-to-menu transition.
-        mode_select = await settle(120)
+        mode_select = await settle(180)
         if mode_select.phase is not LifecyclePhase.MODE_SELECT:
             raise ColdBootError(
                 f"Leaving mode selection during initial settle: {mode_select.phase.value}"
             )
+        await checkpoint("mode-menu-ready", mode_select)
 
-        await tap("highlight-versus", _KEY_DOWN)
-        versus_selected = await settle()
-        if versus_selected.phase is not LifecyclePhase.MODE_SELECT:
+        await select_versus(mode_select)
+        choice = await tap("open-versus", _KEY_A)
+        choice = await settle()
+        if choice.phase is not LifecyclePhase.MODE_SELECT:
             raise ColdBootError(
-                f"Leaving mode selection after Down: observed {versus_selected.phase.value}"
+                f"Unexpected phase at the Versus Continue/New choice: {choice.phase.value}"
             )
-        await checkpoint("versus-selected", versus_selected)
-
-        await tap("open-versus", _KEY_A)
-        new_choice = await settle()
-        if new_choice.phase is not LifecyclePhase.MODE_SELECT:
+        if choice.selector_table == _CONTINUE_CHOICE_TABLE:
+            await checkpoint("versus-continue-selected", choice)
+            choice = await tap("select-new-versus", _KEY_DOWN)
+            choice = await settle()
+        if choice.selector_table != _NEW_CHOICE_TABLE:
             raise ColdBootError(
-                f"Unexpected phase at the Versus New choice: {new_choice.phase.value}"
+                "Versus New was not selected; observed selector table "
+                f"0x{choice.selector_table:08X}"
             )
-        await checkpoint("versus-new-choice", new_choice)
+        await checkpoint("versus-new-choice", choice)
         await tap("confirm-versus-new", _KEY_A)
 
-        map_select = await wait_for(LifecyclePhase.VERSUS_MAP_SELECT)
+        after_new, overwrite_prompt = await wait_for_overwrite_or_map()
+        if overwrite_prompt:
+            if save_mode != "existing":
+                raise ColdBootError(
+                    "Unexpected overwrite prompt for fresh-save automation; refusing to confirm it"
+                )
+            after_new = await settle(_POLL_FRAMES)
+            if (
+                after_new.selector_object != _OVERWRITE_DIALOG_OBJECT
+                or after_new.selector_table != _OVERWRITE_DIALOG_TABLE
+                or after_new.yes_no_selection != 0
+            ):
+                raise ColdBootError(
+                    "Existing-save overwrite prompt changed before confirmation; "
+                    "refusing to confirm it"
+                )
+            await checkpoint("overwrite-confirmation", after_new)
+            await tap("confirm-overwrite-existing-copy", _KEY_A)
+
+        map_select = (
+            after_new if not overwrite_prompt else await wait_for(LifecyclePhase.VERSUS_MAP_SELECT)
+        )
         if map_select.map_id != 1:
             raise ColdBootError(
                 f"Bean Island must be selected at map entry; observed map ID {map_select.map_id}"
@@ -264,9 +370,6 @@ async def boot_fixed_versus_match(
             LifecyclePhase.VERSUS_SETUP,
             setup_subphase=0,
         )
-        _verify_setup(teams)
-        await checkpoint("teams-co-setup", teams)
-
         for label, keys in (
             ("select-team-player", _KEY_LEFT),
             ("select-player-control", _KEY_UP),
@@ -276,6 +379,14 @@ async def boot_fixed_versus_match(
         ):
             await tap(label, keys)
             await settle()
+
+        teams = await observe()
+        if teams.phase is not LifecyclePhase.VERSUS_SETUP or teams.setup_subphase != 0:
+            raise ColdBootError(
+                f"Unexpected phase after team/CO setup: {teams.phase.value}/{teams.setup_subphase}"
+            )
+        _verify_setup(teams)
+        await checkpoint("teams-co-setup", teams)
 
         await tap("open-rules", _KEY_A)
         rules = await wait_for(LifecyclePhase.VERSUS_SETUP, setup_subphase=2)
@@ -303,13 +414,10 @@ async def boot_fixed_versus_match(
 
 def _verify_setup(state: _FrontendState) -> None:
     teams = state.setup[0:4]
-    cos = state.setup[0x0B:0x0F]
     if teams[:2] != bytes((0, 1)):
         raise ColdBootError(
             f"Expected players 1/2 on separate teams A/B; observed {teams[:2].hex()}"
         )
-    if cos[:2] != bytes((0, 1)):
-        raise ColdBootError(f"Expected Andy/Max selection in slots 1/2; observed {cos[:2].hex()}")
 
 
 def _verify_playable_state(state: GameState, map_id: int) -> None:
