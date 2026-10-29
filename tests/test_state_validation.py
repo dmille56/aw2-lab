@@ -23,7 +23,7 @@ from aw2_lab.state_validation import (
     load_battle_layout,
     validate_battle_snapshot,
 )
-from aw2_lab.ui_state import CursorStatus, MenuFamily, observe_map_cursor, observe_menu
+from aw2_lab.ui_state import CursorStatus, MenuFamily, MenuItem, observe_map_cursor, observe_menu
 
 
 @pytest.fixture
@@ -142,7 +142,7 @@ def test_unit_action_menu_resolves_selected_unit_against_table_and_map(memory) -
     menu = observe_menu(current, report)
     assert report.lifecycle.phase is LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
     assert menu.family is MenuFamily.UNIT_ACTION
-    assert menu.selected_unit is not None
+    assert menu.selected_unit is not None, menu.reasons
     assert menu.selected_unit.record_address == 0x02022690
     assert (menu.selected_unit.army_slot, menu.selected_unit.unit_slot) == (1, 1)
     assert menu.selected_unit.unit_type == 1
@@ -162,6 +162,66 @@ def test_unit_action_menu_rejects_a_pointer_from_another_army(memory) -> None:
     assert menu.family is MenuFamily.UNIT_ACTION
     assert menu.selected_unit is None
     assert "does not match the active player" in menu.reasons[0]
+
+
+def test_unit_movement_overlay_exposes_verified_source_cursor(memory) -> None:
+    _, ewram, iwram = memory
+    pack_into("<I", ewram, 0xD610, 0x0849BE38)
+    pack_into("<I", iwram, 0x40D8, 0x02022690)
+    pack_into("<I", iwram, 0x1470, 0x08499B4C)
+    pack_into("<I", iwram, 0x1490, 8)
+    iwram[0x14B1] = 6
+    iwram[0x14B2] = 2
+    iwram[0x30F0] = 0
+    pack_into("<H", iwram, 0x3334, 1)
+    ewram[0x22690:0x2269C] = bytes((1, 6, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
+    pack_into("<HH", iwram, 0x33E4, 0, 1)
+    iwram[0x3140:0x3142] = bytes((1, 1))  # Cache lags while the range cursor moves.
+    ewram[0x1E450 + 0x51A + 3] = 1
+
+    current = snapshot(memory)
+    report = validate_battle_snapshot(current)
+    menu = observe_menu(current, report)
+    cursor = observe_map_cursor(current, report)
+    assert menu.family is MenuFamily.UNIT_MOVEMENT
+    assert menu.selected_unit is not None, menu.reasons
+    assert cursor.status is CursorStatus.AVAILABLE
+    assert (cursor.x, cursor.y) == (0, 1)
+
+
+@pytest.mark.parametrize(
+    ("action_ids", "selected_item"),
+    [
+        ((0, 0x0A), MenuItem.OTHER_UNIT_ACTION),
+        ((2, 0x0A), MenuItem.OTHER_UNIT_ACTION),
+        ((4, 0x0A), MenuItem.OTHER_UNIT_ACTION),
+        ((0x0A, 0x0B), MenuItem.WAIT),
+    ],
+)
+def test_unit_action_choices_resolve_wait_from_verified_row_ids(
+    memory, action_ids: tuple[int, int], selected_item: MenuItem
+) -> None:
+    _, ewram, iwram = memory
+    pack_into("<I", ewram, 0xD610, 0x0849BE38)
+    pack_into("<I", iwram, 0x40D8, 0x02022690)
+    pack_into("<H", iwram, 0x3334, 4)
+    pack_into("<I", iwram, 0x1470, 0x0848A42C)
+    pack_into("<I", iwram, 0x1490, 0x0849AE28)
+    iwram[0x14B1] = 2
+    iwram[0x14B2] = 0
+    iwram[0x14A1:0x14A3] = bytes(action_ids)
+    iwram[0x30F0] = 1
+    ewram[0x22690:0x2269C] = bytes((1, 6, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
+    iwram[0x3140:0x3142] = bytes((1, 1))
+    ewram[0x1E450 + 0x51A + 3] = 1
+
+    current = snapshot(memory)
+    menu = observe_menu(current, validate_battle_snapshot(current))
+    assert menu.family is MenuFamily.UNIT_ACTION_CHOICES
+    assert menu.items == tuple(
+        MenuItem.WAIT if item_id == 0x0A else MenuItem.OTHER_UNIT_ACTION for item_id in action_ids
+    )
+    assert menu.selected_item is selected_item
 
 
 def test_general_command_menu_stays_unresolved_and_does_not_publish_stale_pointer(memory) -> None:

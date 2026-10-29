@@ -39,6 +39,9 @@ SELECTOR_ITEM_IDS = 0x030014A1
 CONTROLLER_STATE = 0x030032D8
 CONTROLLER_LOCK = 0x030030F0
 MENU_MODE = 0x03003FC2
+UNIT_MOVEMENT_SELECTOR = 0x08499B4C
+UNIT_ACTION_SELECTOR = 0x0848A42C
+UNIT_ACTION_TABLE = 0x0849AE28
 
 # Original-ROM table signatures for the three selectors verified in the
 # supplied Versus battle checkpoints. Each item ID has a non-null A callback;
@@ -78,6 +81,8 @@ class MenuFamily(StrEnum):
     INTEL = "intel"
     OPTIONS = "options"
     UNIT_ACTION = "unit_action"
+    UNIT_MOVEMENT = "unit_movement"
+    UNIT_ACTION_CHOICES = "unit_action_choices"
     UNRESOLVED = "unresolved"
 
 
@@ -97,6 +102,8 @@ class MenuItem(StrEnum):
     MUSIC = "music"
     VISUAL_MODE = "visual_mode"
     EXIT_MAP = "exit_map"
+    WAIT = "wait"
+    OTHER_UNIT_ACTION = "other_unit_action"
 
 
 _MENU_ITEMS = {
@@ -135,6 +142,7 @@ class MenuObservation:
     selected_item: MenuItem | None = None
     actionable: bool | None = None
     unrecognized: UnrecognizedUIState | None = None
+    items: tuple[MenuItem, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,7 +172,24 @@ def observe_map_cursor(
     if snapshot.frame != validation.frame:
         raise ValueError("Cursor snapshot and validation must describe the same frame")
 
-    if validation.lifecycle.phase is not LifecyclePhase.BATTLE_PLAYER_TURN:
+    movement_cursor = (
+        validation.lifecycle.phase is LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+        and validation.lifecycle.engine is LifecycleEngine.BATTLE
+        and snapshot.u32(SELECTOR_OBJECT) == UNIT_MOVEMENT_SELECTOR
+        and snapshot.u32(SELECTOR_TABLE) == 8
+        and snapshot.read(SELECTOR_ROW_COUNT, 1)[0] == 6
+        and snapshot.read(SELECTOR_SELECTED_ROW, 1)[0] == 2
+        and snapshot.read(CONTROLLER_LOCK, 1)[0] == 0
+        and snapshot.u16(CONTROLLER_STATE) == 13
+        and snapshot.u16(0x03003334) == 1
+        and any(
+            snapshot.u32(SCREEN_PROCESS_POOL + index * SCREEN_PROCESS_STRIDE)
+            == UNIT_ACTION_MENU_SCRIPT
+            for index in range(SCREEN_PROCESS_COUNT)
+        )
+        and _observe_selected_unit(snapshot) is not None
+    )
+    if validation.lifecycle.phase is not LifecyclePhase.BATTLE_PLAYER_TURN and not movement_cursor:
         return MapCursorObservation(
             snapshot.frame,
             CursorStatus.UNAVAILABLE,
@@ -178,6 +203,15 @@ def observe_map_cursor(
         )
 
     width, height = snapshot.u16(MAP_BASE), snapshot.u16(MAP_BASE + 2)
+    if movement_cursor:
+        x, y = snapshot.u16(CURSOR_SOURCE), snapshot.u16(CURSOR_SOURCE + 2)
+        if 0 <= x < width and 0 <= y < height:
+            return MapCursorObservation(snapshot.frame, CursorStatus.AVAILABLE, x, y)
+        return MapCursorObservation(
+            snapshot.frame,
+            CursorStatus.UNAVAILABLE,
+            reasons=("Movement cursor is outside the validated map",),
+        )
     source_x, source_y = snapshot.u16(CURSOR_SOURCE), snapshot.u16(CURSOR_SOURCE + 2)
     cache_x, cache_y = snapshot.read(CURSOR_CACHE, 2)
     if (source_x, source_y) != (cache_x, cache_y):
@@ -213,6 +247,10 @@ def observe_menu(
     if command_menu is not None:
         return command_menu
 
+    action_menu = _observe_unit_action_choices(snapshot, validation)
+    if action_menu is not None:
+        return action_menu
+
     if validation.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN:
         return MenuObservation(snapshot.frame, MenuFamily.MAP_INPUT)
 
@@ -236,6 +274,10 @@ def observe_menu(
             MenuFamily.UNIT_ACTION,
             reasons=("Map geometry is not validated",),
         )
+
+    movement = _observe_unit_movement(snapshot, validation)
+    if movement is not None:
+        return movement
 
     pointer = snapshot.u32(CURRENT_UNIT_POINTER)
     relative = pointer - UNIT_BASE
@@ -298,6 +340,109 @@ def observe_menu(
 
     selected = SelectedUnitObservation(pointer, army_slot, unit_slot, record[0], x, y)
     return MenuObservation(snapshot.frame, MenuFamily.UNIT_ACTION, selected)
+
+
+def _observe_unit_movement(
+    snapshot: BattleMemorySnapshot, validation: BattleValidationReport
+) -> MenuObservation | None:
+    if (
+        snapshot.u32(SELECTOR_OBJECT) != UNIT_MOVEMENT_SELECTOR
+        or snapshot.u32(SELECTOR_TABLE) != 8
+        or snapshot.read(SELECTOR_ROW_COUNT, 1)[0] != 6
+        or snapshot.read(SELECTOR_SELECTED_ROW, 1)[0] != 2
+        or snapshot.read(CONTROLLER_LOCK, 1)[0] != 0
+        or snapshot.u16(CONTROLLER_STATE) != 13
+        or snapshot.u16(0x03003334) != 1
+    ):
+        return None
+    selected = _observe_selected_unit(snapshot)
+    if selected is None:
+        return MenuObservation(
+            snapshot.frame,
+            MenuFamily.UNIT_MOVEMENT,
+            reasons=("Selected unit could not be validated for movement",),
+        )
+    width, height = snapshot.u16(MAP_BASE), snapshot.u16(MAP_BASE + 2)
+    x, y = snapshot.u16(CURSOR_SOURCE), snapshot.u16(CURSOR_SOURCE + 2)
+    if not (x < width and y < height):
+        return MenuObservation(
+            snapshot.frame,
+            MenuFamily.UNIT_MOVEMENT,
+            reasons=("Movement cursor is outside the validated map",),
+        )
+    return MenuObservation(snapshot.frame, MenuFamily.UNIT_MOVEMENT, selected)
+
+
+def _observe_unit_action_choices(
+    snapshot: BattleMemorySnapshot, validation: BattleValidationReport
+) -> MenuObservation | None:
+    if (
+        validation.lifecycle.phase is not LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+        or validation.lifecycle.engine is not LifecycleEngine.BATTLE
+        or not any(
+            snapshot.u32(SCREEN_PROCESS_POOL + index * SCREEN_PROCESS_STRIDE)
+            == UNIT_ACTION_MENU_SCRIPT
+            for index in range(SCREEN_PROCESS_COUNT)
+        )
+        or snapshot.u32(SELECTOR_OBJECT) != UNIT_ACTION_SELECTOR
+        or snapshot.u32(SELECTOR_TABLE) != UNIT_ACTION_TABLE
+        or snapshot.u16(CONTROLLER_STATE) != 13
+        or snapshot.read(CONTROLLER_LOCK, 1)[0] != 1
+        or snapshot.u16(0x03003334) != 4
+    ):
+        return None
+    selected = _observe_selected_unit(snapshot)
+    count = snapshot.read(SELECTOR_ROW_COUNT, 1)[0]
+    row = snapshot.read(SELECTOR_SELECTED_ROW, 1)[0]
+    ids = tuple(snapshot.read(SELECTOR_ITEM_IDS, count)) if count == 2 else ()
+    if (
+        selected is None
+        or len(ids) != 2
+        or ids.count(0x0A) != 1
+        or any(item_id not in (0, 2, 4, 0x0A, 0x0B) for item_id in ids)
+        or row >= 2
+    ):
+        return None
+    mode = snapshot.read(MENU_MODE, 1)[0]
+    if mode >= _MENU_MODE_COUNT:
+        return None
+    items = tuple(
+        MenuItem.WAIT if item_id == 0x0A else MenuItem.OTHER_UNIT_ACTION for item_id in ids
+    )
+    return MenuObservation(
+        snapshot.frame,
+        MenuFamily.UNIT_ACTION_CHOICES,
+        selected_unit=selected,
+        selected_item=items[row],
+        actionable=True,
+        items=items,
+    )
+
+
+def _observe_selected_unit(snapshot: BattleMemorySnapshot) -> SelectedUnitObservation | None:
+    pointer = snapshot.u32(CURRENT_UNIT_POINTER)
+    relative = pointer - UNIT_BASE
+    if not 0 <= relative < 4 * ARMY_STRIDE:
+        return None
+    army_index, army_offset = divmod(relative, ARMY_STRIDE)
+    unit_slot, remainder = divmod(army_offset, UNIT_STRIDE)
+    if remainder or not 1 <= unit_slot <= UNITS_PER_ARMY:
+        return None
+    record = snapshot.read(pointer, UNIT_STRIDE)
+    if record[0] not in UNIT_TYPES:
+        return None
+    army_slot = army_index + 1
+    if snapshot.u16(ACTIVE_PLAYER) != army_slot:
+        return None
+    x, y = record[2], record[3]
+    width, height = snapshot.u16(MAP_BASE), snapshot.u16(MAP_BASE + 2)
+    if not (x < width and y < height):
+        return None
+    row_offset = snapshot.u16(MAP_BASE + 0x417A + 2 * y)
+    logical_unit = snapshot.read(MAP_BASE + 0x051A + row_offset + x, 1)[0]
+    if logical_unit != relative // UNIT_STRIDE:
+        return None
+    return SelectedUnitObservation(pointer, army_slot, unit_slot, record[0], x, y)
 
 
 def _observe_command_menu(

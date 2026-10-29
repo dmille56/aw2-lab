@@ -130,10 +130,15 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - Existing research and safe decoding boundaries are documented in
      [[file:AW2-STATE-VALIDATION.org][state validation]] and [[file:AW2-LIFECYCLE-COVERAGE.org][lifecycle coverage]].
 
-** TODO Implement movement followed by Wait
-   - [ ] Execute the explicit path and choose Wait as one transaction, including an empty path.
-   - [ ] Verify final position, unit identity, action status, and return to a recognized control boundary.
-   - [ ] Reject or roll back invalid routes, unavailable units, and unexpected action menus.
+** DONE Implement movement followed by Wait
+   - [X] Execute the explicit path and choose Wait as one transaction, including an empty path.
+   - [X] Verify final position, unit identity, action status, and return to a recognized control boundary.
+   - [X] Reject invalid routes and unavailable units before input; fail unexpected post-input states for controller rollback/recovery.
+   - [ ] Validate each route tile against the acting unit's movement type and terrain rules (for example, reject land-unit routes through sea).
+   - [ ] Validate that the requested route stays within the acting unit's movement range.
+   - [ ] Handle fog-hidden enemy blockers: AW2 stops the unit on the tile before an unseen enemy, so verify the actual reached position and resolve Wait from there instead of assuming the requested endpoint.
+   - Implementation: [[file:../src/aw2_lab/move_wait_executor.py][move_wait_executor.py]] composes the bounded navigation layer and commits only the verified final player-turn boundary. The UI observer recognizes movement and Wait choices only for the checkpoint-verified selectors and controller state.
+   - Checkpoint research confirms movement cursor and Wait row mappings. The executor has not yet been exercised against a live playable unit; end-to-end emulator verification remains outstanding.
 
 ** TODO Implement movement followed by attack
    - [ ] Select a target after the explicit path and execute the attack as one transaction.

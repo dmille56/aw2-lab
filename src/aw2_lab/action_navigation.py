@@ -227,7 +227,7 @@ class ActionNavigator:
             await self._tap("select-unit", _KEY_A)
             state = await self._wait_for(
                 lambda value: (
-                    value.ui.menu.family is MenuFamily.UNIT_ACTION
+                    value.ui.menu.family is MenuFamily.UNIT_MOVEMENT
                     and value.ui.menu.selected_unit is not None
                     and (
                         value.ui.menu.selected_unit.army_slot,
@@ -241,6 +241,131 @@ class ActionNavigator:
                 description="the requested unit action menu",
             )
             return state
+
+    async def move_selected_unit_along_path(
+        self,
+        path: Sequence[tuple[int, int]],
+        *,
+        unit: tuple[int, int, int, int],
+        width: int,
+        height: int,
+    ) -> GameState:
+        """Move a selected unit along an explicit adjacent route and open action choices."""
+        async with self._bounded_operation():
+            self._begin("move_unit")
+            state = await self._observe()
+            selected = state.ui.menu.selected_unit
+            cursor = state.ui.map_cursor
+            if (
+                state.ui.menu.family is not MenuFamily.UNIT_MOVEMENT
+                or selected is None
+                or (
+                    selected.army_slot,
+                    selected.unit_slot,
+                    selected.unit_type,
+                    selected.record_address,
+                )
+                != unit
+                or cursor.status is not CursorStatus.AVAILABLE
+                or cursor.x is None
+                or cursor.y is None
+            ):
+                raise await self._fail("Movement requires the requested selected unit", state)
+            route = validate_path(
+                path,
+                start=(cursor.x, cursor.y),
+                width=width,
+                height=height,
+            )
+            for x, y in route:
+                dx, dy = x - cursor.x, y - cursor.y
+                name, key = (
+                    ("right", _KEY_RIGHT)
+                    if dx == 1
+                    else ("left", _KEY_LEFT)
+                    if dx == -1
+                    else ("down", _KEY_DOWN)
+                    if dy == 1
+                    else ("up", _KEY_UP)
+                )
+                await self._tap(f"move-{name}", key)
+
+                def moved(
+                    value: GameState,
+                    position: tuple[int, int] = (x, y),
+                    expected_unit: tuple[int, int, int, int] = unit,
+                ) -> bool:
+                    current = value.ui.menu.selected_unit
+                    return (
+                        value.ui.menu.family is MenuFamily.UNIT_MOVEMENT
+                        and value.ui.map_cursor.status is CursorStatus.AVAILABLE
+                        and (value.ui.map_cursor.x, value.ui.map_cursor.y) == position
+                        and current is not None
+                        and (
+                            current.army_slot,
+                            current.unit_slot,
+                            current.unit_type,
+                            current.record_address,
+                        )
+                        == expected_unit
+                    )
+
+                state = await self._wait_for(
+                    moved, description=f"movement cursor to reach {(x, y)}"
+                )
+                cursor = state.ui.map_cursor
+            await self._tap("accept-movement-destination", _KEY_A)
+            return await self._wait_for(
+                lambda value: (
+                    value.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
+                    and value.ui.menu.selected_unit is not None
+                    and (
+                        value.ui.menu.selected_unit.army_slot,
+                        value.ui.menu.selected_unit.unit_slot,
+                        value.ui.menu.selected_unit.unit_type,
+                        value.ui.menu.selected_unit.record_address,
+                    )
+                    == unit
+                    and value.ui.menu.actionable is True
+                ),
+                description="the selected unit's recognized action choices",
+            )
+
+    async def choose_wait(self) -> GameState:
+        """Choose the explicitly recognized Wait row and require a settled player turn."""
+        async with self._bounded_operation():
+            self._begin("choose_wait")
+            state = await self._observe()
+            menu = state.ui.menu
+            if (
+                menu.family is not MenuFamily.UNIT_ACTION_CHOICES
+                or menu.selected_item is None
+                or MenuItem.WAIT not in menu.items
+                or not menu.actionable
+            ):
+                raise await self._fail("Wait requires a recognized unit action selector", state)
+            delta = menu.items.index(MenuItem.WAIT) - menu.items.index(menu.selected_item)
+            if delta:
+                key, name = (_KEY_DOWN, "down") if delta > 0 else (_KEY_UP, "up")
+                for _ in range(abs(delta)):
+                    await self._tap(f"wait-menu-{name}", key)
+                    state = await self._wait_for(
+                        lambda value: (
+                            value.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
+                            and value.ui.menu.selected_item is MenuItem.WAIT
+                            and value.ui.menu.selected_unit == menu.selected_unit
+                        ),
+                        description="Wait selected in the action menu",
+                    )
+            await self._tap("confirm-wait", _KEY_A)
+            return await self._wait_for(
+                lambda value: (
+                    value.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN
+                    and value.ui.menu.family is MenuFamily.MAP_INPUT
+                    and value.battle.status is ValueStatus.AVAILABLE
+                ),
+                description="the settled player-turn boundary after Wait",
+            )
 
     async def navigate_menu(self, item: MenuItem) -> GameState:
         """Navigate the known battle-menu hierarchy to ``item`` from a recognized selector."""
