@@ -120,11 +120,13 @@ screenshots, and machine-specific paths outside Git and the Nix store.
 
 ** TODO Build bounded action navigation and readiness guards
    - [ ] Implement reusable cursor movement, unit selection, menu navigation, target selection, and confirmation steps.
-   - [ ] Check recognized UI preconditions and postconditions at every step; extend UI research only where the initial actions require it.
-   - [ ] Use explicit frame budgets and state predicates, plus a wall-clock watchdog for an unresponsive emulator.
-   - [ ] Validate request shape, coordinates, path adjacency, and obvious state constraints while letting AW2 decide legality and outcomes.
-   - [ ] Keep gameplay on controller inputs; reserve memory writes and internal diagnostics for clearly named debug operations.
-   - [ ] Capture useful failure context such as the last recognized phase, frame, input sequence, and screenshot reference.
+   - [X] Check recognized UI preconditions and postconditions for implemented steps; extend UI research only where the initial actions require it.
+   - [X] Use explicit frame budgets and state predicates, plus a wall-clock watchdog for an unresponsive emulator.
+   - [X] Validate route coordinate shape, bounds, adjacency, and obvious unit availability while letting AW2 decide legality and outcomes.
+   - [X] Keep gameplay navigation on controller inputs; reserve memory writes and internal diagnostics for clearly named debug operations.
+   - [X] Capture useful failure context including the last recognized phase, frame, input sequence, and optional screenshot reference.
+   - Implementation: [[file:../src/aw2_lab/action_navigation.py][action_navigation.py]] provides bounded cursor movement, lifetime-ID unit selection, navigation through traced selector rows, explicit-postcondition confirmation, and route-shape validation. Target selection remains gated on typed target-mode UI evidence; the current observer intentionally does not expose that context.
+   - Live check (2026-10-28): On the supported ROM and pinned headless mGBA, the fresh Bean Island battle reached player turn at frame 3053. =move_cursor_to= moved the observed cursor from (1,7) to (2,7) and back at frame 3055. Unit selection was skipped because this opening battle has no units. Start opened an unresolved overlay, so command-menu navigation was not exercised and no menu choice was confirmed.
    - Existing research and safe decoding boundaries are documented in
      [[file:AW2-STATE-VALIDATION.org][state validation]] and [[file:AW2-LIFECYCLE-COVERAGE.org][lifecycle coverage]].
 

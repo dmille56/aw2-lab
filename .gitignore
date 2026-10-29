@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 .ruff_cache/
 .pytest_cache/
+.playwright-mcp/
 .envrc-local
 result*
 result-*
