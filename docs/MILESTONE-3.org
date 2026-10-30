@@ -78,7 +78,7 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - [X] Publish coherent state at command boundaries and prevent reads from exposing a partially executed transaction as settled state.
    - Implementation: `MatchController.current_state()` returns lifecycle and the last committed observation atomically. While a mutation runs, the snapshot is explicitly unsettled; `current_observation()` rejects reads rather than returning an apparently ready stale boundary. Outcome validation and publication happen together under the controller state lock.
 
-** TODO Add complete checkpoint storage and durable command journaling
+** DONE Add complete checkpoint storage and durable command journaling
    - [X] Define a checkpoint manifest containing emulator state/save RAM, ROM checksum, emulator build identity, decoder/schema versions, match metadata, revisions, and identity metadata.
    - Manifest model: [[file:../src/aw2_lab/match_contract.py][match_contract.py]] defines a versioned manifest with full match summary, ROM and emulator identity, frontend mode, schema versions, frame/revision, typed identity ledger, and a hashed/size-bounded state artifact explicitly marked as including save RAM. The bridge's state buffer uses =SAVESTATE.ALL=. Durable storage remains open below.
    - [X] Reuse the verified full-state/save-RAM bridge primitives and validate manifest compatibility before restoration.
@@ -130,7 +130,7 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - Existing research and safe decoding boundaries are documented in
      [[file:AW2-STATE-VALIDATION.org][state validation]] and [[file:AW2-LIFECYCLE-COVERAGE.org][lifecycle coverage]].
 
-** DONE Implement movement followed by Wait
+** TODO Implement movement followed by Wait
    - [X] Execute the explicit path and choose Wait as one transaction, including an empty path.
    - [X] Verify final position, unit identity, action status, and return to a recognized control boundary.
    - [X] Reject invalid routes and unavailable units before input; fail unexpected post-input states for controller rollback/recovery.
@@ -138,15 +138,18 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - [ ] Validate that the requested route stays within the acting unit's movement range.
    - [ ] Handle fog-hidden enemy blockers: AW2 stops the unit on the tile before an unseen enemy, so verify the actual reached position and resolve Wait from there instead of assuming the requested endpoint.
    - Implementation: [[file:../src/aw2_lab/move_wait_executor.py][move_wait_executor.py]] composes the bounded navigation layer and commits only the verified final player-turn boundary. The UI observer recognizes movement and Wait choices only for the checkpoint-verified selectors and controller state.
+   - [ ] Add ROM-independent executor tests for successful movement, stationary Wait, unavailable units, invalid requests, and unexpected post-input states.
+   - [ ] Verify movement followed by Wait against a live playable unit in the pinned emulator; record the ROM/build identity and evidence.
    - Checkpoint research confirms movement cursor and Wait row mappings. The executor has not yet been exercised against a live playable unit; end-to-end emulator verification remains outstanding.
 
-** DONE Implement movement followed by attack
+** TODO Implement movement followed by attack
    - [X] Select a target after the explicit path and execute the attack as one transaction.
    - [X] Wait through combat animations and counterattacks, and return only at a recognized control or result boundary.
    - [X] Verify the acting unit and target's resulting state without predicting damage or consuming randomness outside AW2.
    - [X] Detect battle-ending attacks and transition the match controller to its finished lifecycle.
    - [ ] Preflight MoveAttack feasibility before moving, including movement/fuel, available weapons/ammunition, target compatibility, and attack range; retain AW2's actual reached tile and Fire target list as the final authority when blockers alter the route.
    - Implementation: [[file:../src/aw2_lab/move_attack_executor.py][move_attack_executor.py]] uses the typed Fire-target state, commits a verified post-combat player turn or a result observation with unavailable unit identity, and supports destruction of either combatant.
+   - [ ] Verify windowed execution, battle-ending attacks, and destruction of the attacking unit live; record ROM/build identity and evidence for each.
    - Live verification (2026-10-29): Three headless mGBA runs using the supported ROM and default navigation limits completed an in-place Tank attack, target cycling with a counterattack, and a two-tile Mech move followed by attack. Each returned to a ready player turn with the acting unit used and its lifetime identity preserved. The opt-in regressions and exact evidence are documented in [[file:AW2-LIFECYCLE-RESEARCH.org::*Live move/attack executor verification][the lifecycle research log]]. Windowed execution and battle-ending executor attacks remain unverified live; archived result traces and ROM-independent checks cover the result branch.
 
 ** TODO Implement movement followed by capture
