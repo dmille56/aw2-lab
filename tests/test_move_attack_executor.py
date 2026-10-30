@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import replace
+from struct import pack_into
 from typing import cast
 from uuid import UUID, uuid4
 
+import pytest
 from pydantic import SecretStr
 from test_state_validation import memory as memory  # noqa: PLC0414 -- re-export pytest fixture
 from test_state_validation import snapshot
@@ -19,6 +21,7 @@ from aw2_lab.match_contract import (
     MoveAttackAction,
     PlayerSlot,
 )
+from aw2_lab.match_controller import CommandRejected
 from aw2_lab.match_observation import MatchObservation, MatchObservationTracker
 from aw2_lab.move_attack_executor import MoveAttackActionExecutor
 from aw2_lab.state_decoder import decode_snapshot
@@ -134,3 +137,31 @@ def test_move_attack_executes_targeting_and_commits_verified_result(memory) -> N
     assert outcome.lifecycle is MatchLifecycle.PLAYABLE
     assert outcome.observation is not None
     assert outcome.observation.revision == 2
+
+
+@pytest.mark.parametrize(
+    ("unit_type", "target_type", "path", "message"),
+    [
+        (10, 1, ((0, 1),), "Indirect units"),
+        (5, 16, ((0, 1),), "compatible weapon"),
+        (23, 1, ((0, 1),), "no weapons"),
+    ],
+)
+def test_rule_rejection_happens_before_any_controller_input(
+    memory,
+    unit_type: int,
+    target_type: int,
+    path: tuple[tuple[int, int], ...],
+    message: str,
+) -> None:
+    _, ewram, _ = memory
+    ewram[0x22690] = unit_type
+    pack_into("<H", ewram, 0x22694, 100 | (9 << 7))
+    ewram[0x22990] = target_type
+    tracker = MatchObservationTracker(uuid4())
+    initial = tracker.commit_boundary(decode_snapshot(snapshot(memory)))
+    identity = next(item.identity_id for item in initial.unit_identities if item.reference == 1)
+    # An object without navigator methods makes any attempted input fail this test.
+    executor = MoveAttackActionExecutor(cast(ActionNavigator, object()), tracker)
+    with pytest.raises(CommandRejected, match=message):
+        asyncio.run(executor.execute(request(initial.match_id, identity, path=path), initial))

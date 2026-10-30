@@ -108,6 +108,7 @@ class MoveAttackActionExecutor:
                 ErrorCode.INVALID_REQUEST, "No opposing unit is observed at target"
             )
 
+        terrain_by_tile = {(tile.x, tile.y): tile.terrain_class for tile in battle.map.tiles}
         try:
             preflight_move_attack(
                 unit_type=attacker.unit_type,
@@ -115,6 +116,8 @@ class MoveAttackActionExecutor:
                 path=path,
                 start=(attacker.x, attacker.y),
                 target=target_coordinate,
+                target_unit_type=target.unit_type,
+                terrain_classes=tuple(terrain_by_tile[point] for point in path),
             )
         except ValueError as error:
             raise CommandRejected(ErrorCode.INVALID_REQUEST, str(error)) from error

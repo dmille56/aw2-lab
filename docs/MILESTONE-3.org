@@ -130,15 +130,16 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - Existing research and safe decoding boundaries are documented in
      [[file:AW2-STATE-VALIDATION.org][state validation]] and [[file:AW2-LIFECYCLE-COVERAGE.org][lifecycle coverage]].
 
-** TODO Map unit and terrain rules for preflight validation
-   - [ ] Build a complete table of terrain classes and movement costs/traversability for every unit movement type, including weather effects.
-   - [ ] Record per-unit movement allowance, fuel capacity and consumption, ammo capacity and weapon-specific ammo use, attack minimum/maximum range, secondary weapons, and target compatibility.
-   - [ ] Map the game’s numeric unit and terrain IDs to the documented names; record CO and power modifiers separately so baseline rules are not confused with temporary effects.
-   - [ ] Validate the tables against the pinned AW2 ROM and controlled emulator observations, and add table-driven tests for representative movement and attack decisions.
+** DONE Map unit and terrain rules for preflight validation
+   - [X] Build a complete table of terrain classes and movement costs/traversability for every unit movement type, including weather effects.
+   - [X] Record per-unit movement allowance, fuel capacity and consumption, ammo capacity and weapon-specific ammo use, attack minimum/maximum range, secondary weapons, and target compatibility.
+   - [X] Map the game’s numeric unit and terrain IDs to the documented names; record CO and power modifiers separately so baseline rules are not confused with temporary effects.
+   - [X] Validate the tables against the pinned AW2 ROM and controlled emulator observations, and add table-driven tests for representative movement and attack decisions.
    - Starting reference: [[https://strategywiki.org/wiki/Advance_Wars_2:_Black_Hole_Rising/Units][StrategyWiki's AW2 unit and terrain charts]]. Treat the reference as a starting point; confirm edge cases and ROM-specific IDs in game before using the data to reject actions.
-   - The current MoveAttack preflight uses only conservative baseline checks. Keep AW2's movement overlay and Fire target list authoritative until this rules table is verified.
+   - Catalog and evidence: [[file:AW2-UNIT-TERRAIN-RULES.md][unit and terrain rules]] maps 19 units, all 32 terrain-table indices, seven movement types, three weather states, and 57 CO/Power contexts. [[file:../src/aw2_lab/unit_rules_audit.py][The ROM audit]] passed 40,147 comparisons. Campaign structure names have static corroboration; decoder support remains limited to its previously verified terrains. Representative live checks cover movement, indirect Fire eligibility, fuel debit, and ammo use; they do not claim every combination was played live.
+   - MoveAttack now uses the corrected ROM unit IDs and weapon/terrain compatibility. Exact CO/fuel-budget preflight still needs the corresponding game options in the observation; AW2's movement overlay and Fire target list remain authoritative.
 
-** DONE Implement movement followed by Wait
+** TODO Implement movement followed by Wait
    - [X] Execute the explicit path and choose Wait as one transaction, including an empty path.
    - [X] Verify final position, unit identity, action status, and return to a recognized control boundary.
    - [X] Reject invalid routes and unavailable units before input; fail unexpected post-input states for controller rollback/recovery.
@@ -150,6 +151,7 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - The action-menu unit coordinates can still be stale after movement, so the executor checks the settled unit record after Wait. It accepts any reached tile on the requested route, including the tile before a fog-hidden blocker; a ROM-independent regression covers the shortened route.
    - [X] Add ROM-independent executor tests for successful movement, stationary Wait, unavailable units, invalid requests, and unexpected post-input states.
    - [X] Verify movement followed by Wait against a live playable unit in the pinned emulator; record the ROM/build identity and evidence.
+   - [ ] Recognize and resolve the one-choice Wait prompt after indirect-unit movement. The 2026-10-30 Rockets run showed Wait without the active selector required by the current observer, so production navigation times out. Guarded research inputs confirmed Wait and verified movement/fuel; see [[file:AW2-UNIT-TERRAIN-RULES.md][the controlled rules evidence]].
    - Live verification: `tests/test_move_wait_integration.py` passed in headless mGBA using the supported US revision-0 ROM (SHA-256 `ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`) and external checkpoint `/tmp/aw2-map-research/red-capture-ready.ss0` (SHA-256 `d4aa58c9907e5586c38fefc2018c4177b577608357a9347b0a895203ddff622c`). The pinned mGBA build identity was `fd9dc5c2cbf234365068855851107e762fc6211b`, patch SHA-256 `7062afbc1b1af8aefa599f82c68c44fd3807604d2e935009b028d573c94771cb`. An Infantry moved from `(11,2)` to `(12,2)`, chose Wait, returned used at `(12,2)`, and retained its lifetime identity.
 
 ** TODO Implement movement followed by attack
@@ -158,8 +160,8 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - [X] Verify the acting unit and target's resulting state without predicting damage or consuming randomness outside AW2.
    - [X] Detect battle-ending attacks and transition the match controller to its finished lifecycle.
    - [X] Add conservative pre-move checks for known non-attacking transports, indirect units attempting to move and attack in one turn, ammunition required by units with no unlimited secondary weapon, route length beyond the maximum movement allowance, and targets outside possible range along the requested route.
-   - [ ] Complete preflight with per-tile movement/fuel costs and target/weapon compatibility using the [[*Map unit and terrain rules for preflight validation][unit and terrain rules table]]. CO bonuses, terrain costs, fog, and the actual reached tile can change legality; the emulator movement overlay and Fire target list remain the final authority.
-   - Implementation: [[file:../src/aw2_lab/move_attack_executor.py][move_attack_executor.py]] uses baseline unit profiles from [[https://strategywiki.org/wiki/Advance_Wars_2:_Black_Hole_Rising/Units][StrategyWiki's AW2 unit chart]], keeps the bounds permissive for CO bonuses, and uses the typed Fire-target state before committing a verified post-combat player turn or a result observation with unavailable unit identity. Runtime navigation remains authoritative.
+   - [ ] Complete exact movement/fuel-budget preflight using the [[*Map unit and terrain rules for preflight validation][unit and terrain rules table]] after observing whether CO effects and fuel consumption are enabled. CO bonuses, terrain costs, fog, and the actual reached tile can change legality; the emulator movement overlay and Fire target list remain the final authority.
+   - Implementation: [[file:../src/aw2_lab/move_attack_executor.py][move_attack_executor.py]] uses [[file:AW2-UNIT-TERRAIN-RULES.md][ROM-audited unit, weapon, terrain, and CO rules]], rejects incompatible weapons/terrain before input, keeps budget bounds permissive for unobserved game options, and uses the typed Fire-target state before committing a verified post-combat player turn or a result observation with unavailable unit identity. Runtime navigation remains authoritative.
    - [ ] Verify windowed execution, battle-ending attacks, and destruction of the attacking unit live; record ROM/build identity and evidence for each.
    - Live verification (2026-10-29): Three headless mGBA runs using the supported ROM and default navigation limits completed an in-place Tank attack, target cycling with a counterattack, and a two-tile Mech move followed by attack. Each returned to a ready player turn with the acting unit used and its lifetime identity preserved. The opt-in regressions and exact evidence are documented in [[file:AW2-LIFECYCLE-RESEARCH.org::*Live move/attack executor verification][the lifecycle research log]]. Windowed execution and battle-ending executor attacks remain unverified live; archived result traces and ROM-independent checks cover the result branch.
 
