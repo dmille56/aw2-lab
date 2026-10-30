@@ -205,7 +205,7 @@ def test_unit_movement_overlay_exposes_verified_source_cursor(memory) -> None:
     ("action_ids", "selected_item"),
     [
         ((0, 0x0A), MenuItem.FIRE),
-        ((2, 0x0A), MenuItem.OTHER_UNIT_ACTION),
+        ((2, 0x0A), MenuItem.CAPTURE),
         ((4, 0x0A), MenuItem.OTHER_UNIT_ACTION),
         ((0x0A, 0x0B), MenuItem.WAIT),
     ],
@@ -235,6 +235,8 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
         if item_id == 0x0A
         else MenuItem.FIRE
         if item_id == 0
+        else MenuItem.CAPTURE
+        if item_id == 2
         else MenuItem.OTHER_UNIT_ACTION
         for item_id in action_ids
     )

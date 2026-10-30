@@ -106,6 +106,7 @@ class MenuItem(StrEnum):
     VISUAL_MODE = "visual_mode"
     EXIT_MAP = "exit_map"
     FIRE = "fire"
+    CAPTURE = "capture"
     WAIT = "wait"
     OTHER_UNIT_ACTION = "other_unit_action"
 
@@ -420,11 +421,14 @@ def _observe_unit_action_choices(
         return None
     if not _menu_rules_allow_dispatch(snapshot):
         return None
+    capture_eligible = _selected_unit_can_capture(snapshot, selected)
     items = tuple(
         MenuItem.WAIT
         if item_id == 0x0A
         else MenuItem.FIRE
         if item_id == 0
+        else MenuItem.CAPTURE
+        if item_id == 2 and capture_eligible
         else MenuItem.OTHER_UNIT_ACTION
         for item_id in ids
     )
@@ -436,6 +440,20 @@ def _observe_unit_action_choices(
         actionable=True,
         items=items,
     )
+
+
+def _selected_unit_can_capture(
+    snapshot: BattleMemorySnapshot, selected: SelectedUnitObservation
+) -> bool:
+    """Constrain the verified Capture row ID to an eligible unit on a property."""
+    if selected.unit_type not in (1, 2):  # Infantry and Mech
+        return False
+    width, height = snapshot.u16(MAP_BASE), snapshot.u16(MAP_BASE + 2)
+    if not (0 <= selected.x < width and 0 <= selected.y < height):
+        return False
+    terrain_owner = snapshot.read(MAP_BASE + 0x1432 + selected.y * width + selected.x, 1)[0]
+    terrain_class, owner_code = terrain_owner & 31, terrain_owner >> 5
+    return terrain_class in (6, 8, 14) and owner_code != selected.army_slot
 
 
 def _is_fire_targeting(snapshot: BattleMemorySnapshot, validation: BattleValidationReport) -> bool:

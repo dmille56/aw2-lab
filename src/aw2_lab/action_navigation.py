@@ -376,6 +376,54 @@ class ActionNavigator:
                 description="the settled player-turn boundary after Wait",
             )
 
+    async def choose_capture(self) -> GameState:
+        """Choose Capture and wait for the settled turn or a recognized battle result."""
+        async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
+            self._begin("resolve_capture")
+            state = await self._observe()
+            menu = state.ui.menu
+            if (
+                menu.family is not MenuFamily.UNIT_ACTION_CHOICES
+                or menu.selected_item is None
+                or MenuItem.CAPTURE not in menu.items
+                or not menu.actionable
+            ):
+                raise await self._fail("Capture requires a recognized unit action selector", state)
+            delta = menu.items.index(MenuItem.CAPTURE) - menu.items.index(menu.selected_item)
+            if delta:
+                key, name = (_KEY_DOWN, "down") if delta > 0 else (_KEY_UP, "up")
+                for _ in range(abs(delta)):
+                    await self._tap(f"capture-menu-{name}", key)
+                    state = await self._wait_for(
+                        lambda value: (
+                            value.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
+                            and value.ui.menu.selected_item is MenuItem.CAPTURE
+                            and value.ui.menu.selected_unit == menu.selected_unit
+                        ),
+                        description="Capture selected in the action menu",
+                    )
+            await self._tap("confirm-capture", _KEY_A)
+            terminal_phases = {
+                LifecyclePhase.RESULT_SEQUENCE,
+                LifecyclePhase.VICTORY_PRESENTATION,
+                LifecyclePhase.DEFEAT_PRESENTATION,
+                LifecyclePhase.RESULT_SUMMARY,
+                LifecyclePhase.SAVE_PROGRESS_PROMPT,
+            }
+            return await self._wait_for(
+                lambda value: (
+                    (
+                        value.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN
+                        and value.ui.menu.family is MenuFamily.MAP_INPUT
+                        and value.battle.status is ValueStatus.AVAILABLE
+                    )
+                    or value.lifecycle.phase in terminal_phases
+                ),
+                description="post-capture control or a recognized match result",
+                frame_budget=self.limits.resolution_frame_budget,
+                poll_frames=self.limits.resolution_poll_frames,
+            )
+
     async def choose_fire(self) -> GameState:
         """Choose Fire from a recognized unit selector and require Fire target mode."""
         async with self._bounded_operation():

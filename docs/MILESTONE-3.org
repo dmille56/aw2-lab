@@ -153,9 +153,11 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - Live verification (2026-10-29): Three headless mGBA runs using the supported ROM and default navigation limits completed an in-place Tank attack, target cycling with a counterattack, and a two-tile Mech move followed by attack. Each returned to a ready player turn with the acting unit used and its lifetime identity preserved. The opt-in regressions and exact evidence are documented in [[file:AW2-LIFECYCLE-RESEARCH.org::*Live move/attack executor verification][the lifecycle research log]]. Windowed execution and battle-ending executor attacks remain unverified live; archived result traces and ROM-independent checks cover the result branch.
 
 ** TODO Implement movement followed by capture
-   - [ ] Choose Capture after the explicit path, including stationary capture continuation.
-   - [ ] Verify progress or ownership changes and the acting unit's status.
-   - [ ] Handle HQ capture and the resulting battle-ending sequence.
+   - [X] Choose Capture after the explicit path, including stationary capture continuation.
+   - [X] Verify partial progress or ownership transfer and the acting unit's status and lifetime identity.
+   - [X] Route a recognized HQ-capture result through the finished-match boundary.
+   - [ ] Verify movement followed by capture against a live playable unit, including partial progress, completion, and HQ-capture victory.
+   - Implementation: [[file:../src/aw2_lab/move_capture_executor.py][move_capture_executor.py]] preflights an active Infantry/Mech and a supported enemy/neutral city, HQ, or base; composes the action-menu Capture selector with movement; and verifies progress, ownership, used status, position, and identity. ROM-independent executor checks cover stationary capture, movement to a property, partial progress, completion, and rejection before input. Live executor verification remains open.
 
 ** TODO Implement unit purchasing
    - [ ] Select an owned production property, choose the requested supported unit type, and confirm purchase.

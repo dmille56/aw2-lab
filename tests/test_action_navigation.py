@@ -298,3 +298,90 @@ def test_fire_target_navigation_cycles_targets_and_checks_combat_return(
         assert [event.name for event in navigator.inputs] == ["confirm-attack-target"]
 
     asyncio.run(run())
+
+
+def test_capture_navigation_selects_capture_and_waits_for_player_turn(memory) -> None:
+    async def run() -> None:
+        initial = decode_snapshot(snapshot(memory))
+        selected = SelectedUnitObservation(0x02022690, 1, 1, 1, 1, 1)
+        initial = replace(
+            initial,
+            ui=replace(
+                initial.ui,
+                menu=MenuObservation(
+                    initial.frame,
+                    MenuFamily.UNIT_ACTION_CHOICES,
+                    selected_unit=selected,
+                    selected_item=MenuItem.WAIT,
+                    actionable=True,
+                    items=(MenuItem.CAPTURE, MenuItem.WAIT),
+                ),
+            ),
+        )
+
+        class FakeBridge:
+            def __init__(self) -> None:
+                self.state = initial
+                self.held: int | None = None
+                self.keys: list[int] = []
+
+            async def observe(self) -> GameState:
+                return self.state
+
+            async def press_keys(self, keys: int, frames: int) -> int:
+                self.keys.append(keys)
+                self.held = keys
+                if keys == 1:
+                    family, item = MenuFamily.MAP_INPUT, None
+                else:
+                    family, item = MenuFamily.UNIT_ACTION_CHOICES, MenuItem.CAPTURE
+                self._update(frames, family=family, selected=item)
+                return self.state.frame
+
+            async def advance_frames(self, frames: int) -> int:
+                self.held = None
+                self._update(frames)
+                return self.state.frame
+
+            def _update(self, frames: int, *, family=None, selected=None) -> None:
+                frame = self.state.frame + frames
+                menu = replace(
+                    self.state.ui.menu,
+                    frame=frame,
+                    family=family or self.state.ui.menu.family,
+                    selected_item=selected or self.state.ui.menu.selected_item,
+                )
+                self.state = replace(
+                    self.state,
+                    frame=frame,
+                    validation=replace(self.state.validation, frame=frame),
+                    ui=replace(
+                        self.state.ui,
+                        frame=frame,
+                        map_cursor=replace(self.state.ui.map_cursor, frame=frame),
+                        menu=menu,
+                    ),
+                )
+
+        bridge = FakeBridge()
+        navigator = ActionNavigator(
+            bridge,
+            bridge.observe,
+            NavigationLimits(
+                frame_budget=40,
+                poll_frames=1,
+                wall_timeout=3,
+                resolution_frame_budget=100,
+                resolution_wall_timeout=3,
+                resolution_poll_frames=10,
+            ),
+        )
+        result = await navigator.choose_capture()
+        assert result.ui.menu.family is MenuFamily.MAP_INPUT
+        assert bridge.keys == [64, 1]
+        assert [event.name for event in navigator.inputs] == [
+            "capture-menu-up",
+            "confirm-capture",
+        ]
+
+    asyncio.run(run())
