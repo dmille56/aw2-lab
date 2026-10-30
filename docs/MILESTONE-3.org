@@ -118,14 +118,14 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - [X] Record reproduction steps and verify the same configuration in both emulator modes.
    - Implementation and evidence: [[file:../src/aw2_lab/cold_boot.py][cold_boot.py]] uses bounded selector-table navigation for variable mode-menu starts, handles Continue/New and the recognized overwrite prompt in the isolated save copy, verifies Fog ON then OFF at IWRAM byte =0x03001698= on the Rules screen, and checks the first playable state. Fresh and existing-save traces and headless/windowed replay evidence are documented in [[file:COLD-BOOT-RESEARCH.md][the cold-boot research log]].
 
-** TODO Build bounded action navigation and readiness guards
-   - [ ] Implement reusable cursor movement, unit selection, menu navigation, target selection, and confirmation steps.
+** DONE Build bounded action navigation and readiness guards
+   - [X] Implement reusable cursor movement, unit selection, menu navigation, Fire target selection, and confirmation steps.
    - [X] Check recognized UI preconditions and postconditions for implemented steps; extend UI research only where the initial actions require it.
    - [X] Use explicit frame budgets and state predicates, plus a wall-clock watchdog for an unresponsive emulator.
    - [X] Validate route coordinate shape, bounds, adjacency, and obvious unit availability while letting AW2 decide legality and outcomes.
    - [X] Keep gameplay navigation on controller inputs; reserve memory writes and internal diagnostics for clearly named debug operations.
    - [X] Capture useful failure context including the last recognized phase, frame, input sequence, and optional screenshot reference.
-   - Implementation: [[file:../src/aw2_lab/action_navigation.py][action_navigation.py]] provides bounded cursor movement, lifetime-ID unit selection, navigation through traced selector rows, explicit-postcondition confirmation, and route-shape validation. Target selection remains gated on typed target-mode UI evidence; the current observer intentionally does not expose that context.
+   - Implementation: [[file:../src/aw2_lab/action_navigation.py][action_navigation.py]] provides bounded cursor movement, lifetime-ID unit selection, navigation through traced selector rows, explicit-postcondition confirmation, route-shape validation, and cycling through AW2's eligible Fire targets after cursor initialization. Two neutral frames precede each tap; combat uses a separate polling interval. Other target modes remain unresolved.
    - Live check (2026-10-28): On the supported ROM and pinned headless mGBA, the fresh Bean Island battle reached player turn at frame 3053. =move_cursor_to= moved the observed cursor from (1,7) to (2,7) and back at frame 3055. Unit selection was skipped because this opening battle has no units. Start opened an unresolved overlay, so command-menu navigation was not exercised and no menu choice was confirmed.
    - Existing research and safe decoding boundaries are documented in
      [[file:AW2-STATE-VALIDATION.org][state validation]] and [[file:AW2-LIFECYCLE-COVERAGE.org][lifecycle coverage]].
@@ -140,11 +140,14 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - Implementation: [[file:../src/aw2_lab/move_wait_executor.py][move_wait_executor.py]] composes the bounded navigation layer and commits only the verified final player-turn boundary. The UI observer recognizes movement and Wait choices only for the checkpoint-verified selectors and controller state.
    - Checkpoint research confirms movement cursor and Wait row mappings. The executor has not yet been exercised against a live playable unit; end-to-end emulator verification remains outstanding.
 
-** TODO Implement movement followed by attack
-   - [ ] Select a target after the explicit path and execute the attack as one transaction.
-   - [ ] Handle combat animations, counterattacks, damage, destruction, and return to control.
-   - [ ] Verify resulting state without predicting damage or consuming randomness outside AW2.
-   - [ ] Detect battle-ending attacks and transition to finished-match handling.
+** DONE Implement movement followed by attack
+   - [X] Select a target after the explicit path and execute the attack as one transaction.
+   - [X] Wait through combat animations and counterattacks, and return only at a recognized control or result boundary.
+   - [X] Verify the acting unit and target's resulting state without predicting damage or consuming randomness outside AW2.
+   - [X] Detect battle-ending attacks and transition the match controller to its finished lifecycle.
+   - [ ] Preflight MoveAttack feasibility before moving, including movement/fuel, available weapons/ammunition, target compatibility, and attack range; retain AW2's actual reached tile and Fire target list as the final authority when blockers alter the route.
+   - Implementation: [[file:../src/aw2_lab/move_attack_executor.py][move_attack_executor.py]] uses the typed Fire-target state, commits a verified post-combat player turn or a result observation with unavailable unit identity, and supports destruction of either combatant.
+   - Live verification (2026-10-29): Three headless mGBA runs using the supported ROM and default navigation limits completed an in-place Tank attack, target cycling with a counterattack, and a two-tile Mech move followed by attack. Each returned to a ready player turn with the acting unit used and its lifetime identity preserved. The opt-in regressions and exact evidence are documented in [[file:AW2-LIFECYCLE-RESEARCH.org::*Live move/attack executor verification][the lifecycle research log]]. Windowed execution and battle-ending executor attacks remain unverified live; archived result traces and ROM-independent checks cover the result branch.
 
 ** TODO Implement movement followed by capture
    - [ ] Choose Capture after the explicit path, including stationary capture continuation.

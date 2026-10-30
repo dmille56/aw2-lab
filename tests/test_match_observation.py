@@ -1,6 +1,7 @@
 """ROM-independent tests for command-boundary identity and revision tracking."""
 
 from dataclasses import replace
+from struct import pack_into
 from uuid import uuid4
 
 import pytest
@@ -9,6 +10,7 @@ from test_state_validation import snapshot
 
 from aw2_lab.match_observation import (
     ActionReadiness,
+    IdentityStatus,
     MatchObservationMetadata,
     MatchObservationTracker,
     RevisionCause,
@@ -104,3 +106,20 @@ def test_unavailable_boundary_invalidates_identity_continuity(memory) -> None:
     assert not tracker.continuity_valid
     with pytest.raises(RuntimeError, match="continuity is unknown"):
         tracker.commit_boundary(decode(memory, 125))
+
+
+def test_terminal_result_commits_without_publishing_retained_unit_state(memory) -> None:
+    tracker = MatchObservationTracker(uuid4())
+    tracker.commit_boundary(decode(memory))
+    _, ewram, _ = memory
+    pack_into("<I", ewram, 0xD610, 0x0849D56C)
+    result = decode(memory, 124)
+
+    terminal = tracker.commit_terminal_boundary(result)
+
+    assert terminal.revision == 2
+    assert terminal.game_state is result
+    assert terminal.identity_status is IdentityStatus.UNAVAILABLE
+    assert terminal.unit_identities == ()
+    assert terminal.action_readiness is ActionReadiness.UNKNOWN
+    assert tracker.read() is terminal

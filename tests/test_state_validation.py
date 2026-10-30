@@ -30,7 +30,9 @@ from aw2_lab.ui_state import CursorStatus, MenuFamily, MenuItem, observe_map_cur
 def memory() -> tuple[BattleLayout, bytearray, bytearray]:
     lookup = bytearray(1024)
     lookup[1:6] = bytes([1, 6, 0x26, 0x46, 9])
-    layout = BattleLayout(AW2_US_REVISION_0, 0x0201E450, 0x02022684, 0x02023284, bytes(lookup))
+    layout = BattleLayout(
+        AW2_US_REVISION_0, 0x0201E450, 0x02022684, 0x02023284, bytes(lookup), (0,) * 256
+    )
     ewram, iwram = bytearray(0x40000), bytearray(0x8000)
     pack_into("<HH", ewram, 0x1E450, 2, 2)
     pack_into("<HH", ewram, 0x225CA, 0, 2)
@@ -188,11 +190,21 @@ def test_unit_movement_overlay_exposes_verified_source_cursor(memory) -> None:
     assert cursor.status is CursorStatus.AVAILABLE
     assert (cursor.x, cursor.y) == (0, 1)
 
+    # Menu row bytes remain from the previous selector and do not gate movement.
+    iwram[0x14B1] = 5
+    iwram[0x14B2] = 4
+    current = snapshot(memory)
+    menu = observe_menu(current, validate_battle_snapshot(current))
+    cursor = observe_map_cursor(current, validate_battle_snapshot(current))
+    assert menu.family is MenuFamily.UNIT_MOVEMENT
+    assert menu.selected_unit is not None, menu.reasons
+    assert cursor.status is CursorStatus.AVAILABLE
+
 
 @pytest.mark.parametrize(
     ("action_ids", "selected_item"),
     [
-        ((0, 0x0A), MenuItem.OTHER_UNIT_ACTION),
+        ((0, 0x0A), MenuItem.FIRE),
         ((2, 0x0A), MenuItem.OTHER_UNIT_ACTION),
         ((4, 0x0A), MenuItem.OTHER_UNIT_ACTION),
         ((0x0A, 0x0B), MenuItem.WAIT),
@@ -219,9 +231,74 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
     menu = observe_menu(current, validate_battle_snapshot(current))
     assert menu.family is MenuFamily.UNIT_ACTION_CHOICES
     assert menu.items == tuple(
-        MenuItem.WAIT if item_id == 0x0A else MenuItem.OTHER_UNIT_ACTION for item_id in action_ids
+        MenuItem.WAIT
+        if item_id == 0x0A
+        else MenuItem.FIRE
+        if item_id == 0
+        else MenuItem.OTHER_UNIT_ACTION
+        for item_id in action_ids
     )
     assert menu.selected_item is selected_item
+
+    # The byte is a map ID, not an eight-value menu mode.
+    iwram[0x3FC2] = 0x53
+    current = snapshot(memory)
+    menu = observe_menu(current, validate_battle_snapshot(current))
+    assert menu.family is MenuFamily.UNIT_ACTION_CHOICES
+    assert menu.selected_item is selected_item
+
+    layout, _, _ = memory
+    rules = list(layout.menu_rules_by_map)
+    rules[0x53] = 0x08000000
+    current = snapshot((replace(layout, menu_rules_by_map=tuple(rules)), ewram, iwram))
+    assert (
+        observe_menu(current, validate_battle_snapshot(current)).family
+        is not MenuFamily.UNIT_ACTION_CHOICES
+    )
+
+
+@pytest.mark.parametrize("progress", range(9))
+@pytest.mark.parametrize("stale_rows", [(6, 2), (2, 0), (255, 255)])
+def test_fire_target_mode_requires_initialized_cursor(memory, progress, stale_rows) -> None:
+    _, ewram, iwram = memory
+    pack_into("<I", ewram, 0xD610, 0x0849A9F8)
+    pack_into("<I", iwram, 0x40D8, 0x02022690)
+    pack_into("<I", iwram, 0x1470, 0x08499B4C)
+    pack_into("<I", iwram, 0x1490, progress)
+    iwram[0x14B1], iwram[0x14B2] = stale_rows
+    iwram[0x30F0] = 1
+    pack_into("<H", iwram, 0x3334, 4)
+    pack_into("<HH", iwram, 0x33E4, 0, 1)
+    iwram[0x3140:0x3142] = bytes((1, 1))
+    ewram[0x22690:0x2269C] = bytes((1, 6, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
+    ewram[0x1E450 + 0x51A + 3] = 1
+
+    current = snapshot(memory)
+    report = validate_battle_snapshot(current)
+    menu = observe_menu(current, report)
+    cursor = observe_map_cursor(current, report)
+    assert report.lifecycle.phase is LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+    if progress < 8:
+        assert menu.family is not MenuFamily.UNIT_TARGETING
+        assert cursor.status is CursorStatus.UNAVAILABLE
+        return
+    assert menu.family is MenuFamily.UNIT_TARGETING
+    assert menu.selected_unit is not None
+    assert cursor.status is CursorStatus.AVAILABLE
+    assert (cursor.x, cursor.y) == (0, 1)
+
+
+def test_fire_target_mode_requires_the_fire_parent(memory) -> None:
+    _, _, iwram = memory
+    pack_into("<I", iwram, 0x1470, 0x08499B4C)
+    pack_into("<I", iwram, 0x1490, 8)
+    iwram[0x14B1] = 6
+    iwram[0x14B2] = 2
+    iwram[0x30F0] = 1
+    pack_into("<H", iwram, 0x3334, 4)
+    current = snapshot(memory)
+    menu = observe_menu(current, validate_battle_snapshot(current))
+    assert menu.family is MenuFamily.UNRESOLVED
 
 
 def test_general_command_menu_stays_unresolved_and_does_not_publish_stale_pointer(memory) -> None:
@@ -232,6 +309,27 @@ def test_general_command_menu_stays_unresolved_and_does_not_publish_stale_pointe
     menu = observe_menu(current, validate_battle_snapshot(current))
     assert menu.family is MenuFamily.UNRESOLVED
     assert menu.selected_unit is None
+
+
+@pytest.mark.parametrize("map_id", [0, 0x53, 255])
+@pytest.mark.parametrize("rule_pointer", [0, 0x08000000])
+def test_command_menu_dispatch_uses_rom_rules_for_the_current_map(
+    memory, map_id: int, rule_pointer: int
+) -> None:
+    layout, ewram, iwram = memory
+    pack_into("<I", iwram, 0x1470, 0x0848A42C)
+    pack_into("<I", iwram, 0x1490, 0x0849AAC0)
+    iwram[0x14B1] = 5
+    iwram[0x14B2] = 0
+    iwram[0x14A1:0x14A6] = bytes((0, 1, 4, 5, 6))
+    iwram[0x30F0] = 1
+    iwram[0x3FC2] = map_id
+    rules = list(layout.menu_rules_by_map)
+    rules[map_id] = rule_pointer
+    current = snapshot((replace(layout, menu_rules_by_map=tuple(rules)), ewram, iwram))
+    menu = observe_menu(current, validate_battle_snapshot(current))
+    assert menu.actionable is (True if rule_pointer == 0 else None)
+    assert menu.family is (MenuFamily.COMMAND if rule_pointer == 0 else MenuFamily.UNRESOLVED)
 
 
 def test_map_input_menu_does_not_treat_current_pointer_as_selection(memory) -> None:
@@ -532,7 +630,7 @@ class SnapshotBridge(LuaBridgeClient):
         self.reads += 1
         values = tuple(self.source.read(address, size) for address, size in ranges)
         if self.truncate:
-            values = (values[0][:-1],)
+            values = tuple(value[:-1] for value in values)
         return MemorySnapshot(self.source.frame + int(self.drift), values)
 
 

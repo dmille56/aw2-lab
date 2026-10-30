@@ -307,6 +307,40 @@ class MatchObservationTracker:
         self._restore_pending = False
         return observation
 
+    def commit_terminal_boundary(self, game_state: GameState) -> MatchObservation:
+        """Publish a recognized result screen without reusing stale battle data."""
+        terminal_phases = {
+            LifecyclePhase.RESULT_SEQUENCE,
+            LifecyclePhase.VICTORY_PRESENTATION,
+            LifecyclePhase.DEFEAT_PRESENTATION,
+            LifecyclePhase.RESULT_SUMMARY,
+            LifecyclePhase.SAVE_PROGRESS_PROMPT,
+        }
+        if game_state.lifecycle.phase not in terminal_phases:
+            raise ValueError("Terminal boundaries require a recognized result phase")
+        if game_state.battle.status is ValueStatus.AVAILABLE or game_state.battle.value is not None:
+            raise ValueError("Terminal boundaries must not publish retained live battle data")
+        if self._restore_pending:
+            raise ValueError("Checkpoint load must be completed before publishing a result")
+        if self._last_frame is not None and game_state.frame <= self._last_frame:
+            raise ValueError("Terminal boundary frame must advance beyond the last commit")
+        if self._revision == MAX_MATCH_REVISION:
+            raise ValueError("Match revision space is exhausted")
+        observation = MatchObservation(
+            match_id=self.match_id,
+            revision=self._revision + 1,
+            game_state=game_state,
+            unit_identities=(),
+            identity_status=IdentityStatus.UNAVAILABLE,
+            identity_reasons=("Match has reached a recognized terminal result phase",),
+            action_readiness=ActionReadiness.UNKNOWN,
+            action_readiness_reasons=("The match is finished",),
+        )
+        self._revision = observation.revision
+        self._last_frame = game_state.frame
+        self._current = observation
+        return observation
+
     def read(self) -> MatchObservation:
         """Return the last committed observation without emulator or ledger changes."""
         if self._current is None:

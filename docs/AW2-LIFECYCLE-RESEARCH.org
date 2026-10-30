@@ -1556,7 +1556,8 @@ checkpoints read =0, 1, 2, 3, 0= at both addresses, matching No Visual, Visual
 A, Visual B, Visual C, and No Visual. Related original-ROM routines compare the
 same IWRAM byte against =0..3= when deciding which visual behavior applies.
 This verifies the four mode values and the wraparound; these setting values are
-separate from the menu eligibility mode byte at =0x03003FC2=.
+separate from the map ID byte at =0x03003FC2=, which selects the map header
+used by menu eligibility checks.
 
 ** Save and End menu actions
 
@@ -1642,11 +1643,13 @@ from the active item table, passes its type byte to =sub_08074410= with a zero
 argument, and proceeds only when that helper returns zero and the entry's A
 callback at =+0x14= is non-null. A nonzero helper result blocks dispatch.
 
-=sub_08074410= obtains a mode row selected by byte =0x03003FC2= from the ROM
-table at =0x085C77A0= with a 0x5C-byte stride. It reads the rule-list pointer
+=sub_08074410= obtains the map header selected by map ID byte =0x03003FC2=
+from the ROM table at =0x085C77A0= with a 0x5C-byte stride. It reads the rule-list pointer
 at row offset =+4=; a null pointer returns zero immediately, meaning no rule
-blocks the menu choice. All eight mode rows (0 through 7) have a null pointer
-at this offset in the supported ROM. The three verified selector tables have
+blocks the menu choice. The sampled map headers 0 through 7 and 83 have a null
+pointer at this offset in the supported ROM. The earlier description of this
+byte as an eight-value menu mode was incorrect; the live executor case uses
+map ID 83. The three verified selector tables have
 non-null A callbacks for every listed item ID: main command =0x0849AAC0= with
 IDs =(0,1,4,5,6)=, Intel =0x0849ABC0= with =(0,2,3)=, and Options
 =0x0849AC60= with =(0,1,2,7,8)=.
@@ -1654,9 +1657,11 @@ IDs =(0,1,4,5,6)=, Intel =0x0849ABC0= with =(0,2,3)=, and Options
 The typed observer now recognizes these selectors only when the battle
 controller remains in state 13 with lock 1, the selector object pointer is
 =0x0848A42C=, the table/count/item-ID sequence exactly matches a verified
-family, and the selected row is within that count. It reports the typed row
-and =actionable=true= only for a mode byte in the traced 0..7 range. If a
-signature is incomplete, stale, or outside those bounds, the result stays
+family, and the selected row is within that count. ROM loading captures the
+rule pointers for all 256 byte-sized map IDs. It reports the typed row and
+=actionable=true= only when the current map's verified rule pointer is null;
+non-null rule lists remain unsupported. Unit action choices use the same
+eligibility check. If a signature is incomplete or stale, the result stays
 unresolved. Dialogs use different object/table pointers; Delete targeting
 clears the selector and has lock 0, so neither is misreported as an actionable
 general-menu choice. This flag means the selected row passes the ROM's current
@@ -1736,3 +1741,62 @@ selection, an unresolved menu/UI context with preserved signals, or a known
 lifecycle phase where no supported menu observation applies. It does not expand
 the supported phase/menu inventory or make unknown states safe for live battle
 decoding.
+
+** Live move/attack executor verification
+
+On 2026-10-29, the full =MoveAttackActionExecutor= completed three isolated
+headless runs with the supported US ROM and default =NavigationLimits=.
+The external =red-ready.ss0= checkpoint starts at frame 19421; its SHA-256 is
+=e34dddc4216fef3a84390796a0b188f76ff51f123983f0dc4da423fe970b36d0=.
+The headless executable build identity is
+=sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22=.
+Each run restores the checkpoint into a new emulator with temporary config
+and save directories, then sends controller inputs through the bridge.
+
+| Case | Acting unit and route | Enemy target | Observed result | Final frame |
+|------+-----------------------+--------------+-----------------+-------------|
+| Initial target | Tank reference 3, (1,5), empty path | Infantry 130 at (1,4), health 44 | Target destroyed; Tank health 98 | 19959 |
+| Cycle target | Same Tank, empty path | Infantry 131 at (2,5), health 96 | Target health 34; counterattack reduced Tank health 98 -> 96 | 19932 |
+| Move then attack | Mech reference 4, (0,6) -> (0,5) -> (0,4) | Infantry 130 at (1,4), health 44 | Target destroyed; Mech health 100, final position (0,4) | 19975 |
+
+Every result was a ready player-turn observation at revision 2, with the
+acting unit marked used and its original lifetime identity retained.
+Damage values are observations from these runs, not predictions; AW2 remains
+responsible for randomness, damage, counterattacks, and unit destruction.
+
+The live traces corrected three UI assumptions:
+
+- Under cursor process =0x08499B4C=, address =0x03001490= is the cursor
+  graphics loading counter, not a selector-table pointer. Original-ROM
+  =sub_080228B8= initializes it to 2, and =sub_080228D8= increments it until
+  8. Fire selection automatically positions the cursor on its initial target
+  during this initialization. The observer now waits for counter 8. Bytes
+  =0x030014B1/B2= retain previous menu row data in this process and do not
+  establish cursor readiness.
+- Fire input routine =sub_0802925C= increments a target-list index for
+  Right/Down and decrements it for Left/Up, wrapping within the eligible
+  targets. Direction presses can jump across the map. Navigation cycles
+  Right until the requested coordinate appears and rejects a completed
+  cycle without that target. It also accepts the initial target without
+  sending an extra direction input.
+- A selector can be visible before its first A input is accepted. A probe
+  at frame 19436 ignored immediate A but accepted A after one neutral frame;
+  selecting the Mech after cursor movement needed two neutral frames. The
+  navigator now advances two neutral frames before every tap, including
+  across operation boundaries. UI polling defaults to 10 frames and combat
+  polling to 30, keeping full-RAM observations within the default watchdogs.
+
+The opt-in regressions are in
+[[file:../tests/test_move_attack_integration.py][test_move_attack_integration.py]]. They require the external checkpoint and ROM;
+ordinary tests skip them. To reproduce, supply local paths:
+
+#+begin_src sh
+AW2_RUN_MOVE_ATTACK_TESTS=1 \
+AW2_ROM_PATH=/absolute/path/to/aw2.gba \
+AW2_MOVE_ATTACK_CHECKPOINT=/absolute/path/to/red-ready.ss0 \
+nix develop -c pytest -s tests/test_move_attack_integration.py
+#+end_src
+
+These runs verify ordinary headless combat and the shared movement/targeting
+navigation. Windowed execution, battle-ending executor attacks, and destruction
+of the attacking unit still rely on separate checkpoint or synthetic evidence.

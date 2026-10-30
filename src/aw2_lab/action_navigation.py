@@ -28,17 +28,26 @@ class NavigationLimits:
     """Hard limits for one navigation operation."""
 
     frame_budget: int = 180
-    poll_frames: int = 2
+    poll_frames: int = 10
     wall_timeout: float = 15.0
     input_frames: int = 1
+    input_gap_frames: int = 2
+    resolution_frame_budget: int = 6000
+    resolution_wall_timeout: float = 60.0
+    resolution_poll_frames: int = 30
 
     def __post_init__(self) -> None:
         if not 1 <= self.frame_budget <= 36_000 or not 1 <= self.poll_frames <= 600:
             raise ValueError("frame budget must be 1..36000 and poll interval must be 1..600")
         if (
             not 1 <= self.input_frames <= 600
+            or not 1 <= self.input_gap_frames <= 60
+            or not 1 <= self.resolution_frame_budget <= 36_000
+            or not 1 <= self.resolution_poll_frames <= 600
             or not math.isfinite(self.wall_timeout)
             or self.wall_timeout <= 0
+            or not math.isfinite(self.resolution_wall_timeout)
+            or self.resolution_wall_timeout <= 0
         ):
             raise ValueError(
                 "input frame count and finite wall timeout must be positive and bounded"
@@ -367,6 +376,123 @@ class ActionNavigator:
                 description="the settled player-turn boundary after Wait",
             )
 
+    async def choose_fire(self) -> GameState:
+        """Choose Fire from a recognized unit selector and require Fire target mode."""
+        async with self._bounded_operation():
+            self._begin("choose_fire")
+            state = await self._observe()
+            menu = state.ui.menu
+            if (
+                menu.family is not MenuFamily.UNIT_ACTION_CHOICES
+                or menu.selected_item is None
+                or MenuItem.FIRE not in menu.items
+                or not menu.actionable
+            ):
+                raise await self._fail("Fire requires a recognized unit action selector", state)
+            delta = menu.items.index(MenuItem.FIRE) - menu.items.index(menu.selected_item)
+            if delta:
+                key, name = (_KEY_DOWN, "down") if delta > 0 else (_KEY_UP, "up")
+                for _ in range(abs(delta)):
+                    await self._tap(f"fire-menu-{name}", key)
+                    state = await self._wait_for(
+                        lambda value: (
+                            value.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
+                            and value.ui.menu.selected_item is MenuItem.FIRE
+                            and value.ui.menu.selected_unit == menu.selected_unit
+                        ),
+                        description="Fire selected in the action menu",
+                    )
+            await self._tap("confirm-fire", _KEY_A)
+            return await self._wait_for(
+                lambda value: (
+                    value.ui.menu.family is MenuFamily.UNIT_TARGETING
+                    and value.ui.menu.selected_unit == menu.selected_unit
+                    and value.ui.map_cursor.status is CursorStatus.AVAILABLE
+                ),
+                description="the recognized Fire target cursor",
+            )
+
+    async def move_target_cursor_to(self, x: int, y: int, *, width: int, height: int) -> GameState:
+        """Cycle AW2's eligible Fire targets until the requested tile is selected."""
+        async with self._bounded_operation():
+            self._begin("move_attack_target")
+            state = await self._observe()
+            cursor = state.ui.map_cursor
+            if (
+                state.ui.menu.family is not MenuFamily.UNIT_TARGETING
+                or state.ui.menu.selected_unit is None
+                or cursor.status is not CursorStatus.AVAILABLE
+                or cursor.x is None
+                or cursor.y is None
+            ):
+                raise await self._fail("Target movement requires recognized Fire targeting", state)
+            if (
+                isinstance(x, bool)
+                or isinstance(y, bool)
+                or not isinstance(x, int)
+                or not isinstance(y, int)
+                or not 0 <= x < width
+                or not 0 <= y < height
+            ):
+                raise await self._fail("Attack target is outside the validated map", state)
+            selected_unit = state.ui.menu.selected_unit
+            visited: set[tuple[int | None, int | None]] = set()
+            while (cursor.x, cursor.y) != (x, y):
+                position = (cursor.x, cursor.y)
+                if position in visited:
+                    raise await self._fail("Requested tile is not an eligible Fire target", state)
+                visited.add(position)
+                await self._tap("target-next", _KEY_RIGHT)
+
+                def target_cursor_ready(value: GameState) -> bool:
+                    return (
+                        value.ui.menu.family is MenuFamily.UNIT_TARGETING
+                        and value.ui.menu.selected_unit == selected_unit
+                        and value.ui.map_cursor.status is CursorStatus.AVAILABLE
+                        and value.ui.map_cursor.x is not None
+                        and value.ui.map_cursor.y is not None
+                    )
+
+                state = await self._wait_for(
+                    target_cursor_ready,
+                    description="the next eligible Fire target",
+                )
+                cursor = state.ui.map_cursor
+            return state
+
+    async def confirm_attack(self) -> GameState:
+        """Confirm the selected tile and wait through combat to a stable outcome."""
+        async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
+            self._begin("resolve_attack")
+            state = await self._observe()
+            if (
+                state.ui.menu.family is not MenuFamily.UNIT_TARGETING
+                or state.ui.menu.selected_unit is None
+                or state.ui.map_cursor.status is not CursorStatus.AVAILABLE
+            ):
+                raise await self._fail("Attack confirmation requires a verified target tile", state)
+            await self._tap("confirm-attack-target", _KEY_A)
+            terminal_phases = {
+                LifecyclePhase.RESULT_SEQUENCE,
+                LifecyclePhase.VICTORY_PRESENTATION,
+                LifecyclePhase.DEFEAT_PRESENTATION,
+                LifecyclePhase.RESULT_SUMMARY,
+                LifecyclePhase.SAVE_PROGRESS_PROMPT,
+            }
+            return await self._wait_for(
+                lambda value: (
+                    (
+                        value.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN
+                        and value.ui.menu.family is MenuFamily.MAP_INPUT
+                        and value.battle.status is ValueStatus.AVAILABLE
+                    )
+                    or value.lifecycle.phase in terminal_phases
+                ),
+                description="post-combat control or a recognized match result",
+                frame_budget=self.limits.resolution_frame_budget,
+                poll_frames=self.limits.resolution_poll_frames,
+            )
+
     async def navigate_menu(self, item: MenuItem) -> GameState:
         """Navigate the known battle-menu hierarchy to ``item`` from a recognized selector."""
         async with self._bounded_operation():
@@ -485,9 +611,9 @@ class ActionNavigator:
         self.inputs.clear()
 
     @asynccontextmanager
-    async def _bounded_operation(self) -> AsyncIterator[None]:
+    async def _bounded_operation(self, *, timeout: float | None = None) -> AsyncIterator[None]:
         try:
-            async with asyncio.timeout(self.limits.wall_timeout):
+            async with asyncio.timeout(timeout or self.limits.wall_timeout):
                 yield
         except TimeoutError as error:
             state = self._last_state
@@ -502,9 +628,17 @@ class ActionNavigator:
 
     async def _tap(self, name: str, keys: int) -> None:
         count = self.limits.input_frames
-        if self._frames_used + count > self.limits.frame_budget:
+        # Let cursor changes and new selectors settle before dispatching A.
+        # Sampling release also makes consecutive button presses distinct.
+        gap = self.limits.input_gap_frames
+        if self._frames_used + gap + count > self.limits.frame_budget:
             state = await self._observe()
             raise await self._fail("Navigation frame budget exhausted", state)
+        end = await self.bridge.advance_frames(gap)
+        self._frames_used += gap
+        state = await self._observe()
+        if state.frame != end:
+            raise await self._fail("Observed state frame does not match release gap", state)
         start = self._last_state.frame if self._last_state is not None else 0
         end = await self.bridge.press_keys(keys, count)
         self.inputs.append(InputEvent(name, keys, count, start, end))
@@ -513,17 +647,28 @@ class ActionNavigator:
         if state.frame != end:
             raise await self._fail("Observed state frame does not match input completion", state)
 
-    async def _wait_for(self, predicate: Postcondition, *, description: str) -> GameState:
-        while True:
+    async def _wait_for(
+        self,
+        predicate: Postcondition,
+        *,
+        description: str,
+        frame_budget: int | None = None,
+        poll_frames: int | None = None,
+    ) -> GameState:
+        budget = self.limits.frame_budget if frame_budget is None else frame_budget
+        interval = self.limits.poll_frames if poll_frames is None else poll_frames
+        state = self._last_state
+        if state is None:
             state = await self._observe()
+        while True:
             if predicate(state):
                 return state
-            if self._frames_used + self.limits.poll_frames > self.limits.frame_budget:
+            if self._frames_used + interval > budget:
                 raise await self._fail(
                     f"Timed out waiting for {description} within frame budget", state
                 )
-            end = await self.bridge.advance_frames(self.limits.poll_frames)
-            self._frames_used += self.limits.poll_frames
+            end = await self.bridge.advance_frames(interval)
+            self._frames_used += interval
             state = await self._observe()
             if state.frame != end:
                 raise await self._fail("Observed state frame does not match polling frame", state)

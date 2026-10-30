@@ -38,21 +38,23 @@ SELECTOR_SELECTED_ROW = 0x030014B2
 SELECTOR_ITEM_IDS = 0x030014A1
 CONTROLLER_STATE = 0x030032D8
 CONTROLLER_LOCK = 0x030030F0
-MENU_MODE = 0x03003FC2
+MAP_ID = 0x03003FC2
 UNIT_MOVEMENT_SELECTOR = 0x08499B4C
+# This process shares the selector's storage. Offset +0x20 is a cursor
+# graphics loading counter here, not a menu table pointer; it saturates at 8.
+CURSOR_GRAPHICS_PROGRESS = 0x03001490
 UNIT_ACTION_SELECTOR = 0x0848A42C
 UNIT_ACTION_TABLE = 0x0849AE28
+FIRE_TARGETING_SCRIPT = 0x0849A9F8
 
 # Original-ROM table signatures for the three selectors verified in the
-# supplied Versus battle checkpoints. Each item ID has a non-null A callback;
-# their eligibility rule-list pointers are null for every supported menu mode.
+# supplied Versus battle checkpoints. Each item ID has a non-null A callback.
+# Eligibility is checked against the current map's original-ROM header.
 _MENU_TABLES = {
     0x0849AAC0: ("command", 5, (0, 1, 4, 5, 6)),
     0x0849ABC0: ("intel", 3, (0, 2, 3)),
     0x0849AC60: ("options", 5, (0, 1, 2, 7, 8)),
 }
-_MENU_MODE_COUNT = 8
-_MENU_RULE_POINTERS = (0,) * _MENU_MODE_COUNT
 
 
 class CursorStatus(StrEnum):
@@ -83,6 +85,7 @@ class MenuFamily(StrEnum):
     UNIT_ACTION = "unit_action"
     UNIT_MOVEMENT = "unit_movement"
     UNIT_ACTION_CHOICES = "unit_action_choices"
+    UNIT_TARGETING = "unit_targeting"
     UNRESOLVED = "unresolved"
 
 
@@ -102,6 +105,7 @@ class MenuItem(StrEnum):
     MUSIC = "music"
     VISUAL_MODE = "visual_mode"
     EXIT_MAP = "exit_map"
+    FIRE = "fire"
     WAIT = "wait"
     OTHER_UNIT_ACTION = "other_unit_action"
 
@@ -176,9 +180,7 @@ def observe_map_cursor(
         validation.lifecycle.phase is LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
         and validation.lifecycle.engine is LifecycleEngine.BATTLE
         and snapshot.u32(SELECTOR_OBJECT) == UNIT_MOVEMENT_SELECTOR
-        and snapshot.u32(SELECTOR_TABLE) == 8
-        and snapshot.read(SELECTOR_ROW_COUNT, 1)[0] == 6
-        and snapshot.read(SELECTOR_SELECTED_ROW, 1)[0] == 2
+        and snapshot.u16(CURSOR_GRAPHICS_PROGRESS) == 8
         and snapshot.read(CONTROLLER_LOCK, 1)[0] == 0
         and snapshot.u16(CONTROLLER_STATE) == 13
         and snapshot.u16(0x03003334) == 1
@@ -189,7 +191,12 @@ def observe_map_cursor(
         )
         and _observe_selected_unit(snapshot) is not None
     )
-    if validation.lifecycle.phase is not LifecyclePhase.BATTLE_PLAYER_TURN and not movement_cursor:
+    targeting_cursor = _is_fire_targeting(snapshot, validation)
+    if (
+        validation.lifecycle.phase is not LifecyclePhase.BATTLE_PLAYER_TURN
+        and not movement_cursor
+        and not targeting_cursor
+    ):
         return MapCursorObservation(
             snapshot.frame,
             CursorStatus.UNAVAILABLE,
@@ -203,7 +210,7 @@ def observe_map_cursor(
         )
 
     width, height = snapshot.u16(MAP_BASE), snapshot.u16(MAP_BASE + 2)
-    if movement_cursor:
+    if movement_cursor or targeting_cursor:
         x, y = snapshot.u16(CURSOR_SOURCE), snapshot.u16(CURSOR_SOURCE + 2)
         if 0 <= x < width and 0 <= y < height:
             return MapCursorObservation(snapshot.frame, CursorStatus.AVAILABLE, x, y)
@@ -250,6 +257,16 @@ def observe_menu(
     action_menu = _observe_unit_action_choices(snapshot, validation)
     if action_menu is not None:
         return action_menu
+
+    if _is_fire_targeting(snapshot, validation):
+        selected = _observe_selected_unit(snapshot)
+        if selected is not None:
+            return MenuObservation(snapshot.frame, MenuFamily.UNIT_TARGETING, selected)
+        return MenuObservation(
+            snapshot.frame,
+            MenuFamily.UNIT_TARGETING,
+            reasons=("Acting unit could not be validated during Fire targeting",),
+        )
 
     if validation.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN:
         return MenuObservation(snapshot.frame, MenuFamily.MAP_INPUT)
@@ -347,9 +364,7 @@ def _observe_unit_movement(
 ) -> MenuObservation | None:
     if (
         snapshot.u32(SELECTOR_OBJECT) != UNIT_MOVEMENT_SELECTOR
-        or snapshot.u32(SELECTOR_TABLE) != 8
-        or snapshot.read(SELECTOR_ROW_COUNT, 1)[0] != 6
-        or snapshot.read(SELECTOR_SELECTED_ROW, 1)[0] != 2
+        or snapshot.u16(CURSOR_GRAPHICS_PROGRESS) != 8
         or snapshot.read(CONTROLLER_LOCK, 1)[0] != 0
         or snapshot.u16(CONTROLLER_STATE) != 13
         or snapshot.u16(0x03003334) != 1
@@ -403,11 +418,15 @@ def _observe_unit_action_choices(
         or row >= 2
     ):
         return None
-    mode = snapshot.read(MENU_MODE, 1)[0]
-    if mode >= _MENU_MODE_COUNT:
+    if not _menu_rules_allow_dispatch(snapshot):
         return None
     items = tuple(
-        MenuItem.WAIT if item_id == 0x0A else MenuItem.OTHER_UNIT_ACTION for item_id in ids
+        MenuItem.WAIT
+        if item_id == 0x0A
+        else MenuItem.FIRE
+        if item_id == 0
+        else MenuItem.OTHER_UNIT_ACTION
+        for item_id in ids
     )
     return MenuObservation(
         snapshot.frame,
@@ -416,6 +435,19 @@ def _observe_unit_action_choices(
         selected_item=items[row],
         actionable=True,
         items=items,
+    )
+
+
+def _is_fire_targeting(snapshot: BattleMemorySnapshot, validation: BattleValidationReport) -> bool:
+    return (
+        validation.lifecycle.phase is LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+        and validation.lifecycle.engine is LifecycleEngine.BATTLE
+        and FIRE_TARGETING_SCRIPT in validation.lifecycle.active_process_scripts
+        and snapshot.u32(SELECTOR_OBJECT) == UNIT_MOVEMENT_SELECTOR
+        and snapshot.u16(CURSOR_GRAPHICS_PROGRESS) == 8
+        and snapshot.u16(CONTROLLER_STATE) == 13
+        and snapshot.read(CONTROLLER_LOCK, 1)[0] == 1
+        and snapshot.u16(0x03003334) == 4
     )
 
 
@@ -473,20 +505,25 @@ def _observe_command_menu(
             "Active selector does not match a verified menu table",
         )
 
-    mode = snapshot.read(MENU_MODE, 1)[0]
-    if mode >= _MENU_MODE_COUNT:
+    if not _menu_rules_allow_dispatch(snapshot):
         return _unrecognized_menu(
             snapshot,
             validation,
-            "Menu eligibility mode is outside the verified rule table",
+            "Map menu eligibility rules require unsupported evaluation",
         )
 
     return MenuObservation(
         snapshot.frame,
         MenuFamily(family_name),
         selected_item=_MENU_ITEMS[family_name][selected_row],
-        actionable=_MENU_RULE_POINTERS[mode] == 0,
+        actionable=True,
     )
+
+
+def _menu_rules_allow_dispatch(snapshot: BattleMemorySnapshot) -> bool:
+    """Null map-header rule lists allow dispatch; other lists stay unsupported."""
+    map_id = snapshot.read(MAP_ID, 1)[0]
+    return snapshot.layout.menu_rules_by_map[map_id] == 0
 
 
 def _unrecognized_menu(

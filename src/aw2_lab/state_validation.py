@@ -65,6 +65,7 @@ class BattleLayout:
     unit_base: int
     player_base: int
     terrain_by_tile: bytes
+    menu_rules_by_map: tuple[int, ...]
 
     def __post_init__(self) -> None:
         if self.profile != AW2_US_REVISION_0:
@@ -77,6 +78,8 @@ class BattleLayout:
             raise ValueError("ROM pointers do not match the supported battle layout")
         if len(self.terrain_by_tile) != 1024:
             raise ValueError("The ROM tile lookup must contain 1024 bytes")
+        if len(self.menu_rules_by_map) != 256:
+            raise ValueError("Menu eligibility metadata must cover every byte-sized map ID")
 
 
 def load_battle_layout(rom_path: Path) -> BattleLayout:
@@ -91,6 +94,9 @@ def load_battle_layout(rom_path: Path) -> BattleLayout:
         unit_base=unpack_from("<I", raw, 0x499594)[0],
         player_base=unpack_from("<I", raw, 0x499598)[0],
         terrain_by_tile=raw[0x0C1BC4:0x0C1FC4],
+        menu_rules_by_map=tuple(
+            unpack_from("<I", raw, 0x5C77A0 + map_id * 0x5C + 4)[0] for map_id in range(256)
+        ),
     )
 
 
@@ -134,16 +140,30 @@ async def capture_battle_snapshot(
     """Capture bounded chunks, rejecting any frame change during the operation."""
     frame = await bridge.advance_frames(0)
     memories: list[bytes] = []
+    range_size = 64
+    ranges_per_batch = 64
+    batch_size = range_size * ranges_per_batch
     for base, length in ((EWRAM_BASE, 0x40000), (IWRAM_BASE, 0x8000)):
         raw = bytearray()
-        for offset in range(0, length, 4096):
-            size = min(4096, length - offset)
-            sample = await bridge.read_memory_snapshot([(base + offset, size)])
+        for batch_offset in range(0, length, batch_size):
+            ranges = [
+                (base + offset, min(range_size, length - offset))
+                for offset in range(
+                    batch_offset,
+                    min(batch_offset + batch_size, length),
+                    range_size,
+                )
+            ]
+            sample = await bridge.read_memory_snapshot(ranges)
             if sample.frame != frame:
                 raise BridgeError("Battle memory changed frames during capture")
-            if len(sample.ranges) != 1 or len(sample.ranges[0]) != size:
+            if len(sample.ranges) != len(ranges) or any(
+                len(value) != requested[1]
+                for requested, value in zip(ranges, sample.ranges, strict=False)
+            ):
                 raise BridgeError("Battle capture returned an incomplete memory range")
-            raw.extend(sample.ranges[0])
+            for value in sample.ranges:
+                raw.extend(value)
         memories.append(bytes(raw))
     if await bridge.advance_frames(0) != frame:
         raise BridgeError("Battle memory changed frames during capture")
