@@ -45,6 +45,8 @@ UNIT_MOVEMENT_SELECTOR = 0x08499B4C
 CURSOR_GRAPHICS_PROGRESS = 0x03001490
 UNIT_ACTION_SELECTOR = 0x0848A42C
 UNIT_ACTION_TABLE = 0x0849AE28
+SELECTOR_STRIDE = 0x60
+SELECTOR_COUNT = 3
 FIRE_TARGETING_SCRIPT = 0x0849A9F8
 
 # Original-ROM table signatures for the three selectors verified in the
@@ -400,17 +402,27 @@ def _observe_unit_action_choices(
             == UNIT_ACTION_MENU_SCRIPT
             for index in range(SCREEN_PROCESS_COUNT)
         )
-        or snapshot.u32(SELECTOR_OBJECT) != UNIT_ACTION_SELECTOR
-        or snapshot.u32(SELECTOR_TABLE) != UNIT_ACTION_TABLE
         or snapshot.u16(CONTROLLER_STATE) != 13
         or snapshot.read(CONTROLLER_LOCK, 1)[0] != 1
         or snapshot.u16(0x03003334) != 4
     ):
         return None
+    # The three UI process slots also host graphics loaders. A moved indirect
+    # unit can have its action selector in slot 1 while slot 0 has no selector.
+    # Match both original-ROM signatures; row bytes alone can be stale.
+    offsets = tuple(
+        index * SELECTOR_STRIDE
+        for index in range(SELECTOR_COUNT)
+        if snapshot.u32(SELECTOR_OBJECT + index * SELECTOR_STRIDE) == UNIT_ACTION_SELECTOR
+        and snapshot.u32(SELECTOR_TABLE + index * SELECTOR_STRIDE) == UNIT_ACTION_TABLE
+    )
+    if len(offsets) != 1:
+        return None
+    offset = offsets[0]
     selected = _observe_selected_unit(snapshot)
-    count = snapshot.read(SELECTOR_ROW_COUNT, 1)[0]
-    row = snapshot.read(SELECTOR_SELECTED_ROW, 1)[0]
-    ids = tuple(snapshot.read(SELECTOR_ITEM_IDS, count)) if count in (1, 2) else ()
+    count = snapshot.read(SELECTOR_ROW_COUNT + offset, 1)[0]
+    row = snapshot.read(SELECTOR_SELECTED_ROW + offset, 1)[0]
+    ids = tuple(snapshot.read(SELECTOR_ITEM_IDS + offset, count)) if count in (1, 2) else ()
     if (
         selected is None
         or len(ids) != count

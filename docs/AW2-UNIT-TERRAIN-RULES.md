@@ -361,11 +361,37 @@ Each case independently restored the prepared state:
 | Earlier one-road-tile check | Reached (9,5), used; road cost 1 fuel, observed 40 → 39; ammo stayed 6. |
 | Stationary attack on enemy Mech (13,6) | Ammo 6 → 5, fuel stayed 40; target health 82 → destroyed; returned used at frame 129774. |
 
-The single-choice Wait prompt had selector object 0 after initialization and was
-reported as `UNIT_ACTION` without actionable items. The production navigator
-currently waits for a different selector form and times out. This run used guarded
-research inputs to confirm the observed prompt; it does **not** claim the production
-MoveWait executor handles it. The milestone reopens that specific coverage gap.
+The original run inspected only the first UI process slot, whose selector object
+was 0. Inspection of all three 0x60-byte slots found the initialized action
+selector in the second slot (`0x030014D0`): object `0x0848A42C`, table
+`0x0849AE28`, one row with ID `0x0A` (Wait), selected row 0. The first slot held
+a graphics process. The observer now searches all three slots for exactly one
+matching action selector and retains the lifecycle, controller, selected-unit,
+row-ID, and map-rule checks. Stale rows and ambiguous selectors cannot authorize
+dispatch.
+
+The updated live regression uses production navigation to recognize and choose
+the one-choice Wait prompt, then restores the same checkpoint and repeats the
+route through `MoveWaitActionExecutor`. It checks the reached position `(9,6)`,
+used status, fuel 40 → 37, unchanged ammo, and preserved lifetime identity.
+
+The 2026-10-30 headless verification passed, including the subsequent stationary
+attack. Its build identity was
+`sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22`;
+ROM and original checkpoint hashes are unchanged from the evidence above.
+Artifacts are under
+`/tmp/aw2-wait-selector-complete/test_rockets_movement_fire_and0/`;
+`evidence.json` SHA-256 is
+`45aefd22fdea1dc8532ecfe4af4a27f0046f855105237c4359170905ff02fef3`.
+Windowed verification also passed on 2026-10-30 using build identity
+`sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810`.
+The production navigator and full MoveWait executor produced the same Rockets
+position, used status, fuel, ammo, and identity results as headless mode; the
+subsequent stationary attack also passed and ended at the same frame 129774.
+Artifacts are under
+`/tmp/aw2-wait-windowed-verification/test_rockets_movement_fire_and0/`;
+`evidence.json` SHA-256 is
+`c148f8d6f92cd596cc8deee2336a3f0b757f2e3e1ecbd3f022d7f11fbd453e5e`.
 
 The opt-in regression is `tests/test_unit_rules_integration.py`:
 
@@ -374,6 +400,9 @@ AW2_RUN_RULES_LIVE_TESTS=1 AW2_ROM_PATH=/local/path/aw2.gba \
 AW2_RULES_CHECKPOINT=/local/path/power-settled.ss0 \
   pytest -s tests/test_unit_rules_integration.py
 ```
+
+Set `AW2_RULES_MODE=windowed` to repeat with the visible mGBA frontend;
+the default is `headless`. The evidence JSON records the selected mode.
 
 Evidence remains outside Git under `/tmp/aw2-unit-terrain-rules/`. The
 `controlled-live-terrain-cost/test_rockets_movement_fire_and0/` directory contains

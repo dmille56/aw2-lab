@@ -201,6 +201,7 @@ def test_unit_movement_overlay_exposes_verified_source_cursor(memory) -> None:
     assert cursor.status is CursorStatus.AVAILABLE
 
 
+@pytest.mark.parametrize("selector_slot", range(3))
 @pytest.mark.parametrize(
     ("action_ids", "selected_item"),
     [
@@ -212,17 +213,18 @@ def test_unit_movement_overlay_exposes_verified_source_cursor(memory) -> None:
     ],
 )
 def test_unit_action_choices_resolve_wait_from_verified_row_ids(
-    memory, action_ids: tuple[int, ...], selected_item: MenuItem
+    memory, action_ids: tuple[int, ...], selected_item: MenuItem, selector_slot: int
 ) -> None:
     _, ewram, iwram = memory
     pack_into("<I", ewram, 0xD610, 0x0849BE38)
     pack_into("<I", iwram, 0x40D8, 0x02022690)
     pack_into("<H", iwram, 0x3334, 4)
-    pack_into("<I", iwram, 0x1470, 0x0848A42C)
-    pack_into("<I", iwram, 0x1490, 0x0849AE28)
-    iwram[0x14B1] = len(action_ids)
-    iwram[0x14B2] = 0
-    iwram[0x14A1 : 0x14A1 + len(action_ids)] = bytes(action_ids)
+    offset = selector_slot * 0x60
+    pack_into("<I", iwram, 0x1470 + offset, 0x0848A42C)
+    pack_into("<I", iwram, 0x1490 + offset, 0x0849AE28)
+    iwram[0x14B1 + offset] = len(action_ids)
+    iwram[0x14B2 + offset] = 0
+    iwram[0x14A1 + offset : 0x14A1 + offset + len(action_ids)] = bytes(action_ids)
     iwram[0x30F0] = 1
     ewram[0x22690:0x2269C] = bytes((1, 6, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
     iwram[0x3140:0x3142] = bytes((1, 1))
@@ -242,6 +244,33 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
         for item_id in action_ids
     )
     assert menu.selected_item is selected_item
+
+    # Stale rows in an inactive slot must not create another action menu.
+    inactive = ((selector_slot + 1) % 3) * 0x60
+    iwram[0x14B1 + inactive] = 1
+    iwram[0x14B2 + inactive] = 0
+    iwram[0x14A1 + inactive] = 0x0A
+    current = snapshot(memory)
+    assert observe_menu(current, validate_battle_snapshot(current)).items == menu.items
+
+    # Two matching selectors are ambiguous, so dispatch must stay unavailable.
+    pack_into("<I", iwram, 0x1470 + inactive, 0x0848A42C)
+    pack_into("<I", iwram, 0x1490 + inactive, 0x0849AE28)
+    current = snapshot(memory)
+    assert not observe_menu(current, validate_battle_snapshot(current)).actionable
+    pack_into("<I", iwram, 0x1470 + inactive, 0)
+    current = snapshot(memory)
+    assert observe_menu(current, validate_battle_snapshot(current)).actionable
+
+    # A matching object still needs its table signature and a valid selected row.
+    pack_into("<I", iwram, 0x1490 + offset, 0)
+    current = snapshot(memory)
+    assert not observe_menu(current, validate_battle_snapshot(current)).actionable
+    pack_into("<I", iwram, 0x1490 + offset, 0x0849AE28)
+    iwram[0x14B2 + offset] = len(action_ids)
+    current = snapshot(memory)
+    assert not observe_menu(current, validate_battle_snapshot(current)).actionable
+    iwram[0x14B2 + offset] = 0
 
     # The byte is a map ID, not an eight-value menu mode.
     iwram[0x3FC2] = 0x53
