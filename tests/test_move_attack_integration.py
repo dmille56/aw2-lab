@@ -29,6 +29,14 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def _emulator_mode() -> EmulatorMode:
+    value = os.environ.get("AW2_MOVE_ATTACK_MODE", EmulatorMode.HEADLESS.value)
+    try:
+        return EmulatorMode(value)
+    except ValueError as error:
+        raise ValueError("AW2_MOVE_ATTACK_MODE must be 'headless' or 'windowed'") from error
+
+
 @pytest.mark.parametrize(
     ("start", "path", "target_position"),
     [
@@ -50,11 +58,12 @@ def test_move_attack_against_playable_units(
     assert rom.is_file(), "AW2_ROM_PATH must name the supported local ROM"
     assert checkpoint.is_file(), "AW2_MOVE_ATTACK_CHECKPOINT must name red-ready.ss0"
     config = tmp_path / "config" / "mgba"
+    mode = _emulator_mode()
     config.mkdir(parents=True)
     saves = tmp_path / "saves"
     saves.mkdir()
     (config / "config.ini").write_text(
-        f"[ports.headless]\nsavegamePath={saves}\nsavestatePath={saves}\n"
+        f"[ports.{mode.value}]\nsavegamePath={saves}\nsavestatePath={saves}\n"
     )
     monkeypatch.setenv("XDG_CONFIG_HOME", str(config.parent))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
@@ -64,7 +73,7 @@ def test_move_attack_against_playable_units(
         launcher = EmulatorLauncher(
             EmulatorSettings(
                 rom_path=rom.resolve(),
-                mode=EmulatorMode.HEADLESS,
+                mode=mode,
                 headless_executable=os.environ.get("AW2_TEST_MGBA_HEADLESS", "mgba-headless"),
                 bridge_script=Path(__file__).resolve().parents[1] / "lua" / "bridge.lua",
                 suppress_emulator_output=True,

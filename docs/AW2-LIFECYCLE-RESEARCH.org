@@ -1797,6 +1797,9 @@ AW2_MOVE_ATTACK_CHECKPOINT=/absolute/path/to/red-ready.ss0 \
 nix develop -c pytest -s tests/test_move_attack_integration.py
 #+end_src
 
+Set =AW2_MOVE_ATTACK_MODE=windowed= to run the same cases through =mgba-qt=;
+the default remains =headless=.
+
 These runs verify ordinary headless combat and the shared movement/targeting
 navigation. Windowed execution, battle-ending executor attacks, and destruction
 of the attacking unit still rely on separate checkpoint or synthetic evidence.

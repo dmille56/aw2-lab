@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from aw2_lab.action_navigation import ActionNavigator, validate_path
+from aw2_lab.aw2_unit_profiles import preflight_move_attack
 from aw2_lab.lifecycle import LifecyclePhase
 from aw2_lab.match_contract import (
     CommandRequest,
@@ -107,8 +108,18 @@ class MoveAttackActionExecutor:
                 ErrorCode.INVALID_REQUEST, "No opposing unit is observed at target"
             )
 
-        # Shape, bounds, unit ownership/readiness, and target presence are checked
-        # before controller input. AW2 decides terrain, range, visibility, and legality.
+        try:
+            preflight_move_attack(
+                unit_type=attacker.unit_type,
+                ammo=attacker.ammo,
+                path=path,
+                start=(attacker.x, attacker.y),
+                target=target_coordinate,
+            )
+        except ValueError as error:
+            raise CommandRejected(ErrorCode.INVALID_REQUEST, str(error)) from error
+
+        # AW2 remains authoritative about terrain, fog, weather, and weapon matchup.
         selected = await self.navigator.select_unit(action.unit_id, observation)
         selected_unit = selected.ui.menu.selected_unit
         if selected_unit is None:

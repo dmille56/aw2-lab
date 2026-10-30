@@ -120,13 +120,13 @@ def test_move_attack_executes_targeting_and_commits_verified_result(memory) -> N
     navigator = FakeNavigator()
     outcome = asyncio.run(
         MoveAttackActionExecutor(cast(ActionNavigator, navigator), tracker).execute(
-            request(match_id, unit_id), initial
+            request(match_id, unit_id, path=((0, 1),)), initial
         )
     )
 
     assert navigator.calls == [
         ("select", unit_id),
-        ("move", ()),
+        ("move", ((0, 1),)),
         ("fire",),
         ("target", 1, 1),
         ("confirm",),
