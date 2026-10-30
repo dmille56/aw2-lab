@@ -410,13 +410,13 @@ def _observe_unit_action_choices(
     selected = _observe_selected_unit(snapshot)
     count = snapshot.read(SELECTOR_ROW_COUNT, 1)[0]
     row = snapshot.read(SELECTOR_SELECTED_ROW, 1)[0]
-    ids = tuple(snapshot.read(SELECTOR_ITEM_IDS, count)) if count == 2 else ()
+    ids = tuple(snapshot.read(SELECTOR_ITEM_IDS, count)) if count in (1, 2) else ()
     if (
         selected is None
-        or len(ids) != 2
+        or len(ids) != count
         or ids.count(0x0A) != 1
         or any(item_id not in (0, 2, 4, 0x0A, 0x0B) for item_id in ids)
-        or row >= 2
+        or row >= count
     ):
         return None
     if not _menu_rules_allow_dispatch(snapshot):

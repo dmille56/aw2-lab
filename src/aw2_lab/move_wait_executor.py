@@ -20,6 +20,7 @@ from aw2_lab.match_observation import (
     MatchObservationTracker,
 )
 from aw2_lab.state_model import ValueStatus
+from aw2_lab.ui_state import MenuFamily
 
 
 @dataclass(slots=True)
@@ -86,12 +87,26 @@ class MoveWaitActionExecutor:
             selected_unit.unit_type,
             selected_unit.record_address,
         )
-        await self.navigator.move_selected_unit_along_path(
+        movement_state = await self.navigator.move_selected_unit_along_path(
             path,
             unit=unit_identity,
             width=battle.map.width,
             height=battle.map.height,
         )
+        movement_unit = movement_state.ui.menu.selected_unit
+        if (
+            movement_state.ui.menu.family is not MenuFamily.UNIT_ACTION_CHOICES
+            or movement_unit is None
+            or (
+                movement_unit.army_slot,
+                movement_unit.unit_slot,
+                movement_unit.unit_type,
+                movement_unit.record_address,
+            )
+            != unit_identity
+        ):
+            raise RuntimeError("Movement did not return the selected unit's action choices")
+        route_positions = {(unit.x, unit.y), *path}
         final_state = await self.navigator.choose_wait()
 
         final_battle = final_state.battle.value
@@ -107,16 +122,20 @@ class MoveWaitActionExecutor:
             if final_battle is not None
             else None
         )
-        expected_position = path[-1] if path else (unit.x, unit.y)
+        # The action-menu's selected-unit coordinates can still report the
+        # pre-move tile. Read the settled unit record after Wait so AW2's actual
+        # endpoint, including a stop before a fog-hidden blocker, is authoritative.
+        reached_position = (final_unit.x, final_unit.y) if final_unit is not None else None
         if (
             final_battle is None
             or final_state.battle.status is not ValueStatus.AVAILABLE
             or final_unit is None
             or final_unit.unit_type != unit.unit_type
-            or (final_unit.x, final_unit.y) != expected_position
             or not final_unit.used_this_turn
         ):
             raise RuntimeError("Move and Wait final state did not match the requested action")
+        if reached_position not in route_positions:
+            raise RuntimeError("Wait resolved outside the requested route")
 
         committed = self.tracker.commit_boundary(final_state)
         committed_identity = next(

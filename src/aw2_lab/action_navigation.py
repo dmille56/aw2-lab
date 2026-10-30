@@ -323,6 +323,9 @@ class ActionNavigator:
                     moved, description=f"movement cursor to reach {(x, y)}"
                 )
                 cursor = state.ui.map_cursor
+            # Keep the unit in the movement overlay until every requested tile
+            # has been accepted by AW2; its live movement map enforces terrain
+            # compatibility and the unit's remaining movement points.
             await self._tap("accept-movement-destination", _KEY_A)
             return await self._wait_for(
                 lambda value: (

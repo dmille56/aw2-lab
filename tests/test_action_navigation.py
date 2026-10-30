@@ -385,3 +385,101 @@ def test_capture_navigation_selects_capture_and_waits_for_player_turn(memory) ->
         ]
 
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("movement_tile_allowed", [True, False])
+def test_movement_overlay_checks_route_tiles_before_confirming(
+    memory, movement_tile_allowed
+) -> None:
+    async def run() -> None:
+        initial = decode_snapshot(snapshot(memory))
+        selected = SelectedUnitObservation(0x02022690, 1, 1, 1, 0, 0)
+        cursor = replace(
+            initial.ui.map_cursor,
+            status=CursorStatus.AVAILABLE,
+            x=0,
+            y=0,
+        )
+        initial = replace(
+            initial,
+            ui=replace(
+                initial.ui,
+                map_cursor=cursor,
+                menu=MenuObservation(
+                    initial.frame,
+                    MenuFamily.UNIT_MOVEMENT,
+                    selected_unit=selected,
+                ),
+            ),
+        )
+
+        class FakeBridge:
+            def __init__(self) -> None:
+                self.state = initial
+                self.keys: list[int] = []
+
+            async def observe(self) -> GameState:
+                return self.state
+
+            async def press_keys(self, keys: int, frames: int) -> int:
+                self.keys.append(keys)
+                if keys == 16 and movement_tile_allowed:
+                    self._update(frames, cursor=(1, 0))
+                elif keys == 1:
+                    self._update(frames, menu=MenuFamily.UNIT_ACTION_CHOICES)
+                else:
+                    self._update(frames)
+                return self.state.frame
+
+            async def advance_frames(self, frames: int) -> int:
+                self._update(frames)
+                return self.state.frame
+
+            def _update(self, frames: int, *, cursor=None, menu=None) -> None:
+                frame = self.state.frame + frames
+                current_cursor = replace(
+                    self.state.ui.map_cursor,
+                    frame=frame,
+                    x=cursor[0] if cursor is not None else self.state.ui.map_cursor.x,
+                    y=cursor[1] if cursor is not None else self.state.ui.map_cursor.y,
+                )
+                current_menu = replace(
+                    self.state.ui.menu,
+                    frame=frame,
+                    family=menu or self.state.ui.menu.family,
+                    selected_unit=selected,
+                    actionable=True if menu is not None else self.state.ui.menu.actionable,
+                )
+                self.state = replace(
+                    self.state,
+                    frame=frame,
+                    validation=replace(self.state.validation, frame=frame),
+                    ui=replace(
+                        self.state.ui,
+                        frame=frame,
+                        map_cursor=current_cursor,
+                        menu=current_menu,
+                    ),
+                )
+
+        bridge = FakeBridge()
+        navigator = ActionNavigator(
+            bridge,
+            bridge.observe,
+            NavigationLimits(frame_budget=10, poll_frames=1, wall_timeout=1),
+        )
+        unit_identity = (1, 1, 1, selected.record_address)
+        if movement_tile_allowed:
+            result = await navigator.move_selected_unit_along_path(
+                ((1, 0),), unit=unit_identity, width=2, height=2
+            )
+            assert result.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
+            assert bridge.keys == [16, 1]
+        else:
+            with pytest.raises(NavigationError, match="Timed out waiting"):
+                await navigator.move_selected_unit_along_path(
+                    ((1, 0),), unit=unit_identity, width=2, height=2
+                )
+            assert 1 not in bridge.keys
+
+    asyncio.run(run())

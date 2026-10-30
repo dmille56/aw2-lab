@@ -208,10 +208,11 @@ def test_unit_movement_overlay_exposes_verified_source_cursor(memory) -> None:
         ((2, 0x0A), MenuItem.CAPTURE),
         ((4, 0x0A), MenuItem.OTHER_UNIT_ACTION),
         ((0x0A, 0x0B), MenuItem.WAIT),
+        ((0x0A,), MenuItem.WAIT),
     ],
 )
 def test_unit_action_choices_resolve_wait_from_verified_row_ids(
-    memory, action_ids: tuple[int, int], selected_item: MenuItem
+    memory, action_ids: tuple[int, ...], selected_item: MenuItem
 ) -> None:
     _, ewram, iwram = memory
     pack_into("<I", ewram, 0xD610, 0x0849BE38)
@@ -219,9 +220,9 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
     pack_into("<H", iwram, 0x3334, 4)
     pack_into("<I", iwram, 0x1470, 0x0848A42C)
     pack_into("<I", iwram, 0x1490, 0x0849AE28)
-    iwram[0x14B1] = 2
+    iwram[0x14B1] = len(action_ids)
     iwram[0x14B2] = 0
-    iwram[0x14A1:0x14A3] = bytes(action_ids)
+    iwram[0x14A1 : 0x14A1 + len(action_ids)] = bytes(action_ids)
     iwram[0x30F0] = 1
     ewram[0x22690:0x2269C] = bytes((1, 6, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
     iwram[0x3140:0x3142] = bytes((1, 1))
