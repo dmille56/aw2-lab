@@ -173,6 +173,24 @@ def test_unit_action_menu_resolves_selected_unit_against_table_and_map(memory) -
     assert (menu.selected_unit.x, menu.selected_unit.y) == (1, 1)
 
 
+@pytest.mark.parametrize("row", range(11))
+def test_base_production_menu_recognizes_verified_rows(memory, row: int) -> None:
+    _, _, iwram = memory
+    pack_into("<I", iwram, 0x1470, 0x0849AFE8)
+    pack_into("<I", iwram, 0x1474, 0x0849B000)
+    pack_into("<H", iwram, 0x1490, row)
+    pack_into("<H", iwram, 0x32D8, 13)
+    iwram[0x30F0] = 1
+    pack_into("<H", iwram, 0x3334, 0)
+
+    current = snapshot(memory)
+    menu = observe_menu(current, validate_battle_snapshot(current))
+
+    assert menu.family is MenuFamily.PRODUCTION_CHOICES
+    assert menu.production_unit_types == (1, 2, 6, 5, 3, 8, 7, 10, 11, 14, 15)
+    assert menu.selected_production_index == row
+
+
 def test_unit_action_menu_rejects_a_pointer_from_another_army(memory) -> None:
     _, ewram, iwram = memory
     pack_into("<I", ewram, 0xD610, 0x0849BE38)

@@ -45,6 +45,10 @@ UNIT_MOVEMENT_SELECTOR = 0x08499B4C
 CURSOR_GRAPHICS_PROGRESS = 0x03001490
 UNIT_ACTION_SELECTOR = 0x0848A42C
 UNIT_ACTION_TABLE = 0x0849AE28
+PRODUCTION_SELECTOR_OBJECT = 0x0849AFE8
+PRODUCTION_SELECTOR_TABLE = 0x03001474
+PRODUCTION_SELECTED_ROW = 0x03001490
+PRODUCTION_CHOICES = (1, 2, 6, 5, 3, 8, 7, 10, 11, 14, 15)
 SELECTOR_STRIDE = 0x60
 SELECTOR_COUNT = 3
 FIRE_TARGETING_SCRIPT = 0x0849A9F8
@@ -87,6 +91,7 @@ class MenuFamily(StrEnum):
     UNIT_ACTION = "unit_action"
     UNIT_MOVEMENT = "unit_movement"
     UNIT_ACTION_CHOICES = "unit_action_choices"
+    PRODUCTION_CHOICES = "production_choices"
     UNIT_TARGETING = "unit_targeting"
     UNRESOLVED = "unresolved"
 
@@ -150,6 +155,8 @@ class MenuObservation:
     actionable: bool | None = None
     unrecognized: UnrecognizedUIState | None = None
     items: tuple[MenuItem, ...] = ()
+    production_unit_types: tuple[int, ...] = ()
+    selected_production_index: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -257,6 +264,10 @@ def observe_menu(
     if command_menu is not None:
         return command_menu
 
+    production_menu = _observe_production_choices(snapshot, validation)
+    if production_menu is not None:
+        return production_menu
+
     action_menu = _observe_unit_action_choices(snapshot, validation)
     if action_menu is not None:
         return action_menu
@@ -360,6 +371,31 @@ def observe_menu(
 
     selected = SelectedUnitObservation(pointer, army_slot, unit_slot, record[0], x, y)
     return MenuObservation(snapshot.frame, MenuFamily.UNIT_ACTION, selected)
+
+
+def _observe_production_choices(
+    snapshot: BattleMemorySnapshot, validation: BattleValidationReport
+) -> MenuObservation | None:
+    """Recognize the researched 11-row base production selector."""
+    if (
+        validation.lifecycle.phase is not LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+        or validation.lifecycle.engine is not LifecycleEngine.BATTLE
+        or snapshot.u32(SELECTOR_OBJECT) != PRODUCTION_SELECTOR_OBJECT
+        or snapshot.u32(PRODUCTION_SELECTOR_TABLE) != 0x0849B000
+        or snapshot.u16(CONTROLLER_STATE) != 13
+        or snapshot.read(CONTROLLER_LOCK, 1)[0] != 1
+        or snapshot.u16(0x03003334) != 0
+    ):
+        return None
+    row = snapshot.u16(PRODUCTION_SELECTED_ROW)
+    if row >= len(PRODUCTION_CHOICES):
+        return None
+    return MenuObservation(
+        snapshot.frame,
+        MenuFamily.PRODUCTION_CHOICES,
+        production_unit_types=PRODUCTION_CHOICES,
+        selected_production_index=row,
+    )
 
 
 def _observe_unit_movement(

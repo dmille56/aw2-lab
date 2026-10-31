@@ -137,6 +137,58 @@ class ActionNavigator:
             self._begin("move_cursor")
             return await self._move_cursor(x, y)
 
+    async def open_production_menu(self, x: int, y: int) -> GameState:
+        """Open the researched base production list at a map coordinate."""
+        async with self._bounded_operation():
+            self._begin("open_production_menu")
+            await self._move_cursor(x, y)
+            await self._tap("open-production-menu", _KEY_A)
+            return await self._wait_for(
+                lambda value: value.ui.menu.family is MenuFamily.PRODUCTION_CHOICES,
+                description="the recognized base production list",
+            )
+
+    async def choose_purchase_unit(self, unit_type: int) -> GameState:
+        """Select a verified base production row and await the settled map turn."""
+        async with self._bounded_operation():
+            self._begin("purchase_unit")
+            state = await self._observe()
+            menu = state.ui.menu
+            if (
+                menu.family is not MenuFamily.PRODUCTION_CHOICES
+                or menu.selected_production_index is None
+                or unit_type not in menu.production_unit_types
+            ):
+                raise await self._fail("Purchase requires a recognized available unit row", state)
+            target = menu.production_unit_types.index(unit_type)
+            while menu.selected_production_index != target:
+                direction = 1 if target > menu.selected_production_index else -1
+                key, name = (_KEY_DOWN, "down") if direction > 0 else (_KEY_UP, "up")
+                expected = menu.selected_production_index + direction
+                await self._tap(f"purchase-menu-{name}", key)
+
+                def row_selected(value: GameState, row: int = expected) -> bool:
+                    return (
+                        value.ui.menu.family is MenuFamily.PRODUCTION_CHOICES
+                        and value.ui.menu.selected_production_index == row
+                    )
+
+                state = await self._wait_for(
+                    row_selected,
+                    description=f"purchase row {expected}",
+                )
+                menu = state.ui.menu
+            await self._tap("confirm-purchase", _KEY_A)
+            return await self._wait_for(
+                lambda value: (
+                    value.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN
+                    and value.ui.menu.family is MenuFamily.MAP_INPUT
+                ),
+                description="the settled player turn after purchase",
+                frame_budget=self.limits.resolution_frame_budget,
+                poll_frames=self.limits.resolution_poll_frames,
+            )
+
     async def _move_cursor(self, x: int, y: int) -> GameState:
         state = await self._observe()
         cursor = state.ui.map_cursor
