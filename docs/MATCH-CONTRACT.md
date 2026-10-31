@@ -219,6 +219,39 @@ The intended ordering and crash cases are specified in
 
 ## HTTP mapping
 
+The concrete [HTTP API design proposal](HTTP-API-DESIGN.md) specifies routes,
+transport models, coherent reads, SSE synchronization, and implementation gaps for
+review before route implementation. It proposes operator-controlled creation and
+slot invitations, client-generated player credentials for retry-safe joining,
+bearer-header authentication, scoped permissions, and durable revocation; those
+changes have not yet been adopted by the existing models or controller.
+Operator access governs start/close, archive transfer/restore, and debug
+operations. Player access governs shared match observation and its own slot's
+gameplay. Revocation applies to HTTP and MCP subscriptions, and restoring an
+emulator checkpoint cannot restore revoked permissions. The proposal includes
+the permission table and credential lifecycle for implementation review.
+The proposed event stream serves both active and inactive players, with command
+status reads available for reconciliation. HTTP and MCP adapters share the same
+controller events and services. MCP resource notifications inform clients of
+changes; the agent host owns model invocation and action selection. An optional
+bounded MCP wait-for-turn tool is described in the proposal.
+The proposal also records future 2–4 player matches: use an extensible slot
+collection and per-slot permissions/subscriptions while initially advertising
+only the fixed two-player configuration. The current Python contract and
+executors require explicit extension before three or four players are supported.
+The creation design accepts an explicit map/player/rule configuration, initially
+restricted to the verified fixed profile. Future capability-advertised maps, COs,
+teams, fog/weather, and rule combinations use that same creation shape after
+validation and runtime verification. Adopting this proposed schema requires
+changes to `FixedMatchConfiguration` and the transport models before HTTP v1 is
+finalized; it does not expand the currently executable configuration.
+MCP protocol revisions and AW2 game contracts are versioned independently. The
+proposed MCP application payloads share HTTP's `contract_version: 1`, resources
+use `aw2://v1/...` URIs, and breaking game contracts require a separate MCP
+endpoint with an explicit migration policy. Internal AW2 CPU players are future
+work outside v1; v1 advertises and accepts only external control for humans and
+agent hosts.
+
 The route set is implemented in the later HTTP API task. Planned resource
 operations are capabilities, match create/join/inspect/close, observation and
 screenshot reads, command submission/status, and checkpoint create/export/import

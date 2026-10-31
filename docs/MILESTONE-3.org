@@ -191,7 +191,12 @@ screenshots, and machine-specific paths outside Git and the Nix store.
 * HTTP API and Python clients
 
 ** TODO Expose the match controller through the HTTP API
+   - [X] Draft the [[file:HTTP-API-DESIGN.md][HTTP API design]] before implementation, covering routes, authentication, retry semantics, coherent reads, SSE synchronization for both players, MCP integration, errors, and runtime integration gaps. The design remains proposed for review.
+   - Design scope: MCP application payloads share the HTTP game contract version independently of MCP protocol versioning. Internal AW2 CPU-controlled slots are documented as future work outside v1; v1 supports externally controlled human/agent slots only.
    - [ ] Add capabilities, create/join/inspect/close, structured state, screenshot, and command-status operations.
+   - [ ] Define capability-driven match configuration with map IDs, player/CO/team assignments, and rules, initially accepting only the verified fixed profile. Preserve the creation shape for future 2–4 player and alternate map/fog/weather/rule configurations; verify each supported combination before advertising it.
+   - [ ] Add required operator authentication, invitation-gated player claims, shared operator/player permissions, and durable revocation independent of checkpoints. Enforce permissions on HTTP, SSE, and MCP, including cached responses, queued execution, active subscriptions, and waits.
+   - [ ] Add authenticated SSE subscriptions backed by shared controller events, with ordered state/command publication, atomic initial snapshots, replay/resynchronization, and bounded subscriber buffers. Preserve the same event source for MCP resources; agent decision loops belong to their hosts.
    - [ ] Add initial gameplay and checkpoint operations with shared typed models.
    - [ ] Route clearly named debug input/frame/memory/reset operations through the same queue and revision rules.
    - [ ] Define stable error responses for illegal/stale requests, unsupported features, unavailable observations, and recovery-required matches.
@@ -202,6 +207,7 @@ screenshots, and machine-specific paths outside Git and the Nix store.
 ** TODO Provide the Python SDK and two-client examples
    - [ ] Follow the client architecture decision and keep the HTTP contract usable by the planned web, desktop, and mobile clients.
    - [ ] Wrap capabilities, match lifecycle, observations, actions, command polling, and checkpoints with typed Python methods.
+   - [ ] Provide typed event subscriptions with reconnect/resynchronization so either player can follow state and command completion without repeated polling.
    - [ ] Offer wait-for-completion helpers with bounded timeouts and structured failure results.
    - [ ] Preserve request IDs across network retries and distinguish a client wait timeout from server command failure.
    - [ ] Provide two scripts or interactive-session examples that join separate slots and take turns in the same match.
