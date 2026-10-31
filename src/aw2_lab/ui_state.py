@@ -427,7 +427,7 @@ def _observe_unit_action_choices(
         selected is None
         or len(ids) != count
         or ids.count(0x0A) != 1
-        or any(item_id not in (0, 2, 4, 0x0A, 0x0B) for item_id in ids)
+        or any(item_id not in (0, 2, 3, 4, 0x0A, 0x0B) for item_id in ids)
         or row >= count
     ):
         return None
@@ -440,7 +440,7 @@ def _observe_unit_action_choices(
         else MenuItem.FIRE
         if item_id == 0
         else MenuItem.CAPTURE
-        if item_id == 2 and capture_eligible
+        if item_id in (2, 3) and capture_eligible
         else MenuItem.OTHER_UNIT_ACTION
         for item_id in ids
     )
@@ -461,11 +461,20 @@ def _selected_unit_can_capture(
     if selected.unit_type not in (1, 2):  # Infantry and Mech
         return False
     width, height = snapshot.u16(MAP_BASE), snapshot.u16(MAP_BASE + 2)
-    if not (0 <= selected.x < width and 0 <= selected.y < height):
-        return False
-    terrain_owner = snapshot.read(MAP_BASE + 0x1432 + selected.y * width + selected.x, 1)[0]
-    terrain_class, owner_code = terrain_owner & 31, terrain_owner >> 5
-    return terrain_class in (6, 8, 14) and owner_code != selected.army_slot
+    coordinates = [(selected.x, selected.y)]
+    cursor = (snapshot.u16(CURSOR_SOURCE), snapshot.u16(CURSOR_SOURCE + 2))
+    if cursor not in coordinates and 0 <= cursor[0] < width and 0 <= cursor[1] < height:
+        # The selected unit record can retain its pre-move position while the
+        # action menu is open. In that menu, CURSOR_SOURCE is the reached tile.
+        coordinates.append(cursor)
+    for x, y in coordinates:
+        if not (0 <= x < width and 0 <= y < height):
+            continue
+        terrain_owner = snapshot.read(MAP_BASE + 0x1432 + y * width + x, 1)[0]
+        terrain_class, owner_code = terrain_owner & 31, terrain_owner >> 5
+        if terrain_class in (6, 8, 14) and owner_code != selected.army_slot:
+            return True
+    return False
 
 
 def _is_fire_targeting(snapshot: BattleMemorySnapshot, validation: BattleValidationReport) -> bool:

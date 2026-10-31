@@ -98,6 +98,28 @@ def test_map_cursor_observation_requires_live_phase_and_matching_bounded_coordin
     assert "outside the validated map" in cursor.reasons[0]
 
 
+def test_capture_choices_use_the_reached_tile_and_capture_row_id(memory) -> None:
+    _, ewram, iwram = memory
+    pack_into("<I", ewram, 0xD610, 0x0849BE38)
+    pack_into("<I", iwram, 0x1470, 0x0848A42C)
+    pack_into("<I", iwram, 0x1490, 0x0849AE28)
+    iwram[0x14A1:0x14A3] = bytes((3, 0x0A))
+    iwram[0x14B1] = 2
+    iwram[0x14B2] = 0
+    pack_into("<I", iwram, 0x40D8, 0x02022690)
+    pack_into("<HH", iwram, 0x33E4, 1, 1)
+    pack_into("<H", iwram, 0x32D8, 13)
+    iwram[0x30F0] = 1
+    pack_into("<H", iwram, 0x3334, 4)
+    ewram[0x1E450 + 0x51A] = 1
+
+    current = snapshot(memory)
+    menu = observe_menu(current, validate_battle_snapshot(current))
+
+    assert menu.family is MenuFamily.UNIT_ACTION_CHOICES
+    assert menu.items == (MenuItem.CAPTURE, MenuItem.WAIT)
+
+
 @pytest.mark.parametrize(
     ("script", "callbacks", "phase"),
     [
