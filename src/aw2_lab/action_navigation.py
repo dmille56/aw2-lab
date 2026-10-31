@@ -17,10 +17,20 @@ from aw2_lab.ui_state import CursorStatus, MenuFamily, MenuItem
 
 _KEY_A = 1
 _KEY_B = 2
+_KEY_SELECT = 4
 _KEY_RIGHT = 16
 _KEY_LEFT = 32
 _KEY_UP = 64
 _KEY_DOWN = 128
+_TERMINAL_PHASES = frozenset(
+    {
+        LifecyclePhase.RESULT_SEQUENCE,
+        LifecyclePhase.VICTORY_PRESENTATION,
+        LifecyclePhase.DEFEAT_PRESENTATION,
+        LifecyclePhase.RESULT_SUMMARY,
+        LifecyclePhase.SAVE_PROGRESS_PROMPT,
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,6 +195,112 @@ class ActionNavigator:
                     and value.ui.menu.family is MenuFamily.MAP_INPUT
                 ),
                 description="the settled player turn after purchase",
+                frame_budget=self.limits.resolution_frame_budget,
+                poll_frames=self.limits.resolution_poll_frames,
+            )
+
+    async def open_command_menu(self) -> GameState:
+        """Open the battle command menu with Select from recognized map input."""
+        async with self._bounded_operation():
+            self._begin("open_command_menu")
+            state = await self._observe()
+            if (
+                state.lifecycle.phase is not LifecyclePhase.BATTLE_PLAYER_TURN
+                or state.ui.menu.family is not MenuFamily.MAP_INPUT
+            ):
+                raise await self._fail("Command menu requires settled map input", state)
+            await self._tap("open-command-menu", _KEY_SELECT)
+            return await self._wait_for(
+                lambda value: (
+                    value.lifecycle.phase is LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+                    and value.ui.menu.family is MenuFamily.COMMAND
+                    and value.ui.menu.selected_item is not None
+                ),
+                description="the recognized battle command menu",
+            )
+
+    async def confirm_end_turn(self) -> GameState:
+        """Activate End and wait for the opponent turn or a terminal result."""
+        async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
+            self._begin("end_turn")
+            state = await self._observe()
+            if (
+                state.lifecycle.phase is not LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+                or state.ui.menu.family is not MenuFamily.COMMAND
+                or state.ui.menu.selected_item is not MenuItem.END
+                or state.ui.menu.actionable is not True
+            ):
+                raise await self._fail("End Turn requires the actionable End command", state)
+            await self._tap("confirm-end-turn", _KEY_A)
+            return await self._wait_for(
+                lambda value: (
+                    (
+                        value.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN
+                        and value.ui.menu.family is MenuFamily.MAP_INPUT
+                        and value.battle.status is ValueStatus.AVAILABLE
+                    )
+                    or value.lifecycle.phase in _TERMINAL_PHASES
+                ),
+                description="the next player turn or a terminal match result",
+                frame_budget=self.limits.resolution_frame_budget,
+                poll_frames=self.limits.resolution_poll_frames,
+            )
+
+    async def open_yield_confirmation(self) -> GameState:
+        """Activate Yield and require its recognized Yes/No prompt."""
+        async with self._bounded_operation():
+            self._begin("open_yield_confirmation")
+            state = await self._observe()
+            if (
+                state.lifecycle.phase is not LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+                or state.ui.menu.family is not MenuFamily.OPTIONS
+                or state.ui.menu.selected_item is not MenuItem.YIELD
+                or state.ui.menu.actionable is not True
+            ):
+                raise await self._fail("Yield requires the actionable Options row", state)
+            await self._tap("open-yield-confirmation", _KEY_A)
+            return await self._wait_for(
+                lambda value: (
+                    value.ui.menu.family is MenuFamily.CONFIRMATION
+                    and value.ui.menu.confirmation_kind == "yield"
+                    and value.ui.menu.selected_item in (MenuItem.YES, MenuItem.NO)
+                    and value.ui.menu.actionable is True
+                ),
+                description="the recognized Yield confirmation",
+            )
+
+    async def confirm_yield(self) -> GameState:
+        """Choose Yes on the typed Yield prompt and wait for a result boundary."""
+        async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
+            self._begin("confirm_yield")
+            state = await self._observe()
+            if (
+                state.lifecycle.phase is not LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+                or state.ui.menu.family is not MenuFamily.CONFIRMATION
+                or state.ui.menu.confirmation_kind != "yield"
+                or state.ui.menu.selected_item not in (MenuItem.YES, MenuItem.NO)
+                or state.ui.menu.actionable is not True
+            ):
+                raise await self._fail(
+                    "Surrender requires the recognized Yield confirmation", state
+                )
+            if state.ui.menu.selected_item is MenuItem.NO:
+                await self._tap("yield-select-yes", _KEY_UP)
+                state = await self._wait_for(
+                    lambda value: (
+                        value.ui.menu.family is MenuFamily.CONFIRMATION
+                        and value.ui.menu.confirmation_kind == "yield"
+                        and value.ui.menu.selected_item is MenuItem.YES
+                    ),
+                    description="Yes selected on the Yield prompt",
+                )
+            await self._tap("confirm-yield", _KEY_A)
+            return await self._wait_for(
+                lambda value: (
+                    value.lifecycle.phase in _TERMINAL_PHASES
+                    and value.battle.status is not ValueStatus.AVAILABLE
+                ),
+                description="the recognized terminal result after Yield",
                 frame_budget=self.limits.resolution_frame_budget,
                 poll_frames=self.limits.resolution_poll_frames,
             )

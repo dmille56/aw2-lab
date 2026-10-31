@@ -191,6 +191,26 @@ def test_base_production_menu_recognizes_verified_rows(memory, row: int) -> None
     assert menu.selected_production_index == row
 
 
+@pytest.mark.parametrize(("row", "selected"), [(0, MenuItem.YES), (1, MenuItem.NO)])
+def test_yield_confirmation_resolves_yes_no_selection(memory, row, selected) -> None:
+    _, _, iwram = memory
+    pack_into("<I", iwram, 0x1470, 0x08489530)
+    pack_into("<I", iwram, 0x1490, 0x08610196)
+    pack_into("<H", iwram, 0x32D8, 13)
+    pack_into("<H", iwram, 0x3334, 0)
+    iwram[0x30F0] = 1
+    iwram[0x14EE] = row
+
+    current = snapshot(memory)
+    menu = observe_menu(current, validate_battle_snapshot(current))
+
+    assert menu.family is MenuFamily.CONFIRMATION
+    assert menu.confirmation_kind == "yield"
+    assert menu.selected_item is selected
+    assert menu.items == (MenuItem.YES, MenuItem.NO)
+    assert menu.actionable is True
+
+
 def test_unit_action_menu_rejects_a_pointer_from_another_army(memory) -> None:
     _, ewram, iwram = memory
     pack_into("<I", ewram, 0xD610, 0x0849BE38)

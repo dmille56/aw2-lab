@@ -92,6 +92,7 @@ class MenuFamily(StrEnum):
     UNIT_MOVEMENT = "unit_movement"
     UNIT_ACTION_CHOICES = "unit_action_choices"
     PRODUCTION_CHOICES = "production_choices"
+    CONFIRMATION = "confirmation"
     UNIT_TARGETING = "unit_targeting"
     UNRESOLVED = "unresolved"
 
@@ -116,6 +117,8 @@ class MenuItem(StrEnum):
     CAPTURE = "capture"
     WAIT = "wait"
     OTHER_UNIT_ACTION = "other_unit_action"
+    YES = "yes"
+    NO = "no"
 
 
 _MENU_ITEMS = {
@@ -157,6 +160,7 @@ class MenuObservation:
     items: tuple[MenuItem, ...] = ()
     production_unit_types: tuple[int, ...] = ()
     selected_production_index: int | None = None
+    confirmation_kind: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -263,6 +267,10 @@ def observe_menu(
     command_menu = _observe_command_menu(snapshot, validation)
     if command_menu is not None:
         return command_menu
+
+    confirmation = _observe_confirmation(snapshot, validation)
+    if confirmation is not None:
+        return confirmation
 
     production_menu = _observe_production_choices(snapshot, validation)
     if production_menu is not None:
@@ -395,6 +403,37 @@ def _observe_production_choices(
         MenuFamily.PRODUCTION_CHOICES,
         production_unit_types=PRODUCTION_CHOICES,
         selected_production_index=row,
+    )
+
+
+def _observe_confirmation(
+    snapshot: BattleMemorySnapshot, validation: BattleValidationReport
+) -> MenuObservation | None:
+    """Recognize researched Yes/No prompts by their ROM table signature."""
+    if (
+        validation.lifecycle.phase is not LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+        or validation.lifecycle.engine is not LifecycleEngine.BATTLE
+        or snapshot.u32(SELECTOR_OBJECT) != 0x08489530
+        or snapshot.u16(CONTROLLER_STATE) != 13
+        or snapshot.read(CONTROLLER_LOCK, 1)[0] != 1
+        or snapshot.u16(0x03003334) != 0
+    ):
+        return None
+    confirmation_kind = {
+        0x086100CE: "save_overwrite",
+        0x08610175: "exit_map",
+        0x08610196: "yield",
+    }.get(snapshot.u32(SELECTOR_TABLE))
+    row = snapshot.read(0x030014EE, 1)[0]
+    if confirmation_kind is None or row not in (0, 1):
+        return None
+    return MenuObservation(
+        snapshot.frame,
+        MenuFamily.CONFIRMATION,
+        selected_item=MenuItem.YES if row == 0 else MenuItem.NO,
+        actionable=True,
+        items=(MenuItem.YES, MenuItem.NO),
+        confirmation_kind=confirmation_kind,
     )
 
 

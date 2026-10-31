@@ -180,12 +180,13 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - [ ] Verify funds, new unit identity, position, and action status after purchase against a live emulator run.
    - Implementation: [[file:../src/aw2_lab/purchase_executor.py][purchase_executor.py]] preflights owned, empty bases and known unit costs, uses the typed production selector and bounded row navigation, and verifies the funds debit plus one new used unit at the base before committing. Current menu evidence covers the 11 base rows; port and airport production menus remain unsupported pending their own selector research.
 
-** TODO Implement end turn and surrender
-   - [ ] Navigate the general command menu and required confirmations for each action.
-   - [ ] Verify the next active player/day after end turn, including automatic upkeep and supply effects.
-   - [ ] Verify surrender outcome and drive the supported result/save-progress flow to a recognized boundary.
-   - [ ] Record victory/defeat outcomes for elimination and HQ capture without treating retained battle RAM as live state.
-   - [ ] Make finished matches inspectable and prevent further gameplay commands.
+** IN-PROGRESS Implement end turn and surrender
+   - [X] Navigate the general command menu and the researched Yield confirmation.
+   - [X] Require the next active player/day and unused-unit state after End; publish the resulting battle snapshot, including funds, fuel, ammo, and supply fields.
+   - [X] Confirm Yield through its typed Yes/No prompt and publish only a recognized result boundary without retained battle RAM or unit identities.
+   - [X] Preserve terminal observations for inspection and reject further gameplay commands through the controller's finished lifecycle.
+   - [ ] Verify the new end-turn and surrender executors live in headless and windowed modes, including upkeep/supply results and surrender classification. Natural elimination, victory, and HQ-capture boundaries are covered by the existing live evidence above.
+   - Implementation: [[file:../src/aw2_lab/end_turn_executor.py][end_turn_executor.py]] opens Select > End, checks the next player/day and turn reset before committing. [[file:../src/aw2_lab/surrender_executor.py][surrender_executor.py]] follows Select > Options > Yield > Yes and commits a terminal observation only after a recognized result phase. The UI observer recognizes the researched Yield confirmation signature; existing terminal lifecycle handling prevents stale battle RAM from being exposed after the match finishes.
 
 * HTTP API and Python clients
 
