@@ -564,19 +564,24 @@ remain outside the acceptance claim.
 
 ** Define a typed, versioned structured state
 
-=src/aw2_lab/state_model.py= defines =GameState= schema version 3 as a
+=src/aw2_lab/state_model.py= defines =GameState= schema version 4 as a
 frame-coherent envelope around the currently verified Milestone 2 observations:
 
 | Field | Contract |
 |-------+----------|
-| =schema_version= | Integer schema version; v3 is required and other versions are rejected. |
+| =schema_version= | Integer schema version; v4 is required and other versions are rejected. |
 | =frame= | Unsigned 32-bit emulator frame shared by validation and UI observations. Construction rejects cross-frame components. |
 | =context.rom_profile= | Verified =RomProfile= including profile name, SHA-256, memory-layout version, and decoder version. Unsupported profiles are rejected. |
 | =validation= | Lifecycle classification plus geometry/property/player/unit validation statuses, counts, and reasons. =VALID=, =UNKNOWN=, and =INVALID= remain distinct. |
 | =ui= | Same-frame cursor and menu observations. Cursor availability, unresolved menu family, selected item/unit, actionability, and reasons remain explicit. |
 | =battle= | Explicit availability and reasons plus verified map, property/feature, player, turn, weather, and unit values only after all live validation gates pass. |
 
-V2 adds the decoded =battle= observation to the former validation/UI envelope.
+V4 adds independently available =battle.co_effects_enabled= and
+=battle.fog_enabled= observations from the traced rule bytes. Fuel is consumed
+in both fog modes. Checkpoints from earlier decoder schemas are rejected by the
+existing compatibility check; they require recapture with the current decoder.
+
+V2 added the decoded =battle= observation to the former validation/UI envelope.
 Unavailable or unsupported structures have no decoded value; weather has an
 independent unknown state for unrecognized bytes. Future changes must publish
 only fields supported by evidence and update the schema version when the
@@ -601,7 +606,7 @@ Milestone 3 match lifecycle or command controller.
    - [X] Publish only fields supported by documented verification evidence.
 
 =state_decoder.decode_snapshot= validates an immutable complete RAM snapshot,
-then emits schema-v3 =GameState=. Its async =capture_game_state= entry point
+then emits schema-v4 =GameState=. Its async =capture_game_state= entry point
 verifies the ROM before contacting the bridge and uses the existing coherent
 capture, which advances zero frames and rejects drift or incomplete reads.
 Battle data is available only when all four structures and the live lifecycle
@@ -697,7 +702,7 @@ phases, invalid bounds/links, unknown values, ROM rejection, and frame drift.
      byte order, evidence, and unresolved interpretations. The bounded readers
      and validity rules are summarized in [[file:AW2-STATE-VALIDATION.org][structure validation]].
    - [X] A Python decoder exposes validated structured state.
-     [[file:../src/aw2_lab/state_decoder.py][The coherent decoder]] emits schema-v3 =GameState= with ROM/frame context,
+     [[file:../src/aw2_lab/state_decoder.py][The coherent decoder]] emits schema-v4 =GameState= with ROM/frame context,
      validation, UI observations, and supported battle fields. Synthetic
      decoder/validation checks cover packed fields, unknown values, stale
      memory, invalid bounds and links, unsupported ROMs, and incoherent captures.

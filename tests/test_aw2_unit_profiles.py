@@ -165,3 +165,38 @@ def test_catalog_matches_supported_rom() -> None:
     report = audit_rules(Path(os.environ["AW2_ROM_PATH"]))
     assert report["units"] == 19
     assert report["checks"] == 40147
+
+
+@pytest.mark.parametrize(
+    ("context", "weather", "fuel", "error"),
+    [
+        (RuleContext(), Weather.CLEAR, 6, None),
+        (RuleContext(), Weather.SNOW, 6, "movement allowance"),
+        (RuleContext(), Weather.CLEAR, 3, "remaining fuel"),
+        (RuleContext(), Weather.CLEAR, None, None),
+        (None, None, 6, None),
+        (RuleContext(13, 2), Weather.SNOW, 8, None),  # Adder Super +2 movement.
+    ],
+)
+def test_observed_weather_co_and_fuel_select_route_budget(context, weather, fuel, error) -> None:
+    # Four plains cost 4 in clear weather, 8 in snow; baseline Tank move is 6.
+    path = ((1, 0), (2, 0), (3, 0), (4, 0))
+
+    def check() -> None:
+        preflight_move_attack(
+            unit_type=5,
+            ammo=9,
+            path=path,
+            start=(0, 0),
+            target=(5, 0),
+            terrain_classes=(1, 1, 1, 1),
+            context=context,
+            weather=weather,
+            fuel=fuel,
+        )
+
+    if error:
+        with pytest.raises(ValueError, match=error):
+            check()
+    else:
+        check()

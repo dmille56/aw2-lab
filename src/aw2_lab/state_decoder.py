@@ -199,4 +199,16 @@ def _decode_battle(snapshot: BattleMemorySnapshot) -> BattleState:
         properties=tuple(properties),
         players=tuple(players),
         units=tuple(units),
+        co_effects_enabled=_decode_rule_toggle(snapshot, 0x03003FC8),
+        fog_enabled=_decode_rule_toggle(snapshot, 0x03003FCD),
     )
+
+
+def _decode_rule_toggle(snapshot: BattleMemorySnapshot, address: int) -> ObservedValue[bool]:
+    """Decode traced boolean branches; unsupported encodings stay unknown."""
+    raw = snapshot.read(address, 1)[0]
+    if raw not in (0, 1):
+        return ObservedValue(
+            ValueStatus.UNKNOWN, None, (f"Unsupported rule byte at {address:#010x}: {raw}",)
+        )
+    return ObservedValue(ValueStatus.AVAILABLE, raw == 1)

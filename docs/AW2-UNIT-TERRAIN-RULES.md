@@ -257,17 +257,24 @@ Weather table exceptions:
 There are seven stored movement table addresses and four distinct cost matrices.
 Cost-one movement preserves impassability. `RuleContext()` selects baseline rules
 with CO effects disabled; `RuleContext(co_id, active_power)` explicitly enables
-the chosen CO effects. The existing observation does not expose the game option
-that enables/disables CO effects, so the executor uses permissive bounds across
-contexts rather than assuming that option.
+the chosen CO effects. GameState schema 4 exposes `co_effects_enabled` from
+`0x03003FC8` and `fog_enabled` from `0x03003FCD`. Both use explicit availability;
+unsupported encodings remain unknown. The executor selects the active player's
+CO/power context when enabled and baseline rules when disabled. Missing context
+or weather uses permissive bounds across complete candidate routes.
 
 ## Fuel consumption and boundaries
 
-Under normal fuel-consumption rules the movement debit uses the route movement
-cost. The original movement finalizer `0x080424FC` calls the masked fuel subtractor
-`0x08025B80` with the route expenditure cached at `0x03004074`; the subtraction
-is skipped when the no-consumption option at game context +0x0D is set.
-`route_cost` returns that expenditure for an explicit weather/CO context.
+Movement consumes fuel in both fog modes. The movement finalizer `0x080424FC`
+calls the masked fuel subtractor `0x08025B80` with the route expenditure cached
+at `0x03004074` when fog is off. With fog on, `0x08025BB4` debits the same
+expenditure earlier, through movement callers `0x0802E60C` and `0x0805FF64`.
+The earlier description of game context +0x0D as a no-consumption option was
+incorrect: `0x03003FCD` is fog, and the two branches prevent a double debit.
+`route_cost` returns the expenditure for an explicit weather/CO context.
+The executor checks it against both effective movement allowance and remaining
+fuel before selecting a unit. AW2 remains authoritative for occupants, fog
+blockers, the reached tile, and Fire eligibility.
 
 Turn-start upkeep is mapped from the unit table's +0x58 pointer and routine
 `0x080253B0`, separately from movement fuel. The following are baseline costs:
@@ -416,8 +423,8 @@ than the default short-route examples; production navigation defaults were uncha
 ## Remaining limits
 
 - The executor now rejects permanently incompatible targets and terrain before input.
-  Full exact-budget/fuel preflight still needs the CO-effects and fuel-consumption
-  options in the observation; fog can shorten the route, and the Fire target list
+  Exact movement/fuel preflight now uses the observed CO-effects setting,
+  active power, weather, and fuel; fog can shorten the route, and the Fire target list
   remains the final authority at the actual reached tile.
 - The catalog is not a damage simulator and does not predict random outcomes.
 - Campaign structure names and all individual modifier/terrain combinations have

@@ -11,7 +11,7 @@ from aw2_lab.rom_profile import AW2_US_REVISION_0, RomProfile, UnsupportedRomErr
 from aw2_lab.state_validation import BattleValidationReport
 from aw2_lab.ui_state import MapCursorObservation, MenuObservation
 
-GAME_STATE_SCHEMA_VERSION = 3
+GAME_STATE_SCHEMA_VERSION = 4
 
 
 class ValueStatus(StrEnum):
@@ -112,6 +112,12 @@ class BattleState:
     properties: tuple[PropertyState, ...]
     players: tuple[PlayerState, ...]
     units: tuple[UnitState, ...]
+    co_effects_enabled: ObservedValue[bool] = ObservedValue(
+        ValueStatus.UNKNOWN, None, ("CO effects option was not observed",)
+    )
+    fog_enabled: ObservedValue[bool] = ObservedValue(
+        ValueStatus.UNKNOWN, None, ("Fog option was not observed",)
+    )
 
 
 @dataclass(frozen=True, slots=True)

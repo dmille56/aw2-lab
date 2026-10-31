@@ -165,3 +165,18 @@ def test_rule_rejection_happens_before_any_controller_input(
     executor = MoveAttackActionExecutor(cast(ActionNavigator, object()), tracker)
     with pytest.raises(CommandRejected, match=message):
         asyncio.run(executor.execute(request(initial.match_id, identity, path=path), initial))
+
+
+@pytest.mark.parametrize("fog_option", [0, 1, 255])
+def test_fuel_budget_rejects_before_input_in_both_fog_modes(memory, fog_option) -> None:
+    _, ewram, iwram = memory
+    ewram[0x22690] = 5  # Tank, able to attack the enemy Infantry.
+    ewram[0x22696] = 0  # No movement fuel.
+    iwram[0x3FCD] = fog_option
+    tracker = MatchObservationTracker(uuid4())
+    initial = tracker.commit_boundary(decode_snapshot(snapshot(memory)))
+    identity = next(i.identity_id for i in initial.unit_identities if i.reference == 1)
+
+    executor = MoveAttackActionExecutor(cast(ActionNavigator, object()), tracker)
+    with pytest.raises(CommandRejected, match="remaining fuel"):
+        asyncio.run(executor.execute(request(initial.match_id, identity, path=((0, 1),)), initial))

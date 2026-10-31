@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from aw2_lab.action_navigation import ActionNavigator, validate_path
-from aw2_lab.aw2_unit_profiles import preflight_move_attack
+from aw2_lab.aw2_unit_profiles import RuleContext, preflight_move_attack
 from aw2_lab.lifecycle import LifecyclePhase
 from aw2_lab.match_contract import (
     CommandRequest,
@@ -108,6 +108,12 @@ class MoveAttackActionExecutor:
                 ErrorCode.INVALID_REQUEST, "No opposing unit is observed at target"
             )
 
+        player = next(p for p in battle.players if p.slot == battle.active_player_slot)
+        context = None
+        if battle.co_effects_enabled.value is False:
+            context = RuleContext()
+        elif battle.co_effects_enabled.value is True:
+            context = RuleContext(player.co_id, player.active_power)
         terrain_by_tile = {(tile.x, tile.y): tile.terrain_class for tile in battle.map.tiles}
         try:
             preflight_move_attack(
@@ -118,6 +124,9 @@ class MoveAttackActionExecutor:
                 target=target_coordinate,
                 target_unit_type=target.unit_type,
                 terrain_classes=tuple(terrain_by_tile[point] for point in path),
+                context=context,
+                weather=battle.weather.value,
+                fuel=attacker.fuel,
             )
         except ValueError as error:
             raise CommandRejected(ErrorCode.INVALID_REQUEST, str(error)) from error

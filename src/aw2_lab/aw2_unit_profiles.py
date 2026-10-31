@@ -158,8 +158,8 @@ def movement_cost(
 ) -> int | None:
     """Return per-tile movement/fuel cost, or None for impassable terrain.
 
-    Fuel debit applies when normal fuel consumption is enabled. Occupants,
-    fog, remaining movement and turn-start fuel upkeep are separate rules.
+    Movement consumes fuel in both fog modes. Occupants, fog blockers,
+    remaining movement and turn-start fuel upkeep are separate rules.
     """
     if terrain_class not in TERRAIN_NAMES:
         raise ValueError(f"Unknown terrain class: {terrain_class}")
@@ -188,10 +188,6 @@ def route_cost(
     return total
 
 
-def _maximum_bonus(unit_type: int, field: int) -> int:
-    return max(0, *(row.get(unit_type, (0, 0))[field] for row in CO_UNIT_MODIFIERS.values()))
-
-
 def preflight_move_attack(
     *,
     unit_type: int,
@@ -201,12 +197,15 @@ def preflight_move_attack(
     target: tuple[int, int],
     target_unit_type: int | None = None,
     terrain_classes: tuple[int, ...] | None = None,
+    context: RuleContext | None = None,
+    weather: Weather | None = None,
+    fuel: int | None = None,
 ) -> None:
     """Reject impossible actions across all supported CO/power configurations.
 
-    The observation does not expose whether CO effects or fuel consumption
-    are enabled. Exact budgets use explicit RuleContext/route_cost calls;
-    executor checks use the most permissive costs and limits across contexts.
+    Observed context and weather select exact movement costs and limits.
+    Missing inputs retain permissive bounds; AW2 checks occupants and fog.
+    Fuel is consumed with and without fog; an absent fuel value skips that bound.
     """
     profile = UNIT_PROFILES.get(unit_type)
     if profile is None:
@@ -220,25 +219,40 @@ def preflight_move_attack(
     if path and profile.indirect:
         raise ValueError("Indirect units cannot move and attack in the same turn")
 
-    minimum_cost = len(path)
-    if terrain_classes is not None:
-        if len(terrain_classes) != len(path):
-            raise ValueError("Each path tile requires a terrain class")
-        minimum_cost = 0
-        for terrain in terrain_classes:
-            if terrain not in TERRAIN_NAMES:
-                raise ValueError(f"Unknown terrain class: {terrain}")
-            possible_costs = tuple(
-                table[terrain][profile.movement_type] for table in TERRAIN_COSTS.values()
+    contexts = (
+        (context,)
+        if context is not None
+        else (
+            BASELINE_RULES,
+            *(RuleContext(co, power) for co in range(19) for power in range(3)),
+        )
+    )
+    weathers = (weather,) if weather is not None else tuple(Weather)
+    if terrain_classes is not None and len(terrain_classes) != len(path):
+        raise ValueError("Each path tile requires a terrain class")
+    # Evaluate complete routes under one context at a time. Mixing the cheapest
+    # tile from different CO/weather tables could accept an impossible budget.
+    possible_budgets = []
+    maximum_range = 0
+    for candidate in contexts:
+        allowance, attack_range = candidate.unit_limits(unit_type)
+        maximum_range = max(maximum_range, attack_range)
+        for condition in weathers:
+            cost = (
+                route_cost(unit_type, terrain_classes, condition, context=candidate)
+                if terrain_classes is not None
+                else len(path)
             )
-            costs = tuple(cost for cost in possible_costs if cost is not None)
-            if not costs:
-                raise ValueError("Requested route enters impassable terrain for the unit")
-            minimum_cost += min(costs)
-    if minimum_cost > profile.movement + _maximum_bonus(unit_type, 0):
+            if cost is not None:
+                possible_budgets.append((cost, allowance))
+    if not possible_budgets:
+        raise ValueError("Requested route enters impassable terrain for the unit")
+    feasible = [(cost, allowance) for cost, allowance in possible_budgets if cost <= allowance]
+    if not feasible:
         raise ValueError("Requested route exceeds the unit's maximum movement allowance")
+    if fuel is not None and not any(cost <= fuel for cost, _ in feasible):
+        raise ValueError("Requested route exceeds the unit's remaining fuel")
 
-    maximum_range = profile.maximum_range + _maximum_bonus(unit_type, 1)
     if not any(
         profile.minimum_range <= abs(x - target[0]) + abs(y - target[1]) <= maximum_range
         for x, y in (start, *path)

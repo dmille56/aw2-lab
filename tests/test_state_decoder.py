@@ -48,7 +48,7 @@ def test_live_decoder_preserves_packed_fields_ownership_and_json_contract(memory
     assert (infantry.internal_health, infantry.ammo, infantry.capture_points) == (65, 0, 10)
     assert (blue.reference, blue.army_slot, blue.unit_slot) == (65, 2, 1)
     encoded = json.loads(json.dumps(state.to_dict()))
-    assert encoded["schema_version"] == 3
+    assert encoded["schema_version"] == 4
     assert encoded["frame"] == state.validation.frame == state.ui.frame
     assert encoded["context"]["rom_profile"]["sha256"] == memory[0].profile.sha256
     assert encoded["battle"]["value"]["weather"] == {
@@ -244,3 +244,17 @@ def test_process_evidence_survives_unrecognized_ui_without_publishing_data(memor
     assert state.battle.value is None
     assert state.ui.menu.unrecognized is not None
     assert state.ui.menu.unrecognized.lifecycle.active_process_scripts == (0xDEADBEEF, 0xDEADBEEF)
+
+
+@pytest.mark.parametrize("raw", [0, 1, 255])
+def test_rule_options_are_observed_without_assuming_unknown_encodings(memory, raw) -> None:
+    _, _, iwram = memory
+    iwram[0x3FC8] = iwram[0x3FCD] = raw
+    battle = decode_snapshot(snapshot(memory)).battle.value
+    assert battle is not None
+    if raw in (0, 1):
+        assert battle.co_effects_enabled == ObservedValue(ValueStatus.AVAILABLE, raw == 1)
+        assert battle.fog_enabled == ObservedValue(ValueStatus.AVAILABLE, raw == 1)
+    else:
+        assert battle.co_effects_enabled.status is ValueStatus.UNKNOWN
+        assert battle.fog_enabled.status is ValueStatus.UNKNOWN

@@ -1803,3 +1803,68 @@ the default remains =headless=.
 These runs verify ordinary headless combat and the shared movement/targeting
 navigation. Windowed execution, battle-ending executor attacks, and destruction
 of the attacking unit still rely on separate checkpoint or synthetic evidence.
+
+
+** Attack preflight and remaining live cases
+
+On 2026-10-30 the production executor passed the original initial-target,
+cycle-target, and move-before-attack cases in windowed mGBA. The movement case
+and two additional cases also passed headless with the final preflight:
+
+| Case | Starting state | Observed outcome | Final frame |
+|------+----------------+------------------+-------------|
+| Move before attack | Mech 4 at (0,6), via (0,5) to (0,4), targeting Infantry 130 | Ready player turn, used at (0,4), same identity, fuel 68 -> 66, target removed | 19975 |
+| Attacker destroyed | Infantry 1 at (4,4), health 37, stationary attack on Infantry 132 at (3,4), health 100 | Counterattack removed attacker and its lifetime identity; target health 80; match remained playable | 19974 |
+| Final enemy | Recon 4 at (10,5), health 95, stationary attack on the last opposing Infantry 65 at (10,6), health 29 | Finished match at =VICTORY_PRESENTATION=, battle observation and unit identities unavailable | 6184 |
+
+These outcomes and frames agree between headless and windowed modes. The
+attacker-destruction case independently restores the same =red-ready.ss0= as
+the original three cases. The terminal case uses an isolated reserialization of
+=/tmp/aw2-final-elimination/cancel2-6072.ss0= (SHA-256
+=d97db7fd942846fc9d87ca1159dd81af6315353a2decbb8f9482275a0af2c99b=),
+an already-ready boundary from the original unmodified-game elimination study.
+The isolated =cancel2-6072-ready.ss0= SHA-256 is
+=bedf4931bfbd5f2bb6a7cf74454ab0fd700227f7ff007811ae5907cab906a4c5=.
+Preparation restores and saves the boundary; it does not edit game RAM or the ROM.
+
+The ROM SHA-256 remains
+=ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+Build identities:
+- Headless: =sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22=.
+- Windowed: =sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810=.
+
+Reproduce with local paths:
+
+#+begin_src sh
+AW2_RUN_MOVE_ATTACK_TESTS=1 AW2_MOVE_ATTACK_MODE=windowed \
+AW2_ROM_PATH=/local/aw2.gba \
+AW2_MOVE_ATTACK_CHECKPOINT=/local/red-ready.ss0 \
+AW2_MOVE_ATTACK_TERMINAL_CHECKPOINT=/local/cancel2-6072-ready.ss0 \
+  pytest -q -s tests/test_move_attack_integration.py
+#+end_src
+
+Use =AW2_MOVE_ATTACK_MODE=headless= for the other frontend. The terminal
+case skips if its separate checkpoint is omitted. Every case writes an
+evidence JSON with ROM/checkpoint/build identity, observed option values,
+frames, lifecycle and combat results, plus a final screenshot. Failures retain
+a screenshot and checkpoint.
+
+GameState schema 4 adds observed CO-effects and fog settings. Original ROM
+routines =0x08043190= and =0x08043200= gate movement and range bonuses on
+=0x03003FC8=. Fog is =0x03003FCD=; it does not disable fuel consumption:
+=0x08025BB4= debits movement fuel when fog is enabled, and =0x080424FC= does
+so when fog is disabled. See [[file:AW2-UNIT-TERRAIN-RULES.md][the corrected rules evidence]].
+The executor uses the active CO/power, weather, route terrain costs, and
+remaining fuel before input. Unknown CO/weather observations keep permissive
+bounds. ROM-independent regressions cover exact weather/CO budgets, fuel
+rejection before input in both fog modes, and unknown option encodings. These
+live combat runs have fog off and CO effects enabled; the fog fuel branch is
+covered by ROM tracing and synthetic preflight checks, not a new live fog run.
+
+Final verification artifacts are outside Git at
+=/tmp/aw2-attack-headless-final/= (three cases) and
+=/tmp/aw2-attack-windowed-final/= (five cases). The 16 evidence/screenshot
+fingerprints are indexed by
+=/tmp/aw2-attack-completion/final-evidence-manifest.json=, SHA-256
+=377adaaabbee16a988741cd000d81bba7667f56e65d29a67cc688f9f8435b1f4=.
+All =pre-commit run --all-files= hooks pass, including the ROM-independent suite.

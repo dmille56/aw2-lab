@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import os
 from pathlib import Path
 from uuid import uuid4
@@ -19,7 +21,7 @@ from aw2_lab.match_contract import (
     MoveAttackAction,
     PlayerSlot,
 )
-from aw2_lab.match_observation import ActionReadiness, MatchObservationTracker
+from aw2_lab.match_observation import ActionReadiness, IdentityStatus, MatchObservationTracker
 from aw2_lab.move_attack_executor import MoveAttackActionExecutor
 from aw2_lab.state_decoder import capture_game_state
 
@@ -38,25 +40,41 @@ def _emulator_mode() -> EmulatorMode:
 
 
 @pytest.mark.parametrize(
-    ("start", "path", "target_position"),
+    ("start", "path", "target_position", "expected_outcome"),
     [
-        ((1, 5), (), (1, 4)),
-        ((1, 5), (), (2, 5)),
-        ((0, 6), ((0, 5), (0, 4)), (1, 4)),
+        ((1, 5), (), (1, 4), "survives"),
+        ((1, 5), (), (2, 5), "survives"),
+        ((0, 6), ((0, 5), (0, 4)), (1, 4), "survives"),
+        ((4, 4), (), (3, 4), "destroyed"),
+        ((10, 5), (), (10, 6), "terminal"),
     ],
-    ids=("default-target", "cycle-target", "move-before-attack"),
+    ids=(
+        "default-target",
+        "cycle-target",
+        "move-before-attack",
+        "attacker-destroyed",
+        "final-enemy",
+    ),
 )
 def test_move_attack_against_playable_units(
     start: tuple[int, int],
     path: tuple[tuple[int, int], ...],
     target_position: tuple[int, int],
+    expected_outcome: str,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     rom = Path(os.environ.get("AW2_ROM_PATH", ""))
-    checkpoint = Path(os.environ.get("AW2_MOVE_ATTACK_CHECKPOINT", ""))
+    checkpoint_variable = (
+        "AW2_MOVE_ATTACK_TERMINAL_CHECKPOINT"
+        if expected_outcome == "terminal"
+        else "AW2_MOVE_ATTACK_CHECKPOINT"
+    )
+    if expected_outcome == "terminal" and not os.environ.get(checkpoint_variable):
+        pytest.skip("set AW2_MOVE_ATTACK_TERMINAL_CHECKPOINT to a final-enemy ready state")
+    checkpoint = Path(os.environ.get(checkpoint_variable, ""))
     assert rom.is_file(), "AW2_ROM_PATH must name the supported local ROM"
-    assert checkpoint.is_file(), "AW2_MOVE_ATTACK_CHECKPOINT must name red-ready.ss0"
+    assert checkpoint.is_file(), f"{checkpoint_variable} must name the case's playable checkpoint"
     config = tmp_path / "config" / "mgba"
     mode = _emulator_mode()
     config.mkdir(parents=True)
@@ -127,33 +145,70 @@ def test_move_attack_against_playable_units(
             outcome = await MoveAttackActionExecutor(navigator, tracker).execute(
                 request, observation
             )
-            assert outcome.lifecycle is MatchLifecycle.PLAYABLE
             result = outcome.observation
             assert result is not None
-            assert result.action_readiness is ActionReadiness.READY
             assert result.revision == observation.revision + 1
-            final_battle = result.game_state.battle.value
-            assert final_battle is not None
-            final_attacker = next(
-                unit for unit in final_battle.units if unit.reference == attacker.reference
-            )
-            assert (final_attacker.x, final_attacker.y) == (path[-1] if path else start)
-            assert final_attacker.used_this_turn
-            assert any(
-                item.reference == attacker.reference and item.identity_id == unit_id
-                for item in result.unit_identities
-            )
-            final_target = next(
-                (unit for unit in final_battle.units if unit.reference == target.reference), None
-            )
-            assert final_target is None or final_target.internal_health < target.internal_health
-            print(
-                f"frames={initial.frame}->{result.game_state.frame} "
-                f"attacker={final_attacker.reference}@{final_attacker.x},{final_attacker.y} "
-                f"health={attacker.internal_health}->{final_attacker.internal_health} "
-                f"target_health={target.internal_health}->"
-                f"{None if final_target is None else final_target.internal_health}"
-            )
+            evidence = {
+                "mode": mode.value,
+                "build_identity": launcher.build_identity,
+                "rom_sha256": hashlib.sha256(rom.read_bytes()).hexdigest(),
+                "checkpoint_sha256": hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
+                "frames": [initial.frame, result.game_state.frame],
+                "expected_outcome": expected_outcome,
+                "lifecycle": outcome.lifecycle.value,
+                "phase": result.game_state.lifecycle.phase.value,
+                "co_effects_enabled": battle.co_effects_enabled.value,
+                "fog_enabled": battle.fog_enabled.value,
+                "attacker_reference": attacker.reference,
+                "target_reference": target.reference,
+            }
+            if expected_outcome == "terminal":
+                assert outcome.lifecycle is MatchLifecycle.FINISHED
+                assert result.identity_status is IdentityStatus.UNAVAILABLE
+                assert result.game_state.battle.value is None
+            else:
+                assert outcome.lifecycle is MatchLifecycle.PLAYABLE
+                assert result.action_readiness is ActionReadiness.READY
+                final_battle = result.game_state.battle.value
+                assert final_battle is not None
+                final_attacker = next(
+                    (u for u in final_battle.units if u.reference == attacker.reference), None
+                )
+                if expected_outcome == "destroyed":
+                    assert final_attacker is None
+                    assert all(i.identity_id != unit_id for i in result.unit_identities)
+                else:
+                    assert final_attacker is not None
+                    assert (final_attacker.x, final_attacker.y) == (path[-1] if path else start)
+                    assert final_attacker.used_this_turn
+                    assert any(
+                        i.reference == attacker.reference and i.identity_id == unit_id
+                        for i in result.unit_identities
+                    )
+                final_target = next(
+                    (u for u in final_battle.units if u.reference == target.reference), None
+                )
+                assert final_target is None or final_target.internal_health < target.internal_health
+                evidence["attacker_health"] = [
+                    attacker.internal_health,
+                    None if final_attacker is None else final_attacker.internal_health,
+                ]
+                evidence["target_health"] = [
+                    target.internal_health,
+                    None if final_target is None else final_target.internal_health,
+                ]
+                evidence["fuel"] = [
+                    attacker.fuel,
+                    None if final_attacker is None else final_attacker.fuel,
+                ]
+            (tmp_path / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+            (tmp_path / "result.png").write_bytes(await bridge.screenshot())
+            print(json.dumps(evidence))
+        except Exception:
+            if launcher.bridge is not None:
+                (tmp_path / "failure.png").write_bytes(await launcher.bridge.screenshot())
+                await launcher.bridge.save_state(tmp_path / "failure.ss0")
+            raise
         finally:
             await launcher.stop()
 
