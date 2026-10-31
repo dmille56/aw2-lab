@@ -684,6 +684,44 @@ Do not advertise the current static six-action list as executable unless runtime
 dispatch, session ownership, and recovery providers are configured. Keep existing
 live-verification gaps for purchasing and turn actions visible in the docs.
 
+## Implemented shared models
+
+`api_contract.py` now defines the collection-based v1 configuration, operator/player
+principals, invitation and revoked-slot metadata, lifecycle/gameplay/checkpoint/debug
+requests, and safe response documents. Existing command receipts/results, action
+models, checkpoint references, and error envelopes are reused from `match_contract.py`.
+`api_validation.py` validates complete configurations and maps safe errors to HTTP
+statuses and headers. These modules are shared by future HTTP, SDK, and MCP adapters;
+they do not implement routes or authenticate callers.
+
+Only `bean_island_v1` is accepted. The recognition catalog contains Bean Island and
+AW2 CO IDs; a recognized CO outside the verified assignment is unsupported, whereas
+unregistered map/CO IDs are invalid. Capabilities describe the accepted profile and
+options separately from recognition. Feature availability must be supplied by runtime
+wiring; no gameplay actions or event transport are marked available by default.
+
+`resolve_configuration` resolves an omitted configuration for first creation. The
+metadata service must persist that resolved value and consult its deduplication
+record before resolving retries. Explicit null and incomplete configurations are
+invalid. `configuration_to_controller` validates before adapting to the legacy flat
+shape; reverse conversion preserves stored rule values and does not claim those
+values remain supported. Controller/checkpoint storage still uses its existing schema.
+
+Invitation secrets are `SecretStr`, excluded from request serialization and repr.
+Services must explicitly hash them for the authorization ledger; dumping the model
+cannot be used to fingerprint secret-bearing claim payloads. Pydantic's raw errors
+can contain attacker-supplied keys even with input hiding: adapters must use
+`validation_error`, which emits bounded schema-owned field paths without input,
+validator messages, or context. `internal_error` produces a generic safe envelope.
+Ordinary JSON byte limits still require enforcement at the future HTTP boundary;
+model validation enforces paths, names, invitation lifetimes, frames, and memory bounds.
+Memory-region permissions still belong to the service layer.
+
+The existing unrestricted join/controller authorization behavior has not changed.
+Durable authorization, permission enforcement, queued runtime wiring, screenshots,
+events, and routers remain implementation steps 2–4 below. The game contract version
+is independent of MCP protocol negotiation; these models do not enable remote MCP.
+
 ## Implementation sequence and acceptance
 
 1. Finalize HTTP request/response models and update the credential proposal in

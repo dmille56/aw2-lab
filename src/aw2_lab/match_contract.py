@@ -8,20 +8,27 @@ from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 
 CONTRACT_VERSION = 1
 MAX_SAFE_REVISION = (1 << 53) - 1
-Revision = Annotated[int, Field(ge=0, le=MAX_SAFE_REVISION)]
-CoordinateValue = Annotated[int, Field(ge=0)]
+Revision = Annotated[int, Field(strict=True, ge=0, le=MAX_SAFE_REVISION)]
+CoordinateValue = Annotated[int, Field(strict=True, ge=0)]
 
 
 class ContractModel(BaseModel):
     """Base for public documents; additive-compatible fields require a version bump policy."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
 
     contract_version: Literal[1] = 1
+
+    @field_validator("contract_version", mode="before")
+    @classmethod
+    def validate_contract_version(cls, value: object) -> object:
+        if type(value) is not int:
+            raise ValueError("Contract version must be an integer")
+        return value
 
 
 class MatchLifecycle(StrEnum):
@@ -41,6 +48,7 @@ class PlayerSlot(StrEnum):
 class SlotStatus(StrEnum):
     OPEN = "open"
     JOINED = "joined"
+    REVOKED = "revoked"
 
 
 class MatchRules(ContractModel):
@@ -125,20 +133,20 @@ class Coordinate(ContractModel):
 class MoveWaitAction(ContractModel):
     kind: Literal["move_wait"] = "move_wait"
     unit_id: str = Field(min_length=1)
-    path: tuple[Coordinate, ...]
+    path: tuple[Coordinate, ...] = Field(max_length=4096)
 
 
 class MoveAttackAction(ContractModel):
     kind: Literal["move_attack"] = "move_attack"
     unit_id: str = Field(min_length=1)
-    path: tuple[Coordinate, ...]
+    path: tuple[Coordinate, ...] = Field(max_length=4096)
     target: Coordinate
 
 
 class MoveCaptureAction(ContractModel):
     kind: Literal["move_capture"] = "move_capture"
     unit_id: str = Field(min_length=1)
-    path: tuple[Coordinate, ...]
+    path: tuple[Coordinate, ...] = Field(max_length=4096)
 
 
 class PurchaseAction(ContractModel):
@@ -318,6 +326,8 @@ class ErrorCode(StrEnum):
     MATCH_FINISHED = "match_finished"
     SLOT_UNAVAILABLE = "slot_unavailable"
     INVALID_CREDENTIAL = "invalid_credential"
+    PERMISSION_DENIED = "permission_denied"
+    INVALID_INVITATION = "invalid_invitation"
     NOT_YOUR_TURN = "not_your_turn"
     STALE_REVISION = "stale_revision"
     REQUEST_ID_CONFLICT = "request_id_conflict"
@@ -331,8 +341,10 @@ class ErrorCode(StrEnum):
     RECOVERY_REQUIRED = "recovery_required"
     CHECKPOINT_INCOMPATIBLE = "checkpoint_incompatible"
     CHECKPOINT_CORRUPT = "checkpoint_corrupt"
+    CHECKPOINT_NOT_FOUND = "checkpoint_not_found"
     JOURNAL_CORRUPT = "journal_corrupt"
     STORAGE_UNAVAILABLE = "storage_unavailable"
+    RUNTIME_UNAVAILABLE = "runtime_unavailable"
     INTERNAL_ERROR = "internal_error"
 
 

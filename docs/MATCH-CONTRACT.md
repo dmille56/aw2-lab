@@ -224,7 +224,9 @@ transport models, coherent reads, SSE synchronization, and implementation gaps f
 review before route implementation. It proposes operator-controlled creation and
 slot invitations, client-generated player credentials for retry-safe joining,
 bearer-header authentication, scoped permissions, and durable revocation; those
-changes have not yet been adopted by the existing models or controller.
+transport models now exist in `api_contract.py`, while enforcement has not yet
+been adopted by the controller. The old `JoinSlotResponse` remains an internal
+legacy service result; adapters must use the new response without a credential.
 Operator access governs start/close, archive transfer/restore, and debug
 operations. Player access governs shared match observation and its own slot's
 gameplay. Revocation applies to HTTP and MCP subscriptions, and restoring an
@@ -243,8 +245,9 @@ The creation design accepts an explicit map/player/rule configuration, initially
 restricted to the verified fixed profile. Future capability-advertised maps, COs,
 teams, fog/weather, and rule combinations use that same creation shape after
 validation and runtime verification. Adopting this proposed schema requires
-changes to `FixedMatchConfiguration` and the transport models before HTTP v1 is
-finalized; it does not expand the currently executable configuration.
+explicit conversion between the legacy `FixedMatchConfiguration` and new
+collection-based transport models. `api_validation.py` validates the complete
+profile before conversion; this does not expand the executable configuration.
 MCP protocol revisions and AW2 game contracts are versioned independently. The
 proposed MCP application payloads share HTTP's `contract_version: 1`, resources
 use `aw2://v1/...` URIs, and breaking game contracts require a separate MCP
@@ -258,3 +261,12 @@ screenshot reads, command submission/status, and checkpoint create/export/import
 and restore. All mutation routes use the same command queue and revision rules.
 Health reports server/emulator availability only and never implies a playable
 match. The API binds to loopback by default.
+
+The shared error enum additionally includes `permission_denied`,
+`invalid_invitation`, `checkpoint_not_found`, and `runtime_unavailable`.
+Revoked slots serialize as `revoked`; trusted principals carry an authorization
+generation for future acceptance/execution/subscription checks. Revision and
+coordinate numbers are strict integers; movement paths are bounded to 4,096
+coordinates. The shared transport error mapping includes Bearer challenges,
+capacity retry headers, redacted validation envelopes, and generic internal errors.
+HTTP handlers and enforcement remain future work.
