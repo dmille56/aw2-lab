@@ -111,5 +111,6 @@ composition evidence in headless and windowed modes. The headless Infantry run
 confirmed funds changed 11,000 → 10,000 and a newly identified used unit at
 (1,6). In both modes, a purchased Tank's turn reset and day 2 property income
 were observed before surrender reached `victory_presentation`. Actual resource
-replenishment after spending fuel or ammunition, windowed checkpoint
-restore/continue, and failure-induced live rollback remain acceptance work.
+resupply was also verified: the Tank spent 2 fuel moving to an owned base and
+regained it at Red's next turn. Windowed checkpoint restore/continue and
+failure-induced live rollback remain acceptance work.

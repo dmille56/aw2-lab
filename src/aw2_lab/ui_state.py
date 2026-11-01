@@ -43,7 +43,8 @@ UNIT_MOVEMENT_SELECTOR = 0x08499B4C
 # This process shares the selector's storage. Offset +0x20 is a cursor
 # graphics loading counter here, not a menu table pointer; it saturates at 8.
 CURSOR_GRAPHICS_PROGRESS = 0x03001490
-UNIT_ACTION_SELECTOR = 0x0848A42C
+BATTLE_SELECTOR_OBJECT = 0x0848A42C
+UNIT_ACTION_SELECTOR = BATTLE_SELECTOR_OBJECT
 UNIT_ACTION_TABLE = 0x0849AE28
 PRODUCTION_SELECTOR_OBJECT = 0x0849AFE8
 PRODUCTION_SELECTOR_TABLE = 0x03001474
@@ -493,7 +494,7 @@ def _observe_unit_action_choices(
     offsets = tuple(
         index * SELECTOR_STRIDE
         for index in range(SELECTOR_COUNT)
-        if snapshot.u32(SELECTOR_OBJECT + index * SELECTOR_STRIDE) == UNIT_ACTION_SELECTOR
+        if snapshot.u32(SELECTOR_OBJECT + index * SELECTOR_STRIDE) == BATTLE_SELECTOR_OBJECT
         and snapshot.u32(SELECTOR_TABLE + index * SELECTOR_STRIDE) == UNIT_ACTION_TABLE
     )
     if len(offsets) != 1:
@@ -605,18 +606,27 @@ def _observe_command_menu(
         or validation.lifecycle.engine is not LifecycleEngine.BATTLE
         or snapshot.u16(CONTROLLER_STATE) != 13
         or snapshot.read(CONTROLLER_LOCK, 1)[0] != 1
-        or snapshot.u32(SELECTOR_OBJECT) != 0x0848A42C
     ):
         return None
 
-    table = snapshot.u32(SELECTOR_TABLE)
+    offsets = tuple(
+        index * SELECTOR_STRIDE
+        for index in range(SELECTOR_COUNT)
+        if snapshot.u32(SELECTOR_OBJECT + index * SELECTOR_STRIDE) == BATTLE_SELECTOR_OBJECT
+        and snapshot.u32(SELECTOR_TABLE + index * SELECTOR_STRIDE)
+        in {0x0849AAC0, 0x0849ABC0, 0x0849AC60}
+    )
+    if len(offsets) != 1:
+        return None
+    offset = offsets[0]
+    table = snapshot.u32(SELECTOR_TABLE + offset)
     table_spec = _MENU_TABLES.get(table)
     if table_spec is None:
         return None
     family_name, expected_count, expected_items = table_spec
-    count = snapshot.read(SELECTOR_ROW_COUNT, 1)[0]
-    selected_row = snapshot.read(SELECTOR_SELECTED_ROW, 1)[0]
-    item_ids = tuple(snapshot.read(SELECTOR_ITEM_IDS, count)) if count <= 5 else ()
+    count = snapshot.read(SELECTOR_ROW_COUNT + offset, 1)[0]
+    selected_row = snapshot.read(SELECTOR_SELECTED_ROW + offset, 1)[0]
+    item_ids = tuple(snapshot.read(SELECTOR_ITEM_IDS + offset, count)) if count <= 5 else ()
     valid_item_signatures = {expected_items} | _MENU_ITEM_ID_VARIANTS.get(table, frozenset())
     if count != expected_count or item_ids not in valid_item_signatures or selected_row >= count:
         return _unrecognized_menu(

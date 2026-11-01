@@ -1527,6 +1527,11 @@ typed observer. In both frontends, the Yield confirmation's selected row starts
 at =1= (No), and the horizontal Yes/No cursor accepts Left after a 30-frame
 settle interval.
 
+After a live unit move, the rendered command menu was visible while selector
+slot 0 was empty. Searching the three UI selector slots for a unique matching
+command/menu table lets the observer recognize it and End Turn proceed. The
+headless and windowed Tank resupply runs both exercised End Turn after movement.
+
 The Yield selection leads to a yes/no confirmation screen. Its UI object changes
 to =0x08489530= with table pointer =0x08610196= while controller state remains
 =13= and lock remains =1=. One later checkpoint shows the battle map with the

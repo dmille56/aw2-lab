@@ -442,6 +442,24 @@ def test_options_menu_accepts_live_selector_variants(memory, visual_item_id: int
     assert menu.actionable is True
 
 
+def test_command_menu_is_found_in_nonfirst_ui_selector_slot(memory) -> None:
+    _, _, iwram = memory
+    offset = 0x60
+    pack_into("<I", iwram, 0x1470 + offset, 0x0848A42C)
+    pack_into("<I", iwram, 0x1490 + offset, 0x0849AAC0)
+    iwram[0x14B1 + offset] = 5
+    iwram[0x14B2 + offset] = 0
+    iwram[0x14A1 + offset : 0x14A6 + offset] = bytes((0, 1, 4, 5, 6))
+    iwram[0x30F0] = 1
+    current = snapshot(memory)
+
+    menu = observe_menu(current, validate_battle_snapshot(current))
+
+    assert menu.family is MenuFamily.COMMAND
+    assert menu.selected_item is MenuItem.CO
+    assert menu.actionable is True
+
+
 def test_map_input_menu_does_not_treat_current_pointer_as_selection(memory) -> None:
     pack_into("<I", memory[2], 0x40D8, 0x02022690)
     current = snapshot(memory)
