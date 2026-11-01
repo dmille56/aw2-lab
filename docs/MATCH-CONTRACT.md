@@ -2,8 +2,8 @@
 
 This document and [`aw2_lab.match_contract`](../src/aw2_lab/match_contract.py)
 define the fixed playable configuration and the shared Python/HTTP/SDK model
-surface. This is a contract proposal for implementation; it does not claim that
-the controller, routes, or durable command handling already exist. The Pydantic
+surface. Controller, persistence, and shared authorization services exist; HTTP
+match routes and full playable runtime integration remain unfinished. The Pydantic
 models are the schema source for the eventual HTTP OpenAPI document and generated
 non-Python client types.
 
@@ -128,14 +128,22 @@ observation revisions agree. Screenshot metadata binds an image to that
 observation's match ID, revision, and frame; image capture itself does not
 publish a new observation.
 
-The server creates a high-entropy credential for each slot at join time and
-returns it only in that join response. Credentials are sent in the request body,
-held in client memory by default, never placed in URLs, and never returned by
-match inspection. They coordinate trusted local players and do not provide
-competitive isolation. Credentials are independent of the request ID and are
-never stored raw. Checkpoint manifests retain one-way SHA-256 credential
-verifiers so a committed match can be re-adopted after restart; journal entries
-continue to exclude credentials and their verifiers.
+With an operator file configured, the operator creates an invitation and the
+player generates a distinct credential before claiming its slot. The shared
+service atomically binds its hash and consumes the invitation, returning no new
+secret. The future HTTP adapter takes player credentials from a bearer header;
+match/slot scope comes from the authenticated principal rather than body fields.
+`api_contract.py` defines those transport models. Only the trusted legacy research
+controller without authorization retains server-generated joins and internal
+`CommandRequest.credential` fields.
+
+The durable authorization ledger holds current verifiers, consumed invitations,
+revocations, generations, and metadata retry records independently of checkpoints.
+Checkpoint verifiers cannot grant access or replace it. Authentication precedes
+cached response lookup and queued execution. Operators manage start/close,
+invitations/revocation, and archive transfer/restore; players read their match,
+submit their own active slot's actions, and create checkpoints. See
+[authorization and recovery](AUTHORIZATION.md) for provisioning and test coverage.
 
 ## Controller queue behavior
 
@@ -223,9 +231,9 @@ The concrete [HTTP API design proposal](HTTP-API-DESIGN.md) specifies routes,
 transport models, coherent reads, SSE synchronization, and implementation gaps for
 review before route implementation. It proposes operator-controlled creation and
 slot invitations, client-generated player credentials for retry-safe joining,
-bearer-header authentication, scoped permissions, and durable revocation; those
-transport models now exist in `api_contract.py`, while enforcement has not yet
-been adopted by the controller. The old `JoinSlotResponse` remains an internal
+bearer-header authentication, scoped permissions, and durable revocation.
+Transport models exist in `api_contract.py`; configured controller/checkpoint
+services enforce principals through the independent authorization ledger. The old `JoinSlotResponse` remains an internal
 legacy service result; adapters must use the new response without a credential.
 Operator access governs start/close, archive transfer/restore, and debug
 operations. Player access governs shared match observation and its own slot's

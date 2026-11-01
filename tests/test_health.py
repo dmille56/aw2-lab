@@ -71,3 +71,47 @@ def test_app_rejects_unsupported_rom_before_emulator_start(
         create_app(settings=EmulatorSettings(rom_path=tmp_path / "bad.gba"), launcher=launcher)
 
     assert not launcher.started
+
+
+@pytest.mark.anyio
+async def test_operator_file_wires_authorized_setup_recovery(tmp_path, monkeypatch):
+    from contextlib import asynccontextmanager
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from pydantic import SecretStr
+
+    from aw2_lab.api_contract import CreateMatchRequest
+    from aw2_lab.authorization import AuthorizationError
+
+    monkeypatch.setattr(api_app, "select_rom_profile", lambda _: AW2_US_REVISION_0)
+
+    @asynccontextmanager
+    async def session_manager():
+        yield
+
+    monkeypatch.setattr(
+        api_app, "mcp_server", SimpleNamespace(session_manager=SimpleNamespace(run=session_manager))
+    )
+    secret = tmp_path / "operator-secret"
+    secret.write_text("o" * 43 + "\n")
+    secret.chmod(0o600)
+    root = tmp_path / "storage"
+    settings = EmulatorSettings(rom_path=tmp_path / "aw2.gba")
+    application = create_app(
+        settings=settings, launcher=FakeLauncher(), storage_root=root, operator_secret_file=secret
+    )
+    async with application.router.lifespan_context(application):
+        service = application.state.authorized_matches
+        principal = service.authenticate(SecretStr("o" * 43))
+        summary = await service.create(principal, CreateMatchRequest(request_id=uuid4()))
+    # Omitting the operator file must not enable legacy checkpoint authorization.
+    with pytest.raises(AuthorizationError):
+        create_app(settings=settings, storage_root=root)
+    restarted = create_app(
+        settings=settings, launcher=FakeLauncher(), storage_root=root, operator_secret_file=secret
+    )
+    async with restarted.router.lifespan_context(restarted):
+        service = restarted.state.authorized_matches
+        principal = service.authenticate(SecretStr("o" * 43))
+        assert (await service.inspect(principal, summary.match_id)).lifecycle.value == "setup"

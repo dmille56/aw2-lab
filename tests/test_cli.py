@@ -423,3 +423,21 @@ def test_watch_memory_cli_requires_explicit_step_options(
     with pytest.raises(SystemExit) as error:
         cli.main()
     assert error.value.code == 2
+
+
+def test_cli_operator_file_configuration(monkeypatch, tmp_path, capsys):
+    rom = tmp_path / "aw2.gba"
+    rom.touch()
+    secret = tmp_path / "operator-secret"
+    secret.write_text("o" * 43 + "\n")
+    secret.chmod(0o600)
+    application, _ = invoke_cli(
+        monkeypatch,
+        rom,
+        "--operator-secret-file",
+        str(secret),
+        "--storage-dir",
+        str(tmp_path / "data"),
+    )
+    assert application.state.authorized_matches is not None
+    assert "o" * 43 not in capsys.readouterr().out

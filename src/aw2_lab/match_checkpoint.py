@@ -11,6 +11,8 @@ from uuid import UUID, uuid4, uuid5
 
 from pydantic import SecretStr
 
+from aw2_lab.api_contract import Principal
+from aw2_lab.authorization import Permission
 from aw2_lab.checkpoint import (
     CapturedCheckpointState,
     CheckpointBridge,
@@ -115,12 +117,19 @@ class MatchCheckpointService:
                 ErrorCode.CHECKPOINT_INCOMPATIBLE,
                 "Startup recovery requires a playable checkpoint",
             )
-        if set(manifest.slot_credential_hashes) != {PlayerSlot.SLOT_1, PlayerSlot.SLOT_2}:
+        if self.controller.authorization is not None:
+            self.controller.authorization.overlay(manifest.match, recovering=True)
+        if self.controller.authorization is None and set(manifest.slot_credential_hashes) != {
+            PlayerSlot.SLOT_1,
+            PlayerSlot.SLOT_2,
+        }:
             raise CheckpointError(
                 ErrorCode.CHECKPOINT_INCOMPATIBLE,
                 "Checkpoint lacks player credential verifiers required for restart adoption",
             )
-        if any(slot.status is not SlotStatus.JOINED for slot in manifest.match.slots):
+        if self.controller.authorization is None and any(
+            slot.status is not SlotStatus.JOINED for slot in manifest.match.slots
+        ):
             raise CheckpointError(
                 ErrorCode.CHECKPOINT_INCOMPATIBLE,
                 "Startup checkpoint does not have both player slots joined",
@@ -360,16 +369,16 @@ class MatchCheckpointService:
     async def create(
         self,
         match_id: UUID,
-        credential: SecretStr,
+        credential: SecretStr | Principal,
         *,
         request_id: UUID,
         expected_revision: int,
     ) -> CommandReceipt:
-        await self.controller.require_joined_credential(match_id, credential)
+        principal = await self._authorize(match_id, credential, Permission.CHECKPOINT_CREATE)
         checkpoint_id = uuid5(match_id, f"create:{request_id}")
 
         async def capture() -> MutationOutcome:
-            await self.controller.require_joined_credential(match_id, credential)
+            await self._authorize(match_id, credential, Permission.CHECKPOINT_CREATE)
             snapshot = await self.controller.current_state(match_id)
             observation = snapshot.observation
             if (
@@ -400,6 +409,7 @@ class MatchCheckpointService:
         return await self.controller.submit_serialized_mutation(
             match_id=match_id,
             request_id=request_id,
+            principal=principal,
             operation_name="checkpoint_create",
             payload={"match_id": str(match_id)},
             expected_revision=expected_revision,
@@ -407,16 +417,23 @@ class MatchCheckpointService:
             mutates_emulator=False,
         )
 
-    async def export(self, match_id: UUID, checkpoint_id: UUID, credential: SecretStr) -> bytes:
-        await self.controller.require_joined_credential(match_id, credential)
+    async def export(
+        self, match_id: UUID, checkpoint_id: UUID, credential: SecretStr | Principal
+    ) -> bytes:
+        await self._authorize(match_id, credential, Permission.ARCHIVE)
         manifest, _ = await asyncio.to_thread(self.store.load, checkpoint_id)
         self._same_match(manifest, await self.controller.inspect_match(match_id))
-        return await asyncio.to_thread(self.store.export_archive, checkpoint_id)
+        data = await asyncio.to_thread(self.store.export_archive, checkpoint_id)
+        await self._authorize(match_id, credential, Permission.ARCHIVE)
+        return data
 
     async def import_archive(
-        self, match_id: UUID, data: bytes, credential: SecretStr
+        self, match_id: UUID, data: bytes, credential: SecretStr | Principal
     ) -> CheckpointReference:
-        await self.controller.require_joined_credential(match_id, credential)
+        await self._authorize(match_id, credential, Permission.ARCHIVE)
+        summary = await self.controller.inspect_match(match_id)
+        if summary.lifecycle is MatchLifecycle.CLOSED:
+            raise CommandRejected(ErrorCode.MATCH_CLOSED, "The match is closed")
         manifest, state = CheckpointStore.decode_archive(data)
         self._compatible(manifest)
         self._same_match(manifest, await self.controller.inspect_match(match_id))
@@ -426,16 +443,16 @@ class MatchCheckpointService:
         self,
         match_id: UUID,
         checkpoint_id: UUID,
-        credential: SecretStr,
+        credential: SecretStr | Principal,
         *,
         request_id: UUID,
         expected_revision: int,
     ) -> CommandReceipt:
-        await self.controller.require_joined_credential(match_id, credential)
+        principal = await self._authorize(match_id, credential, Permission.ARCHIVE)
         new_checkpoint_id = uuid5(match_id, f"restore:{request_id}")
 
         async def restore() -> MutationOutcome:
-            await self.controller.require_joined_credential(match_id, credential)
+            await self._authorize(match_id, credential, Permission.ARCHIVE)
             current = await self.controller.current_state(match_id)
             try:
                 if current.observation is None:
@@ -529,12 +546,23 @@ class MatchCheckpointService:
         return await self.controller.submit_serialized_mutation(
             match_id=match_id,
             request_id=request_id,
+            principal=principal,
             operation_name="checkpoint_restore",
             payload={"checkpoint_id": str(checkpoint_id)},
             expected_revision=expected_revision,
             handler=restore,
             allow_recovery=True,
         )
+
+    async def _authorize(
+        self, match_id: UUID, identity: SecretStr | Principal, permission: Permission
+    ) -> Principal | None:
+        if self.controller.authorization is not None:
+            return self.controller.require_access(identity, permission, match_id)
+        if not isinstance(identity, SecretStr):
+            raise CommandRejected(ErrorCode.INVALID_CREDENTIAL, "Authentication is not configured")
+        await self.controller.require_joined_credential(match_id, identity)
+        return None
 
     def _compatible(self, manifest: CheckpointManifest) -> None:
         validate_checkpoint_compatibility(

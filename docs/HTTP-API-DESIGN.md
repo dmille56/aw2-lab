@@ -357,11 +357,12 @@ records needed for an adopted match are missing or inconsistent. Operator rotati
 uses a controlled server restart with the replacement secret file; old operator
 tokens and connections become invalid.
 
-These are explicit proposed changes to the existing models/controller, which
-currently generate a credential on an unrestricted slot join and authorize some
-administrative operations with either player's credential. Add a revoked slot
-status and typed invitation references. Preserve the game/player credential
-separation when implementing shared services; update `MATCH-CONTRACT.md` then.
+These models and shared-service authorization are implemented when an operator
+file is configured; see [setup and authorization](AUTHORIZATION.md). The controller
+then disables unrestricted joining, requires principals for mutations, and applies
+operator/player scopes. Trusted local emulator research helpers can still construct
+an isolated controller without authorization. HTTP/SSE/MCP adapters remain later
+work and must use the authorized facade rather than trusted internal reads.
 Raw credentials and invitation secrets must never enter durable journals, access
 logs, validation errors, URLs, examples, or OpenAPI defaults. Secret request fields
 must be redacted, including on rejected joins and invitation issuance.
@@ -717,10 +718,15 @@ Ordinary JSON byte limits still require enforcement at the future HTTP boundary;
 model validation enforces paths, names, invitation lifetimes, frames, and memory bounds.
 Memory-region permissions still belong to the service layer.
 
-The existing unrestricted join/controller authorization behavior has not changed.
-Durable authorization, permission enforcement, queued runtime wiring, screenshots,
-events, and routers remain implementation steps 2–4 below. The game contract version
-is independent of MCP protocol negotiation; these models do not enable remote MCP.
+`authorization.py` and `authorized_match.py` now implement durable setup/auth
+metadata, retry-safe invitations/claims/revocation, principal permissions, queue
+rechecks, and revocation-aware command waits. The CLI loads an operator secret
+file; controller/checkpoint recovery validates current ledger records independently
+of imported verifiers. See [the implementation and verification notes](AUTHORIZATION.md).
+Queued cold-boot navigation/runtime dispatch, screenshots, event publication, and
+routers remain below. SSE/MCP delivery enforcement still requires their adapters.
+The game contract version remains independent of MCP protocol negotiation; these
+services do not enable remote MCP gameplay.
 
 ## Implementation sequence and acceptance
 

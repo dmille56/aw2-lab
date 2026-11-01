@@ -15,6 +15,15 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, SecretStr
 
+from aw2_lab.api_contract import (
+    CreateMatchRequest,
+    InvitationReference,
+    IssueInvitationRequest,
+    JoinSlotRequest,
+    Principal,
+    SlotAuthorization,
+)
+from aw2_lab.authorization import AuthorizationError, AuthorizationService, Permission
 from aw2_lab.checkpoint import CheckpointError
 from aw2_lab.checkpoint_store import CheckpointStore
 from aw2_lab.command_journal import (
@@ -145,6 +154,7 @@ class _CommandRecord:
     previous_lifecycle: MatchLifecycle | None = None
     result: CommandResult | None = None
     completed: asyncio.Event = field(default_factory=asyncio.Event)
+    authorization_check: Callable[[], None] | None = None
 
 
 class MatchController:
@@ -159,6 +169,7 @@ class MatchController:
         self,
         *,
         executor: ActionExecutor | None = None,
+        authorization: AuthorizationService | None = None,
         journal: CommandJournal | None = None,
         recovery_checkpoint_provider: RecoveryCheckpointProvider | None = None,
         recovery_rollback_provider: RecoveryRollbackProvider | None = None,
@@ -173,6 +184,7 @@ class MatchController:
             raise ValueError("Command capacities must be positive and history >= queue capacity")
         if shutdown_timeout <= 0 or shutdown_cancel_timeout <= 0:
             raise ValueError("Shutdown timeouts must be positive")
+        self.authorization = authorization
         self._executor = executor
         self._journal = journal
         self._recovery_checkpoint_provider = recovery_checkpoint_provider
@@ -423,9 +435,22 @@ class MatchController:
             await worker
         self._worker = None
 
-    async def create_match(self) -> MatchSummary:
+    async def create_match(
+        self, *, principal: Principal | None = None, request: CreateMatchRequest | None = None
+    ) -> MatchSummary:
         """Create the one fixed Versus match in setup state."""
         async with self._state_lock:
+            if self.authorization is not None:
+                if principal is None or request is None:
+                    raise AuthorizationError(
+                        ErrorCode.INVALID_CREDENTIAL, "Operator authentication is required"
+                    )
+                self.authorization.authorize(principal, Permission.ADMIN)
+                self._require_metadata_request_id(request.request_id)
+                summary = self.authorization.create_match(principal, request)
+                if summary.match_id not in self._matches:
+                    self._matches[summary.match_id] = _MatchRecord(summary)
+                return self._matches[summary.match_id].summary
             if any(
                 record.summary.lifecycle is not MatchLifecycle.CLOSED
                 for record in self._matches.values()
@@ -455,11 +480,14 @@ class MatchController:
         credential_hashes: Mapping[PlayerSlot, str],
     ) -> None:
         """Restore the active match owner from a validated durable checkpoint."""
+        if self.authorization is not None:
+            summary = self.authorization.overlay(summary, recovering=True)
+            credential_hashes = self.authorization.credential_hashes(summary.match_id)
         if (
             summary.lifecycle is not MatchLifecycle.PLAYABLE
             or observation.match_id != summary.match_id
             or observation.revision != summary.revision
-            or len(credential_hashes) != 2
+            or (self.authorization is None and len(credential_hashes) != 2)
         ):
             raise ValueError("Recovered match metadata is incomplete or inconsistent")
         credentials = {slot: bytes.fromhex(digest) for slot, digest in credential_hashes.items()}
@@ -479,6 +507,8 @@ class MatchController:
         """Return private one-way verifiers for persistence beside trusted checkpoints."""
         async with self._state_lock:
             match = self._require_match(match_id)
+            if self.authorization is not None:
+                return self.authorization.credential_hashes(match_id)
             return {slot: digest.hex() for slot, digest in match.credentials.items()}
 
     async def join_slot(
@@ -489,6 +519,8 @@ class MatchController:
         display_name: str | None = None,
     ) -> JoinSlotResponse:
         """Claim one open slot and return its high-entropy credential once."""
+        if self.authorization is not None:
+            raise AuthorizationError(ErrorCode.PERMISSION_DENIED, "Use an invitation-gated claim")
         async with self._state_lock:
             record = self._require_match(match_id)
             if record.summary.lifecycle is MatchLifecycle.CLOSED:
@@ -518,6 +550,7 @@ class MatchController:
         observation: MatchObservation,
         *,
         request_id: UUID,
+        principal: Principal | None = None,
     ) -> CommandReceipt:
         """Publish the first verified playable boundary after setup navigation."""
 
@@ -528,7 +561,10 @@ class MatchController:
                     raise CommandRejected(
                         ErrorCode.INVALID_REQUEST, "Only a setup match can be activated"
                     )
-                if len(record.credentials) != 2:
+                if (
+                    sum(slot.status is SlotStatus.JOINED for slot in self._summary(record).slots)
+                    != 2
+                ):
                     raise CommandRejected(
                         ErrorCode.SLOT_UNAVAILABLE, "Both player slots must join before activation"
                     )
@@ -548,6 +584,7 @@ class MatchController:
         return await self.submit_serialized_mutation(
             match_id=match_id,
             request_id=request_id,
+            principal=principal,
             operation_name="activate_match",
             payload={"match_id": str(match_id), "observation_revision": observation.revision},
             expected_revision=0,
@@ -557,10 +594,13 @@ class MatchController:
 
     async def inspect_match(self, match_id: UUID) -> MatchSummary:
         async with self._state_lock:
-            return self._require_match(match_id).summary
+            return self._summary(self._require_match(match_id))
 
     async def require_joined_credential(self, match_id: UUID, credential: SecretStr) -> None:
         """Authorize a named server operation without exposing stored credentials."""
+        if self.authorization is not None:
+            self.require_access(credential, Permission.READ, match_id)
+            return
         async with self._state_lock:
             if not self._has_any_credential(self._require_match(match_id), credential):
                 raise MatchControllerError(
@@ -571,7 +611,7 @@ class MatchController:
         """Read lifecycle and the last committed observation under one lock."""
         async with self._state_lock:
             record = self._require_match(match_id)
-            return MatchStateSnapshot(record.summary, record.observation)
+            return MatchStateSnapshot(self._summary(record), record.observation)
 
     async def current_observation(self, match_id: UUID) -> MatchObservation:
         """Read a settled observation, rejecting reads while a mutation is active."""
@@ -594,7 +634,7 @@ class MatchController:
     async def close_match(
         self,
         match_id: UUID,
-        credential: SecretStr,
+        credential: SecretStr | Principal,
         *,
         request_id: UUID,
     ) -> CommandReceipt:
@@ -603,7 +643,11 @@ class MatchController:
         async def close() -> MutationOutcome:
             async with self._state_lock:
                 record = self._require_match(match_id)
-                if not self._has_any_credential(record, credential):
+                if self.authorization is not None:
+                    self.require_access(credential, Permission.ADMIN, match_id)
+                elif not isinstance(credential, SecretStr) or not self._has_any_credential(
+                    record, credential
+                ):
                     raise CommandRejected(
                         ErrorCode.INVALID_CREDENTIAL, "A joined player credential is required"
                     )
@@ -614,6 +658,9 @@ class MatchController:
         return await self.submit_serialized_mutation(
             match_id=match_id,
             request_id=request_id,
+            principal=self.resolve_principal(credential)
+            if self.authorization is not None
+            else None,
             operation_name="close_match",
             payload={"match_id": str(match_id), "operation": "close_match"},
             expected_revision=None,
@@ -622,11 +669,24 @@ class MatchController:
             allow_recovery=True,
         )
 
-    async def submit_command(self, request: CommandRequest) -> CommandReceipt:
+    async def submit_command(
+        self, request: CommandRequest, *, principal: Principal | None = None
+    ) -> CommandReceipt:
         """Accept an idempotent gameplay request for ordered execution."""
         payload = request.model_dump(mode="json", exclude={"credential"})
-        fingerprint = _fingerprint({"kind": "gameplay", "payload": payload})
+        check = self._authorization_check(principal, Permission.PLAY, request.match_id)
+        if self.authorization is not None:
+            assert principal is not None
+            if getattr(principal, "player_slot", None) is not request.player_slot:
+                raise AuthorizationError(
+                    ErrorCode.PERMISSION_DENIED, "Gameplay requires the claimed player slot"
+                )
+        fingerprint = _fingerprint(
+            {"kind": "gameplay", "payload": payload, **self._principal_payload(principal)}
+        )
         async with self._accept_lock:
+            if check is not None:
+                check()
             existing = self._requests.get(request.request_id)
             if existing is not None:
                 if existing.payload_fingerprint != fingerprint:
@@ -638,6 +698,8 @@ class MatchController:
             self._require_accepting()
             async with self._state_lock:
                 self._require_match(request.match_id)
+                if self.authorization is not None:
+                    self.authorization.require_command_request_id(request.request_id)
             self._check_capacity()
             record = self._new_record(
                 match_id=request.match_id,
@@ -650,6 +712,7 @@ class MatchController:
                 expected_revision=request.expected_revision,
                 mutates_emulator=True,
             )
+            record.authorization_check = check
             await self._journal_and_enqueue(record)
             return record.receipt
 
@@ -664,6 +727,7 @@ class MatchController:
         handler: MutationHandler,
         mutates_emulator: bool = True,
         allow_recovery: bool = False,
+        principal: Principal | None = None,
     ) -> CommandReceipt:
         """Queue trusted server work on the same lane as gameplay commands.
 
@@ -671,6 +735,16 @@ class MatchController:
         navigation must use this method. It is not a client-facing arbitrary
         callback interface; HTTP handlers should provide fixed named operations.
         """
+        permission = (
+            Permission.CHECKPOINT_CREATE
+            if operation_name == "checkpoint_create"
+            else Permission.ADMIN
+        )
+        if operation_name.startswith("debug_"):
+            permission = Permission.DEBUG
+        elif operation_name == "checkpoint_restore":
+            permission = Permission.ARCHIVE
+        check = self._authorization_check(principal, permission, match_id)
         if mutates_emulator and expected_revision is None:
             raise ValueError("Emulator mutations require an expected revision")
         payload_dict = (
@@ -678,6 +752,7 @@ class MatchController:
         )
         fingerprint = _fingerprint(
             {
+                **self._principal_payload(principal),
                 "kind": operation_name,
                 "match_id": str(match_id),
                 "expected_revision": expected_revision,
@@ -687,6 +762,8 @@ class MatchController:
             }
         )
         async with self._accept_lock:
+            if check is not None:
+                check()
             existing = self._requests.get(request_id)
             if existing is not None:
                 if existing.payload_fingerprint != fingerprint:
@@ -699,6 +776,8 @@ class MatchController:
             self._check_capacity()
             async with self._state_lock:
                 current_revision = self._require_match(match_id).summary.revision
+                if self.authorization is not None:
+                    self.authorization.require_command_request_id(request_id)
             accepted_revision = current_revision if expected_revision is None else expected_revision
             record = self._new_record(
                 match_id=match_id,
@@ -712,6 +791,7 @@ class MatchController:
                 mutates_emulator=mutates_emulator,
                 allow_recovery=allow_recovery,
             )
+            record.authorization_check = check
             await self._journal_and_enqueue(record)
             return record.receipt
 
@@ -773,6 +853,8 @@ class MatchController:
                             ),
                         )
                         continue
+                    if record.authorization_check is not None:
+                        record.authorization_check()
                     if (
                         record.mutates_emulator
                         and not record.allow_recovery
@@ -797,6 +879,15 @@ class MatchController:
                         f"Command journal write failed ({type(error).__name__})",
                         diagnostic=error.body,
                     )
+                except AuthorizationError as error:
+                    if record.previous_lifecycle is not None:
+                        await self._require_recovery(
+                            record,
+                            "Authorization persistence failed after execution began",
+                            diagnostic=error.body,
+                        )
+                    else:
+                        await self._finish(record, CommandStatus.REJECTED, error=error.body)
                 except CommandRejected as error:
                     release_error = await self._release_held_inputs()
                     if release_error is not None:
@@ -872,7 +963,11 @@ class MatchController:
                 raise MatchControllerError(
                     ErrorCode.INVALID_REQUEST, "The match is not at a playable boundary"
                 )
-            if not self._has_slot_credential(match, request.player_slot, request.credential):
+            if record.authorization_check is not None:
+                record.authorization_check()
+            if self.authorization is None and not self._has_slot_credential(
+                match, request.player_slot, request.credential
+            ):
                 raise MatchControllerError(
                     ErrorCode.INVALID_CREDENTIAL, "Invalid player credential"
                 )
@@ -922,6 +1017,8 @@ class MatchController:
         if handler is None:
             raise RuntimeError("Queued mutation has no handler")
         async with self._state_lock:
+            if record.authorization_check is not None:
+                record.authorization_check()
             match = self._require_match(record.receipt.match_id)
             lifecycle = match.summary.lifecycle
             if lifecycle is MatchLifecycle.CLOSED:
@@ -929,7 +1026,13 @@ class MatchController:
             if lifecycle is MatchLifecycle.FINISHED and not record.allow_recovery:
                 raise MatchControllerError(ErrorCode.MATCH_FINISHED, "The match is finished")
             if lifecycle is MatchLifecycle.RECOVERY_REQUIRED and (
-                not record.allow_recovery or record.operation_name != "checkpoint_restore"
+                not record.allow_recovery
+                or record.operation_name
+                not in (
+                    {"checkpoint_restore", "close_match"}
+                    if self.authorization is not None
+                    else {"checkpoint_restore"}
+                )
             ):
                 raise MatchControllerError(
                     ErrorCode.RECOVERY_REQUIRED,
@@ -1036,6 +1139,9 @@ class MatchController:
                 await outcome.commit_checkpoint(proposed_result)
                 if self._forced_shutdown:
                     return
+            if self.authorization is not None:
+                self.authorization.record_boundary(next_summary)
+                next_summary = self.authorization.overlay(next_summary)
             # Persist the terminal record before publishing the result or state.
             persisted = await self._finish(
                 record,
@@ -1364,6 +1470,124 @@ class MatchController:
                 ErrorCode.SERVER_SHUTTING_DOWN,
                 "The command controller is not accepting work",
                 retryable=True,
+            )
+
+    def resolve_principal(self, identity: SecretStr | Principal) -> Principal:
+        if self.authorization is None:
+            raise AuthorizationError(
+                ErrorCode.RUNTIME_UNAVAILABLE, "Authorization is not configured"
+            )
+        return (
+            self.authorization.authenticate(identity)
+            if isinstance(identity, SecretStr)
+            else identity
+        )
+
+    def require_access(
+        self, identity: SecretStr | Principal, permission: Permission, match_id: UUID
+    ) -> Principal:
+        principal = self.resolve_principal(identity)
+        assert self.authorization is not None
+        self.authorization.authorize(principal, permission, match_id)
+        return principal
+
+    def _authorization_check(
+        self, principal: Principal | None, permission: Permission, match_id: UUID
+    ) -> Callable[[], None] | None:
+        if self.authorization is None:
+            return None
+        if principal is None:
+            raise AuthorizationError(ErrorCode.INVALID_CREDENTIAL, "Authentication is required")
+
+        def check() -> None:
+            assert self.authorization is not None
+            self.authorization.authorize(principal, permission, match_id)
+
+        check()
+        return check
+
+    @staticmethod
+    def _principal_payload(principal: Principal | None) -> dict[str, Any]:
+        if principal is None:
+            return {}
+        payload = principal.model_dump(mode="json")
+        if principal.kind == "operator":
+            # The singleton operator role is durable; its random process
+            # generation only invalidates stale in-memory principals. Access
+            # checks still validate that generation before any cached response.
+            payload.pop("authorization_generation")
+        return {"principal": payload}
+
+    def _summary(self, record: _MatchRecord) -> MatchSummary:
+        return (
+            self.authorization.overlay(record.summary)
+            if self.authorization is not None
+            else record.summary
+        )
+
+    async def recover_authorized_setup(self) -> None:
+        if self.authorization is None:
+            return
+        async with self._state_lock:
+            for summary in self.authorization.summaries():
+                if summary.match_id in self._matches:
+                    continue
+                if summary.lifecycle not in {MatchLifecycle.SETUP, MatchLifecycle.CLOSED}:
+                    raise AuthorizationError(
+                        ErrorCode.RECOVERY_REQUIRED, "Active match requires a compatible checkpoint"
+                    )
+                self._matches[summary.match_id] = _MatchRecord(summary)
+
+    async def issue_invitation(
+        self,
+        principal: Principal,
+        match_id: UUID,
+        slot: PlayerSlot,
+        request: IssueInvitationRequest,
+    ) -> InvitationReference:
+        if self.authorization is None:
+            raise AuthorizationError(
+                ErrorCode.RUNTIME_UNAVAILABLE, "Authorization is not configured"
+            )
+        self.authorization.authorize(principal, Permission.ADMIN, match_id)
+        async with self._state_lock:
+            self._require_match(match_id)
+            self._require_metadata_request_id(request.request_id)
+            return self.authorization.issue_invitation(principal, match_id, slot, request)
+
+    async def claim_slot(
+        self, match_id: UUID, slot: PlayerSlot, credential: SecretStr, request: JoinSlotRequest
+    ) -> Principal:
+        if self.authorization is None:
+            raise AuthorizationError(
+                ErrorCode.RUNTIME_UNAVAILABLE, "Authorization is not configured"
+            )
+        async with self._state_lock:
+            record = self._require_match(match_id)
+            self._require_metadata_request_id(request.request_id)
+            principal = self.authorization.claim_slot(match_id, slot, credential, request)
+            record.summary = self._summary(record)
+            return principal
+
+    async def revoke_slot(
+        self, principal: Principal, match_id: UUID, slot: PlayerSlot, request_id: UUID
+    ) -> SlotAuthorization:
+        if self.authorization is None:
+            raise AuthorizationError(
+                ErrorCode.RUNTIME_UNAVAILABLE, "Authorization is not configured"
+            )
+        self.authorization.authorize(principal, Permission.ADMIN, match_id)
+        async with self._state_lock:
+            record = self._require_match(match_id)
+            self._require_metadata_request_id(request_id)
+            result = self.authorization.revoke_slot(principal, match_id, slot, request_id)
+            record.summary = self._summary(record)
+            return result
+
+    def _require_metadata_request_id(self, request_id: UUID) -> None:
+        if request_id in self._requests:
+            raise AuthorizationError(
+                ErrorCode.REQUEST_ID_CONFLICT, "Request ID belongs to a queued command"
             )
 
     def _require_match(self, match_id: UUID) -> _MatchRecord:

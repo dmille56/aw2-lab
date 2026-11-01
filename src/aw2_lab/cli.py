@@ -11,6 +11,7 @@ from pathlib import Path
 
 import uvicorn
 
+from aw2_lab.authorization import AuthorizationError
 from aw2_lab.bridge import BridgeError, LuaBridgeClient
 from aw2_lab.emulator import EmulatorMode, EmulatorSettings
 from aw2_lab.research import (
@@ -92,6 +93,13 @@ def main() -> None:
         help="show mGBA's scripting console in windowed mode (default: false; "
         "AW2_MGBA_SCRIPTING_CONSOLE)",
     )
+    parser.add_argument(
+        "--operator-secret-file",
+        type=Path,
+        default=os.environ.get("AW2_OPERATOR_SECRET_FILE"),
+        metavar="PATH",
+        help="private operator credential file (default: AW2_OPERATOR_SECRET_FILE)",
+    )
     args = parser.parse_args()
 
     if not args.rom:
@@ -132,8 +140,12 @@ def main() -> None:
 
     try:
         storage_root = args.storage_dir.expanduser().resolve() if args.storage_dir else None
-        application = create_app(settings=settings, storage_root=storage_root)
-    except UnsupportedRomError as error:
+        application = create_app(
+            settings=settings,
+            storage_root=storage_root,
+            operator_secret_file=args.operator_secret_file,
+        )
+    except (UnsupportedRomError, AuthorizationError) as error:
         parser.error(str(error))
 
     uvicorn.run(

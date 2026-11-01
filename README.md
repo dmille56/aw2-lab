@@ -170,3 +170,12 @@ of 1, 3, 17, and 600 frames advanced exactly. After the held-input and press
 checks, both modes stayed idle at frame 627. The X11 window's resume and
 frame-step shortcuts also left the game paused. Follow-up checks in both modes
 verified batched reads, save/restore of full state and save RAM flags, and reset.
+
+Operator credentials and the shared match authorization service are configured
+through `--operator-secret-file` or `AW2_OPERATOR_SECRET_FILE`. See
+[authorization setup](docs/AUTHORIZATION.md) for provisioning, retry/revocation
+semantics, and current transport limitations.
+
+## AW2 Links
+- https://strategywiki.org/wiki/Advance_Wars_2:_Black_Hole_Rising
+- https://www.warsworldnews.com/wp/aw2/maps-aw2/advance-wars-2-maps/

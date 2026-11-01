@@ -11,6 +11,8 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from starlette.types import ASGIApp
 
+from aw2_lab.authorization import AuthorizationError, AuthorizationService, load_operator_secret
+from aw2_lab.authorized_match import AuthorizedMatchService
 from aw2_lab.checkpoint import CheckpointError
 from aw2_lab.checkpoint_store import CheckpointStore
 from aw2_lab.command_journal import (
@@ -21,7 +23,7 @@ from aw2_lab.command_journal import (
 )
 from aw2_lab.emulator import EmulatorLauncher, EmulatorSettings
 from aw2_lab.match_checkpoint import CheckpointRuntime, CheckpointSession, MatchCheckpointService
-from aw2_lab.match_contract import ErrorCode
+from aw2_lab.match_contract import CommandStatus, ErrorCode, MatchLifecycle
 from aw2_lab.match_controller import MatchController
 from aw2_lab.match_observation import MatchObservationTracker
 from aw2_lab.mcp import server as mcp_server
@@ -53,13 +55,34 @@ def create_app(
     launcher: Launcher | None = None,
     match_controller: MatchController | None = None,
     storage_root: Path | None = None,
+    operator_secret_file: Path | None = None,
 ) -> FastAPI:
     """Create the API application and configure its emulator process."""
     emulator_launcher = launcher or EmulatorLauncher(settings)
     durable_root = resolve_storage_root(storage_root)
     checkpoint_store = CheckpointStore(durable_root / "checkpoints")
     journal = JsonlCommandJournal(durable_root / "commands.jsonl")
+    if operator_secret_file is not None and match_controller is not None:
+        raise ValueError(
+            "Inject authorization on the supplied controller instead of an operator file"
+        )
+    ledger_path = durable_root / "authorization.json"
+    if (
+        operator_secret_file is None
+        and match_controller is None
+        and (ledger_path.exists() or ledger_path.is_symlink())
+    ):
+        raise AuthorizationError(
+            ErrorCode.RUNTIME_UNAVAILABLE,
+            "An operator credential file is required for this authorization ledger",
+        )
+    authorization = (
+        AuthorizationService(ledger_path, load_operator_secret(operator_secret_file))
+        if operator_secret_file is not None
+        else None
+    )
     controller = match_controller or MatchController(
+        authorization=authorization,
         journal=journal,
         checkpoint_store=checkpoint_store,
     )
@@ -82,6 +105,7 @@ def create_app(
                 )
                 application.state.match_checkpoint_service = service
             stack.push_async_callback(controller.stop)
+            await controller.recover_authorized_setup()
             await controller.start()
             async with mcp_server.session_manager.run():
                 yield
@@ -90,6 +114,10 @@ def create_app(
     application.state.emulator_settings = settings
     application.state.emulator_launcher = emulator_launcher
     application.state.match_controller = controller
+    application.state.authorization = controller.authorization
+    application.state.authorized_matches = (
+        AuthorizedMatchService(controller) if controller.authorization is not None else None
+    )
     application.state.storage_root = durable_root
     application.state.checkpoint_store = checkpoint_store
     application.state.rom_profile = rom_profile
@@ -140,6 +168,40 @@ async def _recover_checkpoint_on_startup(
         else None
     )
 
+    # Close commits metadata before its terminal journal event. The ledger is
+    # authoritative at this crash boundary; restoring gameplay would reopen it.
+    if (
+        interrupted is not None
+        and interrupted.operation_name == "close_match"
+        and controller.authorization is not None
+    ):
+        closed = next(
+            (
+                summary
+                for summary in controller.authorization.summaries()
+                if summary.match_id == interrupted.match_id
+                and summary.lifecycle is MatchLifecycle.CLOSED
+            ),
+            None,
+        )
+        if closed is not None:
+            await journal.append(
+                new_journal_entry(
+                    event=JournalEvent.TERMINAL,
+                    command_id=interrupted.command_id,
+                    request_id=interrupted.request_id,
+                    match_id=interrupted.match_id,
+                    operation_name=interrupted.operation_name,
+                    payload_fingerprint=interrupted.payload_fingerprint,
+                    payload=interrupted.payload,
+                    accepted_revision=interrupted.accepted_revision,
+                    expected_revision=interrupted.expected_revision,
+                    status=CommandStatus.COMPLETED,
+                    resulting_revision=closed.revision,
+                )
+            )
+            interrupted = None
+
     checkpoint_id = pointer.checkpoint_id if pointer is not None else None
     if interrupted is not None and pointer is not None:
         committed = pointer.command_result
@@ -174,11 +236,25 @@ async def _recover_checkpoint_on_startup(
 
     if checkpoint_id is None:
         return None
+    manifest, _ = await asyncio.to_thread(store.load, checkpoint_id)
+    if controller.authorization is not None and interrupted is None:
+        authorization_summary = next(
+            (
+                summary
+                for summary in controller.authorization.summaries()
+                if summary.match_id == manifest.match.match_id
+            ),
+            None,
+        )
+        if (
+            authorization_summary is not None
+            and authorization_summary.lifecycle is MatchLifecycle.CLOSED
+        ):
+            return None
     bridge = getattr(launcher, "bridge", None)
     build_identity = getattr(launcher, "build_identity", None)
     if bridge is None or build_identity is None:
         raise RuntimeError("A committed checkpoint exists but the launcher has no recovery bridge")
-    manifest, _ = await asyncio.to_thread(store.load, checkpoint_id)
     if interrupted is not None and interrupted.match_id != manifest.match.match_id:
         raise CheckpointError(
             ErrorCode.CHECKPOINT_INCOMPATIBLE,
