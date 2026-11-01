@@ -177,8 +177,9 @@ screenshots, and machine-specific paths outside Git and the Nix store.
 ** IN-PROGRESS Implement unit purchasing
    - [X] Select an owned production property, choose the requested supported unit type, and confirm purchase for the researched base menu.
    - [X] Reject occupied bases, insufficient funds, unowned/non-base properties, and unit types absent from the researched base production list before input.
-   - [ ] Verify funds, new unit identity, position, and action status after purchase against a live emulator run.
+   - [X] Verify funds, new unit identity, position, and action status after purchase against a live emulator run.
    - Implementation: [[file:../src/aw2_lab/purchase_executor.py][purchase_executor.py]] preflights owned, empty bases and known unit costs, uses the typed production selector and bounded row navigation, and verifies the funds debit plus one new used unit at the base before committing. Current menu evidence covers the 11 base rows; port and airport production menus remain unsupported pending their own selector research.
+   - Live verification (2026-10-31): The real app/runtime started the fixed Bean Island match in headless mGBA and purchased an Infantry at Red's empty base (1,6). Revision 1 had 11,000 funds and no units; revision 2 had 10,000 funds and exactly one Infantry at (1,6), marked used. The new unit received identity `1` (bridge reference `1`), absent from the initial identity set. The command completed and the resulting boundary was published. ROM SHA-256 `ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`; mGBA build identity `sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22`. The run used isolated temporary storage; the initial and final state summaries are recorded here, and no ROM or save artifact was added to the repository.
 
 ** IN-PROGRESS Implement end turn and surrender
    - [X] Navigate the general command menu and the researched Yield confirmation.
