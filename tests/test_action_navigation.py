@@ -13,8 +13,9 @@ from aw2_lab.action_navigation import (
     NavigationLimits,
     validate_path,
 )
+from aw2_lab.lifecycle import BattleDecodeSafety, LifecyclePhase
 from aw2_lab.state_decoder import decode_snapshot
-from aw2_lab.state_model import GameState
+from aw2_lab.state_model import GameState, ObservedValue, ValueStatus
 from aw2_lab.ui_state import (
     CursorStatus,
     MenuFamily,
@@ -152,6 +153,87 @@ def test_navigate_menu_tracks_each_verified_command_row(memory) -> None:
             "menu-down",
             "menu-down",
         ]
+
+    asyncio.run(run())
+
+
+def test_confirm_yield_moves_left_from_no_to_yes(memory) -> None:
+    class FakeBridge:
+        def __init__(self, state: GameState) -> None:
+            lifecycle = replace(state.lifecycle, phase=LifecyclePhase.BATTLE_ENGINE_UNRESOLVED)
+            state = replace(
+                state,
+                validation=replace(state.validation, lifecycle=lifecycle),
+            )
+            self.state = replace(
+                state,
+                ui=replace(
+                    state.ui,
+                    menu=MenuObservation(
+                        state.frame,
+                        MenuFamily.CONFIRMATION,
+                        selected_item=MenuItem.NO,
+                        actionable=True,
+                        items=(MenuItem.YES, MenuItem.NO),
+                        confirmation_kind="yield",
+                    ),
+                ),
+            )
+            self.keys: list[int] = []
+            self.neutral_frames = 0
+
+        async def observe(self) -> GameState:
+            return self.state
+
+        async def press_keys(self, keys: int, frames: int) -> int:
+            self.keys.append(keys)
+            selected = self.state.ui.menu.selected_item
+            if keys == 32:
+                selected = MenuItem.YES
+            terminal = keys == 1 and selected is MenuItem.YES
+            return self._advance(frames, selected, terminal=terminal)
+
+        async def advance_frames(self, frames: int) -> int:
+            self.neutral_frames += frames
+            return self._advance(frames, self.state.ui.menu.selected_item)
+
+        def _advance(
+            self, frames: int, selected: MenuItem | None, *, terminal: bool = False
+        ) -> int:
+            frame = self.state.frame + frames
+            menu = replace(self.state.ui.menu, frame=frame, selected_item=selected)
+            lifecycle = self.state.lifecycle
+            battle = self.state.battle
+            if terminal:
+                lifecycle = replace(
+                    lifecycle,
+                    phase=LifecyclePhase.RESULT_SEQUENCE,
+                    battle_decode_safety=BattleDecodeSafety.BLOCKED,
+                )
+                battle = ObservedValue(ValueStatus.UNAVAILABLE, None, ("Terminal result",))
+            validation = replace(self.state.validation, frame=frame, lifecycle=lifecycle)
+            ui = replace(
+                self.state.ui,
+                frame=frame,
+                menu=menu,
+                map_cursor=replace(self.state.ui.map_cursor, frame=frame),
+            )
+            self.state = replace(
+                self.state, frame=frame, validation=validation, ui=ui, battle=battle
+            )
+            return frame
+
+    async def run() -> None:
+        state = decode_snapshot(snapshot(memory))
+        bridge = FakeBridge(state)
+        navigator = ActionNavigator(bridge, bridge.observe)
+
+        terminal = await navigator.confirm_yield()
+
+        assert bridge.keys == [32, 1]
+        assert bridge.neutral_frames >= 30
+        assert terminal.lifecycle.phase is LifecyclePhase.RESULT_SEQUENCE
+        assert terminal.battle.status is ValueStatus.UNAVAILABLE
 
     asyncio.run(run())
 

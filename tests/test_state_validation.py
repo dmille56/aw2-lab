@@ -424,6 +424,24 @@ def test_command_menu_dispatch_uses_rom_rules_for_the_current_map(
     assert menu.family is (MenuFamily.COMMAND if rule_pointer == 0 else MenuFamily.UNRESOLVED)
 
 
+@pytest.mark.parametrize("visual_item_id", [4, 7])
+def test_options_menu_accepts_live_selector_variants(memory, visual_item_id: int) -> None:
+    _, _, iwram = memory
+    pack_into("<I", iwram, 0x1470, 0x0848A42C)
+    pack_into("<I", iwram, 0x1490, 0x0849AC60)
+    iwram[0x14B1] = 5
+    iwram[0x14B2] = 1
+    iwram[0x14A1:0x14A6] = bytes((0, 1, 2, visual_item_id, 8))
+    iwram[0x30F0] = 1
+    current = snapshot(memory)
+
+    menu = observe_menu(current, validate_battle_snapshot(current))
+
+    assert menu.family is MenuFamily.OPTIONS
+    assert menu.selected_item is MenuItem.YIELD
+    assert menu.actionable is True
+
+
 def test_map_input_menu_does_not_treat_current_pointer_as_selection(memory) -> None:
     pack_into("<I", memory[2], 0x40D8, 0x02022690)
     current = snapshot(memory)

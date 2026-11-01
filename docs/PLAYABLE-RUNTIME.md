@@ -106,8 +106,10 @@ Restore at revision 3. External evidence is under
 are under `/tmp/aw2-runtime-rules-probe/`. These artifacts contain local game data
 and private authorization storage and must stay outside Git/Nix. The Rules
 screenshot shows Clear, income 1000, Turn 30, Capture OFF, Powers ON, Fog OFF.
-The fixed-profile headless composition path now also has live purchase evidence:
-Red bought an Infantry at (1,6), funds changed 11,000 → 10,000, and the newly
-identified unit was present at the base with used status. Windowed runtime,
-live surrender composition, and failure-induced live rollback remain explicit
-acceptance work; prior individual executor evidence remains separate.
+The fixed-profile runtime now has live purchase, end-turn, and surrender
+composition evidence in headless and windowed modes. The headless Infantry run
+confirmed funds changed 11,000 → 10,000 and a newly identified used unit at
+(1,6). In both modes, a purchased Tank's turn reset and day 2 property income
+were observed before surrender reached `victory_presentation`. Actual resource
+replenishment after spending fuel or ammunition, windowed checkpoint
+restore/continue, and failure-induced live rollback remain acceptance work.

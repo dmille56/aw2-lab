@@ -59,7 +59,12 @@ FIRE_TARGETING_SCRIPT = 0x0849A9F8
 _MENU_TABLES = {
     0x0849AAC0: ("command", 5, (0, 1, 4, 5, 6)),
     0x0849ABC0: ("intel", 3, (0, 2, 3)),
-    0x0849AC60: ("options", 5, (0, 1, 2, 7, 8)),
+    0x0849AC60: ("options", 5, (0, 1, 2, 4, 8)),
+}
+# The pinned frontends expose different Visual row IDs in this otherwise
+# identical Options table; both signatures were read from live matches.
+_MENU_ITEM_ID_VARIANTS = {
+    0x0849AC60: frozenset({(0, 1, 2, 7, 8)}),
 }
 
 
@@ -612,7 +617,8 @@ def _observe_command_menu(
     count = snapshot.read(SELECTOR_ROW_COUNT, 1)[0]
     selected_row = snapshot.read(SELECTOR_SELECTED_ROW, 1)[0]
     item_ids = tuple(snapshot.read(SELECTOR_ITEM_IDS, count)) if count <= 5 else ()
-    if count != expected_count or item_ids != expected_items or selected_row >= count:
+    valid_item_signatures = {expected_items} | _MENU_ITEM_ID_VARIANTS.get(table, frozenset())
+    if count != expected_count or item_ids not in valid_item_signatures or selected_row >= count:
         return _unrecognized_menu(
             snapshot,
             validation,

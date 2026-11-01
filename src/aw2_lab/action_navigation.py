@@ -22,6 +22,7 @@ _KEY_RIGHT = 16
 _KEY_LEFT = 32
 _KEY_UP = 64
 _KEY_DOWN = 128
+_YIELD_PROMPT_SETTLE_FRAMES = 30
 _TERMINAL_PHASES = frozenset(
     {
         LifecyclePhase.RESULT_SEQUENCE,
@@ -285,7 +286,16 @@ class ActionNavigator:
                     "Surrender requires the recognized Yield confirmation", state
                 )
             if state.ui.menu.selected_item is MenuItem.NO:
-                await self._tap("yield-select-yes", _KEY_UP)
+                # The typed prompt appears before its selector accepts direction input.
+                end = await self.bridge.advance_frames(_YIELD_PROMPT_SETTLE_FRAMES)
+                self._frames_used += _YIELD_PROMPT_SETTLE_FRAMES
+                state = await self._observe()
+                if state.frame != end:
+                    raise await self._fail(
+                        "Observed state frame does not match the settled Yield prompt", state
+                    )
+                # AW2 renders Yes and No side by side on this prompt.
+                await self._tap("yield-select-yes", _KEY_LEFT)
                 state = await self._wait_for(
                     lambda value: (
                         value.ui.menu.family is MenuFamily.CONFIRMATION

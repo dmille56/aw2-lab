@@ -1520,6 +1520,13 @@ Map. The row values for Delete, Yield, Music, and No Visual are respectively
 submenu table alongside Intel's =0x0849ABC0= and the main menu's
 =0x0849AAC0=.
 
+Live fixed-profile runtime reads in headless and windowed modes observed
+Options selector item IDs =(0, 1, 2, 4, 8)= and =(0, 1, 2, 7, 8)= respectively.
+Both use the same five-row menu order; the variant signature is accepted by the
+typed observer. In both frontends, the Yield confirmation's selected row starts
+at =1= (No), and the horizontal Yes/No cursor accepts Left after a 30-frame
+settle interval.
+
 The Yield selection leads to a yes/no confirmation screen. Its UI object changes
 to =0x08489530= with table pointer =0x08610196= while controller state remains
 =13= and lock remains =1=. One later checkpoint shows the battle map with the
