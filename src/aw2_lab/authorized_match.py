@@ -21,6 +21,7 @@ from aw2_lab.api_contract import (
     MatchSummary,
     Principal,
     SlotAuthorization,
+    StartMatchRequest,
     StateResponse,
     summary_from_controller,
 )
@@ -102,6 +103,17 @@ class AuthorizedMatchService:
         result = await self.controller.current_observation(match_id)
         self.authorization.authorize(principal, Permission.READ, match_id)
         return result
+
+    async def start(
+        self, principal: Principal, match_id: UUID, request: StartMatchRequest
+    ) -> CommandReceipt:
+        self.authorization.authorize(principal, Permission.ADMIN, match_id)
+        return await self.controller.start_match(
+            match_id,
+            principal=principal,
+            request_id=request.request_id,
+            expected_revision=request.expected_revision,
+        )
 
     async def close(self, principal: Principal, match_id: UUID, request_id: UUID) -> CommandReceipt:
         self.authorization.authorize(principal, Permission.ADMIN, match_id)

@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import os
 import shutil
+import tempfile
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -59,8 +60,10 @@ _REQUIRED_BRIDGE_CAPABILITIES = frozenset(
 class EmulatorLauncher:
     """Start and stop one mGBA process for the lifetime of the API server."""
 
-    def __init__(self, settings: EmulatorSettings) -> None:
+    def __init__(self, settings: EmulatorSettings, *, isolate_saves: bool = False) -> None:
         self.settings = settings
+        self._isolate_saves = isolate_saves
+        self._workspace: tempfile.TemporaryDirectory[str] | None = None
         self.process: asyncio.subprocess.Process | None = None
         self.bridge: LuaBridgeClient | None = None
         self.build_identity: str | None = None
@@ -95,12 +98,37 @@ class EmulatorLauncher:
         environment["AW2_MGBA_SUPPRESS_TEMP_ROM_WARNING"] = (
             "1" if self.settings.mode is EmulatorMode.WINDOWED else "0"
         )
+        rom_path = self.settings.rom_path
+        try:
+            if self._isolate_saves:
+                self._workspace = tempfile.TemporaryDirectory(prefix="aw2-runtime-")
+                root = Path(self._workspace.name)
+                local_rom = root / rom_path.name
+                shutil.copyfile(rom_path, local_rom)
+                source_save = rom_path.with_suffix(".sav")
+                if source_save.is_file():
+                    shutil.copyfile(source_save, local_rom.with_suffix(".sav"))
+                config = root / "config" / "mgba"
+                config.mkdir(parents=True)
+                (config / "config.ini").write_text(
+                    "".join(
+                        f"[ports.{frontend}]\nsavegamePath={root}\nsavestatePath={root}\n"
+                        for frontend in ("headless", "qt")
+                    )
+                )
+                environment["XDG_CONFIG_HOME"] = str(config.parent)
+                environment["XDG_DATA_HOME"] = str(root / "data")
+                environment["XDG_CACHE_HOME"] = str(root / "cache")
+                rom_path = local_rom
+        except OSError as error:
+            self._cleanup_workspace()
+            raise EmulatorLaunchError("Cannot prepare the isolated emulator files") from error
         try:
             process = await asyncio.create_subprocess_exec(
                 executable,
                 "--script",
                 str(script),
-                str(self.settings.rom_path),
+                str(rom_path),
                 env=environment,
                 stdout=(
                     asyncio.subprocess.DEVNULL if self.settings.suppress_emulator_output else None
@@ -110,6 +138,7 @@ class EmulatorLauncher:
                 ),
             )
         except OSError as error:
+            self._cleanup_workspace()
             raise EmulatorLaunchError(
                 f"Could not start mGBA executable {executable!r}: {error}"
             ) from error
@@ -123,6 +152,7 @@ class EmulatorLauncher:
                 return_code = process.returncode
                 self.process = None
                 self.bridge = None
+                self._cleanup_workspace()
                 if self.settings.mode is EmulatorMode.WINDOWED:
                     startup_hint = (
                         "check that this build supports Lua scripting and --script, and that a "
@@ -174,6 +204,7 @@ class EmulatorLauncher:
         self.process = None
         self.bridge = None
         if process is None or process.returncode is not None:
+            self._cleanup_workspace()
             return
 
         try:
@@ -185,6 +216,12 @@ class EmulatorLauncher:
         except TimeoutError:
             process.kill()
             await process.wait()
+        self._cleanup_workspace()
+
+    def _cleanup_workspace(self) -> None:
+        if self._workspace is not None:
+            self._workspace.cleanup()
+            self._workspace = None
 
 
 def _build_identity(executable: Path) -> str:

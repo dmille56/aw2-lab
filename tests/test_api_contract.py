@@ -91,7 +91,7 @@ def test_known_unverified_combinations_are_unsupported(change: str) -> None:
     elif change == "co":
         data["players"][0]["co_id"] = "sami"
     elif change == "funds":
-        data["rules"]["starting_funds"] = 2000
+        data["rules"]["income_per_property"] = 2000
     elif change == "weather":
         data["rules"]["starting_weather"] = "rain"
     elif change == "team":
@@ -338,3 +338,13 @@ def test_debug_bounds_before_queueing() -> None:
             DebugMemoryWriteRequest(**common, address=0, data=data)
     with pytest.raises(ValidationError):
         DebugMemoryReadRequest(expected_revision=0, address=0xFFFFFFFF, length=2)
+
+
+def test_income_option_is_not_mislabeled_as_starting_cash() -> None:
+    configuration = configuration_from_controller(FixedMatchConfiguration())
+    rules = configuration.model_dump(mode="json")["rules"]
+    assert rules["income_per_property"] == 1000
+    assert "starting_funds" not in rules
+    rules["starting_funds"] = rules.pop("income_per_property")
+    with pytest.raises(ValidationError):
+        MatchConfiguration.model_validate(dict(configuration.model_dump(mode="json"), rules=rules))

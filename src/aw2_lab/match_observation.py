@@ -307,7 +307,9 @@ class MatchObservationTracker:
         self._restore_pending = False
         return observation
 
-    def commit_terminal_boundary(self, game_state: GameState) -> MatchObservation:
+    def commit_terminal_boundary(
+        self, game_state: GameState, *, cause: RevisionCause = RevisionCause.COMMAND
+    ) -> MatchObservation:
         """Publish a recognized result screen without reusing stale battle data."""
         terminal_phases = {
             LifecyclePhase.RESULT_SEQUENCE,
@@ -320,15 +322,16 @@ class MatchObservationTracker:
             raise ValueError("Terminal boundaries require a recognized result phase")
         if game_state.battle.status is ValueStatus.AVAILABLE or game_state.battle.value is not None:
             raise ValueError("Terminal boundaries must not publish retained live battle data")
-        if self._restore_pending:
+        restoring = self._restore_pending and cause is RevisionCause.RESTORE
+        if self._restore_pending and not restoring:
             raise ValueError("Checkpoint load must be completed before publishing a result")
-        if self._last_frame is not None and game_state.frame <= self._last_frame:
+        if not restoring and self._last_frame is not None and game_state.frame <= self._last_frame:
             raise ValueError("Terminal boundary frame must advance beyond the last commit")
-        if self._revision == MAX_MATCH_REVISION:
+        if not restoring and self._revision == MAX_MATCH_REVISION:
             raise ValueError("Match revision space is exhausted")
         observation = MatchObservation(
             match_id=self.match_id,
-            revision=self._revision + 1,
+            revision=self._revision if restoring else self._revision + 1,
             game_state=game_state,
             unit_identities=(),
             identity_status=IdentityStatus.UNAVAILABLE,
@@ -339,6 +342,7 @@ class MatchObservationTracker:
         self._revision = observation.revision
         self._last_frame = game_state.frame
         self._current = observation
+        self._restore_pending = False
         return observation
 
     def read(self) -> MatchObservation:

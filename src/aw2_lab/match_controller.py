@@ -186,6 +186,7 @@ class MatchController:
             raise ValueError("Shutdown timeouts must be positive")
         self.authorization = authorization
         self._executor = executor
+        self._start_handler: Callable[[UUID], Awaitable[MutationOutcome]] | None = None
         self._journal = journal
         self._recovery_checkpoint_provider = recovery_checkpoint_provider
         self._recovery_rollback_provider = recovery_rollback_provider
@@ -382,21 +383,27 @@ class MatchController:
             self._commands[command_id] = record
             self._requests[first.request_id] = record
 
-    def set_recovery_checkpoint_provider(self, provider: RecoveryCheckpointProvider) -> None:
+    def set_recovery_checkpoint_provider(
+        self, provider: RecoveryCheckpointProvider, *, replace: bool = False
+    ) -> None:
         """Install the trusted checkpoint capture used before emulator mutations."""
-        if self._recovery_checkpoint_provider is not None:
+        if self._recovery_checkpoint_provider is not None and not replace:
             return
         self._recovery_checkpoint_provider = provider
 
-    def set_recovery_rollback_provider(self, provider: RecoveryRollbackProvider) -> None:
+    def set_recovery_rollback_provider(
+        self, provider: RecoveryRollbackProvider, *, replace: bool = False
+    ) -> None:
         """Install the trusted restore operation for failed emulator mutations."""
-        if self._recovery_rollback_provider is not None:
+        if self._recovery_rollback_provider is not None and not replace:
             return
         self._recovery_rollback_provider = provider
 
-    def set_input_release_provider(self, provider: InputReleaseProvider) -> None:
+    def set_input_release_provider(
+        self, provider: InputReleaseProvider, *, replace: bool = False
+    ) -> None:
         """Install the trusted bridge operation that releases every held button."""
-        if self._input_release_provider is not None:
+        if self._input_release_provider is not None and not replace:
             return
         self._input_release_provider = provider
 
@@ -484,7 +491,7 @@ class MatchController:
             summary = self.authorization.overlay(summary, recovering=True)
             credential_hashes = self.authorization.credential_hashes(summary.match_id)
         if (
-            summary.lifecycle is not MatchLifecycle.PLAYABLE
+            summary.lifecycle not in {MatchLifecycle.PLAYABLE, MatchLifecycle.FINISHED}
             or observation.match_id != summary.match_id
             or observation.revision != summary.revision
             or (self.authorization is None and len(credential_hashes) != 2)
@@ -543,6 +550,38 @@ class MatchController:
             )
             record.summary = record.summary.model_copy(update={"slots": slots})
             return JoinSlotResponse(match=record.summary, player_slot=slot, credential=token)
+
+    def configure_runtime(
+        self, executor: ActionExecutor, start_handler: Callable[[UUID], Awaitable[MutationOutcome]]
+    ) -> None:
+        """Install trusted runtime wiring before the queue starts accepting work."""
+        if self._worker is not None:
+            raise RuntimeError("Runtime must be configured before controller start")
+        self._executor = executor
+        self._start_handler = start_handler
+
+    async def start_match(
+        self, match_id: UUID, *, principal: Principal, request_id: UUID, expected_revision: int
+    ) -> CommandReceipt:
+        self._authorization_check(principal, Permission.ADMIN, match_id)
+        if self._start_handler is None:
+            raise MatchControllerError(
+                ErrorCode.RUNTIME_UNAVAILABLE, "Playable runtime is not configured"
+            )
+
+        async def start() -> MutationOutcome:
+            assert self._start_handler is not None
+            return await self._start_handler(match_id)
+
+        return await self.submit_serialized_mutation(
+            match_id=match_id,
+            request_id=request_id,
+            operation_name="start_match",
+            payload={"match_id": str(match_id)},
+            expected_revision=expected_revision,
+            handler=start,
+            principal=principal,
+        )
 
     async def activate_match(
         self,
@@ -857,6 +896,7 @@ class MatchController:
                         record.authorization_check()
                     if (
                         record.mutates_emulator
+                        and record.operation_name != "start_match"
                         and not record.allow_recovery
                         and self._recovery_checkpoint_provider is not None
                     ):
@@ -1048,11 +1088,22 @@ class MatchController:
                     details={"current_revision": match.summary.revision},
                 )
             current_revision = match.summary.revision
+            if record.operation_name == "start_match":
+                if lifecycle is not MatchLifecycle.SETUP:
+                    raise MatchControllerError(
+                        ErrorCode.INVALID_REQUEST, "Only a setup match can be started"
+                    )
+                if any(slot.status is not SlotStatus.JOINED for slot in self._summary(match).slots):
+                    raise MatchControllerError(
+                        ErrorCode.SLOT_UNAVAILABLE, "Both players must join before start"
+                    )
             if record.mutates_emulator:
                 match.summary = match.summary.model_copy(
                     update={"lifecycle": MatchLifecycle.EXECUTING}
                 )
                 record.previous_lifecycle = lifecycle
+                if record.operation_name == "start_match" and self.authorization is not None:
+                    self.authorization.record_boundary(self._summary(match))
 
         outcome = await handler()
         if record.mutates_emulator and outcome.observation is None:
@@ -1098,7 +1149,7 @@ class MatchController:
             lifecycle = outcome.lifecycle or MatchLifecycle.PLAYABLE
             if outcome.status is CommandStatus.RECOVERY_REQUIRED:
                 lifecycle = MatchLifecycle.RECOVERY_REQUIRED
-            if record.operation_name == "activate_match":
+            if record.operation_name in {"activate_match", "start_match"}:
                 allowed_lifecycles = {MatchLifecycle.PLAYABLE}
             elif record.operation_name == "close_match":
                 allowed_lifecycles = {MatchLifecycle.CLOSED}
@@ -1188,6 +1239,11 @@ class MatchController:
                 match.summary = match.summary.model_copy(
                     update={"lifecycle": MatchLifecycle.RECOVERY_REQUIRED}
                 )
+                if record.operation_name == "start_match" and self.authorization is not None:
+                    try:
+                        self.authorization.record_boundary(self._summary(match))
+                    except AuthorizationError:
+                        pass  # The failed ledger already blocks authorization until restart.
         await self._finish(record, CommandStatus.RECOVERY_REQUIRED, error=error)
 
     async def _rollback_or_require_recovery(
@@ -1532,7 +1588,11 @@ class MatchController:
             for summary in self.authorization.summaries():
                 if summary.match_id in self._matches:
                     continue
-                if summary.lifecycle not in {MatchLifecycle.SETUP, MatchLifecycle.CLOSED}:
+                if summary.lifecycle not in {
+                    MatchLifecycle.SETUP,
+                    MatchLifecycle.CLOSED,
+                    MatchLifecycle.RECOVERY_REQUIRED,
+                }:
                     raise AuthorizationError(
                         ErrorCode.RECOVERY_REQUIRED, "Active match requires a compatible checkpoint"
                     )

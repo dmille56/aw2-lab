@@ -283,3 +283,36 @@ async def test_launcher_rejects_missing_bridge_capabilities(
 
     assert process.terminated
     assert not launcher.is_running
+
+
+@pytest.mark.anyio
+async def test_server_isolates_rom_and_save_copy_and_cleans_up(monkeypatch, tmp_path):
+    monkeypatch.setattr("aw2_lab.emulator.LuaBridgeClient.connect", bridge_ready)
+    rom = tmp_path / "aw2.gba"
+    rom.write_bytes(b"test rom")
+    save = rom.with_suffix(".sav")
+    save.write_bytes(b"original save")
+    script = tmp_path / "bridge.lua"
+    script.touch()
+    copied = []
+
+    async def create_process(*args, **kwargs):
+        local = Path(args[-1])
+        copied.append(local)
+        assert local != rom and local.read_bytes() == rom.read_bytes()
+        assert local.with_suffix(".sav").read_bytes() == b"original save"
+        local.with_suffix(".sav").write_bytes(b"changed isolated save")
+        assert (
+            str(local.parent)
+            in (Path(kwargs["env"]["XDG_CONFIG_HOME"]) / "mgba" / "config.ini").read_text()
+        )
+        return FakeProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", create_process)
+    launcher = EmulatorLauncher(
+        EmulatorSettings(rom_path=rom, bridge_script=script), isolate_saves=True
+    )
+    await launcher.start()
+    await launcher.stop()
+    assert save.read_bytes() == b"original save"
+    assert not copied[0].parent.exists()

@@ -156,7 +156,7 @@ a complete configuration with a map ID, an ordered player collection, and rules:
     "rules": {
       "fog": false,
       "starting_weather": "clear",
-      "starting_funds": 1000,
+      "income_per_property": 1000,
       "day_limit": 30,
       "co_powers": true
     }
@@ -723,8 +723,11 @@ metadata, retry-safe invitations/claims/revocation, principal permissions, queue
 rechecks, and revocation-aware command waits. The CLI loads an operator secret
 file; controller/checkpoint recovery validates current ledger records independently
 of imported verifiers. See [the implementation and verification notes](AUTHORIZATION.md).
-Queued cold-boot navigation/runtime dispatch, screenshots, event publication, and
-routers remain below. SSE/MCP delivery enforcement still requires their adapters.
+Queued startup, runtime dispatch, durable boundary checkpoints, and shared-session
+recovery are now wired; see [runtime verification](PLAYABLE-RUNTIME.md). The cash
+rule is correctly named `income_per_property`; startup explicitly configures 30 days
+and Clear instead of accepting the old OFF/Random defaults. Screenshots, event
+publication, and routers remain below. SSE/MCP delivery enforcement still requires their adapters.
 The game contract version remains independent of MCP protocol negotiation; these
 services do not enable remote MCP gameplay.
 

@@ -47,6 +47,7 @@ from aw2_lab.match_controller import CommandRejected, MatchController, MutationO
 from aw2_lab.match_observation import (
     MATCH_OBSERVATION_SCHEMA_VERSION,
     ActionReadiness,
+    MatchObservation,
     MatchObservationMetadata,
     MatchObservationTracker,
     RevisionCause,
@@ -112,10 +113,10 @@ class MatchCheckpointService:
         """Restore a committed boundary before accepting work; never replay commands."""
         manifest, state = await asyncio.to_thread(self.store.load, checkpoint_id)
         self._compatible(manifest)
-        if manifest.match.lifecycle is not MatchLifecycle.PLAYABLE:
+        if manifest.match.lifecycle not in {MatchLifecycle.PLAYABLE, MatchLifecycle.FINISHED}:
             raise CheckpointError(
                 ErrorCode.CHECKPOINT_INCOMPATIBLE,
-                "Startup recovery requires a playable checkpoint",
+                "Startup recovery requires a playable or finished checkpoint",
             )
         if self.controller.authorization is not None:
             self.controller.authorization.overlay(manifest.match, recovering=True)
@@ -154,8 +155,13 @@ class MatchCheckpointService:
         )
         decoded = await self.session.capture_game_state()
         _validate_restored_units(manifest, decoded)
-        observation = tracker.commit_boundary(decoded, cause=RevisionCause.RESTORE)
-        if observation.action_readiness is not ActionReadiness.READY:
+        finished = manifest.match.lifecycle is MatchLifecycle.FINISHED
+        observation = (
+            tracker.commit_terminal_boundary(decoded, cause=RevisionCause.RESTORE)
+            if finished
+            else tracker.commit_boundary(decoded, cause=RevisionCause.RESTORE)
+        )
+        if not finished and observation.action_readiness is not ActionReadiness.READY:
             raise CheckpointError(
                 ErrorCode.RECOVERY_REQUIRED,
                 "Startup checkpoint did not restore to a playable input boundary",
@@ -166,9 +172,7 @@ class MatchCheckpointService:
                 ErrorCode.RECOVERY_REQUIRED,
                 "Emulator advanced during startup checkpoint restoration",
             )
-        summary = manifest.match.model_copy(
-            update={"revision": observation.revision, "lifecycle": MatchLifecycle.PLAYABLE}
-        )
+        summary = manifest.match.model_copy(update={"revision": observation.revision})
         new_checkpoint_id = uuid4()
         result = None
         if interrupted_command is not None:
@@ -237,6 +241,36 @@ class MatchCheckpointService:
             summary, observation, manifest.slot_credential_hashes
         )
         return result
+
+    async def prepare_boundary_checkpoint(
+        self, observation: MatchObservation, lifecycle: MatchLifecycle
+    ) -> MutationOutcome:
+        """Prepare the durable commit for Start or a completed gameplay transaction."""
+        if self.session.tracker.read() != observation:
+            raise CheckpointError(
+                ErrorCode.OBSERVATION_UNAVAILABLE, "Runtime observer does not match its boundary"
+            )
+        captured = await capture_checkpoint_state(self.bridge)
+        if captured.frame != observation.game_state.frame:
+            raise CheckpointError(
+                ErrorCode.RECOVERY_REQUIRED, "Emulator advanced beyond the completed boundary"
+            )
+        summary = (await self.controller.inspect_match(observation.match_id)).model_copy(
+            update={"revision": observation.revision, "lifecycle": lifecycle}
+        )
+        prepared = self._outcome(
+            uuid4(),
+            summary,
+            captured,
+            self.session.tracker.checkpoint_metadata(),
+            await self.controller.credential_hashes(observation.match_id),
+        )
+        return MutationOutcome(
+            observation=observation,
+            lifecycle=lifecycle,
+            checkpoint_id=prepared.checkpoint_id,
+            commit_checkpoint=prepared.commit_checkpoint,
+        )
 
     async def capture_recovery_checkpoint(
         self, match_id: UUID, command_id: UUID, expected_revision: int | None
@@ -631,6 +665,13 @@ class MatchCheckpointService:
 
 def _validate_restored_units(manifest: CheckpointManifest, state: GameState) -> None:
     battle = state.battle.value
+    if manifest.match.lifecycle is MatchLifecycle.FINISHED:
+        if state.frame != manifest.last_frame or battle is not None:
+            raise CheckpointError(
+                ErrorCode.CHECKPOINT_CORRUPT,
+                "Restored result does not match its terminal checkpoint",
+            )
+        return  # commit_terminal_boundary also requires a recognized result phase.
     active = {
         slot.reference: slot.unit_type for slot in manifest.identity_metadata.slots if slot.active
     }

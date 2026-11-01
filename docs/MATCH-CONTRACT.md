@@ -3,7 +3,8 @@
 This document and [`aw2_lab.match_contract`](../src/aw2_lab/match_contract.py)
 define the fixed playable configuration and the shared Python/HTTP/SDK model
 surface. Controller, persistence, and shared authorization services exist; HTTP
-match routes and full playable runtime integration remain unfinished. The Pydantic
+match routes remain unfinished. The queued runtime is wired to existing executors
+and checkpoint recovery; see [runtime verification](PLAYABLE-RUNTIME.md). The Pydantic
 models are the schema source for the eventual HTTP OpenAPI document and generated
 non-Python client types.
 
@@ -17,7 +18,7 @@ Contract version 1 supports exactly one active local Versus match:
 | Slot 1 | Red, Andy, Team A |
 | Slot 2 | Blue, Max, Team B |
 | Control | Both armies controlled by the server for their external players |
-| Rules | 30-day limit, 1,000 starting funds per army, CO Powers enabled, clear starting weather |
+| Rules | 30-day limit, 1,000 income per owned property, CO Powers enabled, clear starting weather |
 | Fog | Disabled |
 
 The fixed values are not caller-selectable. Match creation either uses this

@@ -31,6 +31,7 @@ _KEY_A = 1
 _KEY_DOWN = 128
 _KEY_UP = 64
 _KEY_LEFT = 32
+_KEY_RIGHT = 16
 # Main-menu and Continue/New selector tables identified in the manual traces.
 _VERSUS_MODE_TABLE = 0x086076DF
 _CONTINUE_CHOICE_TABLE = 0x0860770A
@@ -73,6 +74,11 @@ class _FrontendState:
     selector_table: int
     yes_no_selection: int
     fog_rule: int
+    weather_rule: int
+    income_rule: int
+    day_rule: int
+    capture_rule: int
+    powers_rule: int
 
 
 async def boot_fixed_versus_match(
@@ -104,6 +110,7 @@ async def boot_fixed_versus_match(
             _INPUT_STATE,
             _FRONTEND_SELECTOR,
             _FOG_RULE,
+            *((_FOG_RULE[0] + index * 0x60, 1) for index in range(1, 6)),
         ]
         snapshot = await bridge.read_memory_snapshot(ranges)
         (
@@ -117,6 +124,11 @@ async def boot_fixed_versus_match(
             input_state,
             selector,
             fog_rule,
+            weather_rule,
+            income_rule,
+            day_rule,
+            capture_rule,
+            powers_rule,
         ) = snapshot.ranges
         scripts = tuple(unpack_from("<I", pool, index * 0x6C)[0] for index in range(32))
         lifecycle = classify_lifecycle(
@@ -141,6 +153,11 @@ async def boot_fixed_versus_match(
             selector_table=unpack_from("<I", selector, 0x20)[0],
             yes_no_selection=selector[0x7E],
             fog_rule=fog_rule[0],
+            weather_rule=weather_rule[0],
+            income_rule=income_rule[0],
+            day_rule=day_rule[0],
+            capture_rule=capture_rule[0],
+            powers_rule=powers_rule[0],
         )
 
     async def checkpoint(
@@ -422,6 +439,34 @@ async def boot_fixed_versus_match(
             )
         await checkpoint("rules-fog-off", rules)
 
+        # The stock defaults are Random weather and no turn limit. The runtime
+        # profile requires Clear and 30 days. These selectors were correlated
+        # with their on-screen values in the pinned ROM (see runtime evidence).
+        if (
+            rules.weather_rule,
+            rules.income_rule,
+            rules.day_rule,
+            rules.capture_rule,
+            rules.powers_rule,
+        ) != (0, 0, 0, 0, 0):
+            raise ColdBootError("Unexpected default rule selectors")
+        await tap("select-weather-rule", _KEY_RIGHT)
+        await settle()
+        await tap("set-clear-weather", _KEY_DOWN)
+        rules = await settle()
+        if rules.weather_rule != 1:
+            raise ColdBootError("Clear weather selector was not verified")
+        await tap("select-income-rule", _KEY_RIGHT)
+        await settle()
+        await tap("select-day-limit-rule", _KEY_RIGHT)
+        await settle()
+        for index in range(1, 27):  # OFF -> 5, then one day per Down, ending at 30.
+            await tap("increase-day-limit", _KEY_DOWN)
+            rules = await settle()
+            if rules.day_rule != index:
+                raise ColdBootError("Day limit selector did not advance as expected")
+        _verify_rules(rules)
+        await checkpoint("verified-fixed-rules", rules)
         await tap("start-battle", _KEY_A)
         await wait_for(LifecyclePhase.BATTLE_PLAYER_TURN, budget=1800)
         game_state = await capture_game_state(bridge, rom_path=rom_path)
@@ -438,6 +483,20 @@ def _verify_setup(state: _FrontendState) -> None:
     if teams[:2] != bytes((0, 1)):
         raise ColdBootError(
             f"Expected players 1/2 on separate teams A/B; observed {teams[:2].hex()}"
+        )
+
+
+def _verify_rules(state: _FrontendState) -> None:
+    if (
+        state.fog_rule,
+        state.weather_rule,
+        state.income_rule,
+        state.day_rule,
+        state.capture_rule,
+        state.powers_rule,
+    ) != (1, 1, 0, 26, 0, 0):
+        raise ColdBootError(
+            "Rule selectors do not match fog Off, Clear, income 1000, 30 days, capture Off and powers On"
         )
 
 
@@ -476,3 +535,18 @@ def _verify_playable_state(state: GameState, map_id: int) -> None:
         or battle.weather.value is not Weather.CLEAR
     ):
         raise ColdBootError("Expected clear weather at the first player turn")
+
+    if (
+        battle.fog_enabled.status is not ValueStatus.AVAILABLE
+        or battle.fog_enabled.value is not False
+    ):
+        raise ColdBootError("Fog Off was not observed at the playable boundary")
+    if (
+        battle.co_effects_enabled.status is not ValueStatus.AVAILABLE
+        or battle.co_effects_enabled.value is not True
+    ):
+        raise ColdBootError("CO effects On was not observed at the playable boundary")
+    if (players[1].funds, players[2].funds) != (11000, 0):
+        raise ColdBootError(
+            "Initial funds do not match Bean Island income 1000 (Red 11000, Blue 0)"
+        )

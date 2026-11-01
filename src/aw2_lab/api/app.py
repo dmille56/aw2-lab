@@ -23,10 +23,11 @@ from aw2_lab.command_journal import (
 )
 from aw2_lab.emulator import EmulatorLauncher, EmulatorSettings
 from aw2_lab.match_checkpoint import CheckpointRuntime, CheckpointSession, MatchCheckpointService
-from aw2_lab.match_contract import CommandStatus, ErrorCode, MatchLifecycle
+from aw2_lab.match_contract import CommandStatus, ErrorBody, ErrorCode, MatchLifecycle
 from aw2_lab.match_controller import MatchController
 from aw2_lab.match_observation import MatchObservationTracker
 from aw2_lab.mcp import server as mcp_server
+from aw2_lab.playable_runtime import PlayableRuntime
 from aw2_lab.rom_profile import select_rom_profile
 from aw2_lab.state_decoder import capture_game_state
 from aw2_lab.storage import resolve_storage_root
@@ -58,7 +59,7 @@ def create_app(
     operator_secret_file: Path | None = None,
 ) -> FastAPI:
     """Create the API application and configure its emulator process."""
-    emulator_launcher = launcher or EmulatorLauncher(settings)
+    emulator_launcher = launcher or EmulatorLauncher(settings, isolate_saves=True)
     durable_root = resolve_storage_root(storage_root)
     checkpoint_store = CheckpointStore(durable_root / "checkpoints")
     journal = JsonlCommandJournal(durable_root / "commands.jsonl")
@@ -92,8 +93,8 @@ def create_app(
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         """Run mGBA and the mounted MCP session manager for the server lifetime."""
         async with AsyncExitStack() as stack:
-            await emulator_launcher.start()
             stack.push_async_callback(emulator_launcher.stop)
+            await emulator_launcher.start()
             if match_controller is None:
                 service = await _recover_checkpoint_on_startup(
                     controller,
@@ -104,6 +105,23 @@ def create_app(
                     rom_profile.sha256,
                 )
                 application.state.match_checkpoint_service = service
+                bridge = getattr(emulator_launcher, "bridge", None)
+                build = getattr(emulator_launcher, "build_identity", None)
+                if bridge is not None and build is not None:
+                    application.state.playable_runtime = PlayableRuntime(
+                        controller=controller,
+                        bridge=bridge,
+                        rom_path=settings.rom_path,
+                        rom_sha256=rom_profile.sha256,
+                        emulator_build=build,
+                        emulator_mode=settings.mode.value,
+                        store=checkpoint_store,
+                        journal=journal,
+                        recovered_service=service,
+                        session_changed=lambda service: setattr(
+                            application.state, "match_checkpoint_service", service
+                        ),
+                    )
             stack.push_async_callback(controller.stop)
             await controller.recover_authorized_setup()
             await controller.start()
@@ -114,6 +132,8 @@ def create_app(
     application.state.emulator_settings = settings
     application.state.emulator_launcher = emulator_launcher
     application.state.match_controller = controller
+    application.state.playable_runtime = None
+    application.state.match_checkpoint_service = None
     application.state.authorization = controller.authorization
     application.state.authorized_matches = (
         AuthorizedMatchService(controller) if controller.authorization is not None else None
@@ -234,6 +254,43 @@ async def _recover_checkpoint_on_startup(
     elif interrupted is not None and interrupted.recovery_checkpoint_id is not None:
         checkpoint_id = interrupted.recovery_checkpoint_id
 
+    if interrupted is not None and interrupted.operation_name == "start_match":
+        if controller.authorization is not None:
+            summary = next(
+                (
+                    item
+                    for item in controller.authorization.summaries()
+                    if item.match_id == interrupted.match_id
+                ),
+                None,
+            )
+            if summary is None:
+                raise AuthorizationError(
+                    ErrorCode.RECOVERY_REQUIRED, "Interrupted start lacks authorization metadata"
+                )
+            controller.authorization.record_boundary(
+                summary.model_copy(update={"lifecycle": MatchLifecycle.RECOVERY_REQUIRED})
+            )
+        await journal.append(
+            new_journal_entry(
+                event=JournalEvent.TERMINAL,
+                command_id=interrupted.command_id,
+                request_id=interrupted.request_id,
+                match_id=interrupted.match_id,
+                operation_name=interrupted.operation_name,
+                payload_fingerprint=interrupted.payload_fingerprint,
+                payload=interrupted.payload,
+                accepted_revision=interrupted.accepted_revision,
+                expected_revision=interrupted.expected_revision,
+                status=CommandStatus.RECOVERY_REQUIRED,
+                resulting_revision=interrupted.accepted_revision,
+                error=ErrorBody(
+                    code=ErrorCode.RECOVERY_REQUIRED,
+                    message="Server stopped during start before a verified checkpoint was committed",
+                ),
+            )
+        )
+        return None
     if checkpoint_id is None:
         return None
     manifest, _ = await asyncio.to_thread(store.load, checkpoint_id)

@@ -715,11 +715,19 @@ class AuthorizationService:
             if recovering and match.summary.lifecycle in {
                 MatchLifecycle.SETUP,
                 MatchLifecycle.CLOSED,
-                MatchLifecycle.FINISHED,
             }:
                 raise AuthorizationError(
                     ErrorCode.RECOVERY_REQUIRED,
                     "Authorization metadata cannot adopt this checkpoint",
+                )
+            if (
+                recovering
+                and match.summary.lifecycle is MatchLifecycle.FINISHED
+                and summary.lifecycle is not MatchLifecycle.FINISHED
+            ):
+                raise AuthorizationError(
+                    ErrorCode.RECOVERY_REQUIRED,
+                    "A finished match cannot recover a playable checkpoint",
                 )
             return summary.model_copy(update={"slots": match.summary.slots})
 

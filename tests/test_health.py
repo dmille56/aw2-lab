@@ -115,3 +115,37 @@ async def test_operator_file_wires_authorized_setup_recovery(tmp_path, monkeypat
         service = restarted.state.authorized_matches
         principal = service.authenticate(SecretStr("o" * 43))
         assert (await service.inspect(principal, summary.match_id)).lifecycle.value == "setup"
+
+
+@pytest.mark.anyio
+async def test_application_wires_runtime_to_its_launcher_bridge(tmp_path, monkeypatch):
+    from contextlib import asynccontextmanager
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(api_app, "select_rom_profile", lambda _: AW2_US_REVISION_0)
+
+    @asynccontextmanager
+    async def sessions():
+        yield
+
+    monkeypatch.setattr(
+        api_app, "mcp_server", SimpleNamespace(session_manager=SimpleNamespace(run=sessions))
+    )
+    launcher = FakeLauncher()
+    launcher.bridge = SimpleNamespace()
+    launcher.build_identity = "synthetic-mgba"
+    secret = tmp_path / "operator-secret"
+    secret.write_text("o" * 43)
+    secret.chmod(0o600)
+    application = create_app(
+        settings=EmulatorSettings(rom_path=tmp_path / "rom.gba"),
+        launcher=launcher,
+        storage_root=tmp_path / "data",
+        operator_secret_file=secret,
+    )
+    async with application.router.lifespan_context(application):
+        runtime = application.state.playable_runtime
+        assert runtime.bridge is launcher.bridge
+        assert runtime.controller is application.state.match_controller
+        assert runtime.store is application.state.checkpoint_store
+        assert application.state.authorized_matches.controller is runtime.controller
