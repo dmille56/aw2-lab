@@ -39,7 +39,32 @@ their retained read access; revocation invalidates it immediately, including
 cached screenshots and command results. Operator credentials cannot play a slot.
 
 Creation accepts an omitted configuration or the complete verified profile from
-capabilities. Preserve `request_id` and the exact request when retrying a lost
+capabilities. Select a complete entry from `configuration_profiles` using
+`default_profile_id`; its `configuration` can be submitted unchanged. The
+`configuration_options` descriptors summarize those verified choices, with
+`combination_constraint: verified_profiles_only`: do not assemble arbitrary
+combinations from the option lists. Profile selection does not depend on emulator
+availability; Start reports whether the runtime is available.
+
+The current profile uses Bean Island, external Andy/Red/team A and Max/Blue/team
+B, fog Off, Clear starting weather, income 1,000 per property, a 30-day limit,
+and CO powers On. Creation validates before allocating a match or touching the
+emulator. Known alternative COs, valid alternative assignments/rules, internal
+CPU control, and the future three/four-player shape return
+`422 unsupported_feature`. Unknown map/CO IDs, duplicate colors, invalid slot
+ordering, incomplete configurations, and malformed values return
+`422 invalid_request`. Only `bean_island` is currently a recognized map ID;
+no alternate map is advertised or executable. Failed validation allocates no
+match and does not reserve the request ID.
+
+The shared schema retains two to four ordered slots with explicit CO, color,
+team, and control fields for future expansion; current capabilities advertise
+only two external players. Expanded support requires setup and gameplay
+verification before adding a profile. The separate weather naming/options,
+day-limit Off/range, and capture-limit contract follow-ups remain tracked in
+[MILESTONE-3.org](MILESTONE-3.org).
+
+Preserve `request_id` and the exact request when retrying a lost
 response. Creating, issuing invitations, joining, revoking, and closing use the
 shared durable retry semantics. Start requires both slots to be claimed and
 `{request_id, expected_revision}`; close uses `{request_id}`. A `202` receipt means
@@ -60,7 +85,16 @@ with httpx.Client(
     base_url="http://127.0.0.1:43127",
     headers={"Authorization": f"Bearer {operator_token}"},
 ) as operator:
-    response = operator.post("/v1/matches", json={"request_id": str(uuid4())})
+    response = operator.get("/v1/capabilities")
+    response.raise_for_status()
+    capabilities = response.json()
+    profile = next(
+        entry for entry in capabilities["configuration_profiles"]
+        if entry["profile_id"] == capabilities["default_profile_id"]
+    )
+    response = operator.post("/v1/matches", json={
+        "request_id": str(uuid4()), "configuration": profile["configuration"],
+    })
     response.raise_for_status()
     match = response.json()["match_id"]
     player_tokens = {}

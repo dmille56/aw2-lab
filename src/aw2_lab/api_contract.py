@@ -236,6 +236,15 @@ class ConfigurationOptions(ContractModel):
     rules: RuleConfiguration = VERIFIED_CONFIGURATION.rules
     combination_constraint: Literal["verified_profiles_only"] = "verified_profiles_only"
 
+    @model_validator(mode="after")
+    def validate_verified_options(self) -> ConfigurationOptions:
+        if (
+            self.players != VERIFIED_CONFIGURATION.players
+            or self.rules != VERIFIED_CONFIGURATION.rules
+        ):
+            raise ValueError("Only verified player assignments and rules can be advertised")
+        return self
+
 
 class ApiLimits(ContractModel):
     json_bytes: Literal[65536] = MAX_JSON_BYTES
@@ -273,8 +282,8 @@ class FeatureAvailability(ContractModel):
 
 class CapabilitiesResponse(ContractModel):
     supported_game_contract_versions: tuple[Literal[1], ...] = (1,)
-    supported_player_counts: tuple[Literal[2], ...] = (2,)
-    supported_control_modes: tuple[Literal["external"], ...] = ("external",)
+    supported_player_counts: tuple[Literal[2]] = (2,)
+    supported_control_modes: tuple[Literal["external"]] = ("external",)
     default_profile_id: Literal["bean_island_v1"] = "bean_island_v1"
     configuration_profiles: tuple[ConfigurationProfile] = (ConfigurationProfile(),)
     configuration_options: ConfigurationOptions = ConfigurationOptions()

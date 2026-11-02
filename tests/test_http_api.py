@@ -1,6 +1,7 @@
 """Public HTTP authorization, lifecycle, redaction, and coherent cached-image behavior."""
 
 import asyncio
+from copy import deepcopy
 from types import SimpleNamespace
 from uuid import UUID, uuid4
 
@@ -41,6 +42,94 @@ def client_for(app):
         transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
         base_url="http://aw2.test",
     )
+
+
+@run_async_test
+async def test_creation_uses_advertised_profile_and_rejects_other_configurations(
+    tmp_path, monkeypatch
+):
+    auth = AuthorizationService(tmp_path / "auth.json", token("o"))
+    controller = MatchController(authorization=auth)
+    app = application(controller, tmp_path, monkeypatch)
+    async with client_for(app) as client:
+        caps = (await client.get("/v1/capabilities")).json()
+        advertised = next(
+            profile["configuration"]
+            for profile in caps["configuration_profiles"]
+            if profile["profile_id"] == caps["default_profile_id"]
+        )
+        options = caps["configuration_options"]
+        assert options["combination_constraint"] == "verified_profiles_only"
+        assert advertised["map_id"] in options["map_ids"]
+        assert advertised["players"] == options["players"]
+        assert advertised["rules"] == options["rules"]
+        assert len(advertised["players"]) in caps["supported_player_counts"]
+        for player in advertised["players"]:
+            assert player["co_id"] in options["co_ids"]
+            assert player["control"] in caps["supported_control_modes"]
+
+        alternatives = []
+        for field, value in (
+            ("fog", True),
+            ("starting_weather", "rain"),
+            ("income_per_property", 2000),
+            ("day_limit", 20),
+            ("co_powers", False),
+        ):
+            changed = deepcopy(advertised)
+            changed["rules"][field] = value
+            alternatives.append((changed, "unsupported_feature"))
+        for field, value in (
+            ("co_id", "sami"),
+            ("color", "green"),
+            ("team_id", "b"),
+            ("control", "computer"),
+            ("co_id", "unknown_co"),
+            ("slot", "slot_2"),
+        ):
+            changed = deepcopy(advertised)
+            changed["players"][0][field] = value
+            code = (
+                "invalid_request"
+                if field == "slot" or value == "unknown_co"
+                else "unsupported_feature"
+            )
+            alternatives.append((changed, code))
+        for count in (3, 4):
+            changed = deepcopy(advertised)
+            for index, color in enumerate(("green", "yellow")[: count - 2], start=3):
+                changed["players"].append(
+                    dict(changed["players"][0], slot=f"slot_{index}", color=color)
+                )
+            alternatives.append((changed, "unsupported_feature"))
+        changed = deepcopy(advertised)
+        changed["map_id"] = "unknown_map"
+        alternatives.append((changed, "invalid_request"))
+        changed = deepcopy(advertised)
+        changed["players"][1]["color"] = changed["players"][0]["color"]
+        alternatives.append((changed, "invalid_request"))
+
+        request_id = str(uuid4())
+        for configuration, code in alternatives:
+            rejected = await client.post(
+                "/v1/matches",
+                json={"request_id": request_id, "configuration": configuration},
+                headers=headers(),
+            )
+            assert rejected.status_code == 422, rejected.text
+            assert rejected.json()["error"]["code"] == code
+            assert rejected.json()["request_id"] == request_id
+            assert (await client.get("/v1/matches", headers=headers())).json()["matches"] == []
+
+        # Rejections must not reserve the request ID or allocate a match. The entire
+        # advertised profile can be submitted unchanged and survives a retry.
+        body = {"request_id": request_id, "configuration": advertised}
+        created = await client.post("/v1/matches", json=body, headers=headers())
+        assert created.status_code == 201, created.text
+        assert created.json()["configuration"] == advertised
+        assert (
+            await client.post("/v1/matches", json=body, headers=headers())
+        ).json() == created.json()
 
 
 @run_async_test

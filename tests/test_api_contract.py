@@ -14,6 +14,7 @@ from aw2_lab.api_contract import (
     VERIFIED_CONFIGURATION,
     CapabilitiesResponse,
     CloseMatchRequest,
+    ConfigurationOptions,
     CreateMatchRequest,
     DebugButtonsRequest,
     DebugMemoryReadRequest,
@@ -278,10 +279,25 @@ def test_capabilities_do_not_claim_runtime_actions_by_default() -> None:
     assert caps.actions == ()
     assert caps.supported_game_contract_versions == (1,)
     assert caps.configuration_profiles[0].configuration == VERIFIED_CONFIGURATION
+    for field in ("supported_player_counts", "supported_control_modes"):
+        for values in ([], [caps.model_dump()[field][0]] * 2):
+            with pytest.raises(ValidationError):
+                CapabilitiesResponse.model_validate(dict(caps.model_dump(), **{field: values}))
     with pytest.raises(ValidationError):
         FeatureAvailability(
             name="events", implemented=False, available=True, verification="unverified"
         )
+
+
+@pytest.mark.parametrize("field", ["players", "rules"])
+def test_capabilities_cannot_advertise_unverified_configuration_options(field: str) -> None:
+    options = ConfigurationOptions().model_dump(mode="json")
+    if field == "players":
+        options[field][0]["co_id"] = "sami"
+    else:
+        options[field]["fog"] = True
+    with pytest.raises(ValidationError, match="Only verified"):
+        ConfigurationOptions.model_validate(options)
 
 
 def test_state_response_preserves_boundary_identity_and_revision(memory) -> None:
