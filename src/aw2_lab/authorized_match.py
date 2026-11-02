@@ -33,7 +33,7 @@ from aw2_lab.match_contract import (
     ErrorCode,
     PlayerSlot,
 )
-from aw2_lab.match_controller import MatchController
+from aw2_lab.match_controller import BoundaryScreenshot, MatchController
 from aw2_lab.match_observation import MatchObservation
 
 
@@ -101,6 +101,14 @@ class AuthorizedMatchService:
     async def observation(self, principal: Principal, match_id: UUID) -> MatchObservation:
         self.authorization.authorize(principal, Permission.READ, match_id)
         result = await self.controller.current_observation(match_id)
+        self.authorization.authorize(principal, Permission.READ, match_id)
+        return result
+
+    async def screenshot(
+        self, principal: Principal, match_id: UUID, *, revision: int | None = None
+    ) -> BoundaryScreenshot:
+        self.authorization.authorize(principal, Permission.READ, match_id)
+        result = await self.controller.current_screenshot(match_id, revision=revision)
         self.authorization.authorize(principal, Permission.READ, match_id)
         return result
 

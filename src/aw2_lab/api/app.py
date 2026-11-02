@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from starlette.types import ASGIApp
 
+from aw2_lab.api.v1 import install_v1
 from aw2_lab.authorization import AuthorizationError, AuthorizationService, load_operator_secret
 from aw2_lab.authorized_match import AuthorizedMatchService
 from aw2_lab.checkpoint import CheckpointError
@@ -122,6 +123,8 @@ def create_app(
                             application.state, "match_checkpoint_service", service
                         ),
                     )
+                    if service is not None:
+                        await controller.cache_restored_screenshot(service.session.tracker.match_id)
             stack.push_async_callback(controller.stop)
             await controller.recover_authorized_setup()
             await controller.start()
@@ -148,6 +151,7 @@ def create_app(
         status = "running" if emulator_launcher.is_running else "not_running"
         return HealthResponse(emulator=status)
 
+    install_v1(application)
     application.mount("/mcp", mcp_app)
     return application
 

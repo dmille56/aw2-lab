@@ -3,9 +3,14 @@
 `PlayableRuntime` binds one launcher bridge to queued startup, all six gameplay
 executors, the current `CheckpointSession`, checkpoint persistence, input release,
 and rollback. The default application's lifespan installs it after emulator startup
-and checkpoint recovery, before starting the controller queue. Transport routes
-remain a separate task; the service entry point is
+and checkpoint recovery, before starting the controller queue. The
+[HTTP lifecycle routes](HTTP-API.md) use the shared service entry point
 `AuthorizedMatchService.start(principal, match_id, StartMatchRequest(...))`.
+
+The runtime captures PNGs at committed boundaries and verifies that the bridge
+frame matches the observation before and after capture. The controller publishes
+the cached PNG and observation together; HTTP reads during execution use that
+cache. An image failure leaves the game state committed with no new image.
 
 Start requires an operator, expected revision zero, and both slots joined. Its
 navigation executes in the same FIFO lane as gameplay. Permissions, lifecycle,

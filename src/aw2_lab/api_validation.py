@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import ValidationError
@@ -177,8 +177,17 @@ _SAFE_FIELDS = frozenset(
 
 def validation_error(error: ValidationError, *, request_id: UUID | None = None) -> HttpError:
     """Remove input, validator context, arbitrary keys, and messages from Pydantic errors."""
-    details: dict[str, str | int | bool | None] = {"issue_count": error.error_count()}
-    for index, issue in enumerate(error.errors(include_input=False, include_context=False)[:16]):
+    return validation_issues(
+        error.errors(include_input=False, include_context=False), request_id=request_id
+    )
+
+
+def validation_issues(
+    issues: Sequence[Mapping[str, Any]], *, request_id: UUID | None = None
+) -> HttpError:
+    """Share safe field diagnostics with transports that collect their own validation errors."""
+    details: dict[str, str | int | bool | None] = {"issue_count": len(issues)}
+    for index, issue in enumerate(issues[:16]):
         path = ".".join(
             str(part) if isinstance(part, int) or part in _SAFE_FIELDS else "field"
             for part in issue["loc"][:10]

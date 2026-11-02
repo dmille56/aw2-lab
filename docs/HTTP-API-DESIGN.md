@@ -219,6 +219,10 @@ It does not make unverified configurations executable today.
 
 ## Resource routes
 
+The lifecycle, capabilities, state, screenshot, and command-status subset is
+implemented; see [HTTP-API.md](HTTP-API.md) for current availability and examples.
+Routes in the table below outside that subset remain proposed.
+
 `{match}` and other resource identifiers below are UUIDs.
 
 | Method and route | Purpose | Success |
@@ -361,8 +365,8 @@ These models and shared-service authorization are implemented when an operator
 file is configured; see [setup and authorization](AUTHORIZATION.md). The controller
 then disables unrestricted joining, requires principals for mutations, and applies
 operator/player scopes. Trusted local emulator research helpers can still construct
-an isolated controller without authorization. HTTP/SSE/MCP adapters remain later
-work and must use the authorized facade rather than trusted internal reads.
+an isolated controller without authorization. HTTP lifecycle/read adapters use
+the authorized facade; SSE and MCP gameplay adapters must use the same service.
 Raw credentials and invitation secrets must never enter durable journals, access
 logs, validation errors, URLs, examples, or OpenAPI defaults. Secret request fields
 must be redacted, including on rejected joins and invitation issuance.
@@ -682,8 +686,8 @@ Expose the configuration profiles, catalogs, option bounds, and combination
 constraints described above; distinguish planned choices from currently accepted
 configurations so clients cannot mistake future support for runnable setup.
 Do not advertise the current static six-action list as executable unless runtime
-dispatch, session ownership, and recovery providers are configured. Keep existing
-live-verification gaps for purchasing and turn actions visible in the docs.
+dispatch, session ownership, and recovery providers are configured. Keep remaining
+live-verification gaps visible in the docs.
 
 ## Implemented shared models
 
@@ -714,7 +718,7 @@ cannot be used to fingerprint secret-bearing claim payloads. Pydantic's raw erro
 can contain attacker-supplied keys even with input hiding: adapters must use
 `validation_error`, which emits bounded schema-owned field paths without input,
 validator messages, or context. `internal_error` produces a generic safe envelope.
-Ordinary JSON byte limits still require enforcement at the future HTTP boundary;
+The implemented HTTP boundary enforces ordinary JSON byte limits;
 model validation enforces paths, names, invitation lifetimes, frames, and memory bounds.
 Memory-region permissions still belong to the service layer.
 
@@ -726,8 +730,10 @@ of imported verifiers. See [the implementation and verification notes](AUTHORIZA
 Queued startup, runtime dispatch, durable boundary checkpoints, and shared-session
 recovery are now wired; see [runtime verification](PLAYABLE-RUNTIME.md). The cash
 rule is correctly named `income_per_property`; startup explicitly configures 30 days
-and Clear instead of accepting the old OFF/Random defaults. Screenshots, event
-publication, and routers remain below. SSE/MCP delivery enforcement still requires their adapters.
+and Clear instead of accepting the old OFF/Random defaults. Boundary screenshots
+and lifecycle/read routers are implemented in [HTTP-API.md](HTTP-API.md). Event
+publication, gameplay/checkpoint/debug HTTP routes, and SSE/MCP delivery
+enforcement remain later work.
 The game contract version remains independent of MCP protocol negotiation; these
 services do not enable remote MCP gameplay.
 

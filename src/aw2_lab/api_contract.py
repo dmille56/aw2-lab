@@ -281,6 +281,7 @@ class CapabilitiesResponse(ContractModel):
     # Whole profiles are the combination constraint; catalogs do not imply a Cartesian product.
     operations: tuple[FeatureAvailability, ...] = ()
     actions: tuple[FeatureAvailability, ...] = ()
+    production_unit_types: tuple[str, ...] = ()
     http_sse: FeatureAvailability
     mcp_subscriptions: FeatureAvailability
     debug_enabled: bool = False

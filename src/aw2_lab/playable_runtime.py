@@ -66,6 +66,7 @@ class PlayableRuntime:
         self._observe = observe or self._capture
         self.navigator = ActionNavigator(bridge, self._observe)
         controller.configure_runtime(self, self.start)
+        controller.set_screenshot_provider(self.capture_screenshot)
         # These delegates remain installed as match/session ownership changes.
         controller.set_recovery_checkpoint_provider(self.capture_recovery, replace=True)
         controller.set_recovery_rollback_provider(self.rollback, replace=True)
@@ -73,6 +74,17 @@ class PlayableRuntime:
 
     async def _capture(self) -> GameState:
         return await capture_game_state(self.bridge, rom_path=self.rom_path)
+
+    async def capture_screenshot(self, observation: MatchObservation) -> bytes:
+        """Capture only while the bridge remains on the committed observation frame."""
+        before = await self.bridge.read_memory_snapshot([(0x03000000, 1)])
+        if before.frame != observation.game_state.frame:
+            raise RuntimeError("Screenshot frame differs from the observed boundary")
+        png = await self.bridge.screenshot()
+        after = await self.bridge.read_memory_snapshot([(0x03000000, 1)])
+        if after.frame != before.frame:
+            raise RuntimeError("Emulator advanced while capturing its boundary screenshot")
+        return png
 
     @property
     def checkpoints(self) -> MatchCheckpointService:

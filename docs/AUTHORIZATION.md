@@ -22,16 +22,15 @@ source. Length validation cannot prove randomness. Python's
 [`secrets.token_urlsafe(32)`](https://docs.python.org/3/library/secrets.html)
 uses 32 bytes of randomness; comparisons use `hmac.compare_digest`.
 
-This implements the shared service layer. The current HTTP application still
-exposes `/health` and the scaffold `/mcp`; match routes, SDK calls, SSE streams,
-and MCP gameplay tools are not exposed yet. Without an operator file, no
+The [HTTP lifecycle and read routes](HTTP-API.md) use this shared service layer.
+SDK calls, SSE streams, and MCP gameplay tools remain planned. Without an operator file, no
 `AuthorizedMatchService` is installed. An existing authorization ledger requires
 the operator file on subsequent startup; omitting it cannot enable legacy
 checkpoint authentication.
 
 ## Service boundary
 
-`AuthorizedMatchService` is the entry point for future transport adapters.
+`AuthorizedMatchService` is the entry point for HTTP and future transport adapters.
 Authenticate the bearer credential to obtain a trusted principal; never construct
 that principal from client/model-supplied role, slot, or generation fields.
 

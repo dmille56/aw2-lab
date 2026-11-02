@@ -130,6 +130,15 @@ MutationHandler = Callable[[], Awaitable[MutationOutcome]]
 RecoveryCheckpointProvider = Callable[[UUID, UUID, int | None], Awaitable[UUID]]
 RecoveryRollbackProvider = Callable[[UUID, UUID, UUID, ErrorBody], Awaitable[MutationOutcome]]
 InputReleaseProvider = Callable[[], Awaitable[None]]
+ScreenshotProvider = Callable[[MatchObservation], Awaitable[bytes]]
+
+
+@dataclass(frozen=True, slots=True)
+class BoundaryScreenshot:
+    match_id: UUID
+    revision: int
+    frame: int
+    png: bytes
 
 
 @dataclass(slots=True)
@@ -137,6 +146,7 @@ class _MatchRecord:
     summary: MatchSummary
     credentials: dict[PlayerSlot, bytes] = field(default_factory=dict)
     observation: MatchObservation | None = None
+    screenshot: BoundaryScreenshot | None = None
 
 
 @dataclass(slots=True)
@@ -175,6 +185,7 @@ class MatchController:
         recovery_rollback_provider: RecoveryRollbackProvider | None = None,
         input_release_provider: InputReleaseProvider | None = None,
         checkpoint_store: CheckpointStore | None = None,
+        screenshot_provider: ScreenshotProvider | None = None,
         queue_capacity: int = 64,
         command_capacity: int = 4096,
         shutdown_timeout: float = 30.0,
@@ -192,6 +203,7 @@ class MatchController:
         self._recovery_rollback_provider = recovery_rollback_provider
         self._input_release_provider = input_release_provider
         self._checkpoint_store = checkpoint_store
+        self._screenshot_provider = screenshot_provider
         self._queue: asyncio.Queue[_CommandRecord | None] = asyncio.Queue(queue_capacity)
         self._command_capacity = command_capacity
         self._shutdown_timeout = shutdown_timeout
@@ -208,6 +220,54 @@ class MatchController:
         self._journal_failed = False
         self._journal_diagnostic: ErrorBody | None = None
         self._running: _CommandRecord | None = None
+
+    @property
+    def runtime_available(self) -> bool:
+        return (
+            all(
+                provider is not None
+                for provider in (
+                    self._executor,
+                    self._start_handler,
+                    self._recovery_checkpoint_provider,
+                    self._recovery_rollback_provider,
+                    self._input_release_provider,
+                )
+            )
+            and self._accepting
+        )
+
+    @property
+    def screenshots_configured(self) -> bool:
+        return self._screenshot_provider is not None
+
+    def set_screenshot_provider(self, provider: ScreenshotProvider) -> None:
+        self._screenshot_provider = provider
+
+    async def cache_restored_screenshot(self, match_id: UUID) -> None:
+        """Recreate the ephemeral image after startup restore, before starting the queue."""
+        if self._worker is not None:
+            raise RuntimeError("Startup screenshots must be captured before queue start")
+        async with self._state_lock:
+            record = self._require_match(match_id)
+            if record.observation is not None:
+                record.screenshot = await self._boundary_screenshot(record.observation)
+
+    async def _boundary_screenshot(
+        self, observation: MatchObservation
+    ) -> BoundaryScreenshot | None:
+        if self._screenshot_provider is None:
+            return None
+        try:
+            async with asyncio.timeout(15):
+                png = await self._screenshot_provider(observation)
+            if not png.startswith(b"\x89PNG\r\n\x1a\n"):
+                raise ValueError("Screenshot provider did not return PNG bytes")
+            return BoundaryScreenshot(
+                observation.match_id, observation.revision, observation.game_state.frame, png
+            )
+        except Exception:  # noqa: BLE001 -- an image failure must not discard game state
+            return None
 
     async def start(self) -> None:
         """Start the sole command worker; it remains alive while emulation is idle."""
@@ -651,6 +711,20 @@ class MatchController:
         async with self._state_lock:
             record = self._require_match(match_id)
             return MatchStateSnapshot(self._summary(record), record.observation)
+
+    async def current_screenshot(
+        self, match_id: UUID, *, revision: int | None = None
+    ) -> BoundaryScreenshot:
+        """Read the last published PNG, including while the emulator is executing."""
+        async with self._state_lock:
+            record = self._require_match(match_id)
+            screenshot = record.screenshot
+            if screenshot is None or (revision is not None and screenshot.revision != revision):
+                raise MatchControllerError(
+                    ErrorCode.OBSERVATION_UNAVAILABLE,
+                    "No screenshot is cached for the requested boundary",
+                )
+            return screenshot
 
     async def current_observation(self, match_id: UUID) -> MatchObservation:
         """Read a settled observation, rejecting reads while a mutation is active."""
@@ -1118,6 +1192,11 @@ class MatchController:
         *,
         current_revision: int,
     ) -> None:
+        screenshot = (
+            await self._boundary_screenshot(outcome.observation)
+            if outcome.observation is not None
+            else None
+        )
         if outcome.status not in {
             CommandStatus.COMPLETED,
             CommandStatus.ROLLED_BACK,
@@ -1213,6 +1292,7 @@ class MatchController:
                 return
             if outcome.observation is not None:
                 match.observation = outcome.observation
+                match.screenshot = screenshot
             match.summary = next_summary
 
     async def _require_recovery(
