@@ -49,6 +49,7 @@ class RuleConfiguration(ContractModel):
     weather: Literal["clear", "rain", "snow", "random"]
     income_per_property: Annotated[int, Field(strict=True, ge=0, le=999999)]
     day_limit: Annotated[int, Field(strict=True, ge=5, le=99)] | None
+    capture_limit: Annotated[int, Field(strict=True, ge=12, le=27)] | None
     co_powers: bool = Field(strict=True)
 
 
@@ -80,7 +81,12 @@ VERIFIED_CONFIGURATION = MatchConfiguration(
         ),
     ),
     rules=RuleConfiguration(
-        fog=False, weather="clear", income_per_property=1000, day_limit=30, co_powers=True
+        fog=False,
+        weather="clear",
+        income_per_property=1000,
+        day_limit=30,
+        capture_limit=None,
+        co_powers=True,
     ),
 )
 
@@ -322,6 +328,8 @@ def configuration_from_controller(configuration: FixedMatchConfiguration) -> Mat
     rules["income_per_property"] = rules.pop("starting_funds")
     # Keep durable controller/checkpoint documents compatible with their original schema.
     rules["weather"] = rules.pop("starting_weather")
+    # Legacy fixed-profile documents have no capture-limit field; their rule is Off.
+    rules["capture_limit"] = None
     return VERIFIED_CONFIGURATION.model_copy(
         update={"rules": RuleConfiguration.model_validate(rules)}
     )

@@ -48,8 +48,8 @@ availability; Start reports whether the runtime is available.
 
 The current profile uses Bean Island, external Andy/Red/team A and Max/Blue/team
 B, fog Off, Clear weather, income 1,000 per property, a 30-day limit,
-and CO powers On. Creation validates before allocating a match or touching the
-emulator. Known alternative COs, valid alternative assignments/rules, internal
+capture limit Off, and CO powers On. Creation validates before allocating a match
+or touching the emulator. Known alternative COs, valid alternative assignments/rules, internal
 CPU control, and the future three/four-player shape return
 `422 unsupported_feature`. Unknown map/CO IDs, duplicate colors, invalid slot
 ordering, incomplete configurations, and malformed values return
@@ -60,9 +60,7 @@ match and does not reserve the request ID.
 The shared schema retains two to four ordered slots with explicit CO, color,
 team, and control fields for future expansion; current capabilities advertise
 only two external players. Expanded support requires setup and gameplay
-verification before adding a profile. The separate capture-limit contract
-follow-up remains tracked in
-[MILESTONE-3.org](MILESTONE-3.org).
+verification before adding a profile.
 
 The rule field `weather` accepts `clear`, `rain`, `snow`, and `random`.
 Clear/Rain/Snow select weather for the entire match; Random allows weather to
@@ -84,6 +82,17 @@ and other representable stored limits retain their value when translated.
 Legacy limits of 1–4 cannot be converted to the public schema and are rejected
 without silently changing them. Off never reaches the fixed-profile controller
 adapter, so it is not converted into a numeric sentinel or a default limit.
+
+The rule field `capture_limit` is required in an explicit configuration and
+represents the Capture Properties victory rule. Use JSON `null` for Off, or an
+integer from 12 through 27 inclusive for the number of properties needed to win.
+Only Off is advertised and executable. Valid numeric limits return
+`422 unsupported_feature`; out-of-range values, booleans, floats, strings, and
+missing fields return `422 invalid_request`. Omitting the entire configuration
+still selects the default profile, including capture limit Off. Legacy
+controller/checkpoint and authorization-ledger records have no capture-limit
+field: the adapter exposes those fixed-profile records as `capture_limit: null`
+without rewriting storage. Numeric limits never reach the controller adapter.
 
 Preserve `request_id` and the exact request when retrying a lost
 response. Creating, issuing invitations, joining, revoking, and closing use the

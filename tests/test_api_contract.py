@@ -85,6 +85,43 @@ def test_profile_round_trip_and_explicit_legacy_adapter() -> None:
         configuration_to_controller(converted)
 
 
+@pytest.mark.parametrize("capture_limit", [None, *range(12, 28)])
+def test_capture_limits_are_valid_but_only_off_is_executable(capture_limit: int | None) -> None:
+    configuration = MatchConfiguration.model_validate(
+        dict(profile(), rules=dict(profile()["rules"], capture_limit=capture_limit))
+    )
+    assert configuration.rules.capture_limit == capture_limit
+    assert MatchConfiguration.model_validate_json(configuration.model_dump_json()) == configuration
+    if capture_limit is None:
+        assert configuration_to_controller(configuration) == FixedMatchConfiguration()
+    else:
+        with pytest.raises(ContractValidationError) as caught:
+            configuration_to_controller(configuration)
+        assert caught.value.body.code is ErrorCode.UNSUPPORTED_FEATURE
+
+
+@pytest.mark.parametrize("capture_limit", [-1, 0, 1, 11, 28, 100, True, False, 12.0, "12", "off"])
+def test_malformed_capture_limit_is_invalid(capture_limit: object) -> None:
+    with pytest.raises(ValidationError) as caught:
+        RuleConfiguration.model_validate(dict(profile()["rules"], capture_limit=capture_limit))
+    error = validation_error(caught.value)
+    assert error.response.error.code is ErrorCode.INVALID_REQUEST
+    assert error.response.error.details["field_1"] == "capture_limit"
+
+
+def test_capture_limit_is_required_and_legacy_storage_implies_off() -> None:
+    rules = profile()["rules"]
+    del rules["capture_limit"]
+    with pytest.raises(ValidationError):
+        RuleConfiguration.model_validate(rules)
+    stored = FixedMatchConfiguration().model_dump_json()
+    assert "capture_limit" not in stored
+    legacy = FixedMatchConfiguration.model_validate_json(stored)
+    converted = configuration_from_controller(legacy)
+    assert converted.model_dump(mode="json")["rules"]["capture_limit"] is None
+    assert configuration_to_controller(converted).model_dump_json() == stored
+
+
 @pytest.mark.parametrize("day_limit", [None, 5, 20, 30, 99])
 def test_day_limit_values_are_valid_but_only_thirty_is_executable(day_limit: int | None) -> None:
     configuration = MatchConfiguration.model_validate(

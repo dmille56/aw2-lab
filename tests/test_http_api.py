@@ -65,6 +65,7 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
         assert advertised["rules"] == options["rules"]
         assert advertised["rules"]["weather"] == "clear"
         assert advertised["rules"]["day_limit"] == 30
+        assert advertised["rules"]["capture_limit"] is None
         assert "starting_weather" not in advertised["rules"]
         assert len(advertised["players"]) in caps["supported_player_counts"]
         for player in advertised["players"]:
@@ -120,6 +121,18 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
             changed = deepcopy(advertised)
             changed["rules"]["day_limit"] = day_limit
             alternatives.append((changed, "invalid_request"))
+        for capture_limit in (12, 20, 27, 0, 11, 28, True, False, "12", 12.0):
+            changed = deepcopy(advertised)
+            changed["rules"]["capture_limit"] = capture_limit
+            code = (
+                "unsupported_feature"
+                if type(capture_limit) is int and 12 <= capture_limit <= 27
+                else "invalid_request"
+            )
+            alternatives.append((changed, code))
+        changed = deepcopy(advertised)
+        del changed["rules"]["capture_limit"]
+        alternatives.append((changed, "invalid_request"))
         for weather in ("storm", "Random", None, True, 0):
             changed = deepcopy(advertised)
             changed["rules"]["weather"] = weather

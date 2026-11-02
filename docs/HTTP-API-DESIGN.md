@@ -158,6 +158,7 @@ a complete configuration with a map ID, an ordered player collection, and rules:
       "weather": "clear",
       "income_per_property": 1000,
       "day_limit": 30,
+      "capture_limit": null,
       "co_powers": true
     }
   }
@@ -184,6 +185,15 @@ limits return `unsupported_feature`. Stored controller/checkpoint and ledger
 schemas retain their numeric day limit. The adapter preserves representable
 stored values, rejects legacy 1–4 values instead of coercing them, and never
 converts Off to a numeric sentinel or silently substitutes 30.
+
+`rules.capture_limit` is required and represents the Capture Properties victory
+rule: Off is `null`, and an integer from 12–27 inclusive is the property count
+needed to win. Only Off belongs to the verified profile. Numeric limits in that
+range return `unsupported_feature`; other numbers, booleans, floats, strings,
+and omission from an explicit configuration return `invalid_request`. Legacy
+fixed-profile controller/checkpoint and ledger documents omit this field and
+translate to Off; their stored format remains unchanged. Numeric limits are
+rejected before reaching the fixed-profile controller adapter.
 
 Initially accept only configurations matching that verified profile. Other
 known maps, CO selections, player counts, fog/weather settings, team layouts, or
