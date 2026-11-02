@@ -27,6 +27,7 @@ from aw2_lab.api_contract import (
     MatchConfiguration,
     PlayerPrincipal,
     Principal,
+    RuleConfiguration,
     SlotAuthorization,
     StateResponse,
     configuration_from_controller,
@@ -84,6 +85,47 @@ def test_profile_round_trip_and_explicit_legacy_adapter() -> None:
         configuration_to_controller(converted)
 
 
+@pytest.mark.parametrize("weather", ["clear", "rain", "snow", "random"])
+def test_weather_modes_are_valid_but_only_clear_is_executable(weather: str) -> None:
+    data = profile()
+    data["rules"]["weather"] = weather
+    configuration = MatchConfiguration.model_validate(data)
+    assert configuration.rules.weather == weather
+    assert MatchConfiguration.model_validate_json(configuration.model_dump_json()) == configuration
+    if weather == "clear":
+        assert configuration_to_controller(configuration) == FixedMatchConfiguration()
+    else:
+        with pytest.raises(ContractValidationError) as caught:
+            configuration_to_controller(configuration)
+        assert caught.value.body.code is ErrorCode.UNSUPPORTED_FEATURE
+
+
+@pytest.mark.parametrize("weather", ["Random", "storm", "", None, True, 0])
+def test_malformed_weather_is_invalid(weather: object) -> None:
+    with pytest.raises(ValidationError):
+        RuleConfiguration.model_validate(dict(profile()["rules"], weather=weather))
+
+
+def test_public_weather_rename_preserves_stored_controller_rules() -> None:
+    # Persisted checkpoints and authorization ledgers keep their original shape.
+    stored = FixedMatchConfiguration().model_dump(mode="json")
+    assert stored["rules"]["starting_weather"] == "clear"
+    assert "weather" not in stored["rules"]
+    legacy = FixedMatchConfiguration.model_validate_json(
+        FixedMatchConfiguration.model_validate(stored).model_dump_json()
+    )
+    converted = configuration_from_controller(legacy)
+    assert converted.rules.weather == "clear"
+    assert "starting_weather" not in converted.model_dump()["rules"]
+    assert configuration_to_controller(converted).model_dump(mode="json") == stored
+    rules = profile()["rules"]
+    old_rules = dict(rules, starting_weather=rules["weather"])
+    del old_rules["weather"]
+    for data in (dict(rules, starting_weather="clear"), old_rules):
+        with pytest.raises(ValidationError):
+            RuleConfiguration.model_validate(data)
+
+
 @pytest.mark.parametrize("change", ["fog", "co", "funds", "weather", "team", "cpu", "count"])
 def test_known_unverified_combinations_are_unsupported(change: str) -> None:
     data = profile()
@@ -94,7 +136,7 @@ def test_known_unverified_combinations_are_unsupported(change: str) -> None:
     elif change == "funds":
         data["rules"]["income_per_property"] = 2000
     elif change == "weather":
-        data["rules"]["starting_weather"] = "rain"
+        data["rules"]["weather"] = "rain"
     elif change == "team":
         data["players"][1]["team_id"] = "a"
     elif change == "cpu":

@@ -45,7 +45,8 @@ class PlayerConfiguration(ContractModel):
 
 class RuleConfiguration(ContractModel):
     fog: bool = Field(strict=True)
-    starting_weather: Literal["clear", "rain", "snow"]
+    # Fixed choices apply throughout play; Random allows weather changes during play.
+    weather: Literal["clear", "rain", "snow", "random"]
     income_per_property: Annotated[int, Field(strict=True, ge=0, le=999999)]
     day_limit: Annotated[int, Field(strict=True, ge=1, le=99)]
     co_powers: bool = Field(strict=True)
@@ -79,7 +80,7 @@ VERIFIED_CONFIGURATION = MatchConfiguration(
         ),
     ),
     rules=RuleConfiguration(
-        fog=False, starting_weather="clear", income_per_property=1000, day_limit=30, co_powers=True
+        fog=False, weather="clear", income_per_property=1000, day_limit=30, co_powers=True
     ),
 )
 
@@ -319,6 +320,8 @@ def configuration_from_controller(configuration: FixedMatchConfiguration) -> Mat
     rules = configuration.rules.model_dump()
     # Persisted controller/checkpoint v1 used this name for the income option.
     rules["income_per_property"] = rules.pop("starting_funds")
+    # Keep durable controller/checkpoint documents compatible with their original schema.
+    rules["weather"] = rules.pop("starting_weather")
     return VERIFIED_CONFIGURATION.model_copy(
         update={"rules": RuleConfiguration.model_validate(rules)}
     )

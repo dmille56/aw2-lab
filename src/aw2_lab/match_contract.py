@@ -56,6 +56,7 @@ class MatchRules(ContractModel):
     starting_funds: Annotated[int, Field(ge=0)] = 1000
     fog: Literal[False] = False
     co_powers: Literal[True] = True
+    # Durable controller/checkpoint spelling; the public API adapter exposes `weather`.
     starting_weather: Literal["clear"] = "clear"
 
 

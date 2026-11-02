@@ -63,6 +63,8 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
         assert advertised["map_id"] in options["map_ids"]
         assert advertised["players"] == options["players"]
         assert advertised["rules"] == options["rules"]
+        assert advertised["rules"]["weather"] == "clear"
+        assert "starting_weather" not in advertised["rules"]
         assert len(advertised["players"]) in caps["supported_player_counts"]
         for player in advertised["players"]:
             assert player["co_id"] in options["co_ids"]
@@ -71,7 +73,9 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
         alternatives = []
         for field, value in (
             ("fog", True),
-            ("starting_weather", "rain"),
+            ("weather", "rain"),
+            ("weather", "snow"),
+            ("weather", "random"),
             ("income_per_property", 2000),
             ("day_limit", 20),
             ("co_powers", False),
@@ -108,6 +112,13 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
         changed = deepcopy(advertised)
         changed["players"][1]["color"] = changed["players"][0]["color"]
         alternatives.append((changed, "invalid_request"))
+        for weather in ("storm", "Random", None, True, 0):
+            changed = deepcopy(advertised)
+            changed["rules"]["weather"] = weather
+            alternatives.append((changed, "invalid_request"))
+        changed = deepcopy(advertised)
+        changed["rules"]["starting_weather"] = changed["rules"].pop("weather")
+        alternatives.append((changed, "invalid_request"))
 
         request_id = str(uuid4())
         for configuration, code in alternatives:
@@ -130,6 +141,16 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
         assert (
             await client.post("/v1/matches", json=body, headers=headers())
         ).json() == created.json()
+
+    restored = MatchController(
+        authorization=AuthorizationService(tmp_path / "auth.json", token("o"))
+    )
+    await restored.recover_authorized_setup()
+    restored_app = application(restored, tmp_path, monkeypatch)
+    async with client_for(restored_app) as client:
+        inspected = await client.get(f"/v1/matches/{created.json()['match_id']}", headers=headers())
+        assert inspected.status_code == 200, inspected.text
+        assert inspected.json()["configuration"] == advertised
 
 
 @run_async_test

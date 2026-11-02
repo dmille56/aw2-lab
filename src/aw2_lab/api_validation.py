@@ -149,7 +149,7 @@ _SAFE_FIELDS = frozenset(
         "control",
         "rules",
         "fog",
-        "starting_weather",
+        "weather",
         "income_per_property",
         "day_limit",
         "co_powers",

@@ -155,7 +155,7 @@ a complete configuration with a map ID, an ordered player collection, and rules:
     ],
     "rules": {
       "fog": false,
-      "starting_weather": "clear",
+      "weather": "clear",
       "income_per_property": 1000,
       "day_limit": 30,
       "co_powers": true
@@ -169,6 +169,13 @@ creation shape. HTTP, SDK, and MCP use the same configuration schema and shared
 validation service. Map and CO identifiers are stable catalog IDs, independent
 of display labels and emulator memory values. Player count is derived from the
 player collection; each configured slot gets its own invitation and identity.
+
+`rules.weather` accepts `clear`, `rain`, `snow`, or `random`. Clear, Rain, and Snow
+apply throughout the match; Random allows weather changes during play. Only Clear
+belongs to the verified executable profile; the other valid choices remain
+unsupported. The public schema uses `weather`, with no `starting_weather` alias.
+Legacy controller/checkpoint and ledger configurations retain their original
+stored spelling, translated explicitly at the public boundary.
 
 Initially accept only configurations matching that verified profile. Other
 known maps, CO selections, player counts, fog/weather settings, team layouts, or

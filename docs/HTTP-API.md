@@ -47,7 +47,7 @@ combinations from the option lists. Profile selection does not depend on emulato
 availability; Start reports whether the runtime is available.
 
 The current profile uses Bean Island, external Andy/Red/team A and Max/Blue/team
-B, fog Off, Clear starting weather, income 1,000 per property, a 30-day limit,
+B, fog Off, Clear weather, income 1,000 per property, a 30-day limit,
 and CO powers On. Creation validates before allocating a match or touching the
 emulator. Known alternative COs, valid alternative assignments/rules, internal
 CPU control, and the future three/four-player shape return
@@ -60,9 +60,19 @@ match and does not reserve the request ID.
 The shared schema retains two to four ordered slots with explicit CO, color,
 team, and control fields for future expansion; current capabilities advertise
 only two external players. Expanded support requires setup and gameplay
-verification before adding a profile. The separate weather naming/options,
-day-limit Off/range, and capture-limit contract follow-ups remain tracked in
+verification before adding a profile. The separate day-limit Off/range and
+capture-limit contract follow-ups remain tracked in
 [MILESTONE-3.org](MILESTONE-3.org).
+
+The rule field `weather` accepts `clear`, `rain`, `snow`, and `random`.
+Clear/Rain/Snow select weather for the entire match; Random allows weather to
+change during play. Only `clear` is currently advertised and executable;
+the other three values return `422 unsupported_feature`. Unknown values return
+`422 invalid_request`. The former public spelling `starting_weather` is rejected,
+including when supplied alongside `weather`. Existing controller checkpoints and
+authorization ledgers retain their stored `starting_weather` field; the adapter
+exposes it as `weather` in capabilities and match responses without rewriting
+stored documents.
 
 Preserve `request_id` and the exact request when retrying a lost
 response. Creating, issuing invitations, joining, revoking, and closing use the
