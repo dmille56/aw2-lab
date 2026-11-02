@@ -177,6 +177,14 @@ unsupported. The public schema uses `weather`, with no `starting_weather` alias.
 Legacy controller/checkpoint and ledger configurations retain their original
 stored spelling, translated explicitly at the public boundary.
 
+`rules.day_limit` is required and accepts Off as `null` or an integer from 5–99
+inclusive. Values 1–4 are invalid, as are booleans, floats, strings, and numbers
+outside that range. The verified profile remains 30 days; Off and other valid
+limits return `unsupported_feature`. Stored controller/checkpoint and ledger
+schemas retain their numeric day limit. The adapter preserves representable
+stored values, rejects legacy 1–4 values instead of coercing them, and never
+converts Off to a numeric sentinel or silently substitutes 30.
+
 Initially accept only configurations matching that verified profile. Other
 known maps, CO selections, player counts, fog/weather settings, team layouts, or
 rule values return `unsupported_feature` until supported. Do not silently replace

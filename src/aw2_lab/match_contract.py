@@ -52,6 +52,8 @@ class SlotStatus(StrEnum):
 
 
 class MatchRules(ContractModel):
+    # Retain the stored controller/checkpoint schema. Public rules validate 5–99
+    # or Off; only the verified 30-day profile can reach the controller adapter.
     day_limit: Annotated[int, Field(ge=1, le=99)] = 30
     starting_funds: Annotated[int, Field(ge=0)] = 1000
     fog: Literal[False] = False

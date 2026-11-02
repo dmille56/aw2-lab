@@ -85,6 +85,49 @@ def test_profile_round_trip_and_explicit_legacy_adapter() -> None:
         configuration_to_controller(converted)
 
 
+@pytest.mark.parametrize("day_limit", [None, 5, 20, 30, 99])
+def test_day_limit_values_are_valid_but_only_thirty_is_executable(day_limit: int | None) -> None:
+    configuration = MatchConfiguration.model_validate(
+        dict(profile(), rules=dict(profile()["rules"], day_limit=day_limit))
+    )
+    assert configuration.rules.day_limit == day_limit
+    assert MatchConfiguration.model_validate_json(configuration.model_dump_json()) == configuration
+    if day_limit == 30:
+        assert configuration_to_controller(configuration) == FixedMatchConfiguration()
+    else:
+        with pytest.raises(ContractValidationError) as caught:
+            configuration_to_controller(configuration)
+        assert caught.value.body.code is ErrorCode.UNSUPPORTED_FEATURE
+
+
+@pytest.mark.parametrize("day_limit", [-1, 0, 1, 2, 3, 4, 100, True, False, 30.0, "30", "off"])
+def test_malformed_day_limit_is_invalid(day_limit: object) -> None:
+    with pytest.raises(ValidationError):
+        RuleConfiguration.model_validate(dict(profile()["rules"], day_limit=day_limit))
+
+
+@pytest.mark.parametrize("day_limit", [5, 20, 30, 99])
+def test_stored_day_limits_translate_without_changing_their_values(day_limit: int) -> None:
+    stored = FixedMatchConfiguration(rules=MatchRules(day_limit=day_limit)).model_dump_json()
+    legacy = FixedMatchConfiguration.model_validate_json(stored)
+    configuration = configuration_from_controller(legacy)
+    assert configuration.rules.day_limit == day_limit
+    assert legacy.model_dump_json() == stored
+    if day_limit == 30:
+        assert configuration_to_controller(configuration).model_dump_json() == stored
+    else:
+        with pytest.raises(ContractValidationError):
+            configuration_to_controller(configuration)
+
+
+@pytest.mark.parametrize("day_limit", [1, 2, 3, 4])
+def test_legacy_short_day_limits_are_not_silently_changed(day_limit: int) -> None:
+    legacy = FixedMatchConfiguration(rules=MatchRules(day_limit=day_limit))
+    with pytest.raises(ValidationError):
+        configuration_from_controller(legacy)
+    assert legacy.rules.day_limit == day_limit
+
+
 @pytest.mark.parametrize("weather", ["clear", "rain", "snow", "random"])
 def test_weather_modes_are_valid_but_only_clear_is_executable(weather: str) -> None:
     data = profile()

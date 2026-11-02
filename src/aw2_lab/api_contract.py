@@ -48,7 +48,7 @@ class RuleConfiguration(ContractModel):
     # Fixed choices apply throughout play; Random allows weather changes during play.
     weather: Literal["clear", "rain", "snow", "random"]
     income_per_property: Annotated[int, Field(strict=True, ge=0, le=999999)]
-    day_limit: Annotated[int, Field(strict=True, ge=1, le=99)]
+    day_limit: Annotated[int, Field(strict=True, ge=5, le=99)] | None
     co_powers: bool = Field(strict=True)
 
 
@@ -316,7 +316,7 @@ class ReadinessResponse(ContractModel):
 
 
 def configuration_from_controller(configuration: FixedMatchConfiguration) -> MatchConfiguration:
-    """Losslessly translate old checkpoint shape, including non-default stored rules."""
+    """Translate representable legacy rules without changing their stored values."""
     rules = configuration.rules.model_dump()
     # Persisted controller/checkpoint v1 used this name for the income option.
     rules["income_per_property"] = rules.pop("starting_funds")

@@ -60,8 +60,8 @@ match and does not reserve the request ID.
 The shared schema retains two to four ordered slots with explicit CO, color,
 team, and control fields for future expansion; current capabilities advertise
 only two external players. Expanded support requires setup and gameplay
-verification before adding a profile. The separate day-limit Off/range and
-capture-limit contract follow-ups remain tracked in
+verification before adding a profile. The separate capture-limit contract
+follow-up remains tracked in
 [MILESTONE-3.org](MILESTONE-3.org).
 
 The rule field `weather` accepts `clear`, `rain`, `snow`, and `random`.
@@ -73,6 +73,17 @@ including when supplied alongside `weather`. Existing controller checkpoints and
 authorization ledgers retain their stored `starting_weather` field; the adapter
 exposes it as `weather` in capabilities and match responses without rewriting
 stored documents.
+
+The rule field `day_limit` is required and accepts Off as JSON `null`, or an
+integer from 5 through 99 inclusive. Only `30` is currently advertised and
+executable; Off and other valid limits return `422 unsupported_feature`.
+Integers 1–4, out-of-range numbers, booleans, floats, and strings return
+`422 invalid_request`. Existing controller/checkpoint and authorization-ledger
+schemas remain unchanged: stored 30-day profiles round-trip without migration,
+and other representable stored limits retain their value when translated.
+Legacy limits of 1–4 cannot be converted to the public schema and are rejected
+without silently changing them. Off never reaches the fixed-profile controller
+adapter, so it is not converted into a numeric sentinel or a default limit.
 
 Preserve `request_id` and the exact request when retrying a lost
 response. Creating, issuing invitations, joining, revoking, and closing use the
