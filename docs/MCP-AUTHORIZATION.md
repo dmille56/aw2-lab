@@ -1,0 +1,86 @@
+# Local MCP authorization
+
+The mounted `/mcp` transport now requires the same operator or claimed-player
+bearer credential as HTTP. Provision the operator through the existing private
+secret file and claim player slots through the trusted HTTP/SDK setup flow in
+[AUTHORIZATION.md](AUTHORIZATION.md). Credentials stay in host transport headers;
+they are never tool arguments. No OAuth issuer/discovery or remote host integration
+is introduced. The greeting remains the only production tool.
+
+## Request and session enforcement
+
+Each API application creates its own MCP server and session manager. Before
+initialization, session reconnect, POST, GET, or DELETE reaches the SDK,
+`MCPAuthorizationBoundary` authenticates its single bearer header through the
+existing `AuthorizationService`. Missing/invalid/revoked credentials return a
+sanitized 401 with `WWW-Authenticate: Bearer`; absent operator provisioning returns
+503. Responses are `Cache-Control: no-store`. Authentication creates no matches,
+invitations, claims, or operator tokens.
+
+The middleware supplies the SDK's `AuthenticatedUser` with a private digest
+identity derived from the credential and current principal generation. The pinned
+SDK compares that identity with the session owner on every session request.
+Another player or an operator cannot reuse that player's session ID; the SDK
+returns 404. Revoking and reclaiming the same slot does not recover the old
+session. Restart creates fresh session managers and reuses the durable shared
+ledger, so checkpoint state and session identifiers cannot restore revoked access.
+
+MCP currently accepts only loopback TCP peers. The SDK separately validates
+loopback Host values (with or without ports), and rejects all Origin headers.
+No browser origin or remote gameplay is enabled. Supplying forwarded headers
+cannot bypass the peer check. Local SSH forwarding retains local bearer/session
+requirements. Public deployment remains outside Milestone 4.
+
+Every response chunk rechecks the captured principal through the shared service.
+A revocation watcher wakes pending transport requests, stops stream delivery,
+and is removed on completion or disconnect. If headers were already sent, close
+the stream without sending further private content; otherwise return 401.
+Accepted controller commands retain their existing execution and journal lifetime.
+Transport cancellation never revokes or rolls back accepted commands by itself.
+An unaffected caller's requests and sessions continue to work.
+
+## Operation guards for the remaining adapter work
+
+`caller_from_request` obtains a private `MCPCaller` from the current protocol
+request's ASGI scope, and rechecks authorization. The greeting uses this check,
+so direct invocation without authenticated request context is rejected. Future
+tools and resource handlers must obtain this context instead of trusting a
+model-supplied identity, slot, or session ID.
+
+`MCPCaller.check(permission, match_id)` uses the existing permission table:
+operator administration and archive access, player reads/checkpoint creation for
+its own match, player-only gameplay, and operator debug startup opt-in. A player
+cannot elevate privileges by selecting another slot or match. Use it before
+resource reads, cached receipts, subscription registration, and each delivery.
+
+`MCPCaller.operation(permission, match_id)` additionally guards pending awaits,
+registers a revocation wakeup, and rechecks permission before returning results.
+It removes its watcher on completion, cancellation, or failure.
+`MCPCaller.sdk(configured_base_url)` supplies one dedicated SDK client with the
+request's immutable credential inside that guard and closes it on exit. The URL
+must come from application configuration, never from tool arguments. The HTTP
+facade and queue keep their existing acceptance/execution-time checks for turn,
+ownership, revision, permissions, and cached responses. The adapter owns no
+alternative mutation path.
+
+Actual gameplay/checkpoint/debug tools, resource subscriptions, replay, and turn
+waits remain subsequent tasks. Their implementation must use these guards and
+retain the permission tests on each new operation. The Milestone 3 follow-up
+remains open until those delivered operations are verified; authenticated greeting
+coverage alone does not satisfy that acceptance criterion.
+
+## Evidence
+
+`tests/test_mcp_authorization.py` drives the actual Streamable HTTP app using
+controlled local ASGI requests. It covers missing/invalid credentials, missing
+provisioning, remote peers, Host/Origin rejection, initialization, cross-caller
+session theft, revocation, unaffected caller sessions, secret-free discovery,
+and shared permission checks through synthetic tools/resource handlers.
+Additional checks cover active-stream termination, pending-operation wakeup,
+watcher cleanup, denied operator gameplay, denied player administration/archive/debug,
+cross-match reads, disabled debug, and direct unauthenticated tool calls.
+These synthetic probe tools/resources are confined to tests.
+
+The existing shared-service tests retain queue execution, cached-receipt,
+checkpoint/restart and revocation coverage. Real MCP gameplay, subscription delivery,
+agent hosts, and remote authentication are not claimed by these transport tests.

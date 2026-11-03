@@ -9,7 +9,6 @@ from uuid import UUID
 
 from fastapi import FastAPI
 from pydantic import BaseModel
-from starlette.types import ASGIApp
 
 from aw2_lab.api.v1 import install_v1
 from aw2_lab.authorization import AuthorizationError, AuthorizationService, load_operator_secret
@@ -27,7 +26,8 @@ from aw2_lab.match_checkpoint import CheckpointRuntime, CheckpointSession, Match
 from aw2_lab.match_contract import CommandStatus, ErrorBody, ErrorCode, MatchLifecycle
 from aw2_lab.match_controller import MatchController
 from aw2_lab.match_observation import MatchObservationTracker
-from aw2_lab.mcp import server as mcp_server
+from aw2_lab.mcp import create_mcp_server
+from aw2_lab.mcp_auth import MCPAuthorizationBoundary
 from aw2_lab.playable_runtime import PlayableRuntime
 from aw2_lab.rom_profile import select_rom_profile
 from aw2_lab.state_decoder import capture_game_state
@@ -37,9 +37,6 @@ from aw2_lab.storage import resolve_storage_root
 class HealthResponse(BaseModel):
     status: str = "ok"
     emulator: str = "not_running"
-
-
-mcp_app: ASGIApp = mcp_server.streamable_http_app()
 
 
 class Launcher(Protocol):
@@ -92,6 +89,8 @@ def create_app(
         checkpoint_store=checkpoint_store,
     )
     rom_profile = select_rom_profile(settings.rom_path)
+    mcp_server = create_mcp_server()
+    mcp_app = MCPAuthorizationBoundary(mcp_server.streamable_http_app(), controller.authorization)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -135,6 +134,7 @@ def create_app(
                 yield
 
     application = FastAPI(title="AW2 Lab API", version="0.1.0", lifespan=lifespan)
+    application.state.mcp_server = mcp_server
     application.state.emulator_settings = settings
     application.state.emulator_launcher = emulator_launcher
     application.state.match_controller = controller

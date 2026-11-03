@@ -75,8 +75,6 @@ def test_app_rejects_unsupported_rom_before_emulator_start(
 
 @pytest.mark.anyio
 async def test_operator_file_wires_authorized_setup_recovery(tmp_path, monkeypatch):
-    from contextlib import asynccontextmanager
-    from types import SimpleNamespace
     from uuid import uuid4
 
     from pydantic import SecretStr
@@ -86,13 +84,6 @@ async def test_operator_file_wires_authorized_setup_recovery(tmp_path, monkeypat
 
     monkeypatch.setattr(api_app, "select_rom_profile", lambda _: AW2_US_REVISION_0)
 
-    @asynccontextmanager
-    async def session_manager():
-        yield
-
-    monkeypatch.setattr(
-        api_app, "mcp_server", SimpleNamespace(session_manager=SimpleNamespace(run=session_manager))
-    )
     secret = tmp_path / "operator-secret"
     secret.write_text("o" * 43 + "\n")
     secret.chmod(0o600)
@@ -119,18 +110,10 @@ async def test_operator_file_wires_authorized_setup_recovery(tmp_path, monkeypat
 
 @pytest.mark.anyio
 async def test_application_wires_runtime_to_its_launcher_bridge(tmp_path, monkeypatch):
-    from contextlib import asynccontextmanager
     from types import SimpleNamespace
 
     monkeypatch.setattr(api_app, "select_rom_profile", lambda _: AW2_US_REVISION_0)
 
-    @asynccontextmanager
-    async def sessions():
-        yield
-
-    monkeypatch.setattr(
-        api_app, "mcp_server", SimpleNamespace(session_manager=SimpleNamespace(run=sessions))
-    )
     launcher = FakeLauncher()
     launcher.bridge = SimpleNamespace()
     launcher.build_identity = "synthetic-mgba"

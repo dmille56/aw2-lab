@@ -448,7 +448,6 @@ def test_identical_native_checkpoint_and_inputs_match_between_frontends(tmp_path
 
 @pytest.mark.parametrize("mode", ["headless", "windowed"])
 def test_live_input_timeout_rollback_and_explicit_recovery(mode, tmp_path, monkeypatch):
-    from types import SimpleNamespace
 
     import uvicorn
 
@@ -458,15 +457,6 @@ def test_live_input_timeout_rollback_and_explicit_recovery(mode, tmp_path, monke
     assert rom.is_file()
     if mode == "windowed" and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
         pytest.skip("windowed acceptance requires a display")
-
-    @asynccontextmanager
-    async def sessions():
-        yield
-
-    # The independent MCP scaffold is not involved in this HTTP fault-injection test.
-    monkeypatch.setattr(
-        app_module, "mcp_server", SimpleNamespace(session_manager=SimpleNamespace(run=sessions))
-    )
 
     async def check():
         token = SecretStr(token_urlsafe(32))

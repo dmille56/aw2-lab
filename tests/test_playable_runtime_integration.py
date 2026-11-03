@@ -2,10 +2,8 @@
 
 import asyncio
 import os
-from contextlib import asynccontextmanager
 from pathlib import Path
 from secrets import token_urlsafe
-from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -38,14 +36,6 @@ def test_playable_runtime_start_turn_restore_and_continue(tmp_path, monkeypatch)
     ):
         pytest.skip("windowed mode requires a display")
 
-    # This check owns the runtime; the independent MCP scaffold is not under test.
-    @asynccontextmanager
-    async def sessions():
-        yield
-
-    monkeypatch.setattr(
-        app_module, "mcp_server", SimpleNamespace(session_manager=SimpleNamespace(run=sessions))
-    )
     secret = SecretStr(token_urlsafe(32))
     secret_file = tmp_path / "operator-token"
     secret_file.write_text(secret.get_secret_value())

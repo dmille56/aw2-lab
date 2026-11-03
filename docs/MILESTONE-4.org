@@ -41,18 +41,18 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
 
 * Authentication and server integration
 
-** TODO Enforce shared authorization at every MCP boundary
+** DONE Implement shared MCP authentication and authorization guards
    :PROPERTIES:
    :CUSTOM_ID: mcp-authorization
    :END:
-   - [ ] Carry forward [[file:MILESTONE-3.org][the Milestone 3 MCP authorization follow-up]]: map validated transport credentials to the existing operator/player principals. A connection/session ID, supplied player slot, or model argument grants no permission.
-   - [ ] Authenticate initialization and subsequent requests as required by the chosen transport; validate sessions and transport origin policy without trusting session possession as caller identity.
-   - [ ] Apply the existing permission table to tool calls, resource reads, cached receipts, checkpoint transfers, subscription registration, reconnect/replay where supported, and each notification delivery.
-   - [ ] Recheck ownership, current credentials, turn, and revision when queued execution begins through the shared services.
-   - [ ] Apply revocation and principal-generation changes to active sessions, resources, notifications, and pending waits; revoke old access without affecting another caller's subscriptions.
-   - [ ] Keep operator provisioning and invitation/claim flows consistent with HTTP. Prevent checkpoint restoration or restart from reviving revoked credentials.
-   - [ ] Redact credentials and authorization verifiers from tool schemas, results, error details, resource URIs, logs, and examples. Obtain bearer credentials from transport context rather than model-visible arguments; handle invitation secrets explicitly.
-   - [ ] Preserve loopback defaults and keep remote gameplay disabled until the selected SDK/host authentication mapping is implemented and verified. Public accounts and remote deployment remain outside this milestone.
+   Evidence and remaining integration rules: [[file:MCP-AUTHORIZATION.md][local MCP authorization]].
+   - [X] Map transport bearer credentials to existing operator/player principals; model arguments and session IDs grant no permissions.
+   - [X] Authenticate initialization and every session request; enforce loopback peer, Host/Origin policy, and credential/generation-bound session ownership.
+   - [X] Provide shared permission checks and guarded caller-specific SDK contexts for tools, resources, cached results, and pending operations; verify synthetic tool/resource boundaries through Streamable HTTP.
+   - [X] Recheck authorization on response delivery and wake pending transport/adapter work on revocation; release watchers without cancelling accepted controller commands.
+   - [X] Reuse existing operator provisioning, invitation/claim flows, and durable authorization generations; keep secrets out of model schemas and sanitized auth errors.
+   - [X] Keep remote MCP access disabled and retain the authenticated greeting until gameplay tools are implemented and verified.
+   - The [[file:MILESTONE-3.org][Milestone 3 MCP authorization follow-up]] remains open for actual gameplay/resource/subscription delivery. The final authorization task below preserves its per-operation acceptance checks.
 
 ** TODO Integrate the adapter with the existing application lifespan
    - [ ] Wire the mounted MCP server to the existing runtime/services and configured local API address; do not create another emulator, game-state store, mutation queue, or journal.
@@ -106,6 +106,13 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    - [ ] Demonstrate observe/act/receipt/completion flow, event-driven resource reads, reconnect/resynchronization, and the bounded-wait fallback without repeated polling.
    - [ ] Explain coordinates/paths, direct/indirect attack rules, turn changes, stale revisions, duplicate retries, client timeouts, rollback/recovery, checkpoints, screenshots, and debug opt-in.
    - [ ] Keep example strategies in the host/examples; the server and adapter provide no built-in strategy or model scheduling.
+
+** TODO Verify authorization on every delivered MCP operation
+   - [ ] Apply the shared permission table to production tool calls, resource reads, cached receipts, checkpoint transfers, subscription registration, reconnect/replay, and each notification delivery.
+   - [ ] Verify queued gameplay/debug/restore operations retain shared execution-time ownership, current credentials, turn, and revision checks through the SDK.
+   - [ ] Verify actual resources, notifications, and wait tools wake and clean up on revoke/reclaim, principal-generation changes, disconnect, close, and restart without affecting other callers.
+   - [ ] Verify MCP checkpoint restore/import/restart never revive revoked access, and redact secrets/verifiers from all new schemas, results, URIs, logs, and examples.
+   - [ ] Close the Milestone 3 MCP authorization follow-up only after the production operations and active subscriptions pass these checks.
 
 ** TODO Cover MCP behavior without a ROM
    - [ ] Exercise actual MCP initialization, tool/resource discovery, calls, reads, image delivery, and teardown over the mounted Streamable HTTP transport with controlled emulator observations.
