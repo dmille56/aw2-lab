@@ -8,8 +8,10 @@ local match, two trusted external players, one built-in Versus map, fixed COs,
 and fog disabled. Both armies use external control through the server. AW2
 remains authoritative for movement, combat, randomness, and victory.
 
-This checklist describes planned work. Existing emulator primitives and
-Milestone 2 decoding are prerequisites, not completed Milestone 3 integration.
+The fixed playable subset passed its acceptance audit on 2026-11-03; see
+[[#milestone-3-acceptance-audit][the acceptance section]] below for implementation, checks, and live evidence.
+Existing emulator primitives and Milestone 2 decoding are prerequisites;
+the evidence below covers their Milestone 3 integration.
 Mark tasks complete only after their implementation and relevant checks pass;
 record live evidence separately from synthetic checks. Keep ROMs, saves,
 screenshots, and machine-specific paths outside Git and the Nix store.
@@ -31,8 +33,8 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - Decision and evidence: [[file:CLIENT-ARCHITECTURE.md][ADR 001]] selects React/TypeScript/Vite with Tauri 2
      native shells. [[file:../prototypes/client/README.md][The packaged prototype]] passed native X11/headless-Wayland
      and browser HTTP checks against the real API. Graphics/input/scaling and
-     non-NixOS platforms retain explicit limits. Python SDK verification moved
-     to its implementation item below because that SDK does not exist yet.
+     non-NixOS platforms retain explicit limits. Python SDK verification is
+     complete under its implementation item and the live acceptance below.
    - This milestone includes architecture and compatibility prototypes. Full
      frontend implementation remains deferred; the initial playable clients
      are the Python SDK and two-client examples. NixOS compatibility must be
@@ -174,11 +176,12 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - Implementation: [[file:../src/aw2_lab/move_capture_executor.py][move_capture_executor.py]] preflights an active Infantry/Mech and a supported enemy/neutral city, HQ, or base; composes the action-menu Capture selector with movement; and verifies progress, ownership, used status, position, and identity. ROM-independent executor checks cover stationary capture, movement to a property, partial progress, completion, and rejection before input. Live cases are opt-in through [[file:../tests/test_move_capture_integration.py][test_move_capture_integration.py]]. The live run exposed and fixed Capture-menu decoding for ROM row ID 3 and the stale selected-unit coordinates left after movement; the decoder now checks the reached cursor tile.
    - Live verification (2026-10-30): Using the user's neutral-city sequence, headless and windowed runs moved Red Infantry identity `1` from (5,6) to neutral city (5,4) through (5,5). Capture points changed 0 → 15 while the city remained neutral, then 15 → 0 on the next Red turn as ownership changed to slot 1. Both returned used at a ready player-turn boundary with identity preserved. Using the user's HQ sequence, both modes then completed the final capture with Red Infantry identity `3` on Blue's HQ at (14,7). The result was `finished` / `victory_presentation`, with battle RAM and unit identities unavailable at the terminal boundary. ROM SHA-256 `ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`; neutral-city checkpoint hashes `50ed5387b475beff1446103757020987eef43e97495caa19b5ab1dcff3c6b2c8` and `39191ffe84bb63eb7e05baf95f6b4bf55448b5577c43e4e8d70c1fa5e9c4e98d`; HQ checkpoint hash `277dae7c947208489cb3a541285060707db9d9bec2eb8f8368fab6f88544c4d4`. Pinned headless/windowed build identities are `sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22` and `sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810`. Evidence is external under `/tmp/aw2-capture-user-sequence-fixed/`, `/tmp/aw2-capture-user-sequence-windowed/`, `/tmp/aw2-hq-capture-headless/`, and `/tmp/aw2-hq-capture-windowed/`. These user-supplied map checkpoints are not the fixed Bean Island configuration.
 
-** IN-PROGRESS Implement unit purchasing
+** DONE Implement unit purchasing
    - [X] Select an owned production property, choose the requested supported unit type, and confirm purchase for the researched base menu.
    - [X] Reject occupied bases, insufficient funds, unowned/non-base properties, and unit types absent from the researched base production list before input.
    - [X] Verify funds, new unit identity, position, and action status after purchase against a live emulator run.
    - Implementation: [[file:../src/aw2_lab/purchase_executor.py][purchase_executor.py]] preflights owned, empty bases and known unit costs, uses the typed production selector and bounded row navigation, and verifies the funds debit plus one new used unit at the base before committing. Current menu evidence covers the 11 base rows; port and airport production menus remain unsupported pending their own selector research.
+   - Acceptance scope: [[file:../tests/test_purchase_executor.py][executor checks]] cover successful purchase and pre-input rejection; [[file:LIVE-SDK-ACCEPTANCE.md][the two-mode live SDK runs]] verify Infantry/Tank purchases for both armies through HTTP, funds, new identities, and durable retry receipts. This completes the supported base-production subset; it does not verify every unit row live or enable port/airport purchases.
    - Live verification (2026-10-31): The real app/runtime started the fixed Bean Island match in headless mGBA and purchased an Infantry at Red's empty base (1,6). Revision 1 had 11,000 funds and no units; revision 2 had 10,000 funds and exactly one Infantry at (1,6), marked used. The new unit received identity `1` (bridge reference `1`), absent from the initial identity set. The command completed and the resulting boundary was published. ROM SHA-256 `ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`; mGBA build identity `sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22`. The run used isolated temporary storage; the initial and final state summaries are recorded here, and no ROM or save artifact was added to the repository.
 
 ** DONE Implement end turn and surrender
@@ -195,8 +198,8 @@ screenshots, and machine-specific paths outside Git and the Nix store.
 
 * HTTP API and Python clients
 
-** IN-PROGRESS Expose the match controller through the HTTP API
-   - [X] Draft the [[file:HTTP-API-DESIGN.md][HTTP API design]] before implementation, covering routes, authentication, retry semantics, coherent reads, SSE synchronization for both players, MCP integration, errors, and runtime integration gaps. The design remains proposed for review.
+** DONE Expose the match controller through the HTTP API
+   - [X] Draft the [[file:HTTP-API-DESIGN.md][HTTP API design]] before implementation, covering routes, authentication, retry semantics, coherent reads, SSE synchronization for both players, MCP integration, errors, and runtime integration gaps. [[file:HTTP-API.md][The implemented HTTP contract]] records available behavior; MCP integration remains Milestone 4 work.
    - Design scope: MCP application payloads share the HTTP game contract version independently of MCP protocol versioning. Internal AW2 CPU-controlled slots are documented as future work outside v1; v1 supports externally controlled human/agent slots only.
    - [X] Implement shared v1 configuration, principal, invitation/revocation, request/response models, bounded validation, and stable error mappings. =api_contract.py= and =api_validation.py= define the transport contract with explicit legacy-controller adapters; authentication enforcement, persistence, and routes remain below.
    - [X] Add [[file:HTTP-API.md][capabilities, create/join/inspect/close, structured state, screenshot, and command-status HTTP operations]]. Lifecycle routes include invitations, revocation, and queued Start. Boundary PNGs publish atomically with observations and regenerate on startup restore; reads use the authorized facade and never capture executing frames. ROM-independent HTTP checks cover roles, retries, redaction, bounds, state/image coherence, close, and revocation. Live HTTP acceptance remains below.
@@ -210,14 +213,13 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - Capture-limit contract: complete public configurations require =capture_limit=; only Off is advertised/executable, with valid numeric limits returning =unsupported_feature=. Legacy fixed-profile controller/checkpoint and ledger records omit this rule and translate explicitly to Off without changing storage. Tests cover all valid numeric limits, strict bounds/types, required-field errors and safe diagnostics, adapter round trips, and HTTP capabilities/creation/reload. No numeric capture-limit setting has been verified in mGBA.
    - The rule-contract follow-ups above are complete. Keep the verified executable profile at Clear weather, 30 days, and capture limit Off; valid but unsupported alternatives remain distinct from malformed values.
    - [X] Implement [[file:AUTHORIZATION.md][operator provisioning and durable authorization/setup services]] with retry-safe creation/invitations/claims/revocation, principal checks on shared reads, cached receipts and queued execution, revocation-aware waits, and operator-only checkpoint archive/restore access. Restore and startup use the independent ledger rather than checkpoint credential verifiers.
-   - [X] Wire [[file:PLAYABLE-RUNTIME.md][queued match Start and the playable runtime]] to the launcher bridge, current observation tracker, six gameplay executors, durable boundary checkpoints, and rollback/input-release providers. Start requires operator access and both claims, verifies actual fixed rules, and publishes its first boundary only after checkpoint commit. Headless app-service Start/EndTurn/Restore/continue passed on 2026-10-31; windowed composition remains live acceptance work.
-   - [ ] Enforce shared authorization at the HTTP, SSE, and MCP transport boundaries, including replay/live delivery and active subscriptions. HTTP/SSE use the shared service and revocation wakeups; MCP transport remains unimplemented.
-   - HTTP and SSE delivery now use the authorized facade, including live/replay generation checks and revocation wakeups. MCP transport enforcement remains deferred; the combined authorization item above stays open for that work.
+   - [X] Wire [[file:PLAYABLE-RUNTIME.md][queued match Start and the playable runtime]] to the launcher bridge, current observation tracker, six gameplay executors, durable boundary checkpoints, and rollback/input-release providers. Start requires operator access and both claims, verifies actual fixed rules, and publishes its first boundary only after checkpoint commit. Headless app-service Start/EndTurn/Restore/continue passed on 2026-10-31; full headless/windowed HTTP/SDK composition passed on 2026-11-03 in the acceptance runs below.
+   - [X] Enforce shared authorization at the HTTP and SSE transport boundaries, including replay/live delivery and active subscriptions. Both use the authorized facade, generation checks, and revocation wakeups. MCP authorization remains an explicit Milestone 4 follow-up below.
    - [X] Add authenticated SSE subscriptions backed by shared controller events, with ordered state/command publication, atomic initial snapshots, replay/resynchronization, and bounded subscriber buffers. Preserve the same event source for MCP resources; agent decision loops belong to their hosts.
    - SSE implementation: =match_events.py= owns typed full-state/command events, per-run cursors, 256-event/16-MiB replay and 128-event/8-MiB subscriber limits. Snapshot capture/registration is atomic under controller publication locking. Completed/rolled-back/recovery boundaries follow required persistence before state and terminal command events. The HTTP adapter adds bearer authentication, =Last-Event-ID= replay, resync snapshots, 15-second comment heartbeats, close/shutdown/disconnect cleanup, and no-store/proxy-buffering headers. ROM-independent tests cover incremental ASGI delivery, both slots/operator, replay limits/gaps, journal ordering, overflow, revocation and cleanup. Live emulator/two-client acceptance remains below; no MCP subscription support is advertised.
    - [X] Add initial gameplay and checkpoint operations with shared typed models.
    - Gameplay/checkpoint HTTP implementation: typed =commands=, checkpoint create/list/inspect, operator archive export/import and queued restore routes use shared authorization, command queue, and runtime services. ZIP import is bounded before decoding and uses a =Request-ID= header plus archive digest in durable ledger receipts; imports neither change CURRENT nor load the emulator. Safe reads omit verifiers/paths and retained archive reads need no active session; new imports require a compatible runtime identity, while create/restore require an initialized session. Tests exercise all six action adapters, roles, retries, stale/wrong-turn requests, restore after failed rollback, SSE ordering, revocation preservation, transfer limits/compatibility, namespace conflicts, and import receipts across operator restart. Live emulator/listening-server acceptance remains below.
-   - [X] Route clearly named debug input/frame/memory/reset operations through the shared queue, with operator startup opt-in, bounded work-RAM access, execution-time revision checks, and unavailable debug boundaries requiring explicit checkpoint restoration. Live debug verification remains pending.
+   - [X] Route clearly named debug input/frame/memory/reset operations through the shared queue, with operator startup opt-in, bounded work-RAM access, execution-time revision checks, and unavailable debug boundaries requiring explicit checkpoint restoration. [[file:LIVE-SDK-ACCEPTANCE.md][Live debug authorization and recovery]] passed in both modes.
    - [X] Define stable error responses for illegal/stale requests, unsupported features, unavailable observations, and recovery-required matches. The shared error envelope and HTTP mappings cover these cases; unknown failures are redacted as `internal_error`.
    - [X] Keep loopback binding as the default and keep client credentials out of diagnostics and tracked artifacts.
    - [X] Distinguish HTTP health, emulator/bridge readiness, and playable-match readiness through the operator-only `/v1/readiness` route; `/health` remains compatible.
@@ -260,14 +262,73 @@ screenshots, and machine-specific paths outside Git and the Nix store.
 
    - Live acceptance (2026-11-03): both real CLI/TCP/SSE runs passed the complete two-client scenario, including the three-row Fire/Capture/Wait menu, HQ capture, natural victory, surrender, checkpoint transfer/restore, restart/resume, and durable duplicate receipts. Live timeout rollback/recovery, debug authorization/recovery, shared-native-state parity, and save-RAM round trips passed in both modes. The save-RAM check compares the save-data payload embedded in mGBA checkpoints before and after the in-game Save and after restoring the checkpoint; it does not infer checkpoint contents from the isolated `.sav` seed file. Full pre-commit gate passed. See the linked evidence index.
 
-** TODO Confirm all Milestone 3 deliverables and acceptance criteria in [[file:PLAN.md][PLAN.md]]
-   - [ ] The client architecture decision covers all target platforms and records Nix/NixOS compatibility evidence and remaining native-toolchain requirements.
-   - [ ] Command queue, initial actions, checkpoint recovery, HTTP API, Python SDK, persistent journal, and two-client examples are implemented and documented.
-   - [ ] Two Python clients can start, play, finish, save, and resume a match in either emulator mode.
-   - [ ] Illegal or stale commands fail cleanly, and retries cannot duplicate actions.
-   - [ ] Unexpected menus and timeouts recover or explicitly stop the match.
-   - [ ] Restart restores the last committed checkpoint and reconciles unfinished commands safely.
-   - [ ] Link each acceptance claim to implementation, checks, and recorded live evidence; retain remaining limitations explicitly.
+** DONE Confirm all Milestone 3 deliverables and acceptance criteria in [[file:PLAN.md][PLAN.md]]
+   :PROPERTIES:
+   :CUSTOM_ID: milestone-3-acceptance-audit
+   :END:
+   - [X] The client architecture decision covers all target platforms and records Nix/NixOS compatibility evidence and remaining native-toolchain requirements.
+     [[file:CLIENT-ARCHITECTURE.md][ADR 001]] compares the stacks and covers web,
+     Linux/macOS/Windows desktop, Android, and iOS. Its platform matrix records
+     Nix/native toolchains, signing, distribution, and verification frequency.
+     [[file:../prototypes/client/README.md][The packaged prototype]] records NixOS x86_64 X11,
+     headless-Wayland, and Chromium HTTP evidence. SDK integration is now
+     verified under Nix. Other platforms and full frontend rendering/input
+     remain unverified; architecture acceptance does not claim their support.
+   - [X] Command queue, initial actions, checkpoint recovery, HTTP API, Python SDK, persistent journal, and two-client examples are implemented and documented.
+     [[file:../src/aw2_lab/match_controller.py][The controller]] serializes and journals commands;
+     [[file:../src/aw2_lab/playable_runtime.py][the runtime]] dispatches MoveWait, MoveAttack, MoveCapture,
+     Purchase, EndTurn, and Surrender through the input executors above.
+     [[file:PERSISTENCE.md][Persistence]] documents [[file:../src/aw2_lab/match_checkpoint.py][checkpoint/recovery services]],
+     [[file:../src/aw2_lab/checkpoint_store.py][artifact storage]], and [[file:../src/aw2_lab/command_journal.py][the durable journal]].
+     [[file:HTTP-API.md][HTTP]], [[file:HTTP-EVENTS.md][SSE]], and [[file:PYTHON-SDK.md][SDK]] guides cover their implemented
+     boundaries and [[file:../examples/manage_match.py][operator]] / [[file:../examples/player.py][separate player examples]].
+     [[file:ROM-INDEPENDENT-ACCEPTANCE.md][The regression audit]] maps these services to default tests;
+     [[file:LIVE-SDK-ACCEPTANCE.md][live acceptance]] exercises their actual CLI/TCP/emulator composition.
+   - [X] Two Python clients can start, play, finish, save, and resume a match in either emulator mode.
+     [[file:../tests/test_sdk_live_integration.py][The opt-in SDK checks]] use separate operator/Red/Blue clients
+     and actual listening CLI servers. Both modes passed cold boot, purchases,
+     move/wait, move/attack, partial/completed city capture, turn changes,
+     surrender, HQ victory, archive transfer/restore, and process restart.
+     [[file:LIVE-SDK-ACCEPTANCE.md][The live index]] records reproduction commands, supported ROM/build
+     identities, external artifact fingerprints, and result revisions.
+     [[file:../tests/test_frame_gate_integration.py][Save-RAM checks]] passed file/buffer round trips in both modes,
+     comparing checkpoint-embedded save data across an actual in-game Save.
+   - [X] Illegal or stale commands fail cleanly, and retries cannot duplicate actions.
+     [[file:../tests/test_coordination_acceptance.py][Coordination]], [[file:../tests/test_match_controller.py][queue]], [[file:../tests/test_authorized_match.py][authorization]], and
+     [[file:../tests/test_sdk.py][SDK checks]] cover concurrent duplicates, conflicting IDs, execution-time
+     stale revisions, wrong turns/owners, and identical network retries.
+     The two live modes reject illegal routes, stale/wrong-turn submissions,
+     preserve duplicate command IDs, and return the original purchase receipt
+     after restart. Client wait expiry leaves accepted work running.
+   - [X] Unexpected menus and timeouts recover or explicitly stop the match.
+     [[file:../tests/test_coordination_acceptance.py][Navigation checks]] exercise unknown menus, frame-budget expiry,
+     and a hung input watchdog; [[file:../tests/test_match_checkpoint.py][checkpoint checks]] cover release/rollback
+     failure and mutation blocking. Live controlled post-input timeout and
+     rollback-failure injection passed in both modes, restoring state/identities
+     at fresh revisions or requiring explicit operator restore. Unknown-menu
+     and watchdog cases remain synthetic; the live fault-injection checks do
+     not claim naturally occurring emulator failures or all-screen coverage.
+   - [X] Restart restores the last committed checkpoint and reconciles unfinished commands safely.
+     [[file:../src/aw2_lab/api/app.py][Application startup]], checkpoint recovery, and [[file:../src/aw2_lab/authorization.py][the independent ledger]]
+     restore CURRENT above durable revision floors without reviving revoked
+     slots. [[file:ROM-INDEPENDENT-ACCEPTANCE.md][Crash-boundary checks]] cover accepted/running work, committed
+     pointers without terminal records, interrupted close, corrupt artifacts,
+     and stable operator retry identity. Both live modes verify actual process
+     restart, unchanged game state/lifetime identities, fresh revisions, and
+     durable duplicate receipts. Crash windows are constructed in synthetic
+     tests; the live scenario uses an orderly process restart.
+   - [X] Link each acceptance claim to implementation, checks, and recorded live evidence; retain remaining limitations explicitly.
+     Accepted on 2026-11-03 for the fixed Bean Island/two-external-player,
+     fog-Off profile only. Stationary attacks use =move_attack= with an empty
+     path; indirect units cannot move then attack. Base production remains
+     limited to researched selectors, with live Infantry/Tank evidence.
+     Native checkpoint compatibility still requires the recorded ROM/build/mode;
+     the shared-native-state parity diagnostic does not promise cross-mode
+     public checkpoint portability. Unknown observations remain unavailable.
+     MCP gameplay, additional production menus, configurable rules, frontend
+     implementation, and other platform support remain outside this acceptance.
+     The repository gate is =nix develop -c pre-commit run --all-files=;
+     live runs remain opt-in as documented in [[file:VERIFICATION.md][the verification workflow]].
 
 * Deferred scope
 
@@ -283,6 +344,9 @@ screenshots, and machine-specific paths outside Git and the Nix store.
   competitive visibility filtering, custom maps, campaign, link-cable play,
   built-in strategy, legal-move enumeration, and forked rollouts remain outside
   the initial roadmap scope.
+
+** TODO Enforce shared authorization in the Milestone 4 MCP adapter
+   - [ ] Apply the existing shared authorization service to gameplay tools, resources, replay/live delivery, and active subscriptions. Cover operator/player roles, revocation wakeups, cached results, and reconnects; do not expose gameplay through the greeting scaffold before these checks pass.
 
 ** TODO Expand gameplay command coverage in Milestone 5
    - [ ] Add a distinct typed =attack= command for attacking without movement, including indirect units. Reuse the existing stationary =move_attack= behavior (=path: []=); preserve the rule that indirect units cannot move and attack in the same turn. Cover shared models, capabilities, executors, HTTP/SDK/MCP adapters as available, error/recovery tests, and live verification.

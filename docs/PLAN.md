@@ -180,6 +180,15 @@ Automate cold-boot menu navigation into the fixed two-player Versus configuratio
 
 **Acceptance criteria:** two Python clients can start, play, finish, save, and resume a match in either emulator mode. Illegal or stale commands fail cleanly; retries do not duplicate actions; unexpected menus and timeouts recover or explicitly stop the match. Restart restores the last committed checkpoint.
 
+**Status:** accepted on 2026-11-03 for the fixed Bean Island profile and researched
+base-production subset. The [Milestone 3 acceptance audit](MILESTONE-3.org#milestone-3-acceptance-audit)
+maps each deliverable and criterion to implementation, ROM-independent checks,
+and [recorded live evidence](LIVE-SDK-ACCEPTANCE.md) in both emulator modes.
+Stationary attacks use `move_attack` with an empty path; indirect units cannot
+move then attack. MCP gameplay and authorization remain Milestone 4 work;
+additional production menus, gameplay/configuration coverage, and full frontend
+implementation retain their documented scope limits.
+
 ### 4. MCP access
 
 **Dependencies:** usable Python SDK from milestone 3.

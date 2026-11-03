@@ -6,8 +6,10 @@ Synthetic executors and bridge implementations supply observations, failure
 conditions, and in-memory state buffers; actual HTTP routing, authorization,
 queue execution, checkpoint storage, journaling, and SDK serialization are used
 where described. This establishes software behavior under those inputs. Live
-navigation, frontend parity, two-player gameplay, and listening-server evidence
-remain separate Milestone 3 acceptance work.
+navigation, emulator-frontend parity, two-player gameplay, and listening-server
+evidence are recorded separately in [the live acceptance index](LIVE-SDK-ACCEPTANCE.md).
+The [completed Milestone 3 audit](MILESTONE-3.org#milestone-3-acceptance-audit)
+combines both evidence sets and retains their limits.
 
 ## Coverage and observable claims
 

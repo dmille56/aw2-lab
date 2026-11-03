@@ -67,8 +67,10 @@ or recognized terminal boundary prepares its own durable checkpoint commit.
 Failures after input use the pre-action checkpoint and advance revision during
 rollback; subsequent gameplay sees that replacement tracker. Finished checkpoints
 can be adopted on restart with unavailable battle RAM/unit identities, without
-reopening gameplay. Restoring an older playable checkpoint cannot reopen a
-finished or closed match. Authorization remains independent of emulator states.
+reopening gameplay. Automatic restart recovery cannot reopen a finished match
+from an older playable checkpoint. An explicit operator restore can resume a
+finished match from a compatible playable checkpoint; closed matches cannot be
+reopened. Authorization remains independent of emulator states.
 
 The application's checkpoint-service reference is updated when a new match starts.
 Recovery/input-release delegates resolve the current service, so closing a match
@@ -117,5 +119,7 @@ confirmed funds changed 11,000 → 10,000 and a newly identified used unit at
 (1,6). In both modes, a purchased Tank's turn reset and day 2 property income
 were observed before surrender reached `victory_presentation`. Actual resource
 resupply was also verified: the Tank spent 2 fuel moving to an owned base and
-regained it at Red's next turn. Windowed checkpoint restore/continue and
-failure-induced live rollback remain acceptance work.
+regained it at Red's next turn. The subsequent
+[live SDK acceptance](LIVE-SDK-ACCEPTANCE.md) passed checkpoint restore/continue,
+actual process restart, and controlled post-input timeout/rollback recovery in
+both modes on 2026-11-03.

@@ -154,7 +154,8 @@ Live failure diagnoses and corrections:
    It now admits this exact three-row signature for a capture-eligible unit.
    Wait/Fire/Capture navigation now checks each intermediate row instead of
    waiting for the final destination after the first button. Regression tests
-   cover all three actions and selector slots. Live replay remains pending.
+   cover all three actions and selector slots. The complete headless/windowed
+   replays on 2026-11-03 passed this route and continued through HQ victory.
 
 The final available focused checks passed: 228 decoding/navigation/combat tests,
 Ruff lint/format checks, and mypy. On 2026-11-03 the full two-mode playable

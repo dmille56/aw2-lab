@@ -1,8 +1,11 @@
 # HTTP API design proposal
 
-Status: proposed for review before implementation. This document specifies the
-Milestone 3 HTTP boundary; it does not describe routes already available. The
-current application exposes `/health` and mounts MCP at `/mcp`.
+Status: design reference for the implemented Milestone 3 HTTP boundary and
+future MCP integration. [HTTP API v1](HTTP-API.md) documents available routes;
+[the acceptance audit](MILESTONE-3.org#milestone-3-acceptance-audit) records
+verification. The `/mcp` greeting scaffold does not implement the gameplay,
+authorization, resources, or subscriptions proposed here; those remain
+Milestone 4 work.
 
 The API should let human and AI clients claim separate slots in one match,
 observe coherent states, submit actions, and recover through checkpoints.

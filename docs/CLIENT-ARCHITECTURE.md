@@ -54,7 +54,10 @@ Sources: [Electron](https://github.com/electron/electron),
 
 The public contract is defined in
 [MATCH-CONTRACT.md](MATCH-CONTRACT.md), with Pydantic models in
-`aw2_lab.match_contract`. Routes and controller behavior remain future work.
+`aw2_lab.match_contract`, with transport models in `aw2_lab.api_contract`.
+[HTTP API v1](HTTP-API.md) and [the Python SDK](PYTHON-SDK.md) now implement
+the Milestone 3 boundary. The following UI requirements guide future frontend work;
+implemented HTTP/SSE behavior is documented in those guides.
 Cross-client requirements are:
 
 - Pydantic models and FastAPI OpenAPI are the schema authority. Generate
@@ -128,7 +131,7 @@ response proves HTTP transport only; it does not prove gameplay or SDK support.
 | NixOS packaged native prototype | Passed on x86_64; see evidence below | Every client/runtime dependency change |
 | NixOS X11 and Wayland launch | Passed X11 and headless Weston Wayland; graphics/input caveats below | Every native runtime change; both before support acceptance |
 | NixOS browser to local API | Passed headless Chromium health request | Every client transport/API change |
-| Python SDK and two-client examples in Nix | Typed SDK, ROM-independent HTTP/streaming checks, and example CLI startup verified with Nix-provided Python; live two-player mGBA acceptance pending | Every SDK/API change |
+| Python SDK and two-client examples in Nix | Passed typed SDK, ROM-independent HTTP/streaming checks, and example CLI startup with Nix-provided Python; live CLI/TCP/SSE two-player acceptance passed headless/windowed on 2026-11-03 | Every SDK/API change |
 | Linux aarch64 runtime | Unverified | Before claiming support and on release candidates |
 | macOS / Windows native | Unverified | Before claiming support and on release candidates |
 | Android / iOS | Unverified | Before claiming support and on release candidates |
@@ -142,9 +145,11 @@ real FastAPI application; label any ROM-independent launcher stub as such.
 The NixOS package/runtime/browser gates have passed for this small prototype.
 React is selected for the eventual gameplay UI; its build and runtime checks
 will be added when the frontend is implemented.
-Python SDK implementation and ROM-independent checks are documented in [PYTHON-SDK.md](PYTHON-SDK.md); live client acceptance remains tracked
-under that implementation item. Other platforms remain planned until their own
-evidence exists.
+Python SDK implementation and ROM-independent checks are documented in
+[PYTHON-SDK.md](PYTHON-SDK.md). [Live client acceptance](LIVE-SDK-ACCEPTANCE.md)
+passed in both emulator modes, completing the deferred Nix SDK integration gate.
+This does not verify the future UI clients. Other platforms remain planned until
+their own evidence exists.
 
 ### Recorded NixOS prototype evidence
 
@@ -191,14 +196,15 @@ commit `516957fe05b6a206c97ee8c20130696fc76d0339`.
 
 Reproduction commands and prototype limits are in
 [the prototype README](../prototypes/client/README.md). The successful HTTP checks
-do not verify gameplay, credentials, screenshots, the future SDK, native mobile
+do not verify gameplay, credentials, screenshots, the SDK, native mobile
 shells, or the complete browser compatibility matrix.
 
 ## Follow-up implementation order
 
-1. Define the fixed match/public contract using these client constraints.
-2. Implement the Milestone 3 controller, HTTP API, Python SDK, and examples.
-   Verify the SDK under Nix as its deferred architecture integration check.
+1. Complete: fixed match/public contract using these client constraints.
+2. Complete: Milestone 3 controller, HTTP API, Python SDK, and examples,
+   including the deferred SDK integration check under Nix. See
+   [the acceptance audit](MILESTONE-3.org#milestone-3-acceptance-audit).
 3. Introduce locked React/TypeScript/Vite dependencies, generated schema types and
    platform transport adapters when frontend implementation begins.
 4. Check actual rendering, controls and scaling on NixOS desktops, including the

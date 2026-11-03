@@ -98,5 +98,7 @@ Live two-client/headless/windowed evidence remains in the Milestone 3 checklist.
 [The live SDK acceptance guide](LIVE-SDK-ACCEPTANCE.md) documents real CLI/TCP/SSE
 headless/windowed scenarios, process restart, fault injection, debug operations,
 shared-native-state parity, save-RAM restoration, external evidence fingerprints,
-and current failures/pending checks. These tests are opt-in and do not require
-a ROM in the default suite. The live milestone remains in progress.
+and recorded results and limitations. These tests are opt-in and do not require
+a ROM in the default suite. The fixed playable subset passed in both modes;
+[the Milestone 3 acceptance audit](MILESTONE-3.org#milestone-3-acceptance-audit)
+maps the full acceptance criteria and deferred scope.
