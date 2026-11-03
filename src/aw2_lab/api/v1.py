@@ -6,14 +6,15 @@ import json
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, FastAPI, Query, Request, Response
+from fastapi import APIRouter, Depends, FastAPI, Header, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import SecretStr
+from pydantic import SecretStr, TypeAdapter
 from starlette.exceptions import HTTPException
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from aw2_lab.api.event_stream import MatchEventResponse
 from aw2_lab.api_contract import (
     MAX_JSON_BYTES,
     CapabilitiesResponse,
@@ -54,6 +55,7 @@ from aw2_lab.match_contract import (
     PlayerSlot,
 )
 from aw2_lab.match_controller import CommandRejected, MatchControllerError
+from aw2_lab.match_events import MatchEvent
 from aw2_lab.ui_state import PRODUCTION_CHOICES
 
 
@@ -210,6 +212,7 @@ async def capabilities(request: Request) -> CapabilitiesResponse:
             "state",
             "observation",
             "command_status",
+            "events",
         )
     ]
     operations.extend(
@@ -246,7 +249,7 @@ async def capabilities(request: Request) -> CapabilitiesResponse:
             )
         ),
         production_unit_types=tuple(UNIT_PROFILES[kind].name for kind in PRODUCTION_CHOICES),
-        http_sse=feature("http_sse", False, False, "SSE is not implemented"),
+        http_sse=feature("http_sse", True, configured, "Operator provisioning is required"),
         mcp_subscriptions=feature(
             "mcp_subscriptions", False, False, "MCP subscriptions are not implemented"
         ),
@@ -270,6 +273,32 @@ async def list_matches(matches: Service, caller: Caller) -> MatchListResponse:
 @router.get("/matches/{match_id}", response_model=MatchSummary)
 async def inspect_match(match_id: UUID, matches: Service, caller: Caller) -> MatchSummary:
     return await matches.inspect(caller, match_id)
+
+
+@router.get(
+    "/matches/{match_id}/events",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "content": {
+                "text/event-stream": {
+                    "schema": {
+                        "type": "string",
+                        "x-event-schema": TypeAdapter(MatchEvent).json_schema(),
+                    }
+                }
+            }
+        }
+    },
+)
+async def events(
+    match_id: UUID,
+    matches: Service,
+    caller: Caller,
+    last_event_id: Annotated[str | None, Header(max_length=128)] = None,
+) -> MatchEventResponse:
+    subscription = await matches.subscribe_events(caller, match_id, cursor=last_event_id)
+    return MatchEventResponse(subscription)
 
 
 @router.post(

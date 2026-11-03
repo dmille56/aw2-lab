@@ -34,7 +34,40 @@ from aw2_lab.match_contract import (
     PlayerSlot,
 )
 from aw2_lab.match_controller import BoundaryScreenshot, MatchController
+from aw2_lab.match_events import EventMessage, EventSubscription
 from aw2_lab.match_observation import MatchObservation
+
+
+class AuthorizedEventSubscription:
+    """Recheck before every live/replay delivery, including heartbeat wakeups."""
+
+    def __init__(
+        self,
+        subscription: EventSubscription,
+        authorization: AuthorizationService,
+        principal: Principal,
+        match_id: UUID,
+    ) -> None:
+        self._subscription = subscription
+        self._authorization = authorization
+        self._principal = principal
+        self._match_id = match_id
+        self._unwatch = authorization.watch(principal, subscription.close)
+
+    async def next(self, *, timeout: float = 15) -> EventMessage:
+        self._authorization.authorize(self._principal, Permission.READ, self._match_id)
+        try:
+            async with asyncio.timeout(timeout):
+                result = await self._subscription.next()
+        except TimeoutError:
+            self._authorization.authorize(self._principal, Permission.READ, self._match_id)
+            raise
+        self._authorization.authorize(self._principal, Permission.READ, self._match_id)
+        return result
+
+    def close(self) -> None:
+        self._unwatch()
+        self._subscription.close()
 
 
 class AuthorizedMatchService:
@@ -103,6 +136,20 @@ class AuthorizedMatchService:
         result = await self.controller.current_observation(match_id)
         self.authorization.authorize(principal, Permission.READ, match_id)
         return result
+
+    async def subscribe_events(
+        self, principal: Principal, match_id: UUID, *, cursor: str | None = None
+    ) -> AuthorizedEventSubscription:
+        self.authorization.authorize(principal, Permission.READ, match_id)
+        subscription = await self.controller.subscribe_events(match_id, cursor=cursor)
+        try:
+            # watch() revalidates access after the await while registering the wakeup.
+            return AuthorizedEventSubscription(
+                subscription, self.authorization, principal, match_id
+            )
+        except BaseException:
+            subscription.close()
+            raise
 
     async def screenshot(
         self, principal: Principal, match_id: UUID, *, revision: int | None = None

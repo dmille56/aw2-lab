@@ -1,10 +1,10 @@
 # HTTP API v1
 
-The implemented lifecycle and read routes use the shared authorization service
+The implemented lifecycle, read, and SSE routes use the shared authorization service
 and match controller. `/health` retains its existing public payload. The public
 `GET /v1/capabilities` describes the verified configuration, implemented routes,
 runtime availability, production units, and limits. Gameplay submission,
-checkpoints, readiness, SSE, debug routes, and MCP gameplay remain planned;
+checkpoints, readiness, debug routes, and MCP gameplay remain planned;
 capabilities report those HTTP operations unavailable.
 
 Start the normal server with your local ROM and the operator file described in
@@ -33,10 +33,14 @@ invitation request fields, and never in URLs.
 | `GET /v1/matches/{match}/observation` | Operator or that match's player | 200, `{contract_version, observation}` |
 | `GET /v1/matches/{match}/screenshot` | Operator or that match's player | 200, PNG |
 | `GET /v1/matches/{match}/commands/{command}` | Operator or that match's player | 200, command result |
+| `GET /v1/matches/{match}/events` | Operator or that match's player | 200, SSE stream |
 
 Both player slots can inspect their own match during either turn. Closing keeps
 their retained read access; revocation invalidates it immediately, including
 cached screenshots and command results. Operator credentials cannot play a slot.
+
+See [match events over SSE](HTTP-EVENTS.md) for event envelopes, reconnect/replay,
+resynchronization, buffer limits, revocation, and a streaming client example.
 
 Creation accepts an omitted configuration or the complete verified profile from
 capabilities. Select a complete entry from `configuration_profiles` using

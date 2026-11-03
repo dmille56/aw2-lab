@@ -152,6 +152,9 @@ def main() -> None:
         application,
         host=args.host,
         port=args.port,
+        # Bound HTTP draining so persistent SSE connections cannot delay lifespan
+        # shutdown indefinitely. Controller.stop still drains accepted commands.
+        timeout_graceful_shutdown=5,
     )
 
 

@@ -329,7 +329,8 @@ async def test_capabilities_are_public_and_match_access_requires_provisioning(
         document = caps.json()
         assert document["supported_game_contract_versions"] == [1]
         assert document["supported_control_modes"] == ["external"]
-        assert document["http_sse"]["implemented"] is False
+        assert document["http_sse"]["implemented"] is True
+        assert document["http_sse"]["available"] is False
         assert not any(
             feature["available"] for feature in document["operations"] + document["actions"]
         )

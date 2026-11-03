@@ -23,7 +23,8 @@ source. Length validation cannot prove randomness. Python's
 uses 32 bytes of randomness; comparisons use `hmac.compare_digest`.
 
 The [HTTP lifecycle and read routes](HTTP-API.md) use this shared service layer.
-SDK calls, SSE streams, and MCP gameplay tools remain planned. Without an operator file, no
+Authenticated SSE uses the same facade. SDK calls and MCP gameplay tools remain planned.
+Without an operator file, no
 `AuthorizedMatchService` is installed. An existing authorization ledger requires
 the operator file on subsequent startup; omitting it cannot enable legacy
 checkpoint authentication.
@@ -95,8 +96,10 @@ finish; its resulting state preserves the ledger's current revoked-slot metadata
 
 The facade's command wait registers a revocation wakeup and rechecks before
 returning a result. Revocation ends that wait without cancelling the accepted
-action. Future SSE/MCP delivery must also recheck permissions for every live and
-replayed event and use the same wakeup facility; those transports are still TODO.
+action. SSE registers that same wakeup, drops pending data when revoked, and
+rechecks permissions for each live/replayed event and heartbeat. Disconnect,
+overflow, close, and shutdown release subscription resources. MCP delivery must
+use these shared checks when its transport is implemented.
 
 A setup restart restores claims/invitations and stays in setup until explicit
 start. Playable recovery requires a compatible checkpoint and current ledger.

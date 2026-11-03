@@ -756,9 +756,11 @@ Queued startup, runtime dispatch, durable boundary checkpoints, and shared-sessi
 recovery are now wired; see [runtime verification](PLAYABLE-RUNTIME.md). The cash
 rule is correctly named `income_per_property`; startup explicitly configures 30 days
 and Clear instead of accepting the old OFF/Random defaults. Boundary screenshots
-and lifecycle/read routers are implemented in [HTTP-API.md](HTTP-API.md). Event
-publication, gameplay/checkpoint/debug HTTP routes, and SSE/MCP delivery
-enforcement remain later work.
+and lifecycle/read routers are implemented in [HTTP-API.md](HTTP-API.md). Shared
+event publication and authenticated SSE now implement atomic snapshots, bounded
+replay/resynchronization, state-before-terminal-command ordering, and revocation
+enforcement. A replay larger than the subscriber buffer receives a resynchronizing
+snapshot. Gameplay/checkpoint/debug HTTP routes and MCP delivery remain later work.
 The game contract version remains independent of MCP protocol negotiation; these
 services do not enable remote MCP gameplay.
 

@@ -22,6 +22,8 @@ from aw2_lab.api_contract import (
     JoinSlotRequest,
     Principal,
     SlotAuthorization,
+    StateResponse,
+    summary_from_controller,
 )
 from aw2_lab.authorization import AuthorizationError, AuthorizationService, Permission
 from aw2_lab.checkpoint import CheckpointError
@@ -48,6 +50,7 @@ from aw2_lab.match_contract import (
     PlayerSlotState,
     SlotStatus,
 )
+from aw2_lab.match_events import EventSubscription, MatchEventPublisher
 from aw2_lab.match_observation import (
     ActionReadiness,
     MatchObservation,
@@ -186,6 +189,7 @@ class MatchController:
         input_release_provider: InputReleaseProvider | None = None,
         checkpoint_store: CheckpointStore | None = None,
         screenshot_provider: ScreenshotProvider | None = None,
+        event_publisher: MatchEventPublisher | None = None,
         queue_capacity: int = 64,
         command_capacity: int = 4096,
         shutdown_timeout: float = 30.0,
@@ -204,6 +208,7 @@ class MatchController:
         self._input_release_provider = input_release_provider
         self._checkpoint_store = checkpoint_store
         self._screenshot_provider = screenshot_provider
+        self.events = event_publisher or MatchEventPublisher()
         self._queue: asyncio.Queue[_CommandRecord | None] = asyncio.Queue(queue_capacity)
         self._command_capacity = command_capacity
         self._shutdown_timeout = shutdown_timeout
@@ -475,6 +480,7 @@ class MatchController:
             self._accepting = False
             worker = self._worker
             self._stopped = True
+            self.events.shutdown()
         if worker is None:
             return
 
@@ -517,6 +523,7 @@ class MatchController:
                 summary = self.authorization.create_match(principal, request)
                 if summary.match_id not in self._matches:
                     self._matches[summary.match_id] = _MatchRecord(summary)
+                    self._publish_state(self._matches[summary.match_id])
                 return self._matches[summary.match_id].summary
             if any(
                 record.summary.lifecycle is not MatchLifecycle.CLOSED
@@ -538,6 +545,7 @@ class MatchController:
                 created_at=datetime.now(UTC),
             )
             self._matches[match_id] = _MatchRecord(summary)
+            self._publish_state(self._matches[match_id])
             return summary
 
     async def adopt_recovered_match(
@@ -609,6 +617,7 @@ class MatchController:
                 for current in record.summary.slots
             )
             record.summary = record.summary.model_copy(update={"slots": slots})
+            self._publish_state(record)
             return JoinSlotResponse(match=record.summary, player_slot=slot, credential=token)
 
     def configure_runtime(
@@ -711,6 +720,42 @@ class MatchController:
         async with self._state_lock:
             record = self._require_match(match_id)
             return MatchStateSnapshot(self._summary(record), record.observation)
+
+    def _event_state(self, record: _MatchRecord) -> StateResponse:
+        summary = self._summary(record)
+        return StateResponse(
+            summary=summary_from_controller(summary),
+            settled=summary.lifecycle is not MatchLifecycle.EXECUTING,
+            observation=record.observation,
+        )
+
+    def _publish_state(self, record: _MatchRecord) -> None:
+        try:
+            self.events.state_changed(self._event_state(record))
+        except AuthorizationError:
+            # Failed authorization persistence must also fail existing delivery closed.
+            self.events.close_match(record.summary.match_id)
+
+    def _publish_command(self, record: _CommandRecord) -> None:
+        result = record.result or CommandResult(
+            command_id=record.receipt.command_id,
+            request_id=record.receipt.request_id,
+            match_id=record.receipt.match_id,
+            status=record.receipt.status,
+            accepted_revision=record.receipt.accepted_revision,
+        )
+        self.events.command_changed(result)
+
+    async def subscribe_events(
+        self, match_id: UUID, *, cursor: str | None = None
+    ) -> EventSubscription:
+        async with self._state_lock:
+            if self._stopped:
+                raise MatchControllerError(
+                    ErrorCode.SERVER_SHUTTING_DOWN, "Server is shutting down"
+                )
+            record = self._require_match(match_id)
+            return self.events.subscribe(self._event_state(record), cursor=cursor)
 
     async def current_screenshot(
         self, match_id: UUID, *, revision: int | None = None
@@ -980,6 +1025,7 @@ class MatchController:
                             record.expected_revision,
                         )
                     await self._append_journal(record, JournalEvent.RUNNING, CommandStatus.RUNNING)
+                    self._publish_command(record)
                     if record.request is not None:
                         await self._execute_gameplay(record)
                     else:
@@ -1117,6 +1163,7 @@ class MatchController:
                 raise MatchControllerError(ErrorCode.NOT_YOUR_TURN, "It is not this player's turn")
             match.summary = summary.model_copy(update={"lifecycle": MatchLifecycle.EXECUTING})
             record.previous_lifecycle = summary.lifecycle
+            self._publish_state(match)
 
         if self._executor is None:
             raise CommandRejected(
@@ -1178,6 +1225,7 @@ class MatchController:
                 record.previous_lifecycle = lifecycle
                 if record.operation_name == "start_match" and self.authorization is not None:
                     self.authorization.record_boundary(self._summary(match))
+                self._publish_state(match)
 
         outcome = await handler()
         if record.mutates_emulator and outcome.observation is None:
@@ -1279,6 +1327,7 @@ class MatchController:
                 resulting_revision=current_revision,
                 error=outcome.error,
                 checkpoint_id=outcome.checkpoint_id,
+                publish=False,
             )
             if not persisted:
                 release_error = await self._release_held_inputs()
@@ -1289,11 +1338,17 @@ class MatchController:
                     record.result = record.result.model_copy(
                         update={"error": _combine_errors(record.result.error, release_error)}
                     )
+                self._publish_state(match)
+                self._publish_command(record)
                 return
             if outcome.observation is not None:
                 match.observation = outcome.observation
                 match.screenshot = screenshot
             match.summary = next_summary
+            self._publish_state(match)
+            self._publish_command(record)
+            if lifecycle is MatchLifecycle.CLOSED:
+                self.events.finish_match(match.summary.match_id)
 
     async def _require_recovery(
         self,
@@ -1406,6 +1461,7 @@ class MatchController:
         resulting_revision: int | None = None,
         error: ErrorBody | None = None,
         checkpoint_id: UUID | None = None,
+        publish: bool = True,
     ) -> bool:
         if record.result is not None:
             return True
@@ -1449,6 +1505,11 @@ class MatchController:
         )
         record.receipt = record.receipt.model_copy(update={"status": status})
         record.result = result
+        if publish:
+            match = self._matches.get(record.receipt.match_id)
+            if match is not None:
+                self._publish_state(match)
+            self._publish_command(record)
         record.completed.set()
         return persisted
 
@@ -1544,6 +1605,7 @@ class MatchController:
                 details=_diagnostic_details(error.body),
             ) from error
         self._enqueue(record)
+        self._publish_command(record)
 
     async def _append_journal(
         self,
@@ -1693,7 +1755,9 @@ class MatchController:
         async with self._state_lock:
             self._require_match(match_id)
             self._require_metadata_request_id(request.request_id)
-            return self.authorization.issue_invitation(principal, match_id, slot, request)
+            result = self.authorization.issue_invitation(principal, match_id, slot, request)
+            self._publish_state(self._require_match(match_id))
+            return result
 
     async def claim_slot(
         self, match_id: UUID, slot: PlayerSlot, credential: SecretStr, request: JoinSlotRequest
@@ -1707,6 +1771,7 @@ class MatchController:
             self._require_metadata_request_id(request.request_id)
             principal = self.authorization.claim_slot(match_id, slot, credential, request)
             record.summary = self._summary(record)
+            self._publish_state(record)
             return principal
 
     async def revoke_slot(
@@ -1722,6 +1787,7 @@ class MatchController:
             self._require_metadata_request_id(request_id)
             result = self.authorization.revoke_slot(principal, match_id, slot, request_id)
             record.summary = self._summary(record)
+            self._publish_state(record)
             return result
 
     def _require_metadata_request_id(self, request_id: UUID) -> None:
