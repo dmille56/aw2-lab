@@ -238,12 +238,14 @@ screenshots, and machine-specific paths outside Git and the Nix store.
 
 * Verification and acceptance
 
-** TODO Cover coordination, persistence, and HTTP/SDK behavior without a ROM
-   - [ ] Check concurrent submissions, execution-time stale revisions, wrong player/turn, duplicate requests, and conflicting request-ID reuse.
-   - [ ] Check action success, illegal actions, unknown menus, bounded timeouts, rollback, and rollback failure using controlled emulator observations.
-   - [ ] Check identity continuity/replacement, checkpoint metadata round trips, compatibility rejection, and revision changes.
-   - [ ] Exercise restart at journal/checkpoint commit boundaries, including unfinished commands, corrupt artifacts, and deduplication after restart.
-   - [ ] Cover HTTP serialization, error mapping, ownership, SDK retries, and completion polling through the public boundary.
+** DONE Cover coordination, persistence, and HTTP/SDK behavior without a ROM
+   - [X] Check concurrent submissions, execution-time stale revisions, wrong player/turn, duplicate requests, and conflicting request-ID reuse.
+   - [X] Check action success, illegal actions, unknown menus, bounded timeouts, rollback, and rollback failure using controlled emulator observations.
+   - [X] Check identity continuity/replacement, checkpoint metadata round trips, compatibility rejection, and revision changes.
+   - [X] Exercise restart at journal/checkpoint commit boundaries, including unfinished commands, corrupt artifacts, and deduplication after restart.
+   - [X] Cover HTTP serialization, error mapping, ownership, SDK retries, and completion polling through the public boundary.
+
+   - Acceptance audit: [[file:ROM-INDEPENDENT-ACCEPTANCE.md][ROM-independent verification]] maps each requirement to existing and new regression checks. Added concurrent SDK acceptance/stale-revision checks, explicit unknown-menu/frame/watchdog bounds, journal corruption and append-failure checks, and startup recovery after CURRENT commit before terminal journaling. Full live emulator and listening-server acceptance remain below.
 
 ** TODO Verify the playable slice in headless and windowed modes
    - [ ] Keep live checks opt-in with local ROM/artifact configuration; default checks remain ROM-independent.

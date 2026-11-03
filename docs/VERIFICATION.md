@@ -85,3 +85,10 @@ other explicitly listed fields unresolved or deferred. The opt-in automated
 emulator test is a bridge/frame-gate check; it does not automatically reproduce
 the game-specific lifecycle and parity comparisons, whose evidence is recorded
 separately.
+
+## Milestone 3 ROM-independent acceptance
+
+[The acceptance audit](ROM-INDEPENDENT-ACCEPTANCE.md) maps coordination,
+persistence crash boundaries, HTTP/SDK behavior, and navigation failure checks
+to regression tests. These run without a ROM in the standard pre-commit gate.
+Live two-client/headless/windowed evidence remains in the Milestone 3 checklist.
