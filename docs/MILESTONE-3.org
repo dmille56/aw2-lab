@@ -223,16 +223,18 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - [X] Distinguish HTTP health, emulator/bridge readiness, and playable-match readiness through the operator-only `/v1/readiness` route; `/health` remains compatible.
    - [X] Document implemented routes, schemas, errors, readiness, and examples without requiring clients to know Lua or mGBA details.
 
-** TODO Provide the Python SDK and two-client examples
-   - [ ] Follow the client architecture decision and keep the HTTP contract usable by the planned web, desktop, and mobile clients.
-   - [ ] Wrap capabilities, match lifecycle, observations, actions, command polling, and checkpoints with typed Python methods.
-   - [ ] Provide typed event subscriptions with reconnect/resynchronization so either player can follow state and command completion without repeated polling.
-   - [ ] Offer wait-for-completion helpers with bounded timeouts and structured failure results.
-   - [ ] Preserve request IDs across network retries and distinguish a client wait timeout from server command failure.
-   - [ ] Provide two scripts or interactive-session examples that join separate slots and take turns in the same match.
-   - [ ] Demonstrate starting, playing, finishing, saving, and resuming through the public API.
-   - [ ] Keep strategy and legal-move enumeration outside the SDK's initial scope.
-   - [ ] Verify the Python SDK and two-client examples in the Nix environment, completing the deferred client architecture integration check.
+** DONE Provide the Python SDK and two-client examples
+   - [X] Follow the client architecture decision and keep the HTTP contract usable by the planned web, desktop, and mobile clients.
+   - [X] Wrap capabilities, match lifecycle, observations, actions, command polling, and checkpoints with typed Python methods.
+   - [X] Provide typed event subscriptions with reconnect/resynchronization so either player can follow state and command completion without repeated polling.
+   - [X] Offer wait-for-completion helpers with bounded timeouts and structured failure results.
+   - [X] Preserve request IDs across network retries and distinguish a client wait timeout from server command failure.
+   - [X] Provide two scripts or interactive-session examples that join separate slots and take turns in the same match.
+   - [X] Demonstrate starting, playing, finishing, saving, and resuming through the public API.
+   - [X] Keep strategy and legal-move enumeration outside the SDK's initial scope.
+   - [X] Verify the Python SDK and two-client examples in the Nix environment, completing the deferred client architecture integration check.
+
+   - Implementation: [[file:../src/aw2_lab/sdk.py][AsyncAW2Client]] provides typed HTTP methods, bounded retry-safe submissions, SSE reconnect/resynchronization, completion/turn waits, and structured errors. [[file:PYTHON-SDK.md][The SDK guide]] documents credential ownership, uncertain submissions, cursor handling, and [[file:../examples/manage_match.py][operator]] / [[file:../examples/player.py][two-player sessions]]. Nix-provided Python checks exercise real HTTP handlers with synthetic runtime/checkpoints, controlled streaming reconnect/timeout cases, and example CLI startup. Full live two-player headless/windowed and listening-server evidence remains in acceptance below.
 
 * Verification and acceptance
 

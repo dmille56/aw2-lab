@@ -128,7 +128,7 @@ response proves HTTP transport only; it does not prove gameplay or SDK support.
 | NixOS packaged native prototype | Passed on x86_64; see evidence below | Every client/runtime dependency change |
 | NixOS X11 and Wayland launch | Passed X11 and headless Weston Wayland; graphics/input caveats below | Every native runtime change; both before support acceptance |
 | NixOS browser to local API | Passed headless Chromium health request | Every client transport/API change |
-| Python SDK and two-client examples in Nix | Pending implementation | Every SDK/API change |
+| Python SDK and two-client examples in Nix | Typed SDK, ROM-independent HTTP/streaming checks, and example CLI startup verified with Nix-provided Python; live two-player mGBA acceptance pending | Every SDK/API change |
 | Linux aarch64 runtime | Unverified | Before claiming support and on release candidates |
 | macOS / Windows native | Unverified | Before claiming support and on release candidates |
 | Android / iOS | Unverified | Before claiming support and on release candidates |
@@ -142,7 +142,7 @@ real FastAPI application; label any ROM-independent launcher stub as such.
 The NixOS package/runtime/browser gates have passed for this small prototype.
 React is selected for the eventual gameplay UI; its build and runtime checks
 will be added when the frontend is implemented.
-Python SDK checks remain dependent on the SDK implementation and are tracked
+Python SDK implementation and ROM-independent checks are documented in [PYTHON-SDK.md](PYTHON-SDK.md); live client acceptance remains tracked
 under that implementation item. Other platforms remain planned until their own
 evidence exists.
 

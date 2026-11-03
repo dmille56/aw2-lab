@@ -59,8 +59,8 @@ Controller shutdown closes streams. The CLI bounds HTTP graceful shutdown to
 five seconds before lifespan cleanup so idle SSE connections cannot keep the
 server alive indefinitely; external ASGI runners should also bound their drain.
 
-For a single connection with a private player token file (reconnect handling will
-also be provided by the planned SDK):
+For a single connection with a private player token file (automatic reconnect and bounded completion/turn waits are
+provided by [the Python SDK](PYTHON-SDK.md)):
 
 ```python
 import json

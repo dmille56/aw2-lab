@@ -231,3 +231,6 @@ a playable boundary and execute on the queue without changing revisions.
 Every successful debug mutation publishes a new revision with unavailable
 battle data and identities, and ends as `recovery_required`. Restore a prior
 checkpoint before gameplay resumes. Debug is disabled by default.
+
+Use [the typed Python SDK and two-player examples](PYTHON-SDK.md) for async
+HTTP methods, SSE subscriptions, retry-safe commands, and checkpoint workflows.
