@@ -267,6 +267,7 @@ def test_unit_movement_overlay_exposes_verified_source_cursor(memory) -> None:
     [
         ((0, 0x0A), MenuItem.FIRE),
         ((2, 0x0A), MenuItem.CAPTURE),
+        ((0, 2, 0x0A), MenuItem.FIRE),
         ((4, 0x0A), MenuItem.OTHER_UNIT_ACTION),
         ((0x0A, 0x0B), MenuItem.WAIT),
         ((0x0A,), MenuItem.WAIT),
@@ -351,13 +352,17 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
 
 @pytest.mark.parametrize("progress", range(9))
 @pytest.mark.parametrize("stale_rows", [(6, 2), (2, 0), (255, 255)])
-def test_fire_target_mode_requires_initialized_cursor(memory, progress, stale_rows) -> None:
+@pytest.mark.parametrize("cursor_slot", [0, 1, 2])
+def test_fire_target_mode_requires_initialized_cursor(
+    memory, progress, stale_rows, cursor_slot
+) -> None:
     _, ewram, iwram = memory
+    offset = cursor_slot * 0x60
     pack_into("<I", ewram, 0xD610, 0x0849A9F8)
     pack_into("<I", iwram, 0x40D8, 0x02022690)
-    pack_into("<I", iwram, 0x1470, 0x08499B4C)
-    pack_into("<I", iwram, 0x1490, progress)
-    iwram[0x14B1], iwram[0x14B2] = stale_rows
+    pack_into("<I", iwram, 0x1470 + offset, 0x08499B4C)
+    pack_into("<I", iwram, 0x1490 + offset, progress)
+    iwram[0x14B1 + offset], iwram[0x14B2 + offset] = stale_rows
     iwram[0x30F0] = 1
     pack_into("<H", iwram, 0x3334, 4)
     pack_into("<HH", iwram, 0x33E4, 0, 1)
@@ -781,3 +786,23 @@ def test_capture_checks_frame_again_after_the_last_read(memory) -> None:
     bridge.final_drift = True
     with pytest.raises(BridgeError, match="changed frames"):
         asyncio.run(capture_battle_snapshot(bridge, memory[0]))
+
+
+def test_fire_target_mode_rejects_ambiguous_initialized_cursor_slots(memory):
+    _, ewram, iwram = memory
+    pack_into("<I", ewram, 0xD610, 0x0849A9F8)
+    pack_into("<I", iwram, 0x1470, 0x08499B4C)
+    pack_into("<H", iwram, 0x1490, 8)
+    iwram[0x30F0] = 1
+    pack_into("<H", iwram, 0x3334, 4)
+    current = snapshot(memory)
+    assert (
+        observe_menu(current, validate_battle_snapshot(current)).family is MenuFamily.UNIT_TARGETING
+    )
+    pack_into("<I", iwram, 0x1470 + 0x60, 0x08499B4C)
+    pack_into("<H", iwram, 0x1490 + 0x60, 8)
+    current = snapshot(memory)
+    assert (
+        observe_menu(current, validate_battle_snapshot(current)).family
+        is not MenuFamily.UNIT_TARGETING
+    )

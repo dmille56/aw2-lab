@@ -503,7 +503,7 @@ def _observe_unit_action_choices(
     selected = _observe_selected_unit(snapshot)
     count = snapshot.read(SELECTOR_ROW_COUNT + offset, 1)[0]
     row = snapshot.read(SELECTOR_SELECTED_ROW + offset, 1)[0]
-    ids = tuple(snapshot.read(SELECTOR_ITEM_IDS + offset, count)) if count in (1, 2) else ()
+    ids = tuple(snapshot.read(SELECTOR_ITEM_IDS + offset, count)) if count in (1, 2, 3) else ()
     if (
         selected is None
         or len(ids) != count
@@ -515,6 +515,9 @@ def _observe_unit_action_choices(
     if not _menu_rules_allow_dispatch(snapshot):
         return None
     capture_eligible = _selected_unit_can_capture(snapshot, selected)
+    # Verified live when an Infantry can both fire and capture its destination.
+    if count == 3 and (ids != (0, 2, 0x0A) or not capture_eligible):
+        return None
     items = tuple(
         MenuItem.WAIT
         if item_id == 0x0A
@@ -563,8 +566,14 @@ def _is_fire_targeting(snapshot: BattleMemorySnapshot, validation: BattleValidat
         validation.lifecycle.phase is LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
         and validation.lifecycle.engine is LifecycleEngine.BATTLE
         and FIRE_TARGETING_SCRIPT in validation.lifecycle.active_process_scripts
-        and snapshot.u32(SELECTOR_OBJECT) == UNIT_MOVEMENT_SELECTOR
-        and snapshot.u16(CURSOR_GRAPHICS_PROGRESS) == 8
+        # Fire's cursor graphics process can occupy slot 1 after movement;
+        # slot 0 was empty in the live Bean Island Tank attack trace.
+        and sum(
+            snapshot.u32(SELECTOR_OBJECT + index * SELECTOR_STRIDE) == UNIT_MOVEMENT_SELECTOR
+            and snapshot.u16(CURSOR_GRAPHICS_PROGRESS + index * SELECTOR_STRIDE) == 8
+            for index in range(SELECTOR_COUNT)
+        )
+        == 1
         and snapshot.u16(CONTROLLER_STATE) == 13
         and snapshot.read(CONTROLLER_LOCK, 1)[0] == 1
         and snapshot.u16(0x03003334) == 4

@@ -499,21 +499,26 @@ def test_movement_overlay_checks_route_tiles_before_confirming(
             def __init__(self) -> None:
                 self.state = initial
                 self.keys: list[int] = []
+                self.neutral_since_input = 8
 
             async def observe(self) -> GameState:
                 return self.state
 
             async def press_keys(self, keys: int, frames: int) -> int:
                 self.keys.append(keys)
-                if keys == 16 and movement_tile_allowed:
+                if keys == 16 and movement_tile_allowed and self.neutral_since_input >= 8:
                     self._update(frames, cursor=(1, 0))
+                elif keys == 128 and movement_tile_allowed and self.neutral_since_input >= 8:
+                    self._update(frames, cursor=(1, 1))
                 elif keys == 1:
                     self._update(frames, menu=MenuFamily.UNIT_ACTION_CHOICES)
                 else:
                     self._update(frames)
+                self.neutral_since_input = 0
                 return self.state.frame
 
             async def advance_frames(self, frames: int) -> int:
+                self.neutral_since_input += frames
                 self._update(frames)
                 return self.state.frame
 
@@ -548,20 +553,102 @@ def test_movement_overlay_checks_route_tiles_before_confirming(
         navigator = ActionNavigator(
             bridge,
             bridge.observe,
-            NavigationLimits(frame_budget=10, poll_frames=1, wall_timeout=1),
+            NavigationLimits(frame_budget=32, poll_frames=1, wall_timeout=1),
         )
         unit_identity = (1, 1, 1, selected.record_address)
         if movement_tile_allowed:
             result = await navigator.move_selected_unit_along_path(
-                ((1, 0),), unit=unit_identity, width=2, height=2
+                ((1, 0), (1, 1)), unit=unit_identity, width=2, height=2
             )
             assert result.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
-            assert bridge.keys == [16, 1]
+            assert bridge.keys == [16, 128, 1]
         else:
             with pytest.raises(NavigationError, match="Timed out waiting"):
                 await navigator.move_selected_unit_along_path(
-                    ((1, 0),), unit=unit_identity, width=2, height=2
+                    ((1, 0), (1, 1)), unit=unit_identity, width=2, height=2
                 )
             assert 1 not in bridge.keys
 
     asyncio.run(run())
+
+
+@pytest.mark.parametrize(
+    ("action", "initial_row", "expected_keys"),
+    [
+        (MenuItem.WAIT, 0, [128, 128, 1]),
+        (MenuItem.FIRE, 2, [64, 64, 1]),
+        (MenuItem.CAPTURE, 0, [128, 1]),
+    ],
+)
+def test_three_row_unit_actions_verify_intermediate_selection(
+    memory, action, initial_row, expected_keys
+):
+    async def check():
+        state = decode_snapshot(snapshot(memory))
+        selected = SelectedUnitObservation(0x02022690, 1, 1, 1, 1, 1)
+        rows = (MenuItem.FIRE, MenuItem.CAPTURE, MenuItem.WAIT)
+        state = replace(
+            state,
+            ui=replace(
+                state.ui,
+                menu=MenuObservation(
+                    state.frame,
+                    MenuFamily.UNIT_ACTION_CHOICES,
+                    selected,
+                    selected_item=rows[initial_row],
+                    actionable=True,
+                    items=rows,
+                ),
+            ),
+        )
+        keys_seen = []
+
+        class Bridge:
+            async def advance_frames(self, frames):
+                nonlocal state
+                frame = state.frame + frames
+                state = replace(
+                    state,
+                    frame=frame,
+                    validation=replace(state.validation, frame=frame),
+                    ui=replace(
+                        state.ui,
+                        frame=frame,
+                        menu=replace(state.ui.menu, frame=frame),
+                        map_cursor=replace(state.ui.map_cursor, frame=frame),
+                    ),
+                )
+                return frame
+
+            async def press_keys(self, keys, frames):
+                nonlocal state
+                keys_seen.append(keys)
+                menu = state.ui.menu
+                if keys == 1:
+                    assert menu.selected_item is action
+                    family = (
+                        MenuFamily.UNIT_TARGETING
+                        if action is MenuItem.FIRE
+                        else MenuFamily.MAP_INPUT
+                    )
+                    menu = MenuObservation(
+                        state.frame, family, selected if action is MenuItem.FIRE else None
+                    )
+                else:
+                    index = rows.index(menu.selected_item) + (1 if keys == 128 else -1)
+                    menu = replace(menu, selected_item=rows[index])
+                state = replace(state, ui=replace(state.ui, menu=menu))
+                return await self.advance_frames(frames)
+
+        async def observe():
+            return state
+
+        navigator = ActionNavigator(Bridge(), observe)
+        await {
+            MenuItem.WAIT: navigator.choose_wait,
+            MenuItem.FIRE: navigator.choose_fire,
+            MenuItem.CAPTURE: navigator.choose_capture,
+        }[action]()
+        assert keys_seen == expected_keys
+
+    asyncio.run(check())

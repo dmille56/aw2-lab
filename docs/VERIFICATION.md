@@ -92,3 +92,11 @@ separately.
 persistence crash boundaries, HTTP/SDK behavior, and navigation failure checks
 to regression tests. These run without a ROM in the standard pre-commit gate.
 Live two-client/headless/windowed evidence remains in the Milestone 3 checklist.
+
+## Live two-client SDK acceptance
+
+[The live SDK acceptance guide](LIVE-SDK-ACCEPTANCE.md) documents real CLI/TCP/SSE
+headless/windowed scenarios, process restart, fault injection, debug operations,
+shared-native-state parity, save-RAM restoration, external evidence fingerprints,
+and current failures/pending checks. These tests are opt-in and do not require
+a ROM in the default suite. The live milestone remains in progress.

@@ -36,7 +36,10 @@ _TERMINAL_PHASES = frozenset(
 
 @dataclass(frozen=True, slots=True)
 class NavigationLimits:
-    """Hard limits for one navigation operation."""
+    """Hard limits for one navigation operation, including input release frames.
+
+    Movement route steps use at least eight release frames to rearm the overlay.
+    """
 
     frame_budget: int = 180
     poll_frames: int = 10
@@ -475,7 +478,10 @@ class ActionNavigator:
                     if dy == 1
                     else ("up", _KEY_UP)
                 )
-                await self._tap(f"move-{name}", key)
+                # The movement overlay can expose the new cursor before it will
+                # sample another direction. Consecutive moves across properties
+                # lost a one-frame edge with only two neutral frames in live AW2.
+                await self._tap(f"move-{name}", key, minimum_gap=8)
 
                 def moved(
                     value: GameState,
@@ -521,6 +527,30 @@ class ActionNavigator:
                 description="the selected unit's recognized action choices",
             )
 
+    async def _navigate_unit_action(self, item: MenuItem, state: GameState) -> GameState:
+        """Verify every intermediate row in the observed unit-action selector."""
+        menu = state.ui.menu
+        rows = menu.items
+        if menu.selected_item not in rows or item not in rows:
+            raise await self._fail("Requested unit action is not in the current selector", state)
+        current, target = rows.index(menu.selected_item), rows.index(item)
+        step = 1 if target > current else -1
+        key, name = (_KEY_DOWN, "down") if step > 0 else (_KEY_UP, "up")
+        for index in range(current + step, target + step, step):
+            expected = rows[index]
+            await self._tap(f"{item.value}-menu-{name}", key)
+
+            def selected(value: GameState, expected: MenuItem = expected) -> bool:
+                return (
+                    value.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
+                    and value.ui.menu.items == rows
+                    and value.ui.menu.selected_item is expected
+                    and value.ui.menu.selected_unit == menu.selected_unit
+                )
+
+            state = await self._wait_for(selected, description=f"unit action row {expected.value}")
+        return state
+
     async def choose_wait(self) -> GameState:
         """Choose the explicitly recognized Wait row and require a settled player turn."""
         async with self._bounded_operation():
@@ -534,19 +564,7 @@ class ActionNavigator:
                 or not menu.actionable
             ):
                 raise await self._fail("Wait requires a recognized unit action selector", state)
-            delta = menu.items.index(MenuItem.WAIT) - menu.items.index(menu.selected_item)
-            if delta:
-                key, name = (_KEY_DOWN, "down") if delta > 0 else (_KEY_UP, "up")
-                for _ in range(abs(delta)):
-                    await self._tap(f"wait-menu-{name}", key)
-                    state = await self._wait_for(
-                        lambda value: (
-                            value.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
-                            and value.ui.menu.selected_item is MenuItem.WAIT
-                            and value.ui.menu.selected_unit == menu.selected_unit
-                        ),
-                        description="Wait selected in the action menu",
-                    )
+            state = await self._navigate_unit_action(MenuItem.WAIT, state)
             await self._tap("confirm-wait", _KEY_A)
             return await self._wait_for(
                 lambda value: (
@@ -570,19 +588,7 @@ class ActionNavigator:
                 or not menu.actionable
             ):
                 raise await self._fail("Capture requires a recognized unit action selector", state)
-            delta = menu.items.index(MenuItem.CAPTURE) - menu.items.index(menu.selected_item)
-            if delta:
-                key, name = (_KEY_DOWN, "down") if delta > 0 else (_KEY_UP, "up")
-                for _ in range(abs(delta)):
-                    await self._tap(f"capture-menu-{name}", key)
-                    state = await self._wait_for(
-                        lambda value: (
-                            value.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
-                            and value.ui.menu.selected_item is MenuItem.CAPTURE
-                            and value.ui.menu.selected_unit == menu.selected_unit
-                        ),
-                        description="Capture selected in the action menu",
-                    )
+            state = await self._navigate_unit_action(MenuItem.CAPTURE, state)
             await self._tap("confirm-capture", _KEY_A)
             terminal_phases = {
                 LifecyclePhase.RESULT_SEQUENCE,
@@ -618,19 +624,7 @@ class ActionNavigator:
                 or not menu.actionable
             ):
                 raise await self._fail("Fire requires a recognized unit action selector", state)
-            delta = menu.items.index(MenuItem.FIRE) - menu.items.index(menu.selected_item)
-            if delta:
-                key, name = (_KEY_DOWN, "down") if delta > 0 else (_KEY_UP, "up")
-                for _ in range(abs(delta)):
-                    await self._tap(f"fire-menu-{name}", key)
-                    state = await self._wait_for(
-                        lambda value: (
-                            value.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
-                            and value.ui.menu.selected_item is MenuItem.FIRE
-                            and value.ui.menu.selected_unit == menu.selected_unit
-                        ),
-                        description="Fire selected in the action menu",
-                    )
+            state = await self._navigate_unit_action(MenuItem.FIRE, state)
             await self._tap("confirm-fire", _KEY_A)
             return await self._wait_for(
                 lambda value: (
@@ -855,11 +849,11 @@ class ActionNavigator:
         self._last_state = state
         return state
 
-    async def _tap(self, name: str, keys: int) -> None:
+    async def _tap(self, name: str, keys: int, *, minimum_gap: int = 0) -> None:
         count = self.limits.input_frames
         # Let cursor changes and new selectors settle before dispatching A.
         # Sampling release also makes consecutive button presses distinct.
-        gap = self.limits.input_gap_frames
+        gap = max(self.limits.input_gap_frames, minimum_gap)
         if self._frames_used + gap + count > self.limits.frame_budget:
             state = await self._observe()
             raise await self._fail("Navigation frame budget exhausted", state)

@@ -204,14 +204,15 @@ def test_frame_gate_stays_idle_and_executes_exact_budgets(
     asyncio.run(check())
 
 
+@pytest.mark.parametrize("mode", [EmulatorMode.HEADLESS, EmulatorMode.WINDOWED])
 @pytest.mark.parametrize("storage", ["file", "buffer"])
 def test_checkpoint_restores_in_game_save_data(
     storage: str,
+    mode: EmulatorMode,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Verify checkpoint save-data restoration from a local in-mission state."""
-    mode = EmulatorMode.WINDOWED
     rom = Path(os.environ.get("AW2_ROM_PATH", ""))
     default_state_path = (
         Path(__file__).parent / "fixtures" / "save_states" / "aw2-in-game-save-test.ss1"
@@ -225,7 +226,9 @@ def test_checkpoint_restores_in_game_save_data(
             "set AW2_TEST_SAVE_STATE_PATH and AW2_TEST_SAVE_PATH to a matching local "
             "in-mission state and cartridge save"
         )
-    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+    if mode is EmulatorMode.WINDOWED and not (
+        os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")
+    ):
         pytest.skip("windowed mode requires a display")
     executable = os.environ.get(
         f"AW2_TEST_MGBA_{mode.name}",
