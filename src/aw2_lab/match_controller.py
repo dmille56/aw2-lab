@@ -244,6 +244,30 @@ class MatchController:
         )
 
     @property
+    def queue_accepting(self) -> bool:
+        """Whether the serialized command worker currently accepts work."""
+        return self._accepting and not self._stopped and not self._journal_failed
+
+    async def readiness_state(self) -> tuple[MatchSummary | None, str]:
+        """Return the active match and its recovery/execution readiness state."""
+        async with self._state_lock:
+            active = next(
+                (
+                    record.summary
+                    for record in self._matches.values()
+                    if record.summary.lifecycle is not MatchLifecycle.CLOSED
+                ),
+                None,
+            )
+            if active is not None and active.lifecycle is MatchLifecycle.EXECUTING:
+                recovery = "in_progress"
+            elif active is not None and active.lifecycle is MatchLifecycle.RECOVERY_REQUIRED:
+                recovery = "required"
+            else:
+                recovery = "not_required"
+            return active, recovery
+
+    @property
     def screenshots_configured(self) -> bool:
         return self._screenshot_provider is not None
 

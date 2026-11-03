@@ -33,6 +33,8 @@ from aw2_lab.api_contract import (
     MatchSummary,
     ObservationResponse,
     Principal,
+    ReadinessResponse,
+    ReadinessState,
     RestoreCheckpointRequest,
     RevokeSlotRequest,
     SlotAuthorization,
@@ -46,7 +48,7 @@ from aw2_lab.api_validation import (
     map_error,
     validation_issues,
 )
-from aw2_lab.authorization import AuthorizationError
+from aw2_lab.authorization import AuthorizationError, Permission
 from aw2_lab.authorized_match import AuthorizedMatchService
 from aw2_lab.aw2_unit_profiles import UNIT_PROFILES
 from aw2_lab.checkpoint import CheckpointError
@@ -289,10 +291,8 @@ async def capabilities(request: Request) -> CapabilitiesResponse:
             "A configured playable runtime is required",
         )
     )
-    operations.extend(
-        feature(name, False, False, "HTTP operation is not implemented")
-        for name in ("readiness", "debug")
-    )
+    operations.append(feature("readiness", True, configured, "Operator provisioning is required"))
+    operations.append(feature("debug", False, False, "Debug HTTP operations are not implemented"))
     return CapabilitiesResponse(
         operations=tuple(operations),
         actions=tuple(
@@ -315,6 +315,47 @@ async def capabilities(request: Request) -> CapabilitiesResponse:
         http_sse=feature("http_sse", True, configured, "Operator provisioning is required"),
         mcp_subscriptions=feature(
             "mcp_subscriptions", False, False, "MCP subscriptions are not implemented"
+        ),
+    )
+
+
+@router.get("/readiness", response_model=ReadinessResponse, tags=["system"])
+async def readiness(
+    request: Request,
+    authorization: Annotated[str | None, Header()] = None,
+) -> ReadinessResponse:
+    """Report independent server, emulator, queue, and match readiness."""
+    matches = request.app.state.authorized_matches
+    if not isinstance(matches, AuthorizedMatchService):
+        raise AuthorizationError(
+            ErrorCode.RUNTIME_UNAVAILABLE, "Operator provisioning is required for readiness"
+        )
+    scheme, _, raw_token = (authorization or "").partition(" ")
+    if scheme.lower() != "bearer" or not 32 <= len(raw_token) <= 128:
+        raise AuthorizationError(ErrorCode.INVALID_CREDENTIAL, "A bearer credential is required")
+    caller = matches.authenticate(SecretStr(raw_token))
+    matches.authorization.authorize(caller, Permission.ADMIN)
+    launcher = request.app.state.emulator_launcher
+    controller = request.app.state.match_controller
+    running = bool(launcher.is_running)
+    runtime = request.app.state.playable_runtime
+    bridge_state = (
+        ReadinessState.READY
+        if running and runtime is not None
+        else ReadinessState.UNAVAILABLE
+        if running
+        else ReadinessState.NOT_CONFIGURED
+    )
+    summary, recovery = await controller.readiness_state()
+    return ReadinessResponse(
+        emulator=ReadinessState.READY if running else ReadinessState.UNAVAILABLE,
+        bridge=bridge_state,
+        queue=ReadinessState.READY if controller.queue_accepting else ReadinessState.UNAVAILABLE,
+        recovery=recovery,
+        match_id=summary.match_id if summary else None,
+        match_lifecycle=summary.lifecycle if summary else None,
+        match_ready=bool(
+            summary and summary.lifecycle.value == "playable" and controller.runtime_available
         ),
     )
 

@@ -340,6 +340,29 @@ async def test_capabilities_are_public_and_match_access_requires_provisioning(
 
 
 @run_async_test
+async def test_readiness_is_operator_only_and_does_not_claim_playable_match(tmp_path, monkeypatch):
+    auth = AuthorizationService(tmp_path / "auth.json", token("o"))
+    controller = MatchController(authorization=auth)
+    app = application(controller, tmp_path, monkeypatch)
+    async with client_for(app) as client:
+        denied = await client.get("/v1/readiness")
+        response = await client.get("/v1/readiness", headers=headers())
+        assert denied.status_code == 401
+        assert response.status_code == 200, response.text
+        assert response.json() == {
+            "contract_version": 1,
+            "http": "ready",
+            "emulator": "unavailable",
+            "bridge": "not_configured",
+            "queue": "unavailable",
+            "recovery": "not_required",
+            "match_id": None,
+            "match_lifecycle": None,
+            "match_ready": False,
+        }
+
+
+@run_async_test
 async def test_http_start_queues_the_shared_runtime(memory, tmp_path, monkeypatch):
     runtime, public, match_id, _, _ = await runtime_setup(memory, tmp_path)
     app = application(public.controller, tmp_path, monkeypatch)

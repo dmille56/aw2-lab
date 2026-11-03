@@ -680,12 +680,10 @@ redact credentials and server paths.
 | `503` | Server stopping, unavailable configured storage/journal, or required runtime service unavailable |
 | `500` | Unexpected internal failure |
 
-Add `checkpoint_not_found` to the error enum for consistent checkpoint lookup.
-An archive found on disk but failing integrity checks is `checkpoint_corrupt`,
-not not-found. Runtime service absence needs a distinct `runtime_unavailable`
-code. Add `permission_denied` and `invalid_invitation` for the authorization
-cases above; revoked credentials use `invalid_credential`. These are proposed
-additive error codes to document in the shared contract.
+The shared v1 error enum includes `checkpoint_not_found`,
+`runtime_unavailable`, `permission_denied`, and `invalid_invitation`. An archive
+found on disk but failing integrity checks is `checkpoint_corrupt`, not
+not-found; revoked credentials use `invalid_credential`.
 
 Bound ordinary JSON request bodies to 64 KiB, movement paths to 4,096 coordinates,
 and display names to 1–80 trimmed characters. OpenAPI and capabilities expose
@@ -697,6 +695,9 @@ and current match lifecycle/readiness. No frame advancement is used to probe it.
 A responsive server with no match is healthy. Readiness is informational and
 returns `200`; operation endpoints return the appropriate unavailable error when
 their prerequisites are missing. Keep the existing `/health` payload compatible.
+The implemented operator-only `GET /v1/readiness` endpoint reports process,
+configured-runtime attachment, queue acceptance, recovery, and match readiness.
+It does not issue a bridge probe while a command may own emulator execution.
 
 Capabilities distinguish `implemented`, `available` for this server run, and
 verification scope. Advertise the fixed configuration, supported operation/action

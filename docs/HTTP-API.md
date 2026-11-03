@@ -3,9 +3,10 @@
 The implemented lifecycle, read, and SSE routes use the shared authorization service
 and match controller. `/health` retains its existing public payload. The public
 `GET /v1/capabilities` describes the verified configuration, implemented routes,
-runtime availability, production units, and limits. Gameplay submission and
-checkpoint operations use the shared queue and services. Readiness, debug routes,
-and MCP gameplay remain planned and are reported unavailable.
+runtime availability, production units, and limits. `GET /v1/readiness` reports
+server and match readiness to the operator. Gameplay submission and checkpoint
+operations use the shared queue and services. Debug routes and MCP gameplay are
+not implemented and are reported unavailable.
 
 Start the normal server with your local ROM and the operator file described in
 [AUTHORIZATION.md](AUTHORIZATION.md). With no operator file configured, match
@@ -22,6 +23,7 @@ invitation request fields, and never in URLs.
 | Route | Permission | Success |
 | --- | --- | --- |
 | `GET /v1/capabilities` | Public | 200, capabilities |
+| `GET /v1/readiness` | Operator | 200, independent server/runtime/match readiness |
 | `POST /v1/matches` | Operator | 201, summary and `Location` |
 | `GET /v1/matches` | Operator | 200, match list |
 | `GET /v1/matches/{match}` | Operator or that match's player | 200, summary |
@@ -191,6 +193,15 @@ return 404, state/revision conflicts 409, oversized bodies 413, non-JSON media
 unavailable services return 503. Unexpected failures return a generic 500.
 Validation responses omit submitted values, secret fields' contents, and local
 server paths.
+
+Readiness requires the operator bearer credential. It does not advance frames
+or probe the bridge while a command may be running. `emulator` reports process
+availability; `bridge` reports whether a configured runtime is attached to the
+running emulator; `queue` reports whether commands can be accepted. `recovery`
+is `in_progress` while a command executes, `required` for a recovery-required
+match, and `not_required` otherwise. `match_ready` is true only for an active
+playable match with the runtime configured. A responsive server with no match
+still returns 200 with `match_ready: false`.
 
 ROM-independent HTTP checks cover setup retries, invitation claims, role and
 revocation boundaries, Start dispatch, close/status reads, request bounds,
