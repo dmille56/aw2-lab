@@ -7,7 +7,7 @@ local bridge = {
     protocol_version = 1,
     capabilities = {
         "connect", "set_keys", "press_keys", "advance_frames", "read_memory",
-        "read_memory_batch", "screenshot", "reset", "save_state", "load_state",
+        "write_memory", "read_memory_batch", "screenshot", "reset", "save_state", "load_state",
         "save_state_buffer", "load_state_buffer",
     },
     max_message_bytes = 4718592,
@@ -127,6 +127,26 @@ function bridge.handle_request(request)
             ok = true,
             result = {deferred = true},
         }
+    end
+
+    if request.operation == "write_memory" then
+        local address, bytes = request.address, request.bytes
+        if type(address) ~= "number" or address % 1 ~= 0
+            or type(bytes) ~= "table" or #bytes < 1 or #bytes > 256 then
+            return error_response(request_id, "invalid_request", "invalid memory write")
+        end
+        local last = address + #bytes
+        if not ((address >= 0x02000000 and last <= 0x02040000)
+            or (address >= 0x03000000 and last <= 0x03008000)) then
+            return error_response(request_id, "invalid_request", "write requires work RAM")
+        end
+        for _, value in ipairs(bytes) do
+            if type(value) ~= "number" or value % 1 ~= 0 or value < 0 or value > 255 then
+                return error_response(request_id, "invalid_request", "invalid byte")
+            end
+        end
+        for index, value in ipairs(bytes) do emu:write8(address + index - 1, value) end
+        return {id = request_id, ok = true, result = {written = #bytes}}
     end
 
     if request.operation == "read_memory" then

@@ -100,6 +100,9 @@ def main() -> None:
         metavar="PATH",
         help="private operator credential file (default: AW2_OPERATOR_SECRET_FILE)",
     )
+    parser.add_argument(
+        "--enable-debug-api", action="store_true", help="enable operator debug operations"
+    )
     args = parser.parse_args()
 
     if not args.rom:
@@ -144,6 +147,7 @@ def main() -> None:
             settings=settings,
             storage_root=storage_root,
             operator_secret_file=args.operator_secret_file,
+            debug_enabled=args.enable_debug_api,
         )
     except (UnsupportedRomError, AuthorizationError) as error:
         parser.error(str(error))

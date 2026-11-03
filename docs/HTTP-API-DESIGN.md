@@ -653,10 +653,11 @@ do not change the revision. No request may bypass queue ownership to reach Lua.
 
 Debug mutations must publish a newer observation, even when reset or a memory
 write leaves battle data unavailable. Such an observation records unavailable
-identity/readiness and requires restore before gameplay resumes. This needs an
-explicit tracker/controller path for unavailable debug boundaries; the current
-playable and terminal commit methods cannot supply it. Never invent a playable
-state to satisfy the existing executor interface.
+identity/readiness and requires restore before gameplay resumes. The implemented debug adapter publishes this unavailable boundary through the
+controller, invalidates the tracker, and leaves the prior checkpoint available
+for explicit restoration. Work-RAM access is restricted to EWRAM and IWRAM.
+Memory reads require a playable boundary and verify its frame on the serialized
+lane. Live debug verification remains pending.
 
 ## Errors, limits, and readiness
 
@@ -763,7 +764,7 @@ replay/resynchronization, state-before-terminal-command ordering, and revocation
 enforcement. A replay larger than the subscriber buffer receives a resynchronizing
 snapshot. Gameplay and checkpoint HTTP routes now use the shared queue and
 authorization facade, with safe checkpoint reads, bounded ZIP transfer, and
-digest-based durable import receipts. Debug HTTP routes and MCP delivery remain
+digest-based durable import receipts. Debug HTTP routes are implemented behind operator startup opt-in; MCP delivery remains
 later work. See [gameplay/checkpoint operations](HTTP-CHECKPOINTS.md).
 The game contract version remains independent of MCP protocol negotiation; these
 services do not enable remote MCP gameplay.

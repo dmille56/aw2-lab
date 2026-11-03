@@ -301,6 +301,10 @@ class CapabilitiesResponse(ContractModel):
     production_unit_types: tuple[str, ...] = ()
     http_sse: FeatureAvailability
     mcp_subscriptions: FeatureAvailability
+    debug_memory_regions: tuple[tuple[int, int], ...] = (
+        (0x02000000, 0x02040000),
+        (0x03000000, 0x03008000),
+    )
     debug_enabled: bool = False
     limits: ApiLimits = ApiLimits()
 

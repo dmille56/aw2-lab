@@ -58,6 +58,7 @@ def create_app(
     match_controller: MatchController | None = None,
     storage_root: Path | None = None,
     operator_secret_file: Path | None = None,
+    debug_enabled: bool = False,
 ) -> FastAPI:
     """Create the API application and configure its emulator process."""
     emulator_launcher = launcher or EmulatorLauncher(settings, isolate_saves=True)
@@ -79,7 +80,9 @@ def create_app(
             "An operator credential file is required for this authorization ledger",
         )
     authorization = (
-        AuthorizationService(ledger_path, load_operator_secret(operator_secret_file))
+        AuthorizationService(
+            ledger_path, load_operator_secret(operator_secret_file), debug_enabled=debug_enabled
+        )
         if operator_secret_file is not None
         else None
     )

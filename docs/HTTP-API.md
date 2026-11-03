@@ -5,8 +5,8 @@ and match controller. `/health` retains its existing public payload. The public
 `GET /v1/capabilities` describes the verified configuration, implemented routes,
 runtime availability, production units, and limits. `GET /v1/readiness` reports
 server and match readiness to the operator. Gameplay submission and checkpoint
-operations use the shared queue and services. Debug routes and MCP gameplay are
-not implemented and are reported unavailable.
+operations use the shared queue and services. Debug operations require `--enable-debug-api` and the operator credential. MCP
+gameplay remains unavailable.
 
 Start the normal server with your local ROM and the operator file described in
 [AUTHORIZATION.md](AUTHORIZATION.md). With no operator file configured, match
@@ -218,3 +218,16 @@ headless build:
 `sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22`.
 Credentials and game artifacts were isolated in temporary storage and removed
 at shutdown. Windowed HTTP and listening-server acceptance remain future checks.
+
+Debug routes under `/v1/matches/{match}/debug` accept POST requests for
+`buttons`, `frames`, `reset`, `memory/read`, and `memory/write`. Mutations use
+`request_id` and `expected_revision`, returning a queued command receipt.
+Buttons use `buttons: ["a"]` and `frames: 1`; frames accepts 1–600. Memory reads
+use `expected_revision`, `address`, and `length` (1–4096); writes use `request_id`,
+`expected_revision`, `address`, and canonical base64 `data` (1–256 decoded bytes).
+Access is limited to EWRAM [0x02000000, 0x02040000) and IWRAM
+[0x03000000, 0x03008000), advertised in `debug_memory_regions`. Reads require
+a playable boundary and execute on the queue without changing revisions.
+Every successful debug mutation publishes a new revision with unavailable
+battle data and identities, and ends as `recovery_required`. Restore a prior
+checkpoint before gameplay resumes. Debug is disabled by default.

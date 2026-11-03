@@ -292,8 +292,20 @@ async def capabilities(request: Request) -> CapabilitiesResponse:
         )
     )
     operations.append(feature("readiness", True, configured, "Operator provisioning is required"))
-    operations.append(feature("debug", False, False, "Debug HTTP operations are not implemented"))
+    operations.append(
+        feature(
+            "debug",
+            True,
+            bool(
+                configured
+                and matches.authorization.debug_enabled
+                and request.app.state.playable_runtime is not None
+            ),
+            "Debug must be enabled with an initialized runtime",
+        )
+    )
     return CapabilitiesResponse(
+        debug_enabled=bool(configured and matches.authorization.debug_enabled),
         operations=tuple(operations),
         actions=tuple(
             feature(
@@ -620,4 +632,7 @@ def install_v1(application: FastAPI) -> None:
         application.add_exception_handler(error_type, safe_error)
     application.add_exception_handler(RequestValidationError, invalid_request)
     application.add_exception_handler(HTTPException, http_error)
+    from aw2_lab.debug_api import router as debug_router
+
     application.include_router(router)
+    application.include_router(debug_router)
