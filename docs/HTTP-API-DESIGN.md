@@ -561,6 +561,9 @@ authenticate again; stream connection IDs never grant mutation authority.
 
 ## MCP integration and agent-host responsibilities
 
+See [the MCP v1 contract](MCP-API-DESIGN.md) for tool/resource schemas, permission
+mapping, SDK boundaries, bounded transfers, and receipt/wait behavior.
+
 Expose match state and command status as MCP resources, for example
 `aw2://v1/matches/{match}/state` and
 `aw2://v1/matches/{match}/commands/{command}`, and gameplay as typed tools backed by

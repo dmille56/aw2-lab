@@ -21,14 +21,15 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
 
 * Contract and adapter design
 
-** TODO Define the MCP v1 surface and integration boundaries
-   - [ ] Write the MCP tool/resource contract and permission table before implementing gameplay tools; map every operation to the existing HTTP/SDK behavior and capabilities.
-   - [ ] Keep lifecycle, observation, gameplay, checkpoints, and clearly named debug operations distinct; define typed arguments and structured results using shared models.
-   - [ ] Specify zero-based coordinates, opaque lifetime unit IDs, explicit paths, expected revisions, request IDs, receipts, and terminal command statuses. Stationary attacks use =move_attack= with an empty path; indirect units cannot move then attack.
-   - [ ] Preserve the roadmap's SDK-backed adapter: use the Python SDK for supported HTTP operations, and document any required SDK extensions, including debug operations. Keep game rules, authorization decisions, and mutation execution in the existing shared services.
-   - [ ] Define how the mounted adapter receives request-scoped authenticated identity, constructs SDK clients for that caller, and accesses the shared publisher for in-process resource notifications. Never share mutable credentials between sessions or default to operator access.
-   - [ ] Define receipt-first mutation behavior, bounded completion helpers, structured application failures, and uncertain-outcome handling. A cancelled MCP request or expired wait must not cancel or repeat accepted gameplay.
-   - [ ] Choose bounded screenshot and checkpoint-transfer representations compatible with the selected SDK/hosts; preserve image metadata, archive limits, operator permissions, and ID/byte access without server filesystem paths.
+** DONE Define the MCP v1 surface and integration boundaries
+   Design: [[file:MCP-API-DESIGN.md][MCP v1 contract and adapter boundaries]]. Implementation and host compatibility remain subsequent tasks.
+   - [X] Write the MCP tool/resource contract and permission table before implementing gameplay tools; map every operation to the existing HTTP/SDK behavior and capabilities.
+   - [X] Keep lifecycle, observation, gameplay, checkpoints, and clearly named debug operations distinct; define typed arguments and structured results using shared models.
+   - [X] Specify zero-based coordinates, opaque lifetime unit IDs, explicit paths, expected revisions, request IDs, receipts, and terminal command statuses. Stationary attacks use =move_attack= with an empty path; indirect units cannot move then attack.
+   - [X] Preserve the roadmap's SDK-backed adapter: use the Python SDK for supported HTTP operations, and document any required SDK extensions, including debug operations. Keep game rules, authorization decisions, and mutation execution in the existing shared services.
+   - [X] Define how the mounted adapter receives request-scoped authenticated identity, constructs SDK clients for that caller, and accesses the shared publisher for in-process resource notifications. Never share mutable credentials between sessions or default to operator access.
+   - [X] Define receipt-first mutation behavior, bounded completion helpers, structured application failures, and uncertain-outcome handling. A cancelled MCP request or expired wait must not cancel or repeat accepted gameplay.
+   - [X] Choose bounded screenshot and checkpoint-transfer representations compatible with the selected SDK/hosts; preserve image metadata, archive limits, operator permissions, and ID/byte access without server filesystem paths.
 
 ** TODO Verify SDK compatibility and make versioning explicit
    - [ ] Inspect the pinned official Python MCP SDK and dependency locks; record the protocol revisions, authentication, resource subscription, image, and structured-result features actually supported. Update pins reproducibly only if required.
