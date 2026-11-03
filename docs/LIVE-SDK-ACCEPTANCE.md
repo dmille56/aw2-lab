@@ -110,8 +110,8 @@ unit production menus, fog, gameplay actions, or MCP support.
 
 ## Current results (2026-11-03)
 
-Acceptance is **in progress**. The main runs completed the following in both
-headless and windowed modes through actual CLI/TCP/SSE servers:
+Acceptance is **in progress**. The full main scenario passed in both headless
+and windowed modes through actual CLI/TCP/SSE servers:
 
 - Fixed-profile cold boot, separate player claims, purchases by both armies,
   illegal/stale/wrong-turn rejection, duplicate receipt identity, and a bounded
@@ -122,15 +122,15 @@ headless and windowed modes through actual CLI/TCP/SSE servers:
   restore, actual server shutdown/restart, preserved unit identities and state,
   fresh revisions, and an old purchase retry returning its original command.
 
-Both runs rolled back on the subsequent Infantry route from (5,4) through
-(6,4), (7,4), (8,4). HQ capture/natural victory has therefore **not passed**.
-This later failure was diagnosed as an unsupported three-row Fire/Capture/Wait
-selector and intermediate-row navigation; its correction passes synthetic
-regressions but has not yet been replayed against the saved live checkpoint.
-The controlled timeout/failed-rollback checks, debug-route checks, shared-native
-checkpoint parity, and both-mode cartridge save-RAM checks have been added or
-extended but have **not yet been executed** in this acceptance pass. Full
-pre-commit verification after these changes also remains pending.
+Both runs passed the formerly failing Infantry route from (5,4) through
+(6,4), (7,4), (8,4), which presents a three-row Fire/Capture/Wait selector.
+They continued through HQ capture and natural victory. Controlled timeout and
+failed-rollback recovery, debug-route authorization/recovery, and shared-native
+checkpoint parity also passed. Cartridge save-RAM checkpoint restoration
+passed both storage forms in windowed mode. Both headless storage forms failed
+because the in-game save command left the isolated `.sav` byte-identical to its
+input; the windowed result was successful. The source `.sav` was unchanged.
+Full pre-commit verification remains pending.
 
 Live failure diagnoses and corrections:
 
@@ -155,12 +155,18 @@ Live failure diagnoses and corrections:
    cover all three actions and selector slots. Live replay remains pending.
 
 The final available focused checks passed: 228 decoding/navigation/combat tests,
-Ruff lint/format checks, and mypy. Further privileged emulator/check commands
-were blocked by automatic approval-review capacity failures and, later, two
-review deadlines expiring (including the permitted retry). Those commands were
-not executed; these were review-service failures rather than unsafe-action
-determinations. A diagnostic briefly ran when review recovered and established
-the three-row menu signature above.
+Ruff lint/format checks, and mypy. On 2026-11-03 the full two-mode playable
+scenario, timeout recovery, debug-route recovery, and shared-state parity were
+run successfully. The save-RAM test passed both windowed storage variants but
+failed both headless variants at the assertion that the in-game Save changed
+the `.sav`; it failed with both the SDK run's initial checkpoint and the
+user's `rando-saves/aw2.ss1`. The emulator screenshot showed the Save prompt
+and subsequent return to the map, and its log reported flash-sector erase
+operations, but the isolated `.sav` remained unchanged after the emulator
+stopped. The source `.sav` hash remained
+`b80582dac30fec89384ed1fb304a82bd7f335b79c1eb789003607f46ac651276`.
+This headless save persistence discrepancy remains unresolved. Full
+pre-commit verification is still pending.
 
 External evidence root: `aw2-sdk-acceptance-complete`, with directories
 `test_two_sdk_clients_play_save0` (headless) and
