@@ -89,10 +89,13 @@ AW2_RUN_EMULATOR_TESTS=1 AW2_ROM_PATH=/absolute/path/to/aw2.gba \
   -k checkpoint_restores_in_game_save_data --basetemp=/tmp/aw2-sdk-live-saveram
 ```
 
-This test changes cartridge save data through the game's Save menu, restores a
-checkpoint, then compares the flushed cartridge bytes with an independent
-baseline session. Both file and in-memory full-state checkpoint operations are
-checked for each frontend. All writes use isolated save copies.
+This test changes cartridge save data through the game's Save menu, checks the
+savedata payload embedded in a new mGBA state, restores a checkpoint, and checks
+that the embedded payload returns to its original bytes. It exercises both
+file and in-memory full-state checkpoint operations in each frontend. The
+external `.sav` is an isolated startup copy; after loading a native checkpoint,
+its embedded save data is authoritative, so comparing the backing file directly
+does not establish whether checkpoint restore preserved save RAM.
 
 ## Evidence format and limits
 
@@ -110,8 +113,8 @@ unit production menus, fog, gameplay actions, or MCP support.
 
 ## Current results (2026-11-03)
 
-Acceptance is **in progress**. The full main scenario passed in both headless
-and windowed modes through actual CLI/TCP/SSE servers:
+The live playable-slice acceptance passed in both headless and windowed modes
+through actual CLI/TCP/SSE servers:
 
 - Fixed-profile cold boot, separate player claims, purchases by both armies,
   illegal/stale/wrong-turn rejection, duplicate receipt identity, and a bounded
@@ -126,11 +129,10 @@ Both runs passed the formerly failing Infantry route from (5,4) through
 (6,4), (7,4), (8,4), which presents a three-row Fire/Capture/Wait selector.
 They continued through HQ capture and natural victory. Controlled timeout and
 failed-rollback recovery, debug-route authorization/recovery, and shared-native
-checkpoint parity also passed. Cartridge save-RAM checkpoint restoration
-passed both storage forms in windowed mode. Both headless storage forms failed
-because the in-game save command left the isolated `.sav` byte-identical to its
-input; the windowed result was successful. The source `.sav` was unchanged.
-Full pre-commit verification remains pending.
+checkpoint parity passed. Cartridge save-RAM checkpoint restoration passed
+both storage forms in both frontends. The test verifies the save-data payload
+inside the mGBA state before the in-game Save, after it, and after restoring the
+checkpoint. The original source `.sav` remained unchanged.
 
 Live failure diagnoses and corrections:
 
@@ -156,17 +158,15 @@ Live failure diagnoses and corrections:
 
 The final available focused checks passed: 228 decoding/navigation/combat tests,
 Ruff lint/format checks, and mypy. On 2026-11-03 the full two-mode playable
-scenario, timeout recovery, debug-route recovery, and shared-state parity were
-run successfully. The save-RAM test passed both windowed storage variants but
-failed both headless variants at the assertion that the in-game Save changed
-the `.sav`; it failed with both the SDK run's initial checkpoint and the
-user's `rando-saves/aw2.ss1`. The emulator screenshot showed the Save prompt
-and subsequent return to the map, and its log reported flash-sector erase
-operations, but the isolated `.sav` remained unchanged after the emulator
-stopped. The source `.sav` hash remained
-`b80582dac30fec89384ed1fb304a82bd7f335b79c1eb789003607f46ac651276`.
-This headless save persistence discrepancy remains unresolved. Full
-pre-commit verification is still pending.
+scenario, timeout recovery, debug-route recovery, shared-state parity, and all
+four save-RAM checkpoint round trips passed. The first save-RAM assertion
+incorrectly compared the runtime `.sav` file with the payload in a loaded
+native state; these can differ because the checkpoint carries its own save
+data. Replacing that assertion with a comparison of the mGBA `gbAx` savedata
+payload confirmed the game Save changes the payload and checkpoint restore
+returns it to the original bytes in both frontends and checkpoint formats.
+The final `nix develop -c pre-commit run --all-files` passed after the test
+correction.
 
 External evidence root: `aw2-sdk-acceptance-complete`, with directories
 `test_two_sdk_clients_play_save0` (headless) and

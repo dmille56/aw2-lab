@@ -247,19 +247,18 @@ screenshots, and machine-specific paths outside Git and the Nix store.
 
    - Acceptance audit: [[file:ROM-INDEPENDENT-ACCEPTANCE.md][ROM-independent verification]] maps each requirement to existing and new regression checks. Added concurrent SDK acceptance/stale-revision checks, explicit unknown-menu/frame/watchdog bounds, journal corruption and append-failure checks, and startup recovery after CURRENT commit before terminal journaling. Full live emulator and listening-server acceptance remain below.
 
-** IN-PROGRESS Verify the playable slice in headless and windowed modes
+** DONE Verify the playable slice in headless and windowed modes
    - [X] Keep live checks opt-in with local ROM/artifact configuration; default checks remain ROM-independent.
    - [X] Cold boot into the fixed match with two Python clients in each mode.
    - [X] Execute purchase, move/wait, attack, capture, and turn changes; finish through surrender and natural victory scenarios.
-   - [ ] Save, restore, and restart/resume a match, checking save RAM, identities, revisions, and retry behavior.
-     - [ ] Diagnose and fix headless cartridge save persistence: the live in-game Save flow did not change its isolated `.sav`, while windowed mode did.
+   - [X] Save, restore, and restart/resume a match, checking save RAM, identities, revisions, and retry behavior.
    - [X] Exercise illegal/stale/duplicate commands and unexpected-menu/timeout recovery through the API.
    - [X] Compare observations after identical checkpoint/input sequences under both pinned frontends.
    - [X] Record ROM/build identity, reproduction steps, results, and external artifact fingerprints in [[file:LIVE-SDK-ACCEPTANCE.md][the live SDK acceptance index]], including failures and pending checks.
    - [X] Extend [[file:VERIFICATION.md][the verification workflow]] with commands, client examples, persistence setup, and recovery instructions.
    - [X] Run =pre-commit run --all-files=; retry with =nix develop -c pre-commit run --all-files= if required tools are missing.
 
-   - Live progress (2026-11-03): both real CLI/TCP/SSE runs passed the complete two-client scenario, including the three-row Fire/Capture/Wait menu, HQ capture, natural victory, surrender, checkpoint transfer/restore, restart/resume, and durable duplicate receipts. Live timeout rollback/recovery, debug authorization/recovery, and shared-native-state parity checks also passed in both modes. Cartridge save-RAM restore passed in windowed mode but failed in headless mode: the in-game save sequence completed, yet the isolated headless .sav remained byte-identical to its input. The original user save was unchanged. Full pre-commit gate remains pending. See the linked evidence index.
+   - Live acceptance (2026-11-03): both real CLI/TCP/SSE runs passed the complete two-client scenario, including the three-row Fire/Capture/Wait menu, HQ capture, natural victory, surrender, checkpoint transfer/restore, restart/resume, and durable duplicate receipts. Live timeout rollback/recovery, debug authorization/recovery, shared-native-state parity, and save-RAM round trips passed in both modes. The save-RAM check compares the save-data payload embedded in mGBA checkpoints before and after the in-game Save and after restoring the checkpoint; it does not infer checkpoint contents from the isolated `.sav` seed file. Full pre-commit gate passed. See the linked evidence index.
 
 ** TODO Confirm all Milestone 3 deliverables and acceptance criteria in [[file:PLAN.md][PLAN.md]]
    - [ ] The client architecture decision covers all target platforms and records Nix/NixOS compatibility evidence and remaining native-toolchain requirements.

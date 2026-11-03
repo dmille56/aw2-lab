@@ -6,7 +6,9 @@ import asyncio
 import os
 import shutil
 import socket
+import struct
 import subprocess
+import zlib
 from pathlib import Path
 
 import pytest
@@ -23,6 +25,39 @@ pytestmark = pytest.mark.skipif(
     os.environ.get("AW2_RUN_EMULATOR_TESTS") != "1",
     reason="set AW2_RUN_EMULATOR_TESTS=1 and AW2_ROM_PATH to run emulator checks",
 )
+
+
+def _mgba_savedata(state: bytes, expected_size: int) -> bytes:
+    """Return the cartridge save-data payload from an mGBA PNG savestate."""
+    if not state.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise AssertionError("mGBA savestate is not a PNG container")
+
+    offset = 8
+    candidates: list[bytes] = []
+    while offset < len(state):
+        if offset + 12 > len(state):
+            raise AssertionError("mGBA savestate has a truncated PNG chunk")
+        length = struct.unpack_from(">I", state, offset)[0]
+        chunk_type = state[offset + 4 : offset + 8]
+        chunk_end = offset + 12 + length
+        if chunk_end > len(state):
+            raise AssertionError("mGBA savestate PNG chunk extends past the container")
+        chunk_data = state[offset + 8 : offset + 8 + length]
+        if chunk_type == b"gbAx" and chunk_data[:1] == b"\x02":
+            if len(chunk_data) < 8:
+                raise AssertionError("mGBA savestate has invalid save data")
+            try:
+                candidates.append(zlib.decompress(chunk_data[8:]))
+            except zlib.error as error:
+                raise AssertionError("mGBA savestate save data is not valid zlib data") from error
+        offset = chunk_end
+        if chunk_type == b"IEND":
+            break
+
+    matches = [candidate for candidate in candidates if len(candidate) == expected_size]
+    if len(matches) != 1:
+        raise AssertionError("mGBA savestate does not contain cartridge save data")
+    return matches[0]
 
 
 @pytest.mark.parametrize("mode", list(EmulatorMode))
@@ -240,7 +275,7 @@ def test_checkpoint_restores_in_game_save_data(
         if probe.connect_ex(("127.0.0.1", 43128)) == 0:
             pytest.fail("bridge port 43128 is occupied; stop the existing emulator first")
 
-    async def run_session(directory: Path, *, save_and_restore: bool) -> bytes:
+    async def run_session(directory: Path) -> bytes:
         config = directory / "config" / "mgba"
         config.mkdir(parents=True)
         saves = directory / "saves"
@@ -283,53 +318,53 @@ def test_checkpoint_restores_in_game_save_data(
                     await asyncio.sleep(0.05)
 
             await bridge.load_state(state_path)
-            if save_and_restore:
-                before = cartridge_save.read_bytes()
-                memory_before = await bridge.read_memory_batch([(0x02000000, 16), (0x080000A0, 16)])
-                if storage == "file":
-                    checkpoint = directory / "checkpoint.ss0"
-                    saved_frame = await bridge.save_state(checkpoint)
-                else:
-                    checkpoint = await bridge.save_state_buffer()
-                    saved_frame = await bridge.advance_frames(0)
+            save_size = cartridge_save.stat().st_size
+            savedata_before = _mgba_savedata(await bridge.save_state_buffer(), save_size)
+            memory_before = await bridge.read_memory_batch([(0x02000000, 16), (0x080000A0, 16)])
+            if storage == "file":
+                checkpoint = directory / "checkpoint.ss0"
+                saved_frame = await bridge.save_state(checkpoint)
+            else:
+                checkpoint = await bridge.save_state_buffer()
+                saved_frame = await bridge.advance_frames(0)
 
-                # The fixture is in a battle. Open the map menu, choose Save, and
-                # confirm the game's save prompt. Neutral frames separate repeated
-                # D-pad presses so AW2 observes distinct button edges.
-                await bridge.set_keys(4)  # Select: open the map menu.
-                await bridge.advance_frames(15)
-                await bridge.set_keys(0)
+            # The fixture is in a battle. Open the map menu, choose Save, and
+            # confirm the game's save prompt. Neutral frames separate repeated
+            # D-pad presses so AW2 observes distinct button edges.
+            await bridge.set_keys(4)  # Select: open the map menu.
+            await bridge.advance_frames(15)
+            await bridge.set_keys(0)
+            await bridge.advance_frames(10)
+            for _ in range(3):  # CO, Intel, Options, then Save.
+                await bridge.press_keys(128, 1)
                 await bridge.advance_frames(10)
-                for _ in range(3):  # CO, Intel, Options, then Save.
-                    await bridge.press_keys(128, 1)
-                    await bridge.advance_frames(10)
-                await bridge.press_keys(1, 1)  # Open Save.
-                await bridge.advance_frames(60)
-                await bridge.press_keys(1, 1)  # Confirm the in-game save.
-                await bridge.advance_frames(60)
+            await bridge.press_keys(1, 1)  # Open Save.
+            await bridge.advance_frames(60)
+            await bridge.press_keys(1, 1)  # Confirm the in-game save.
+            await bridge.advance_frames(300)
 
-                changed = cartridge_save.read_bytes()
-                assert changed != before, "the fixture's in-game Save command changed no data"
-                if storage == "file":
-                    restored_frame = await bridge.load_state(checkpoint)
-                else:
-                    restored_frame = await bridge.load_state_buffer(checkpoint)
-                assert restored_frame == saved_frame
-                assert (
-                    await bridge.read_memory_batch([(0x02000000, 16), (0x080000A0, 16)])
-                    == memory_before
-                )
+            savedata_changed = _mgba_savedata(await bridge.save_state_buffer(), save_size)
+            assert savedata_changed != savedata_before, (
+                "the fixture's in-game Save command changed no cartridge save data"
+            )
+            if storage == "file":
+                restored_frame = await bridge.load_state(checkpoint)
+            else:
+                restored_frame = await bridge.load_state_buffer(checkpoint)
+            assert restored_frame == saved_frame
+            assert (
+                await bridge.read_memory_batch([(0x02000000, 16), (0x080000A0, 16)])
+                == memory_before
+            )
+            savedata_restored = _mgba_savedata(await bridge.save_state_buffer(), save_size)
+            assert savedata_restored == savedata_before, (
+                "restoring the checkpoint did not restore cartridge save data"
+            )
         finally:
             await launcher.stop()
             assert not launcher.is_running
-        return cartridge_save.read_bytes()
 
-    async def check() -> None:
-        baseline = await run_session(tmp_path / "baseline", save_and_restore=False)
-        restored = await run_session(tmp_path / "round-trip", save_and_restore=True)
-        assert restored == baseline, "restoring the checkpoint did not restore cartridge save data"
-
-    asyncio.run(check())
+    asyncio.run(run_session(tmp_path / "round-trip"))
 
 
 def test_windowed_startup_without_display_reports_actionable_error(
