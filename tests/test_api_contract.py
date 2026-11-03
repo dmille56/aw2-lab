@@ -400,6 +400,10 @@ def test_capabilities_do_not_claim_runtime_actions_by_default() -> None:
     caps = CapabilitiesResponse(http_sse=unavailable, mcp_subscriptions=unavailable)
     assert caps.actions == ()
     assert caps.supported_game_contract_versions == (1,)
+    assert not caps.mcp_resources.implemented
+    assert not caps.mcp_resources.available
+    assert not caps.mcp_subscriptions.available
+    assert caps.mcp_compatibility.endpoint == "/mcp"
     assert caps.configuration_profiles[0].configuration == VERIFIED_CONFIGURATION
     for field in ("supported_player_counts", "supported_control_modes"):
         for values in ([], [caps.model_dump()[field][0]] * 2):

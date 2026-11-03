@@ -31,12 +31,13 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    - [X] Define receipt-first mutation behavior, bounded completion helpers, structured application failures, and uncertain-outcome handling. A cancelled MCP request or expired wait must not cancel or repeat accepted gameplay.
    - [X] Choose bounded screenshot and checkpoint-transfer representations compatible with the selected SDK/hosts; preserve image metadata, archive limits, operator permissions, and ID/byte access without server filesystem paths.
 
-** TODO Verify SDK compatibility and make versioning explicit
-   - [ ] Inspect the pinned official Python MCP SDK and dependency locks; record the protocol revisions, authentication, resource subscription, image, and structured-result features actually supported. Update pins reproducibly only if required.
-   - [ ] Keep MCP protocol negotiation independent of AW2 application =contract_version: 1=, decoder schemas, and the server implementation version.
-   - [ ] Keep stable v1 tool names at =/mcp= and version resource URIs, including =aw2://v1/matches/{match}/state= and =aw2://v1/matches/{match}/commands/{command}=.
-   - [ ] Advertise =supported_game_contract_versions: [1]= and reject unsupported application versions before side effects. Document the future breaking-version endpoint policy from the design.
-   - [ ] Report MCP resource/subscription support independently of HTTP SSE and gameplay capabilities; advertise only implemented and verified behavior.
+** DONE Verify SDK compatibility and make versioning explicit
+   Audit and synthetic evidence: [[file:MCP-COMPATIBILITY.md][SDK 1.29.0 compatibility and version reporting]]. Authentication, resource delivery, and host verification remain later tasks.
+   - [X] Inspect the pinned official Python MCP SDK and dependency locks; record the protocol revisions, authentication, resource subscription, image, and structured-result features actually supported. Update pins reproducibly only if required.
+   - [X] Keep MCP protocol negotiation independent of AW2 application =contract_version: 1=, decoder schemas, and the server implementation version.
+   - [X] Keep stable v1 tool names at =/mcp= and version resource URIs, including =aw2://v1/matches/{match}/state= and =aw2://v1/matches/{match}/commands/{command}=.
+   - [X] Advertise =supported_game_contract_versions: [1]= and reject unsupported application versions before side effects. Document the future breaking-version endpoint policy from the design.
+   - [X] Report MCP resource/subscription support independently of HTTP SSE and gameplay capabilities; advertise only implemented and verified behavior.
 
 * Authentication and server integration
 

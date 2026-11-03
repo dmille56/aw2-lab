@@ -7,9 +7,12 @@ Legacy controller/checkpoint models are converted explicitly during migration.
 from __future__ import annotations
 
 from enum import StrEnum
+from importlib.metadata import version
 from typing import Annotated, Literal
 from uuid import UUID
 
+from mcp.shared.version import SUPPORTED_PROTOCOL_VERSIONS
+from mcp.types import LATEST_PROTOCOL_VERSION
 from pydantic import AwareDatetime, Field, SecretStr, StringConstraints, model_validator
 
 from aw2_lab.match_contract import (
@@ -288,7 +291,25 @@ class FeatureAvailability(ContractModel):
         return self
 
 
+class MCPCompatibility(ContractModel):
+    """SDK transport support, independent of implemented AW2 MCP features."""
+
+    sdk_version: str = Field(default_factory=lambda: version("mcp"))
+    supported_protocol_versions: tuple[str, ...] = tuple(SUPPORTED_PROTOCOL_VERSIONS)
+    preferred_protocol_version: str = LATEST_PROTOCOL_VERSION
+    endpoint: Literal["/mcp"] = "/mcp"
+    transport: Literal["streamable_http"] = "streamable_http"
+
+
 class CapabilitiesResponse(ContractModel):
+    mcp_compatibility: MCPCompatibility = Field(default_factory=MCPCompatibility)
+    mcp_resources: FeatureAvailability = FeatureAvailability(
+        name="mcp_resources",
+        implemented=False,
+        available=False,
+        verification="unverified",
+        unavailable_reason="MCP game resources are not implemented",
+    )
     supported_game_contract_versions: tuple[Literal[1], ...] = (1,)
     supported_player_counts: tuple[Literal[2]] = (2,)
     supported_control_modes: tuple[Literal["external"]] = ("external",)

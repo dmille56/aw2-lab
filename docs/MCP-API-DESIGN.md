@@ -2,8 +2,8 @@
 
 Status: design for Milestone 4; the current `mcp.py` greeting is not a gameplay
 implementation. This document completes the first contract task in
-[MILESTONE-4.org](MILESTONE-4.org). Protocol/SDK compatibility verification,
-authentication implementation, and live host verification remain separate tasks.
+[MILESTONE-4.org](MILESTONE-4.org). The [SDK compatibility audit](MCP-COMPATIBILITY.md) records the pinned baseline.
+Authentication implementation and live host verification remain separate tasks.
 The [HTTP design](HTTP-API-DESIGN.md) remains authoritative for shared behavior.
 
 ## Boundary and versioning
