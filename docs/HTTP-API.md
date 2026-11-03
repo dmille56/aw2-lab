@@ -3,9 +3,9 @@
 The implemented lifecycle, read, and SSE routes use the shared authorization service
 and match controller. `/health` retains its existing public payload. The public
 `GET /v1/capabilities` describes the verified configuration, implemented routes,
-runtime availability, production units, and limits. Gameplay submission,
-checkpoints, readiness, debug routes, and MCP gameplay remain planned;
-capabilities report those HTTP operations unavailable.
+runtime availability, production units, and limits. Gameplay submission and
+checkpoint operations use the shared queue and services. Readiness, debug routes,
+and MCP gameplay remain planned and are reported unavailable.
 
 Start the normal server with your local ROM and the operator file described in
 [AUTHORIZATION.md](AUTHORIZATION.md). With no operator file configured, match
@@ -14,8 +14,9 @@ routes return `503 runtime_unavailable`. Use the default loopback address
 
 JSON payloads carry `contract_version: 1` (omission defaults to 1). Request models
 and the error envelope are published in `/openapi.json` and `/docs`. Ordinary
-JSON bodies are limited to 65,536 bytes; mutating routes require
-`Content-Type: application/json`. Secrets belong in bearer headers or the
+JSON bodies are limited to 65,536 bytes; JSON mutation routes require
+`Content-Type: application/json`. Archive import instead requires `application/zip`
+with a 4-MiB-plus-64-KiB upload limit. Secrets belong in bearer headers or the
 invitation request fields, and never in URLs.
 
 | Route | Permission | Success |
@@ -34,6 +35,13 @@ invitation request fields, and never in URLs.
 | `GET /v1/matches/{match}/screenshot` | Operator or that match's player | 200, PNG |
 | `GET /v1/matches/{match}/commands/{command}` | Operator or that match's player | 200, command result |
 | `GET /v1/matches/{match}/events` | Operator or that match's player | 200, SSE stream |
+| `POST /v1/matches/{match}/commands` | That slot's player | 202, command receipt |
+| `POST /v1/matches/{match}/checkpoints` | Operator or that match's player | 202, command receipt |
+| `GET /v1/matches/{match}/checkpoints` | Operator or that match's player | 200, checkpoint references |
+| `GET /v1/matches/{match}/checkpoints/{checkpoint}` | Operator or that match's player | 200, reference and safe compatibility metadata |
+| `GET /v1/matches/{match}/checkpoints/{checkpoint}/archive` | Operator | 200, ZIP attachment |
+| `POST /v1/matches/{match}/checkpoints/import` | Operator | 201, checkpoint reference |
+| `POST /v1/matches/{match}/checkpoints/{checkpoint}/restore` | Operator | 202, command receipt |
 
 Both player slots can inspect their own match during either turn. Closing keeps
 their retained read access; revocation invalidates it immediately, including
@@ -41,6 +49,8 @@ cached screenshots and command results. Operator credentials cannot play a slot.
 
 See [match events over SSE](HTTP-EVENTS.md) for event envelopes, reconnect/replay,
 resynchronization, buffer limits, revocation, and a streaming client example.
+See [gameplay and checkpoints](HTTP-CHECKPOINTS.md) for command bodies, archive
+transfer, retry semantics, and recovery.
 
 Creation accepts an omitted configuration or the complete verified profile from
 capabilities. Select a complete entry from `configuration_profiles` using

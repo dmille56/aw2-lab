@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -462,15 +463,32 @@ class MatchCheckpointService:
         return data
 
     async def import_archive(
-        self, match_id: UUID, data: bytes, credential: SecretStr | Principal
+        self,
+        match_id: UUID,
+        data: bytes,
+        credential: SecretStr | Principal,
+        *,
+        request_id: UUID | None = None,
     ) -> CheckpointReference:
-        await self._authorize(match_id, credential, Permission.ARCHIVE)
+        principal = await self._authorize(match_id, credential, Permission.ARCHIVE)
+        if principal is not None:
+            if request_id is None:
+                raise CommandRejected(
+                    ErrorCode.INVALID_REQUEST, "Checkpoint import needs a request ID"
+                )
+            summary = await self.controller.inspect_match(match_id)
+
+            def save() -> CheckpointReference:
+                manifest, state = self.validate_import(data, summary, self.runtime)
+                return self.store.save(manifest, state)
+
+            return await self.controller.persist_checkpoint_import(
+                principal, match_id, request_id, hashlib.sha256(data).hexdigest(), save
+            )
         summary = await self.controller.inspect_match(match_id)
         if summary.lifecycle is MatchLifecycle.CLOSED:
             raise CommandRejected(ErrorCode.MATCH_CLOSED, "The match is closed")
-        manifest, state = CheckpointStore.decode_archive(data)
-        self._compatible(manifest)
-        self._same_match(manifest, await self.controller.inspect_match(match_id))
+        manifest, state = self.validate_import(data, summary, self.runtime)
         return await asyncio.to_thread(self.store.save, manifest, state)
 
     async def restore(
@@ -587,6 +605,20 @@ class MatchCheckpointService:
             handler=restore,
             allow_recovery=True,
         )
+
+    @staticmethod
+    def validate_import(
+        data: bytes, summary: MatchSummary, runtime: CheckpointRuntime
+    ) -> tuple[CheckpointManifest, bytes]:
+        manifest, state = CheckpointStore.decode_archive(data)
+        validate_checkpoint_compatibility(
+            manifest,
+            rom_sha256=runtime.rom_sha256,
+            emulator_build=runtime.emulator_build,
+            emulator_mode=runtime.emulator_mode,
+        )
+        MatchCheckpointService._same_match(manifest, summary)
+        return manifest, state
 
     async def _authorize(
         self, match_id: UUID, identity: SecretStr | Principal, permission: Permission

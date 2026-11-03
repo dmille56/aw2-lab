@@ -760,7 +760,10 @@ and lifecycle/read routers are implemented in [HTTP-API.md](HTTP-API.md). Shared
 event publication and authenticated SSE now implement atomic snapshots, bounded
 replay/resynchronization, state-before-terminal-command ordering, and revocation
 enforcement. A replay larger than the subscriber buffer receives a resynchronizing
-snapshot. Gameplay/checkpoint/debug HTTP routes and MCP delivery remain later work.
+snapshot. Gameplay and checkpoint HTTP routes now use the shared queue and
+authorization facade, with safe checkpoint reads, bounded ZIP transfer, and
+digest-based durable import receipts. Debug HTTP routes and MCP delivery remain
+later work. See [gameplay/checkpoint operations](HTTP-CHECKPOINTS.md).
 The game contract version remains independent of MCP protocol negotiation; these
 services do not enable remote MCP gameplay.
 

@@ -18,9 +18,13 @@ from aw2_lab.api.event_stream import MatchEventResponse
 from aw2_lab.api_contract import (
     MAX_JSON_BYTES,
     CapabilitiesResponse,
+    CheckpointListResponse,
+    CheckpointResponse,
     CloseMatchRequest,
+    CreateCheckpointRequest,
     CreateMatchRequest,
     FeatureAvailability,
+    GameplayCommandRequest,
     InvitationReference,
     IssueInvitationRequest,
     JoinSlotRequest,
@@ -29,6 +33,7 @@ from aw2_lab.api_contract import (
     MatchSummary,
     ObservationResponse,
     Principal,
+    RestoreCheckpointRequest,
     RevokeSlotRequest,
     SlotAuthorization,
     StartMatchRequest,
@@ -45,8 +50,10 @@ from aw2_lab.authorization import AuthorizationError
 from aw2_lab.authorized_match import AuthorizedMatchService
 from aw2_lab.aw2_unit_profiles import UNIT_PROFILES
 from aw2_lab.checkpoint import CheckpointError
+from aw2_lab.checkpoint_store import MAX_ARCHIVE_BYTES
 from aw2_lab.command_journal import CommandJournalError
 from aw2_lab.match_contract import (
+    CheckpointReference,
     CommandReceipt,
     CommandResult,
     ErrorBody,
@@ -87,11 +94,25 @@ class BoundedV1Requests:
         if scope["method"] not in {"POST", "PUT", "PATCH"}:
             await self.app(scope, receive, no_store)
             return
-        content_type = dict(scope["headers"]).get(b"content-type", b"").split(b";", 1)[0]
-        if content_type.strip().lower() != b"application/json":
+        archive = scope["method"] == "POST" and scope["path"].endswith("/checkpoints/import")
+        expected_type = b"application/zip" if archive else b"application/json"
+        limit = MAX_ARCHIVE_BYTES if archive else MAX_JSON_BYTES
+        raw_headers = dict(scope["headers"])
+        if archive:
+            try:
+                scope.setdefault("state", {})["request_id"] = UUID(
+                    raw_headers.get(b"request-id", b"").decode("ascii")
+                )
+            except ValueError, UnicodeError:
+                pass
+        content_type = raw_headers.get(b"content-type", b"").split(b";", 1)[0]
+        if content_type.strip().lower() != expected_type:
             response = error_response(
                 map_error(
-                    ErrorBody(code=ErrorCode.INVALID_REQUEST, message="Expected application/json"),
+                    ErrorBody(
+                        code=ErrorCode.INVALID_REQUEST, message=f"Expected {expected_type.decode()}"
+                    ),
+                    request_id=scope.get("state", {}).get("request_id"),
                     request_failure_status=415,
                 )
             )
@@ -102,22 +123,24 @@ class BoundedV1Requests:
             message = await receive()
             if message["type"] == "http.disconnect":
                 return
-            body.extend(message.get("body", b""))
-            if len(body) > MAX_JSON_BYTES:
+            chunk = message.get("body", b"")
+            if len(body) + len(chunk) > limit:
                 response = error_response(
                     map_error(
                         ErrorBody(
-                            code=ErrorCode.INVALID_REQUEST, message="JSON body exceeds limit"
+                            code=ErrorCode.INVALID_REQUEST, message="Request body exceeds limit"
                         ),
+                        request_id=scope.get("state", {}).get("request_id"),
                         request_failure_status=413,
                     )
                 )
                 await response(scope, receive, no_store)
                 return
+            body.extend(chunk)
             if not message.get("more_body", False):
                 break
         try:
-            payload = json.loads(body)
+            payload = None if archive else json.loads(body)
         except ValueError, UnicodeError, RecursionError:
             response = error_response(
                 map_error(
@@ -189,6 +212,7 @@ router = APIRouter(
 async def capabilities(request: Request) -> CapabilitiesResponse:
     controller = request.app.state.match_controller
     configured = request.app.state.authorized_matches is not None
+    matches = request.app.state.authorized_matches
 
     def feature(name: str, implemented: bool, available: bool, reason: str) -> FeatureAvailability:
         return FeatureAvailability(
@@ -232,13 +256,52 @@ async def capabilities(request: Request) -> CapabilitiesResponse:
         )
     )
     operations.extend(
+        feature(
+            name,
+            True,
+            configured and matches.checkpoint_reads_available,
+            "Checkpoint storage is required",
+        )
+        for name in ("list_checkpoints", "inspect_checkpoint", "export_checkpoint")
+    )
+    operations.extend(
+        feature(
+            name,
+            True,
+            configured and matches.checkpoints_available,
+            "An initialized checkpoint runtime is required",
+        )
+        for name in ("checkpoints", "create_checkpoint", "restore_checkpoint")
+    )
+    operations.append(
+        feature(
+            "import_checkpoint",
+            True,
+            configured and matches.checkpoint_import_available,
+            "A checkpoint compatibility identity is required",
+        )
+    )
+    operations.append(
+        feature(
+            "gameplay",
+            True,
+            configured and controller.runtime_available,
+            "A configured playable runtime is required",
+        )
+    )
+    operations.extend(
         feature(name, False, False, "HTTP operation is not implemented")
-        for name in ("readiness", "gameplay", "checkpoints", "debug")
+        for name in ("readiness", "debug")
     )
     return CapabilitiesResponse(
         operations=tuple(operations),
         actions=tuple(
-            feature(name, True, False, "The gameplay HTTP route is not implemented")
+            feature(
+                name,
+                True,
+                configured and controller.runtime_available,
+                "A configured playable runtime is required",
+            )
             for name in (
                 "move_wait",
                 "move_attack",
@@ -378,6 +441,88 @@ async def command_status(
     match_id: UUID, command_id: UUID, matches: Service, caller: Caller
 ) -> CommandResult:
     return await matches.command_status(caller, match_id, command_id)
+
+
+@router.post("/matches/{match_id}/commands", response_model=CommandReceipt, status_code=202)
+async def submit_gameplay(
+    match_id: UUID, body: GameplayCommandRequest, matches: Service, caller: Caller
+) -> CommandReceipt:
+    return await matches.submit(caller, match_id, body)
+
+
+@router.post("/matches/{match_id}/checkpoints", response_model=CommandReceipt, status_code=202)
+async def create_checkpoint(
+    match_id: UUID, body: CreateCheckpointRequest, matches: Service, caller: Caller
+) -> CommandReceipt:
+    return await matches.create_checkpoint(caller, match_id, body)
+
+
+@router.get("/matches/{match_id}/checkpoints", response_model=CheckpointListResponse)
+async def list_checkpoints(
+    match_id: UUID, matches: Service, caller: Caller
+) -> CheckpointListResponse:
+    return CheckpointListResponse(checkpoints=await matches.list_checkpoints(caller, match_id))
+
+
+@router.get("/matches/{match_id}/checkpoints/{checkpoint_id}", response_model=CheckpointResponse)
+async def inspect_checkpoint(
+    match_id: UUID, checkpoint_id: UUID, matches: Service, caller: Caller
+) -> CheckpointResponse:
+    return await matches.inspect_checkpoint(caller, match_id, checkpoint_id)
+
+
+@router.get(
+    "/matches/{match_id}/checkpoints/{checkpoint_id}/archive",
+    response_class=Response,
+    responses={
+        200: {"content": {"application/zip": {"schema": {"type": "string", "format": "binary"}}}}
+    },
+)
+async def export_checkpoint(
+    match_id: UUID, checkpoint_id: UUID, matches: Service, caller: Caller
+) -> Response:
+    data = await matches.export_checkpoint(caller, match_id, checkpoint_id)
+    return Response(
+        data,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{checkpoint_id}.zip"'},
+    )
+
+
+@router.post(
+    "/matches/{match_id}/checkpoints/import",
+    response_model=CheckpointReference,
+    status_code=201,
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {"application/zip": {"schema": {"type": "string", "format": "binary"}}},
+        }
+    },
+)
+async def import_checkpoint(
+    match_id: UUID,
+    request: Request,
+    matches: Service,
+    caller: Caller,
+    request_id: Annotated[UUID, Header(alias="Request-ID")],
+) -> CheckpointReference:
+    return await matches.import_checkpoint(caller, match_id, request_id, await request.body())
+
+
+@router.post(
+    "/matches/{match_id}/checkpoints/{checkpoint_id}/restore",
+    response_model=CommandReceipt,
+    status_code=202,
+)
+async def restore_checkpoint(
+    match_id: UUID,
+    checkpoint_id: UUID,
+    body: RestoreCheckpointRequest,
+    matches: Service,
+    caller: Caller,
+) -> CommandReceipt:
+    return await matches.restore_checkpoint(caller, match_id, checkpoint_id, body)
 
 
 def install_v1(application: FastAPI) -> None:

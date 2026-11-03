@@ -199,7 +199,7 @@ async def test_checkpoint_roles_restore_and_restart_do_not_resurrect_revocation(
             assert denied.value.body.code is ErrorCode.PERMISSION_DENIED
         archive = await checkpoint.export(match_id, saved.checkpoint_id, operator)
         await service.revoke(operator, match_id, PlayerSlot.SLOT_1, uuid4())
-        await checkpoint.import_archive(match_id, archive, operator)
+        await checkpoint.import_archive(match_id, archive, operator, request_id=uuid4())
         restored = await checkpoint.restore(
             match_id, saved.checkpoint_id, operator, request_id=uuid4(), expected_revision=1
         )

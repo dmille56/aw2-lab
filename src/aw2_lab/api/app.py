@@ -138,8 +138,22 @@ def create_app(
     application.state.playable_runtime = None
     application.state.match_checkpoint_service = None
     application.state.authorization = controller.authorization
+
+    def checkpoint_identity() -> CheckpointRuntime | None:
+        build = getattr(emulator_launcher, "build_identity", None)
+        if not isinstance(build, str):
+            return None
+        return CheckpointRuntime(rom_profile.sha256, build, settings.mode.value)
+
     application.state.authorized_matches = (
-        AuthorizedMatchService(controller) if controller.authorization is not None else None
+        AuthorizedMatchService(
+            controller,
+            checkpoint_store=checkpoint_store,
+            checkpoint_provider=lambda: application.state.match_checkpoint_service,
+            checkpoint_identity_provider=checkpoint_identity,
+        )
+        if controller.authorization is not None
+        else None
     )
     application.state.storage_root = durable_root
     application.state.checkpoint_store = checkpoint_store

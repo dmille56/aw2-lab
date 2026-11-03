@@ -40,6 +40,7 @@ from aw2_lab.api_validation import (
     validate_configuration,
 )
 from aw2_lab.match_contract import (
+    CheckpointReference,
     ErrorBody,
     ErrorCode,
     MatchLifecycle,
@@ -122,7 +123,7 @@ class _Match(_PrivateModel):
 
 
 class _Retry(_PrivateModel):
-    operation: Literal["create", "invite", "join", "revoke"]
+    operation: Literal["create", "invite", "join", "revoke", "checkpoint_import"]
     fingerprint: Digest
     match_id: UUID
     slot: PlayerSlot | None = None
@@ -130,10 +131,11 @@ class _Retry(_PrivateModel):
     credential_hash: Digest | None = None
     invitation_id: UUID | None = None
     authorization: SlotAuthorization | None = None
+    checkpoint: CheckpointReference | None = None
 
     @model_validator(mode="after")
     def consistent(self) -> _Retry:
-        if self.operation == "create":
+        if self.operation in {"create", "checkpoint_import"}:
             if any(
                 value is not None
                 for value in (
@@ -147,6 +149,11 @@ class _Retry(_PrivateModel):
                 raise ValueError("Creation retry cannot contain slot metadata")
         elif self.slot is None or self.generation is None or self.generation < 0:
             raise ValueError("Slot retry identity is incomplete")
+        if self.operation == "checkpoint_import":
+            if self.checkpoint is None or self.checkpoint.match_id != self.match_id:
+                raise ValueError("Import retry checkpoint is missing or inconsistent")
+        elif self.checkpoint is not None:
+            raise ValueError("Only import retries can contain checkpoint metadata")
         if self.operation == "invite" and self.invitation_id is None:
             raise ValueError("Invitation retry reference is missing")
         if self.operation == "join" and self.credential_hash is None:
@@ -695,6 +702,39 @@ class AuthorizationService:
                 raise AuthorizationError(
                     ErrorCode.REQUEST_ID_CONFLICT, "Request ID belongs to a metadata operation"
                 )
+
+    def import_checkpoint(
+        self,
+        principal: Principal,
+        match_id: UUID,
+        request_id: UUID,
+        digest: str,
+        save: Callable[[], CheckpointReference],
+    ) -> CheckpointReference:
+        """Persist an import receipt after immutable storage, without changing CURRENT."""
+        self.authorize(principal, Permission.ARCHIVE, match_id)
+        fingerprint = self._fingerprint("checkpoint_import", match_id, None, digest)
+
+        def import_archive(state: _Ledger) -> CheckpointReference:
+            retry = self._retry(state, request_id, fingerprint)
+            if retry is not None:
+                assert retry.checkpoint is not None
+                return retry.checkpoint
+            match = self._match(state, match_id)
+            if match.summary.lifecycle is MatchLifecycle.CLOSED:
+                raise AuthorizationError(ErrorCode.MATCH_CLOSED, "The match is closed")
+            reference = save()
+            if reference.match_id != match_id:
+                raise ValueError("Import callback returned a checkpoint for another match")
+            state.requests[request_id] = _Retry(
+                operation="checkpoint_import",
+                fingerprint=fingerprint,
+                match_id=match_id,
+                checkpoint=reference,
+            )
+            return reference
+
+        return self._transaction(import_archive)
 
     def overlay(self, summary: MatchSummary, *, recovering: bool = False) -> MatchSummary:
         """Checkpoint verifiers and slot statuses never replace current authorization."""

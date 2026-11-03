@@ -7,11 +7,16 @@ The underlying controller's observation reads remain trusted internal primitives
 from __future__ import annotations
 
 import asyncio
+import hashlib
+from collections.abc import Callable
 from uuid import UUID
 
 from pydantic import SecretStr
 
 from aw2_lab.api_contract import (
+    CheckpointCompatibility,
+    CheckpointResponse,
+    CreateCheckpointRequest,
     CreateMatchRequest,
     GameplayCommandRequest,
     InvitationReference,
@@ -20,13 +25,18 @@ from aw2_lab.api_contract import (
     JoinSlotResponse,
     MatchSummary,
     Principal,
+    RestoreCheckpointRequest,
     SlotAuthorization,
     StartMatchRequest,
     StateResponse,
     summary_from_controller,
 )
 from aw2_lab.authorization import AuthorizationError, AuthorizationService, Permission
+from aw2_lab.checkpoint import CheckpointError
+from aw2_lab.checkpoint_store import CheckpointStore
+from aw2_lab.match_checkpoint import CheckpointRuntime, MatchCheckpointService
 from aw2_lab.match_contract import (
+    CheckpointReference,
     CommandReceipt,
     CommandRequest,
     CommandResult,
@@ -71,11 +81,150 @@ class AuthorizedEventSubscription:
 
 
 class AuthorizedMatchService:
-    def __init__(self, controller: MatchController) -> None:
+    def __init__(
+        self,
+        controller: MatchController,
+        *,
+        checkpoint_store: CheckpointStore | None = None,
+        checkpoint_provider: Callable[[], MatchCheckpointService | None] | None = None,
+        checkpoint_identity_provider: Callable[[], CheckpointRuntime | None] | None = None,
+    ) -> None:
         if controller.authorization is None:
             raise ValueError("Authorized match service requires an authorization ledger")
         self.controller = controller
         self.authorization: AuthorizationService = controller.authorization
+        self._store = checkpoint_store
+        self._checkpoint_provider = checkpoint_provider
+        self._checkpoint_identity_provider = checkpoint_identity_provider
+
+    def _checkpoint_identity(self) -> CheckpointRuntime | None:
+        backend = self._checkpoint_provider() if self._checkpoint_provider else None
+        if backend is not None:
+            return backend.runtime
+        return self._checkpoint_identity_provider() if self._checkpoint_identity_provider else None
+
+    @property
+    def checkpoint_import_available(self) -> bool:
+        return self.checkpoint_reads_available and self._checkpoint_identity() is not None
+
+    @property
+    def checkpoints_available(self) -> bool:
+        return self._checkpoint_provider is not None and self._checkpoint_provider() is not None
+
+    @property
+    def checkpoint_reads_available(self) -> bool:
+        return self._store is not None or self.checkpoints_available
+
+    def _checkpoints(
+        self, principal: Principal, match_id: UUID, permission: Permission
+    ) -> MatchCheckpointService:
+        self.authorization.authorize(principal, permission, match_id)
+        result = self._checkpoint_provider() if self._checkpoint_provider else None
+        if result is None:
+            raise AuthorizationError(
+                ErrorCode.RUNTIME_UNAVAILABLE, "No initialized checkpoint runtime"
+            )
+        return result
+
+    def _checkpoint_store(self) -> CheckpointStore:
+        backend = self._checkpoint_provider() if self._checkpoint_provider else None
+        result = backend.store if backend is not None else self._store
+        if result is None:
+            raise AuthorizationError(
+                ErrorCode.RUNTIME_UNAVAILABLE, "Checkpoint storage is not configured"
+            )
+        return result
+
+    async def create_checkpoint(
+        self, principal: Principal, match_id: UUID, request: CreateCheckpointRequest
+    ) -> CommandReceipt:
+        backend = self._checkpoints(principal, match_id, Permission.CHECKPOINT_CREATE)
+        return await backend.create(
+            match_id,
+            principal,
+            request_id=request.request_id,
+            expected_revision=request.expected_revision,
+        )
+
+    async def restore_checkpoint(
+        self,
+        principal: Principal,
+        match_id: UUID,
+        checkpoint_id: UUID,
+        request: RestoreCheckpointRequest,
+    ) -> CommandReceipt:
+        backend = self._checkpoints(principal, match_id, Permission.ARCHIVE)
+        return await backend.restore(
+            match_id,
+            checkpoint_id,
+            principal,
+            request_id=request.request_id,
+            expected_revision=request.expected_revision,
+        )
+
+    async def import_checkpoint(
+        self, principal: Principal, match_id: UUID, request_id: UUID, data: bytes
+    ) -> CheckpointReference:
+        self.authorization.authorize(principal, Permission.ARCHIVE, match_id)
+        summary = await self.controller.inspect_match(match_id)
+        store = self._checkpoint_store()
+        identity = self._checkpoint_identity()
+
+        def save() -> CheckpointReference:
+            if identity is None:
+                raise CheckpointError(
+                    ErrorCode.RUNTIME_UNAVAILABLE,
+                    "Checkpoint compatibility identity is unavailable",
+                )
+            manifest, state = MatchCheckpointService.validate_import(data, summary, identity)
+            return store.save(manifest, state)
+
+        return await self.controller.persist_checkpoint_import(
+            principal, match_id, request_id, hashlib.sha256(data).hexdigest(), save
+        )
+
+    async def list_checkpoints(
+        self, principal: Principal, match_id: UUID
+    ) -> tuple[CheckpointReference, ...]:
+        self.authorization.authorize(principal, Permission.READ, match_id)
+        await self.controller.inspect_match(match_id)
+        result = await asyncio.to_thread(self._checkpoint_store().list_references, match_id)
+        self.authorization.authorize(principal, Permission.READ, match_id)
+        return result
+
+    async def inspect_checkpoint(
+        self, principal: Principal, match_id: UUID, checkpoint_id: UUID
+    ) -> CheckpointResponse:
+        self.authorization.authorize(principal, Permission.READ, match_id)
+        await self.controller.inspect_match(match_id)
+        manifest, _ = await asyncio.to_thread(self._checkpoint_store().load, checkpoint_id)
+        self.authorization.authorize(principal, Permission.READ, match_id)
+        if manifest.match.match_id != match_id:
+            raise CheckpointError(ErrorCode.CHECKPOINT_NOT_FOUND, "Checkpoint was not found")
+        return CheckpointResponse(
+            checkpoint=CheckpointReference(
+                checkpoint_id=manifest.checkpoint_id,
+                match_id=match_id,
+                revision=manifest.match.revision,
+                created_at=manifest.created_at,
+            ),
+            compatibility=CheckpointCompatibility(
+                rom_sha256=manifest.rom_sha256,
+                emulator_build=manifest.emulator_build,
+                emulator_mode=manifest.emulator_mode,
+                decoder_schema_version=manifest.decoder_schema_version,
+                observation_schema_version=manifest.observation_schema_version,
+            ),
+        )
+
+    async def export_checkpoint(
+        self, principal: Principal, match_id: UUID, checkpoint_id: UUID
+    ) -> bytes:
+        self.authorization.authorize(principal, Permission.ARCHIVE, match_id)
+        await self.inspect_checkpoint(principal, match_id, checkpoint_id)
+        data = await asyncio.to_thread(self._checkpoint_store().export_archive, checkpoint_id)
+        self.authorization.authorize(principal, Permission.ARCHIVE, match_id)
+        return data
 
     def authenticate(self, credential: SecretStr) -> Principal:
         return self.authorization.authenticate(credential)

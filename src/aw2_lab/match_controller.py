@@ -36,6 +36,7 @@ from aw2_lab.command_journal import (
     new_journal_entry,
 )
 from aw2_lab.match_contract import (
+    CheckpointReference,
     CommandReceipt,
     CommandRequest,
     CommandResult,
@@ -1758,6 +1759,43 @@ class MatchController:
             result = self.authorization.issue_invitation(principal, match_id, slot, request)
             self._publish_state(self._require_match(match_id))
             return result
+
+    async def persist_checkpoint_import(
+        self,
+        principal: Principal,
+        match_id: UUID,
+        request_id: UUID,
+        digest: str,
+        save: Callable[[], CheckpointReference],
+    ) -> CheckpointReference:
+        if self.authorization is None:
+            raise AuthorizationError(
+                ErrorCode.RUNTIME_UNAVAILABLE, "Authorization is not configured"
+            )
+        # Keep imports disjoint from queued command and setup request IDs. The
+        # state lock also prevents close from racing immutable save + receipt commit.
+        async with self._accept_lock, self._state_lock:
+            if self._stopped:
+                raise MatchControllerError(
+                    ErrorCode.SERVER_SHUTTING_DOWN, "Server is shutting down"
+                )
+            self._require_match(match_id)
+            self._require_metadata_request_id(request_id)
+            task = asyncio.create_task(
+                asyncio.to_thread(
+                    self.authorization.import_checkpoint,
+                    principal,
+                    match_id,
+                    request_id,
+                    digest,
+                    save,
+                )
+            )
+            try:
+                return await asyncio.shield(task)
+            except asyncio.CancelledError:
+                await task
+                raise
 
     async def claim_slot(
         self, match_id: UUID, slot: PlayerSlot, credential: SecretStr, request: JoinSlotRequest

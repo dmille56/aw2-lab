@@ -255,6 +255,7 @@ class ConfigurationOptions(ContractModel):
 
 class ApiLimits(ContractModel):
     json_bytes: Literal[65536] = MAX_JSON_BYTES
+    checkpoint_archive_bytes: Literal[4259840] = 4259840
     path_coordinates: Literal[4096] = MAX_PATH_COORDINATES
     display_name_characters: Literal[80] = 80
     invitation_min_seconds: Literal[60] = 60

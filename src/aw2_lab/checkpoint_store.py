@@ -81,6 +81,8 @@ class CheckpointStore:
     def load(self, checkpoint_id: UUID) -> tuple[CheckpointManifest, bytes]:
         """Validate both immutable files before returning checkpoint contents."""
         with self._lock:
+            if not self._directory(checkpoint_id).exists():
+                raise CheckpointError(ErrorCode.CHECKPOINT_NOT_FOUND, "Checkpoint was not found")
             manifest, _ = self._manifest(checkpoint_id)
             state = self._read(self._directory(checkpoint_id) / "state.bin", MAX_STATE_BYTES)
             validate_checkpoint_state(manifest, state)
@@ -188,6 +190,27 @@ class CheckpointStore:
         """Store a validated archive without loading it or changing CURRENT."""
         manifest, state = self.decode_archive(data)
         return self.save(manifest, state)
+
+    def list_references(self, match_id: UUID) -> tuple[CheckpointReference, ...]:
+        """List validated, match-scoped references without exposing private manifests."""
+        with self._lock:
+            try:
+                if not self.root.exists():
+                    return ()
+                references = []
+                for path in self.root.iterdir():
+                    try:
+                        checkpoint_id = UUID(path.name)
+                    except ValueError:
+                        continue  # CURRENT and incomplete temporary writes are not checkpoints.
+                    manifest, _ = self.load(checkpoint_id)
+                    if manifest.match.match_id == match_id:
+                        references.append(_reference(manifest))
+                return tuple(
+                    sorted(references, key=lambda ref: (ref.created_at, str(ref.checkpoint_id)))
+                )
+            except OSError as error:
+                raise _io_error("list checkpoints", error) from error
 
     def _initialize(self) -> None:
         missing: list[Path] = []
