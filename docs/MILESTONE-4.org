@@ -1,0 +1,141 @@
+#+TITLE: Milestone 4: MCP Access
+#+TODO: TODO IN-PROGRESS BLOCKED | DONE DEFERRED
+
+* Scope and completion rules
+
+Implement the MCP milestone in [[file:PLAN.md][PLAN.md]] on top of the accepted
+[[file:MILESTONE-3.org][Milestone 3 playable slice]]. Host Streamable HTTP MCP at =/mcp= in the
+existing API process. Humans and agents use the same authoritative match,
+authorization, revisions, mutation queue, executors, checkpoints, and journal.
+Keep the verified fixed Bean Island profile and six existing gameplay actions.
+
+[[file:../src/aw2_lab/mcp.py][The current MCP module]] exposes only a greeting scaffold. Its presence does
+not establish gameplay, authorization, resource, or subscription support.
+The [[file:HTTP-API-DESIGN.md][HTTP/MCP design]] records the agreed application versioning, shared-event
+integration, and division of responsibilities between server and agent host.
+
+Mark tasks complete only after implementation and relevant checks pass. Record
+ROM-independent checks separately from live evidence. Keep ROMs, saves,
+credentials, screenshots, logs containing secrets, and machine-specific paths
+outside Git and the Nix store. Nix/NixOS remains the primary verification path.
+
+* Contract and adapter design
+
+** TODO Define the MCP v1 surface and integration boundaries
+   - [ ] Write the MCP tool/resource contract and permission table before implementing gameplay tools; map every operation to the existing HTTP/SDK behavior and capabilities.
+   - [ ] Keep lifecycle, observation, gameplay, checkpoints, and clearly named debug operations distinct; define typed arguments and structured results using shared models.
+   - [ ] Specify zero-based coordinates, opaque lifetime unit IDs, explicit paths, expected revisions, request IDs, receipts, and terminal command statuses. Stationary attacks use =move_attack= with an empty path; indirect units cannot move then attack.
+   - [ ] Preserve the roadmap's SDK-backed adapter: use the Python SDK for supported HTTP operations, and document any required SDK extensions, including debug operations. Keep game rules, authorization decisions, and mutation execution in the existing shared services.
+   - [ ] Define how the mounted adapter receives request-scoped authenticated identity, constructs SDK clients for that caller, and accesses the shared publisher for in-process resource notifications. Never share mutable credentials between sessions or default to operator access.
+   - [ ] Define receipt-first mutation behavior, bounded completion helpers, structured application failures, and uncertain-outcome handling. A cancelled MCP request or expired wait must not cancel or repeat accepted gameplay.
+   - [ ] Choose bounded screenshot and checkpoint-transfer representations compatible with the selected SDK/hosts; preserve image metadata, archive limits, operator permissions, and ID/byte access without server filesystem paths.
+
+** TODO Verify SDK compatibility and make versioning explicit
+   - [ ] Inspect the pinned official Python MCP SDK and dependency locks; record the protocol revisions, authentication, resource subscription, image, and structured-result features actually supported. Update pins reproducibly only if required.
+   - [ ] Keep MCP protocol negotiation independent of AW2 application =contract_version: 1=, decoder schemas, and the server implementation version.
+   - [ ] Keep stable v1 tool names at =/mcp= and version resource URIs, including =aw2://v1/matches/{match}/state= and =aw2://v1/matches/{match}/commands/{command}=.
+   - [ ] Advertise =supported_game_contract_versions: [1]= and reject unsupported application versions before side effects. Document the future breaking-version endpoint policy from the design.
+   - [ ] Report MCP resource/subscription support independently of HTTP SSE and gameplay capabilities; advertise only implemented and verified behavior.
+
+* Authentication and server integration
+
+** TODO Enforce shared authorization at every MCP boundary
+   :PROPERTIES:
+   :CUSTOM_ID: mcp-authorization
+   :END:
+   - [ ] Carry forward [[file:MILESTONE-3.org][the Milestone 3 MCP authorization follow-up]]: map validated transport credentials to the existing operator/player principals. A connection/session ID, supplied player slot, or model argument grants no permission.
+   - [ ] Authenticate initialization and subsequent requests as required by the chosen transport; validate sessions and transport origin policy without trusting session possession as caller identity.
+   - [ ] Apply the existing permission table to tool calls, resource reads, cached receipts, checkpoint transfers, subscription registration, reconnect/replay where supported, and each notification delivery.
+   - [ ] Recheck ownership, current credentials, turn, and revision when queued execution begins through the shared services.
+   - [ ] Apply revocation and principal-generation changes to active sessions, resources, notifications, and pending waits; revoke old access without affecting another caller's subscriptions.
+   - [ ] Keep operator provisioning and invitation/claim flows consistent with HTTP. Prevent checkpoint restoration or restart from reviving revoked credentials.
+   - [ ] Redact credentials and authorization verifiers from tool schemas, results, error details, resource URIs, logs, and examples. Obtain bearer credentials from transport context rather than model-visible arguments; handle invitation secrets explicitly.
+   - [ ] Preserve loopback defaults and keep remote gameplay disabled until the selected SDK/host authentication mapping is implemented and verified. Public accounts and remote deployment remain outside this milestone.
+
+** TODO Integrate the adapter with the existing application lifespan
+   - [ ] Wire the mounted MCP server to the existing runtime/services and configured local API address; do not create another emulator, game-state store, mutation queue, or journal.
+   - [ ] Scope SDK connections, publisher subscriptions, pending waits, and MCP session-manager lifetime to the existing application and authenticated caller.
+   - [ ] Handle startup failure, emulator unavailability, shutdown, session expiry, and disconnect with bounded cleanup and stable diagnostics.
+   - [ ] Keep =/health=, HTTP v1, SSE, readiness, and existing SDK clients working alongside MCP. Replace or explicitly retire the greeting scaffold when the real surface is enabled.
+
+* Tools and observations
+
+** TODO Implement typed lifecycle, gameplay, and checkpoint tools
+   - [ ] Expose capabilities/readiness and role-appropriate create/list/inspect, invitation/join/revoke, queued Start, and Close operations.
+   - [ ] Expose MoveWait, MoveAttack, MoveCapture, Purchase, EndTurn, and Surrender through shared typed models and the same authorized queue.
+   - [ ] Return command IDs and provide command-status/completion access; preserve request IDs and exact payloads across retries and uncertain responses.
+   - [ ] Expose checkpoint create/list/inspect, operator export/import, and queued restore with the existing compatibility checks and durable receipts.
+   - [ ] Preserve structured errors for invalid/unsupported requests, authentication/ownership, stale revisions, rejection, rollback, and recovery-required outcomes; distinguish MCP protocol errors from AW2 application results.
+   - [ ] Apply schema, payload, binary-transfer, timeout, and concurrency bounds. Do not imply legal-move enumeration or broader gameplay support than current capabilities.
+
+** TODO Expose coherent state, command, and screenshot observations
+   - [ ] Implement versioned match-state and command-status resources with authorization on every read; expose settled/readiness state and unknown fields explicitly.
+   - [ ] Provide screenshot observation using the committed boundary image, frame, and revision; handle unavailable images without exposing executing frames.
+   - [ ] Provide tool-based observation access for hosts that do not read resources, using the same state/image sources and permission checks.
+   - [ ] Verify observation reads and resource discovery do not advance frames, change revisions, or reveal other matches, credentials, or server paths.
+
+** TODO Expose clearly named operator-only debug tools
+   - [ ] Wrap the existing input, frame advance, bounded memory read/write, and reset operations; add SDK adapters where needed instead of duplicating debug execution logic.
+   - [ ] Require the existing startup opt-in and operator credential, with shared queueing, execution-time revision checks, and established work-RAM/frame/payload bounds.
+   - [ ] Preserve revision invalidation, unavailable debug boundaries, and explicit checkpoint restoration before gameplay resumes; document those effects in tool descriptions.
+
+* Event delivery and turn handling
+
+** TODO Add authorized MCP resource notifications
+   - [ ] Subscribe the in-process adapter to the existing shared controller publisher and map state/command changes to protocol-supported resource notifications.
+   - [ ] Use the subscription operations supported by the negotiated MCP protocol and pinned SDK; verify clients before advertising subscription support.
+   - [ ] Capture initial authoritative state and register without a missed-update race; preserve committed-state/terminal-command ordering and tolerate duplicate notifications.
+   - [ ] Bound buffers and subscription counts; define slow-client overflow, resynchronization, reconnect, and server-restart behavior. Re-read authoritative state after reconnect.
+   - [ ] Keep application HTTP SSE envelopes and replay cursors separate from MCP framing; do not promise MCP transport replay because HTTP SSE supports replay.
+   - [ ] Enforce current authorization before each delivery and release subscriptions on revoke, close, disconnect, unsubscribe, and shutdown without holding the mutation queue.
+
+** TODO Provide bounded turn waiting for hosts without subscriptions
+   - [ ] Implement =wait_for_turn(match_id, player_slot, after_revision, timeout_seconds)= on shared events, with a maximum wait of 60 seconds and bounded concurrent waits.
+   - [ ] Check current state and register atomically; return a newer ready boundary for the requested slot or a finished/closed/recovery-required outcome. Specify behavior before Start and validate slot access.
+   - [ ] Return explicit =timed_out= plus current state when the deadline expires; distinguish this from command failure, cancellation, and authorization loss.
+   - [ ] Never reserve a turn, hold the mutation queue, or advance emulation while waiting. Cancel/revoke/disconnect must clean up the waiter without cancelling accepted commands.
+   - [ ] Document that the agent host receives updates, invokes its model, chooses actions, and submits with the returned revision. Notifications do not themselves schedule model turns.
+
+* Documentation and verification
+
+** TODO Document connection and host integration examples
+   - [ ] Add an MCP guide covering Nix startup, =/mcp= connection, tested SDK/client versions, authentication, roles, contract negotiation, capabilities, and fixed-profile limits.
+   - [ ] Provide separate human-versus-agent and agent-versus-agent examples with private per-slot credentials and explicit operator setup; keep credentials out of tracked artifacts and model prompts.
+   - [ ] Demonstrate observe/act/receipt/completion flow, event-driven resource reads, reconnect/resynchronization, and the bounded-wait fallback without repeated polling.
+   - [ ] Explain coordinates/paths, direct/indirect attack rules, turn changes, stale revisions, duplicate retries, client timeouts, rollback/recovery, checkpoints, screenshots, and debug opt-in.
+   - [ ] Keep example strategies in the host/examples; the server and adapter provide no built-in strategy or model scheduling.
+
+** TODO Cover MCP behavior without a ROM
+   - [ ] Exercise actual MCP initialization, tool/resource discovery, calls, reads, image delivery, and teardown over the mounted Streamable HTTP transport with controlled emulator observations.
+   - [ ] Verify shared HTTP/SDK/MCP schemas and observable results, including action receipt identity, execution-time stale rejection, duplicate/conflicting requests, and lost-response retry behavior.
+   - [ ] Check unauthenticated/wrong-role access, forged/cross-session identity, revocation, credential rotation, cached receipts, checkpoint permissions, and notification/wait cleanup.
+   - [ ] Check snapshot/subscription races, ordering, duplicates, overflow/resync, reconnect, unsupported protocol features, bounded turn waits, deadlines, cancellation, and shutdown.
+   - [ ] Check unknown menus, rollback failure, recovery-required blocking, debug invalidation, and explicit restoration through the same services; retain ROM-independent defaults.
+   - [ ] Verify simultaneous HTTP and MCP clients share one match, queue, durable journal, and checkpoint state rather than parallel execution paths.
+
+** TODO Verify human-versus-agent and agent-versus-agent play in both emulator modes
+   - [ ] Add opt-in integration scenarios using the supported external ROM and actual listening server; retain isolated saves, credentials, storage, and evidence outside Git/Nix.
+   - [ ] In headless and windowed modes, run a human HTTP/SDK player against an MCP host and two independent MCP hosts against each other; inspect state and complete turns through high-level tools without bridge knowledge.
+   - [ ] Exercise purchase, movement/wait, attack, capture, turn changes, and a finished match across the live scenarios; verify command results, identities, revisions, and screenshot boundaries.
+   - [ ] Verify save/restore/restart/resume and durable retries through MCP; confirm existing HTTP clients observe the same committed state.
+   - [ ] Verify real resource notifications/reconnect with supported clients and the bounded-wait fallback; label deterministic host drivers and any fault injection separately from actual model-host runs.
+   - [ ] Record ROM/build identities, tested host/SDK/protocol versions, commands, results, evidence fingerprints, and remaining host-specific limitations; do not infer host subscription behavior from server delivery alone.
+   - [ ] Run =pre-commit run --all-files=, retrying with =nix develop -c pre-commit run --all-files= if required tools are missing, and require every hook to pass.
+
+** TODO Confirm all Milestone 4 deliverables and acceptance criteria in [[file:PLAN.md][PLAN.md]]
+   - [ ] The API process hosts an authenticated Streamable HTTP MCP endpoint using the existing SDK/services, with no duplicate emulator or gameplay logic.
+   - [ ] Typed tools, coherent observations/resources, authorized notifications, bounded turn waits, checkpoint/debug behavior, and connection examples are implemented and documented within advertised capabilities.
+   - [ ] Human-versus-agent and agent-versus-agent clients inspect the same match and complete turns in both emulator modes through high-level actions.
+   - [ ] Authorization/revocation, retries, stale revisions, failure/recovery, restart, and HTTP/MCP parity have linked regression and live evidence.
+   - [ ] MCP protocol/application versioning and tested host compatibility are explicit; agent decision loops remain host responsibilities.
+   - [ ] Link each acceptance claim to implementation, checks, and recorded evidence; retain unsupported features and host limitations explicitly.
+
+* Deferred scope
+
+- WebSockets are excluded; use HTTP commands, HTTP SSE, and negotiated MCP transport.
+- Internal AW2 CPU players, additional maps/COs/rules/weather/teams, fog-enabled
+  matches, and additional gameplay actions remain future work as tracked in
+  [[file:MILESTONE-3.org][the deferred gameplay checklist]] and Milestone 5 of [[file:PLAN.md][PLAN.md]].
+- Full frontend clients, public hosting/accounts, multiple simultaneous matches,
+  competitive visibility filtering, strategy, legal-move enumeration, and
+  speculative rollouts remain outside this milestone.

@@ -193,6 +193,8 @@ implementation retain their documented scope limits.
 
 **Dependencies:** usable Python SDK from milestone 3.
 
+The implementation checklist is tracked in [MILESTONE-4.org](MILESTONE-4.org).
+
 **Deliverables:** Streamable HTTP MCP endpoint hosted by the API server, typed tools, connection examples, and documentation for coordinates, turn handling, failures, and debugging.
 
 **Acceptance criteria:** human-versus-agent and agent-versus-agent clients can inspect a match and complete turns in both modes through the same server. Agents need no emulator-specific knowledge to use high-level actions.
