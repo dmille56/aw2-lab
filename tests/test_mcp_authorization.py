@@ -129,7 +129,25 @@ async def test_mounted_authentication_sessions_origins_and_revocation(auth):
         assert (await client.post("/", headers=player, json=call)).status_code == 401
         # An unaffected player can still initialize an independent session.
         assert result(await client.post("/", headers=headers("q"), json=initialize))["result"]
+        invite(auth, summary.match_id, secret=token("x"))
+        claim(
+            auth,
+            summary.match_id,
+            invitation=token("x"),
+            credential=token("r"),
+        )
+        # Reclaiming the same slot creates a new principal generation. It cannot
+        # take over either the revoked session or another player's session.
+        assert (await client.post("/", headers=player, json=call)).status_code == 401
+        assert (await client.post("/", headers=headers("r", session), json=call)).status_code == 404
+        replacement = await client.post("/", headers=headers("r"), json=initialize)
+        replacement_session = replacement.headers["mcp-session-id"]
+        assert result(replacement)["result"]
+        assert result(await client.post("/", headers=headers("r", replacement_session), json=call))[
+            "result"
+        ]["structuredContent"] == {"result": "player"}
         assert all(letter * 43 not in rejected.text for letter in "opq")
+        assert "r" * 43 not in replacement.text
 
 
 @pytest.mark.anyio

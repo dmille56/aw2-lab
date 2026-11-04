@@ -46,10 +46,10 @@ An unaffected caller's requests and sessions continue to work.
 ## Operation guards for the remaining adapter work
 
 `caller_from_request` obtains a private `MCPCaller` from the current protocol
-request's ASGI scope, and rechecks authorization. The capabilities tool uses this check,
-so direct invocation without authenticated request context is rejected. Future
-tools and resource handlers must obtain this context instead of trusting a
-model-supplied identity, slot, or session ID.
+request's ASGI scope, and rechecks authorization. Every tool and resource
+handler obtains this context instead of trusting a model-supplied identity,
+slot, or session ID; direct invocation without authenticated request context is
+rejected.
 
 `MCPCaller.check(permission, match_id)` uses the existing permission table:
 operator administration and archive access, player reads/checkpoint creation for
@@ -71,8 +71,10 @@ alternative mutation path.
 Lifecycle, gameplay, checkpoint, state, screenshot, debug, subscription, and
 turn-wait operations use these guards. MCP resource subscriptions are bounded
 invalidations, not replay; reconnect requires a fresh authorized read. The
-Milestone 3 follow-up remains open until production operations and live delivery
-scenarios meet the acceptance checks.
+Mounted operation and shared-service checks are linked in
+[Milestone 4](MILESTONE-4.org). The Milestone 3 follow-up remains open until the
+repository's full verification gate passes. Third-party client reconnect and
+rendering behavior remains a separate live-host check.
 
 ## Evidence
 
@@ -86,6 +88,7 @@ watcher cleanup, denied operator gameplay, denied player administration/archive/
 cross-match reads, disabled debug, and direct unauthenticated tool calls.
 These synthetic probe tools/resources are confined to tests.
 
-The existing shared-service tests retain queue execution, cached-receipt,
-checkpoint/restart and revocation coverage. Real MCP gameplay, subscription delivery,
-agent hosts, and remote authentication are not claimed by these transport tests.
+The shared-service tests retain queue execution, cached-receipt,
+checkpoint/restart, and revocation coverage. MCP gameplay uses controlled
+emulator observations; live mGBA play, third-party agent-host behavior, and
+remote authentication are not claimed by these ROM-independent checks.

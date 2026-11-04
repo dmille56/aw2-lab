@@ -346,7 +346,7 @@ screenshots, and machine-specific paths outside Git and the Nix store.
   the initial roadmap scope.
 
 ** TODO Enforce shared authorization in the Milestone 4 MCP adapter
-   - Tracked in [[file:MILESTONE-4.org::#mcp-authorization][the Milestone 4 MCP authorization checklist]]. Local transport authentication and shared guards are implemented; production gameplay/resource/subscription checks remain open.
+   - ROM-independent coverage and the principal-generation regression are recorded in [[file:MILESTONE-4.org::#mcp-authorization][the Milestone 4 MCP authorization checklist]]. Keep this follow-up open until its full pre-commit gate passes. Host-specific reconnect behavior remains part of live host verification.
    - [ ] Apply the existing shared authorization service to gameplay tools, resources, replay/live delivery, and active subscriptions. Cover operator/player roles, revocation wakeups, cached results, and reconnects; do not expose gameplay through the greeting scaffold before these checks pass.
 
 ** TODO Expand gameplay command coverage in Milestone 5

@@ -141,9 +141,12 @@ capacity, waits, and Python MCP client transfer envelopes. SDK tests verify that
 oversized archive streams stop reading and close. Gameplay executors are controlled
 fixtures in these checks; this is not live emulator play evidence.
 
-State, screenshot, and debug operations have synthetic test coverage. The full pre-commit suite passes with worker-thread filesystem access.
+State, screenshot, and debug operations have synthetic test coverage. The full
+pre-commit gate, including pytest, must pass before marking the authorization
+acceptance work complete.
 Authorized [resource notifications](MCP-NOTIFICATIONS.md) are implemented;
 [Bounded `wait_for_turn`](MCP-TURN-WAIT.md) is implemented. The broader
-authorization acceptance check stays open until every delivered surface, including
-subscriptions, is covered. Live debug behavior against mGBA is not verified here.
+authorization acceptance checks now cover every delivered surface, including
+subscriptions; evidence is tracked in [Milestone 4](MILESTONE-4.org). Live debug
+behavior against mGBA is not verified here.
 Human/agent live play in both emulator modes remains later Milestone 4 verification.

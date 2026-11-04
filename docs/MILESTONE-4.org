@@ -115,12 +115,13 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    - [X] Explain coordinates/paths, direct/indirect attack rules, turn changes, stale revisions, duplicate retries, client timeouts, rollback/recovery, checkpoints, screenshots, and debug opt-in.
    - [X] Keep example strategies in the host/examples; the server and adapter provide no built-in strategy or model scheduling.
 
-** TODO Verify authorization on every delivered MCP operation
-   - [ ] Apply the shared permission table to production tool calls, resource reads, cached receipts, checkpoint transfers, subscription registration, reconnect/replay, and each notification delivery.
-   - [ ] Verify queued gameplay/debug/restore operations retain shared execution-time ownership, current credentials, turn, and revision checks through the SDK.
-   - [ ] Verify actual resources, notifications, and wait tools wake and clean up on revoke/reclaim, principal-generation changes, disconnect, close, and restart without affecting other callers.
-   - [ ] Verify MCP checkpoint restore/import/restart never revive revoked access, and redact secrets/verifiers from all new schemas, results, URIs, logs, and examples.
-   - [ ] Close the Milestone 3 MCP authorization follow-up only after the production operations and active subscriptions pass these checks.
+** IN-PROGRESS Verify authorization on every delivered MCP operation
+   ROM-independent evidence: =tests/test_mcp_authorization.py=, =tests/test_mcp_tools.py=, =tests/test_mcp_notifications.py=, =tests/test_mcp_turn_wait.py=, =tests/test_mcp_runtime.py=, and =tests/test_authorized_match.py=.
+   - [X] Apply the shared permission table to production tool calls, resource reads, cached receipts, checkpoint transfers, subscription registration, reconnect/session ownership, and each notification delivery.
+   - [X] Verify queued gameplay/debug/restore operations retain shared execution-time ownership, current credentials, turn, and revision checks through the SDK.
+   - [X] Verify resources, notifications, and wait tools wake and clean up on revoke/reclaim, principal-generation changes, disconnect, close, and application shutdown without affecting other callers.
+   - [X] Verify MCP checkpoint restore/import use shared authorization, checkpoint restart cannot revive revoked access, and secret values/verifiers are absent from schemas, results, resource URIs, diagnostics, and examples.
+   - [ ] Complete =pre-commit run --all-files=; the pytest hook stalled in this environment after all preceding hooks passed. Keep the Milestone 3 follow-up open until the full gate completes.
 
 ** TODO Cover MCP behavior without a ROM
    - [ ] Exercise actual MCP initialization, tool/resource discovery, calls, reads, image delivery, and teardown over the mounted Streamable HTTP transport with controlled emulator observations.
