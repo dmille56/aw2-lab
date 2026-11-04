@@ -132,7 +132,19 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    - [X] Check unknown menus, rollback failure, recovery-required blocking, debug invalidation, and explicit restoration through the same services; retain ROM-independent defaults.
    - [X] Verify simultaneous HTTP and MCP clients share one match, queue, durable journal, and checkpoint state rather than parallel execution paths.
 
+** TODO Implement the human game client
+   Design: [[file:HUMAN-CLIENT-DESIGN.md][Human game client proposal]]. Complete this task before live human-versus-agent and agent-versus-agent verification.
+   - [ ] Render a selectable board from structured state with terrain, property ownership, units, health, and turn status; provide tile/unit inspection and a unit roster.
+   - [ ] Show coherent match information, including day, active player, funds, weather, fog, lifecycle, readiness, and unavailable observations.
+   - [ ] Show each player's CO power status and meter, including active power and verified charge thresholds where available; distinguish unavailable or unknown observations from an empty meter.
+   - [ ] Support opening and exporting versioned snapshots for inspection without a running emulator.
+   - [ ] Connect to an existing match with a private player credential; follow HTTP SSE updates and reconnect using authoritative committed state.
+   - [ ] Provide purchase, explicit movement paths, wait, attack, capture, end-turn, and surrender controls through the existing HTTP API; handle pending receipts, stale previews, and uncertain outcomes without duplicate submissions.
+   - [ ] Provide optional revision-matched emulator screenshots and readable unit/terrain metadata from shared Python rule data.
+   - [ ] Verify the client against committed state and screenshots, including synchronization, authorization loss, and command recovery; require all repository checks to pass.
+
 ** TODO Verify human-versus-agent and agent-versus-agent play in both emulator modes
+   Prerequisite: complete the human game client above, using [[file:HUMAN-CLIENT-DESIGN.md][the proposed design]], before starting these live scenarios.
    - [ ] Add opt-in integration scenarios using the supported external ROM and actual listening server; retain isolated saves, credentials, storage, and evidence outside Git/Nix.
    - [ ] In headless and windowed modes, run a human HTTP/SDK player against an MCP host and two independent MCP hosts against each other; inspect state and complete turns through high-level tools without bridge knowledge.
    - [ ] Exercise purchase, movement/wait, attack, capture, turn changes, and a finished match across the live scenarios; verify command results, identities, revisions, and screenshot boundaries.
