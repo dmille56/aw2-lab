@@ -28,6 +28,7 @@ from aw2_lab.match_controller import MatchController
 from aw2_lab.match_observation import MatchObservationTracker
 from aw2_lab.mcp import create_mcp_server
 from aw2_lab.mcp_auth import MCPAuthorizationBoundary
+from aw2_lab.mcp_runtime import MCPAdapterRuntime
 from aw2_lab.playable_runtime import PlayableRuntime
 from aw2_lab.rom_profile import select_rom_profile
 from aw2_lab.state_decoder import capture_game_state
@@ -56,6 +57,7 @@ def create_app(
     storage_root: Path | None = None,
     operator_secret_file: Path | None = None,
     debug_enabled: bool = False,
+    api_base_url: str = "http://127.0.0.1:43127",
 ) -> FastAPI:
     """Create the API application and configure its emulator process."""
     emulator_launcher = launcher or EmulatorLauncher(settings, isolate_saves=True)
@@ -89,7 +91,10 @@ def create_app(
         checkpoint_store=checkpoint_store,
     )
     rom_profile = select_rom_profile(settings.rom_path)
-    mcp_server = create_mcp_server()
+    mcp_runtime = MCPAdapterRuntime(
+        controller, lambda: application.state.authorized_matches, api_base_url=api_base_url
+    )
+    mcp_server = create_mcp_server(mcp_runtime)
     mcp_app = MCPAuthorizationBoundary(mcp_server.streamable_http_app(), controller.authorization)
 
     @asynccontextmanager
@@ -97,6 +102,7 @@ def create_app(
         """Run mGBA and the mounted MCP session manager for the server lifetime."""
         async with AsyncExitStack() as stack:
             stack.push_async_callback(emulator_launcher.stop)
+            stack.push_async_callback(controller.stop)
             await emulator_launcher.start()
             if match_controller is None:
                 service = await _recover_checkpoint_on_startup(
@@ -127,14 +133,14 @@ def create_app(
                     )
                     if service is not None:
                         await controller.cache_restored_screenshot(service.session.tracker.match_id)
-            stack.push_async_callback(controller.stop)
             await controller.recover_authorized_setup()
             await controller.start()
-            async with mcp_server.session_manager.run():
+            async with mcp_runtime.run(), mcp_server.session_manager.run():
                 yield
 
     application = FastAPI(title="AW2 Lab API", version="0.1.0", lifespan=lifespan)
     application.state.mcp_server = mcp_server
+    application.state.mcp_runtime = mcp_runtime
     application.state.emulator_settings = settings
     application.state.emulator_launcher = emulator_launcher
     application.state.match_controller = controller

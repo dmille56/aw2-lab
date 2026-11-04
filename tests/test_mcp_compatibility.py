@@ -11,12 +11,12 @@ from mcp.shared.version import SUPPORTED_PROTOCOL_VERSIONS
 
 from aw2_lab import __version__
 from aw2_lab.api_contract import MCPCompatibility, Request
-from aw2_lab.mcp import server
+from aw2_lab.mcp import create_mcp_server
 
 
 def test_mcp_version_reporting_and_unimplemented_subscriptions() -> None:
     compatibility = MCPCompatibility()
-    options = server._mcp_server.create_initialization_options()
+    options = create_mcp_server()._mcp_server.create_initialization_options()
     assert compatibility.sdk_version == version("mcp") == "1.29.0"
     assert compatibility.supported_protocol_versions == tuple(SUPPORTED_PROTOCOL_VERSIONS)
     assert compatibility.preferred_protocol_version == types.LATEST_PROTOCOL_VERSION

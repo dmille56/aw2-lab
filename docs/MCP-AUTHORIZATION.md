@@ -5,7 +5,8 @@ bearer credential as HTTP. Provision the operator through the existing private
 secret file and claim player slots through the trusted HTTP/SDK setup flow in
 [AUTHORIZATION.md](AUTHORIZATION.md). Credentials stay in host transport headers;
 they are never tool arguments. No OAuth issuer/discovery or remote host integration
-is introduced. The greeting remains the only production tool.
+is introduced. The SDK-backed `get_capabilities` tool replaces the greeting; gameplay remains
+unimplemented.
 
 ## Request and session enforcement
 
@@ -42,7 +43,7 @@ An unaffected caller's requests and sessions continue to work.
 ## Operation guards for the remaining adapter work
 
 `caller_from_request` obtains a private `MCPCaller` from the current protocol
-request's ASGI scope, and rechecks authorization. The greeting uses this check,
+request's ASGI scope, and rechecks authorization. The capabilities tool uses this check,
 so direct invocation without authenticated request context is rejected. Future
 tools and resource handlers must obtain this context instead of trusting a
 model-supplied identity, slot, or session ID.
@@ -56,9 +57,10 @@ resource reads, cached receipts, subscription registration, and each delivery.
 `MCPCaller.operation(permission, match_id)` additionally guards pending awaits,
 registers a revocation wakeup, and rechecks permission before returning results.
 It removes its watcher on completion, cancellation, or failure.
-`MCPCaller.sdk(configured_base_url)` supplies one dedicated SDK client with the
-request's immutable credential inside that guard and closes it on exit. The URL
-must come from application configuration, never from tool arguments. The HTTP
+`MCPAdapterRuntime.sdk(caller)` supplies one dedicated SDK client with the
+request's immutable credential inside a lifespan-owned guard and closes it on
+exit. Its URL comes from application configuration, never from tool arguments.
+See [MCP-LIFESPAN.md](MCP-LIFESPAN.md) for shutdown and SDK connection ownership. The HTTP
 facade and queue keep their existing acceptance/execution-time checks for turn,
 ownership, revision, permissions, and cached responses. The adapter owns no
 alternative mutation path.
@@ -66,7 +68,7 @@ alternative mutation path.
 Actual gameplay/checkpoint/debug tools, resource subscriptions, replay, and turn
 waits remain subsequent tasks. Their implementation must use these guards and
 retain the permission tests on each new operation. The Milestone 3 follow-up
-remains open until those delivered operations are verified; authenticated greeting
+remains open until those delivered operations are verified; authenticated capabilities
 coverage alone does not satisfy that acceptance criterion.
 
 ## Evidence

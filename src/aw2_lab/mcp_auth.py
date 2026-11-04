@@ -22,7 +22,6 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from aw2_lab.api_contract import Principal
 from aw2_lab.authorization import AuthorizationError, AuthorizationService, Permission
 from aw2_lab.match_contract import ErrorCode
-from aw2_lab.sdk import AsyncAW2Client
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -61,15 +60,6 @@ class MCPCaller:
             finally:
                 unwatch()
         self.check(permission, match_id)
-
-    @asynccontextmanager
-    async def sdk(self, base_url: str) -> AsyncIterator[AsyncAW2Client]:
-        """One immutable credential per client; caller cannot supply a service URL."""
-        async with (
-            self.operation(),
-            AsyncAW2Client(base_url, credential=self.credential) as client,
-        ):
-            yield client
 
 
 def caller_from_request(request: Request) -> MCPCaller:

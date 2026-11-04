@@ -1,7 +1,7 @@
 # MCP v1 contract and adapter design
 
-Status: design for Milestone 4; the current `mcp.py` greeting is not a gameplay
-implementation. This document completes the first contract task in
+Status: design for Milestone 4; the current `mcp.py` capabilities tool uses the shared SDK;
+gameplay tools remain unimplemented. This document completes the first contract task in
 [MILESTONE-4.org](MILESTONE-4.org). The [SDK compatibility audit](MCP-COMPATIBILITY.md) records the pinned baseline.
 The [local authorization boundary](MCP-AUTHORIZATION.md) implements transport
 authentication and shared operation guards. Production gameplay authorization

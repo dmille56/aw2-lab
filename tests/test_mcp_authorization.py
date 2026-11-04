@@ -52,6 +52,10 @@ async def test_mounted_authentication_sessions_origins_and_revocation(auth):
     server = create_mcp_server()
 
     @server.tool()
+    def whoami_probe() -> str:
+        return caller_from_request(server.get_context().request_context.request).principal.kind
+
+    @server.tool()
     def permission_probe(permission: Permission, match_id: UUID) -> str:
         caller = caller_from_request(server.get_context().request_context.request)
         caller.check(permission, match_id)
@@ -96,7 +100,7 @@ async def test_mounted_authentication_sessions_origins_and_revocation(auth):
                 "/", headers=player, json={"jsonrpc": "2.0", "method": "notifications/initialized"}
             )
         ).status_code == 202
-        call = rpc("tools/call", {"name": "hello_world", "arguments": {}})
+        call = rpc("tools/call", {"name": "whoami_probe", "arguments": {}})
         assert (
             result(await client.post("/", headers=player, json=call))["result"]["isError"] is False
         )
@@ -147,7 +151,7 @@ async def test_missing_provisioning_remote_peer_and_direct_tool_are_denied():
             await client.post("/", headers=headers(), json=rpc("initialize"))
         ).status_code == 403
     with pytest.raises(ToolError, match="Context is not available"):
-        await server.call_tool("hello_world", {})
+        await server.call_tool("get_capabilities", {})
 
 
 @pytest.mark.anyio

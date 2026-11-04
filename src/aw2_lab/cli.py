@@ -140,6 +140,7 @@ def main() -> None:
         print(f"  {setting.name}: {getattr(settings, setting.name)}")
 
     from aw2_lab.api.app import create_app
+    from aw2_lab.mcp_runtime import api_url_for_bind
 
     try:
         storage_root = args.storage_dir.expanduser().resolve() if args.storage_dir else None
@@ -148,8 +149,9 @@ def main() -> None:
             storage_root=storage_root,
             operator_secret_file=args.operator_secret_file,
             debug_enabled=args.enable_debug_api,
+            api_base_url=api_url_for_bind(args.host, args.port),
         )
-    except (UnsupportedRomError, AuthorizationError) as error:
+    except (UnsupportedRomError, AuthorizationError, ValueError) as error:
         parser.error(str(error))
 
     uvicorn.run(

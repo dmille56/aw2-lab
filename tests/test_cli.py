@@ -441,3 +441,19 @@ def test_cli_operator_file_configuration(monkeypatch, tmp_path, capsys):
     )
     assert application.state.authorized_matches is not None
     assert "o" * 43 not in capsys.readouterr().out
+
+
+def test_cli_configures_mcp_sdk_for_selected_listener(monkeypatch, tmp_path):
+    rom = tmp_path / "rom.gba"
+    rom.write_bytes(b"synthetic")
+    application, _ = invoke_cli(monkeypatch, rom, "--host", "0.0.0.0", "--port", "45678")
+    assert application.state.mcp_runtime.api_base_url == "http://127.0.0.1:45678"
+
+
+def test_cli_rejects_unresolved_dynamic_mcp_sdk_port(monkeypatch, tmp_path, capsys):
+    rom = tmp_path / "rom.gba"
+    rom.write_bytes(b"synthetic")
+    with pytest.raises(SystemExit) as caught:
+        invoke_cli(monkeypatch, rom, "--port", "0")
+    assert caught.value.code == 2
+    assert "fixed API port" in capsys.readouterr().err

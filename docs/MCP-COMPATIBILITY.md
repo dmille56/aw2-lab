@@ -27,7 +27,7 @@ update the pin, and run the compatibility checks.
 | Images | `Image(data=..., format="png")` and `types.ImageContent` support in-memory base64 content | Return bounded committed screenshots and revision/frame metadata, without filesystem paths. A synthetic round trip checks image content serialization, not image decoding or a real screenshot. |
 | Structured results | Tool annotations produce `outputSchema`; `CallToolResult.structuredContent` supports structured metadata alongside image content | Shared models can supply typed results. Synthetic checks verify a model return, mixed image/metadata result, and rejection of application contract v2 before the probe tool executes. |
 | Request bounds | FastMCP defaults `max_request_body_size` to 4,194,304 bytes | The planned base64 archive envelope exceeds this. Configure the future MCP transport's outer limit to the bounded archive envelope, with smaller per-tool limits before decoding. Do not enable archive tools until both server and host limits are verified. |
-| Replay | Streamable HTTP accepts an optional event store; the scaffold supplies none | Advertise no MCP replay guarantee. Reconnect reads authoritative state regardless of HTTP SSE replay support. |
+| Replay | Streamable HTTP accepts an optional event store; the adapter supplies none | Advertise no MCP replay guarantee. Reconnect reads authoritative state regardless of HTTP SSE replay support. |
 
 Subscriptions use the SDK's resource operations across the audited revision
 family; later revisions in this SDK do not introduce a replacement subscription
@@ -52,7 +52,7 @@ message size, subscription behavior, or credential configuration is verified yet
 MCP `initialize.serverInfo.version` reports `aw2_lab.__version__`, not the MCP SDK
 package version. FastMCP 1.29.0 has no constructor version argument; the adapter
 sets the underlying low-level server's explicit version, guarded by a compatibility
-check. Initialization instructions identify contract v1 and the greeting-only
+check. Initialization instructions identify contract v1 and the capabilities-only
 status. The library continues to negotiate MCP protocol versions itself.
 
 Keep v1 tool names stable at `/mcp`; use
