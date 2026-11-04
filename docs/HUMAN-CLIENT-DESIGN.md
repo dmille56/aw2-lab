@@ -1,6 +1,7 @@
 # Human game client proposal
 
-Status: proposed; this document does not describe an implemented client.
+Status: initial read-only viewer implemented in `prototypes/client/`; gameplay
+controls and the rest of the proposed client remain pending.
 
 ## Purpose
 
@@ -27,6 +28,34 @@ Initially support the verified fixed Bean Island profile, including fog Off.
 The interface must show unavailable or unknown observations explicitly. Future
 fog support needs an explicit visibility contract before the client can promise
 that its board respects player visibility.
+
+### Initial implementation evidence
+
+The existing [browser/Tauri prototype](../prototypes/client/README.md) now serves
+the viewer at `/client/`. No separate frontend is installed in the Python package.
+The static prototype is the starting point for the later React/TypeScript client.
+
+On 2026-11-04, Chromium browser checks covered authenticated state loading,
+tile and unit inspection, keyboard selection, roster filtering, versioned snapshot
+import/export, rejection of unsupported schemas, SSE state changes, removal of
+stale screenshots, and clearing state on authorization loss. Change and revocation
+checks used synthetic observations. The downloaded snapshot also passed the
+Python `StateResponse` validator.
+
+Against the real headless emulator and an isolated recovered Bean Island match,
+the browser rendered all 240 tiles and the Infantry inspector, and loaded a
+screenshot matching committed revision 4/frame 4270. This verifies observation
+delivery and rendering, not gameplay controls or a completed human/agent match.
+
+The Nix Tauri package built successfully. Its existing X11 native smoke check
+reached the real API and reported the running emulator, then exited zero. It
+emitted GBM buffer warnings, as the earlier prototype did. Native gameplay
+rendering, native snapshot file handling, and Wayland acceptance for this viewer
+remain unverified. CO charge is currently shown numerically; verified thresholds
+and a visual charge meter remain pending.
+
+`tests/test_client_prototype.py` covers helper configuration, shared asset delivery,
+native Authorization preflight policy, unrelated-origin rejection, and catalog drift.
 
 ## Screen layout
 
@@ -138,8 +167,10 @@ retry; a new click must not accidentally submit the same action twice.
 
 ## Connect and open snapshots
 
-Serve the client from the API process at `/play`, using the same origin for HTTP
-requests. The initial screen offers `Connect to match` and `Open snapshot`.
+Extend the existing client in `prototypes/client/`, sharing its browser assets
+and Tauri shell. Serve it through the existing helper at `/client/`, using the
+same origin for browser HTTP requests and the configured loopback destination
+for the native shell. The initial screen offers `Connect to match` and `Open snapshot`.
 
 For a live connection, the human supplies the match ID and their player token.
 Keep the token in page memory and send it only in the Authorization header.
@@ -171,8 +202,9 @@ Request screenshots for an explicit committed revision. Display them with their
 revision and frame; a missing matching screenshot is shown as unavailable rather
 than substituted with a different boundary.
 
-Generate a versioned presentation catalog from the existing Python unit profiles
-and terrain names, delivered by the API to the client. This supplies readable
+Generate and bundle a versioned presentation catalog from the existing Python unit profiles
+and terrain names. Check that the bundled catalog matches the generator in the
+test suite. This keeps snapshots readable without an API connection and supplies readable
 names and documented rule facts without maintaining a second rules table in
 JavaScript. Movement calculations that become necessary beyond the initial path
 editor should use shared authoritative rule services rather than a separate
@@ -180,10 +212,13 @@ browser implementation of the game.
 
 ## Implementation shape
 
-Start with a small HTML/CSS/JavaScript application and SVG rendering, served as
-packaged assets by FastAPI. This avoids a separate development server and build
-toolchain for the initial interface. Keep rendering, selection/action previews,
-and HTTP transport in separate modules.
+Evolve the existing static compatibility prototype into the first read-only board
+and inspector, using accessible selectable tiles. Retain its connection check,
+native smoke reporting, and shared browser/Tauri assets. Do not create a second
+frontend in the Python package. Before adding gameplay controls, introduce the
+React/TypeScript/Vite tooling and generated contract types selected in
+[the accepted client architecture](CLIENT-ARCHITECTURE.md). Keep rendering,
+selection/action previews, and HTTP transport in separate modules as it grows.
 
 The browser calls the HTTP API directly; it does not need the Python SDK or MCP
 for ordinary play. MCP agents and the browser share the existing controller,

@@ -1,18 +1,126 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>AW2 client compatibility check</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="client.js" defer></script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AW2 Lab · Match viewer</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script type="module" src="./client.js"></script>
   </head>
   <body>
+    <header>
+      <div>
+        <span class="eyebrow">AW2 LAB</span>
+        <h1>Match viewer</h1>
+      </div>
+      <p id="connection" role="status">Open a snapshot or connect to a match</p>
+    </header>
     <main>
-      <h1>AW2 client compatibility check</h1>
-      <p>This prototype checks the connection to the local server.</p>
-      <button id="check" type="button">Check connection</button>
-      <pre id="result" role="status" aria-live="polite">Not checked.</pre>
+      <section class="card" aria-label="Server connection">
+        <div class="toolbar">
+          <h2>Server connection</h2>
+          <button id="check" type="button">Check connection</button>
+        </div>
+        <pre id="result" role="status" aria-live="polite">Not checked.</pre>
+      </section>
+      <section class="card setup" aria-label="Open match">
+        <form id="connect">
+          <label
+            >Match ID<input
+              id="match-id"
+              required
+              autocomplete="off"
+              spellcheck="false" /></label
+          ><label
+            >Player token<input
+              id="token"
+              type="password"
+              required
+              autocomplete="off" /></label
+          ><button>Connect</button>
+        </form>
+        <div class="toolbar">
+          <label class="file-label"
+            >Open snapshot<input
+              id="snapshot"
+              type="file"
+              accept="application/json,.json" /></label
+          ><button id="export" disabled>Export snapshot</button
+          ><button id="refresh" disabled>Refresh</button
+          ><button id="disconnect" disabled>Disconnect</button>
+        </div>
+        <p class="hint">
+          Inspect the full structured state. Gameplay controls are coming in the
+          next delivery step. Tokens stay in page memory.
+        </p>
+      </section>
+      <p id="error" role="alert" hidden></p>
+      <section id="match" class="card" hidden>
+        <h2 id="match-title"></h2>
+        <p id="boundary"></p>
+        <p id="readiness"></p>
+        <div id="players"></div>
+      </section>
+      <div class="workspace">
+        <section class="card map-panel" aria-label="Map">
+          <div class="toolbar">
+            <h2>Board</h2>
+            <label
+              >Tile size
+              <input id="zoom" type="range" min="38" max="90" value="58"
+            /></label>
+          </div>
+          <p id="empty">
+            Connect or open an exported StateResponse JSON file to see the
+            board.
+          </p>
+          <div id="map-scroll">
+            <div
+              id="board"
+              role="group"
+              aria-label="Map tiles; arrow keys move selection"
+            ></div>
+          </div>
+          <details>
+            <summary>Legend</summary>
+            <p>
+              Owner numbers identify players. Unit labels show type and observed
+              internal health. ✓ marks used units. Select a tile for details.
+              Terrain colors are illustrative.
+            </p>
+            <div id="legend"></div>
+          </details>
+        </section>
+        <aside class="card">
+          <h2>Inspector</h2>
+          <div id="inspector">Select a tile or a unit.</div>
+        </aside>
+      </div>
+      <section class="card">
+        <h2>Unit roster</h2>
+        <label
+          >Filter units<input
+            id="filter"
+            placeholder="Type, player, coordinates…"
+        /></label>
+        <div id="roster"></div>
+      </section>
+      <section class="card">
+        <div class="toolbar">
+          <h2>Emulator reference</h2>
+          <button id="screenshot-button" disabled>
+            Load matching screenshot
+          </button>
+        </div>
+        <p id="screenshot-label">
+          Optional image from the displayed committed revision.
+        </p>
+        <img
+          id="screenshot"
+          alt="Emulator screenshot for the displayed revision"
+          hidden
+        />
+      </section>
     </main>
   </body>
 </html>

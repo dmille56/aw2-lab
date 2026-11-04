@@ -6,9 +6,11 @@
   "build": { "frontendDist": "web" },
   "app": {
     "withGlobalTauri": true,
-    "windows": [{ "title": "AW2 client compatibility check", "width": 680, "height": 400 }],
+    "windows": [
+      { "title": "AW2 Lab · Match viewer", "width": 1200, "height": 850 }
+    ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:43127"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:43127"
     }
   },
   "bundle": { "active": false }

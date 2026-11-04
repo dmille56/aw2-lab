@@ -1,0 +1,229 @@
+{
+  "schema_version": 1,
+  "terrain": {
+    "0": "Empty",
+    "1": "Plain",
+    "2": "River",
+    "3": "Mountain",
+    "4": "Wood",
+    "5": "Road",
+    "6": "City",
+    "7": "Sea",
+    "8": "HQ",
+    "9": "Unused",
+    "10": "Airport",
+    "11": "Port",
+    "12": "Bridge",
+    "13": "Shoal",
+    "14": "Base",
+    "15": "Pipe",
+    "16": "Pipe Seam",
+    "17": "Missile Silo",
+    "18": "Spent Silo",
+    "19": "Reef",
+    "20": "Lab",
+    "21": "Minicannon South",
+    "22": "Minicannon North",
+    "23": "Minicannon West",
+    "24": "Minicannon East",
+    "25": "Laser",
+    "26": "Black Cannon South",
+    "27": "Black Cannon North",
+    "28": "Volcano",
+    "29": "Black Hole Factory",
+    "30": "Deathray",
+    "31": "Unused Blocked"
+  },
+  "units": {
+    "1": {
+      "name": "Infantry",
+      "movement": 3,
+      "movement_type": "FOOT",
+      "minimum_range": 1,
+      "maximum_range": 1,
+      "fuel_capacity": 99,
+      "ammo_capacity": 0,
+      "cost": 1000
+    },
+    "2": {
+      "name": "Mech",
+      "movement": 2,
+      "movement_type": "MECH",
+      "minimum_range": 1,
+      "maximum_range": 1,
+      "fuel_capacity": 70,
+      "ammo_capacity": 3,
+      "cost": 3000
+    },
+    "3": {
+      "name": "Medium Tank",
+      "movement": 5,
+      "movement_type": "TREADS",
+      "minimum_range": 1,
+      "maximum_range": 1,
+      "fuel_capacity": 50,
+      "ammo_capacity": 8,
+      "cost": 16000
+    },
+    "5": {
+      "name": "Tank",
+      "movement": 6,
+      "movement_type": "TREADS",
+      "minimum_range": 1,
+      "maximum_range": 1,
+      "fuel_capacity": 70,
+      "ammo_capacity": 9,
+      "cost": 7000
+    },
+    "6": {
+      "name": "Recon",
+      "movement": 8,
+      "movement_type": "WHEELS",
+      "minimum_range": 1,
+      "maximum_range": 1,
+      "fuel_capacity": 80,
+      "ammo_capacity": 0,
+      "cost": 4000
+    },
+    "7": {
+      "name": "APC",
+      "movement": 6,
+      "movement_type": "TREADS",
+      "minimum_range": 0,
+      "maximum_range": 0,
+      "fuel_capacity": 70,
+      "ammo_capacity": 0,
+      "cost": 5000
+    },
+    "8": {
+      "name": "Neotank",
+      "movement": 6,
+      "movement_type": "TREADS",
+      "minimum_range": 1,
+      "maximum_range": 1,
+      "fuel_capacity": 99,
+      "ammo_capacity": 9,
+      "cost": 22000
+    },
+    "10": {
+      "name": "Artillery",
+      "movement": 5,
+      "movement_type": "TREADS",
+      "minimum_range": 2,
+      "maximum_range": 3,
+      "fuel_capacity": 50,
+      "ammo_capacity": 9,
+      "cost": 6000
+    },
+    "11": {
+      "name": "Rockets",
+      "movement": 5,
+      "movement_type": "WHEELS",
+      "minimum_range": 3,
+      "maximum_range": 5,
+      "fuel_capacity": 50,
+      "ammo_capacity": 6,
+      "cost": 15000
+    },
+    "14": {
+      "name": "Anti-Air",
+      "movement": 6,
+      "movement_type": "TREADS",
+      "minimum_range": 1,
+      "maximum_range": 1,
+      "fuel_capacity": 60,
+      "ammo_capacity": 9,
+      "cost": 8000
+    },
+    "15": {
+      "name": "Missiles",
+      "movement": 4,
+      "movement_type": "WHEELS",
+      "minimum_range": 3,
+      "maximum_range": 5,
+      "fuel_capacity": 50,
+      "ammo_capacity": 6,
+      "cost": 12000
+    },
+    "16": {
+      "name": "Fighter",
+      "movement": 9,
+      "movement_type": "AIR",
+      "minimum_range": 1,
+      "maximum_range": 1,
+      "fuel_capacity": 99,
+      "ammo_capacity": 9,
+      "cost": 20000
+    },
+    "17": {
+      "name": "Bomber",
+      "movement": 7,
+      "movement_type": "AIR",
+      "minimum_range": 1,
+      "maximum_range": 1,
+      "fuel_capacity": 99,
+      "ammo_capacity": 9,
+      "cost": 22000
+    },
+    "19": {
+      "name": "Battle Copter",
+      "movement": 6,
+      "movement_type": "AIR",
+      "minimum_range": 1,
+      "maximum_range": 1,
+      "fuel_capacity": 99,
+      "ammo_capacity": 6,
+      "cost": 9000
+    },
+    "20": {
+      "name": "Transport Copter",
+      "movement": 6,
+      "movement_type": "AIR",
+      "minimum_range": 0,
+      "maximum_range": 0,
+      "fuel_capacity": 99,
+      "ammo_capacity": 0,
+      "cost": 5000
+    },
+    "21": {
+      "name": "Battleship",
+      "movement": 5,
+      "movement_type": "SHIP",
+      "minimum_range": 2,
+      "maximum_range": 6,
+      "fuel_capacity": 99,
+      "ammo_capacity": 9,
+      "cost": 28000
+    },
+    "22": {
+      "name": "Cruiser",
+      "movement": 6,
+      "movement_type": "SHIP",
+      "minimum_range": 1,
+      "maximum_range": 1,
+      "fuel_capacity": 99,
+      "ammo_capacity": 9,
+      "cost": 18000
+    },
+    "23": {
+      "name": "Lander",
+      "movement": 6,
+      "movement_type": "LANDER",
+      "minimum_range": 0,
+      "maximum_range": 0,
+      "fuel_capacity": 99,
+      "ammo_capacity": 0,
+      "cost": 12000
+    },
+    "24": {
+      "name": "Submarine",
+      "movement": 5,
+      "movement_type": "SHIP",
+      "minimum_range": 1,
+      "maximum_range": 1,
+      "fuel_capacity": 60,
+      "ammo_capacity": 6,
+      "cost": 20000
+    }
+  }
+}

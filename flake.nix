@@ -93,6 +93,8 @@
           devShell = pkgs.mkShell {
             packages = tools ++ devTools ++ [ clientPrototype ];
             shellHook = ''
+              # Prefer the complete environment over propagated bare Python interpreters.
+              export PATH="${developmentPython}/bin:$PATH"
               export PYTHONPATH="$PWD/src''${PYTHONPATH:+:$PYTHONPATH}"
             '';
           };

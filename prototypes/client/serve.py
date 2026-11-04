@@ -5,11 +5,24 @@ import os
 from pathlib import Path
 
 import uvicorn
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 
 from aw2_lab.api.app import create_app
-from aw2_lab.emulator import EmulatorSettings
+from aw2_lab.emulator import EmulatorMode, EmulatorSettings
+
+
+def configure_client(app: FastAPI) -> None:
+    """Serve shared browser/native assets and permit explicit native origins."""
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["tauri://localhost", "http://tauri.localhost", "https://tauri.localhost"],
+        allow_methods=["GET"],
+        allow_headers=["Authorization"],
+        expose_headers=["X-AW2-Match-ID", "X-AW2-Revision", "X-AW2-Frame"],
+    )
+    app.mount("/client", StaticFiles(directory=Path(__file__).parent / "web", html=True))
 
 
 def main() -> None:
@@ -20,19 +33,27 @@ def main() -> None:
         metavar="PATH",
         help="path to your AW2 ROM (required; default: AW2_ROM_PATH)",
     )
+    parser.add_argument("--operator-secret-file", type=Path)
+    parser.add_argument("--storage-dir", type=Path)
+    parser.add_argument("--emulator-mode", choices=list(EmulatorMode), default="headless")
     args = parser.parse_args()
     if not args.rom_path:
         parser.error("an AW2 ROM is required; provide --rom-path or set AW2_ROM_PATH")
     rom_path = Path(args.rom_path).expanduser()
     if not rom_path.is_file():
         parser.error(f"ROM path is not a file: {rom_path}")
-    app = create_app(settings=EmulatorSettings(rom_path=rom_path.resolve()))
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["tauri://localhost", "http://tauri.localhost", "https://tauri.localhost"],
-        allow_methods=["GET"],
+    options = {}
+    if args.operator_secret_file is not None:
+        options["operator_secret_file"] = args.operator_secret_file.expanduser()
+    if args.storage_dir is not None:
+        options["storage_root"] = args.storage_dir.expanduser()
+    app = create_app(
+        settings=EmulatorSettings(
+            rom_path=rom_path.resolve(), mode=EmulatorMode(args.emulator_mode)
+        ),
+        **options,
     )
-    app.mount("/client", StaticFiles(directory=Path(__file__).parent / "web", html=True))
+    configure_client(app)
     uvicorn.run(app, host="127.0.0.1", port=43127)
 
 
