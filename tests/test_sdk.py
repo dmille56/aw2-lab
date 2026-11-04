@@ -321,3 +321,38 @@ async def test_checkpoint_export_stops_at_archive_limit():
             await client.export_checkpoint(uuid4(), uuid4())
     assert stream.closed
     assert stream.chunks <= MAX_ARCHIVE_BYTES // 65536 + 2
+
+
+@run_async_test
+async def test_screenshot_metadata_is_bound_to_requested_boundary():
+    match_id, revision = uuid4(), 4
+    png = b"\x89PNG\r\n\x1a\nfixture"
+
+    def transport(response_match, response_revision, frame):
+        return httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                content=png,
+                headers={
+                    "content-type": "image/png",
+                    "X-AW2-Match-ID": str(response_match),
+                    "X-AW2-Revision": str(response_revision),
+                    "X-AW2-Frame": str(frame),
+                },
+            )
+        )
+
+    async with AsyncAW2Client(transport=transport(match_id, revision, 123)) as client:
+        result = await client.screenshot(match_id, revision=revision)
+        assert (result.match_id, result.revision, result.frame, result.png) == (
+            match_id,
+            revision,
+            123,
+            png,
+        )
+    async with AsyncAW2Client(transport=transport(match_id, revision + 1, 123)) as client:
+        with pytest.raises(ProtocolError, match="requested boundary"):
+            await client.screenshot(match_id, revision=revision)
+    async with AsyncAW2Client(transport=transport(uuid4(), revision, 123)) as client:
+        with pytest.raises(ProtocolError, match="requested boundary"):
+            await client.screenshot(match_id, revision=revision)

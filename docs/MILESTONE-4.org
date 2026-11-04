@@ -72,11 +72,12 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    - [X] Preserve structured errors for invalid/unsupported requests, authentication/ownership, stale revisions, rejection, rollback, and recovery-required outcomes; distinguish MCP protocol errors from AW2 application results.
    - [X] Apply schema, payload, binary-transfer, timeout, and concurrency bounds. Do not imply legal-move enumeration or broader gameplay support than current capabilities.
 
-** TODO Expose coherent state, command, and screenshot observations
-   - [ ] Implement versioned match-state and command-status resources with authorization on every read; expose settled/readiness state and unknown fields explicitly.
-   - [ ] Provide screenshot observation using the committed boundary image, frame, and revision; handle unavailable images without exposing executing frames.
-   - [ ] Provide tool-based observation access for hosts that do not read resources, using the same state/image sources and permission checks.
-   - [ ] Verify observation reads and resource discovery do not advance frames, change revisions, or reveal other matches, credentials, or server paths.
+** DONE Expose coherent state, command, and screenshot observations
+   Contract and synthetic evidence: [[file:MCP-OBSERVATIONS.md][MCP state and image observations]]. Real screenshot capture and host rendering remain in live verification.
+   - [X] Implement versioned match-state and command-status resources with authorization on every read; expose settled/readiness state and unknown fields explicitly.
+   - [X] Provide screenshot observation using the committed boundary image, frame, and revision; handle unavailable images without exposing executing frames.
+   - [X] Provide tool-based observation access for hosts that do not read resources, using the same state/image sources and permission checks.
+   - [X] Verify observation reads and resource discovery do not advance frames, change revisions, or reveal other matches, credentials, or server paths.
 
 ** TODO Expose clearly named operator-only debug tools
    - [ ] Wrap the existing input, frame advance, bounded memory read/write, and reset operations; add SDK adapters where needed instead of duplicating debug execution logic.

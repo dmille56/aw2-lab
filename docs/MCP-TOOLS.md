@@ -10,6 +10,7 @@ unknown arguments. Mutations require an explicit UUID `request_id`.
 | --- | --- | --- |
 | System | `get_capabilities`, `get_readiness` | Authenticated capabilities; operator readiness |
 | Matches | `create_match`, `list_matches`, `inspect_match`, `revoke_slot`, `start_match`, `close_match` | Operator administration; joined player may inspect own match |
+| Observations | `get_state`, `get_observation`, `get_screenshot`; state and command resources | Operator or joined player in own match |
 | Commands | `get_command`, `wait_for_command` | Operator or joined player in own match |
 | Gameplay | `move_wait`, `move_attack`, `move_capture`, `purchase`, `end_turn`, `surrender` | Player credential, own active slot |
 | Checkpoints | `create_checkpoint`, `list_checkpoints`, `inspect_checkpoint` | Operator or joined player in own match |

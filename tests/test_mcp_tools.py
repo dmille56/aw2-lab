@@ -69,15 +69,15 @@ async def mounted(app, monkeypatch, *, client_type=None):
                     headers=headers(letter, sessions[letter]),
                     json={"jsonrpc": "2.0", "method": "notifications/initialized"},
                 )
+            method = "resources/read" if name == "_resource_read" else "tools/call"
+            params = arguments or {}
+            if method == "tools/call":
+                params = {"name": name, "arguments": params}
             response = result(
                 await http.post(
                     "/mcp/",
                     headers=headers(letter, sessions[letter]),
-                    json=rpc(
-                        "tools/call",
-                        {"name": name, "arguments": arguments or {}},
-                        identifier=next(identifiers),
-                    ),
+                    json=rpc(method, params, identifier=next(identifiers)),
                 )
             )
             return response.get("result", response)
@@ -490,5 +490,95 @@ async def test_python_mcp_host_max_archive_envelopes(memory, tmp_path, monkeypat
             )
             assert rejected.isError
             assert rejected.structuredContent["error"]["code"] == "checkpoint_corrupt"
+    finally:
+        await runtime.controller.stop()
+
+
+@run_async_test
+async def test_authorized_state_command_resources_and_coherent_screenshot(
+    memory, tmp_path, monkeypatch
+):
+    import json
+
+    app, runtime, _, match_id, _, bridge = await setup(memory, tmp_path, monkeypatch)
+    command_id = None
+    png = b"\x89PNG\r\n\x1a\ncoherent"
+
+    async def screenshot(_observation):
+        return png
+
+    runtime.controller.set_screenshot_provider(screenshot)
+
+    class EndTurnExecutor:
+        def __init__(self, navigator, tracker):
+            self.tracker = tracker
+
+        async def execute(self, request, observation):
+            bridge.frame += 1
+            return MutationOutcome(
+                observation=self.tracker.commit_boundary(await bridge.decoded()),
+                lifecycle=MatchLifecycle.PLAYABLE,
+            )
+
+    monkeypatch.setattr(runtime_module, "EndTurnActionExecutor", EndTurnExecutor)
+    try:
+        async with mounted(app, monkeypatch) as (call, _, _http):
+            state_uri = f"aw2://v1/matches/{match_id}/state"
+            state_result = await call("_resource_read", {"uri": state_uri})
+            initial = json.loads(state_result["contents"][0]["text"])
+            assert initial["settled"] is True
+            assert "observation" in initial
+            assert payload(await call("get_state", {"match_id": str(match_id)})) == initial
+            actions_before = bridge.frame
+            request_id = str(uuid4())
+            receipt = payload(
+                await call(
+                    "end_turn",
+                    {
+                        "match_id": str(match_id),
+                        "expected_revision": initial["summary"]["revision"],
+                        "request_id": request_id,
+                    },
+                )
+            )
+            command_id = receipt["command_id"]
+            await runtime.controller.wait_for_command(match_id, UUID(command_id), timeout=2)
+            command_uri = f"aw2://v1/matches/{match_id}/commands/{command_id}"
+            status = json.loads(
+                (await call("_resource_read", {"uri": command_uri}))["contents"][0]["text"]
+            )
+            assert status["status"] == "completed"
+            state = payload(await call("get_state", {"match_id": str(match_id)}))
+            assert state["summary"]["revision"] == initial["summary"]["revision"] + 1
+            assert state["settled"] and bridge.frame == actions_before + 1
+            screenshot_result = await call(
+                "get_screenshot",
+                {"match_id": str(match_id), "revision": state["summary"]["revision"]},
+            )
+            metadata = screenshot_result["structuredContent"]
+            assert metadata == {
+                "contract_version": 1,
+                "match_id": str(match_id),
+                "revision": state["summary"]["revision"],
+                "frame": state["observation"]["game_state"]["frame"],
+                "mime_type": "image/png",
+            }
+            assert base64.b64decode(screenshot_result["content"][0]["data"]) == png
+            again = json.loads(
+                (await call("_resource_read", {"uri": state_uri}))["contents"][0]["text"]
+            )
+            assert again == state and bridge.frame == actions_before + 1
+            assert "error" in await call(
+                "_resource_read", {"uri": f"aw2://v1/matches/{uuid4()}/state"}
+            )
+            unavailable = await call(
+                "get_screenshot",
+                {"match_id": str(match_id), "revision": state["summary"]["revision"] - 1},
+            )
+            assert (
+                unavailable["isError"]
+                and unavailable["structuredContent"]["error"]["code"] == "observation_unavailable"
+            )
+            assert bridge.frame == actions_before + 1
     finally:
         await runtime.controller.stop()

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections import deque
 from collections.abc import AsyncGenerator
+from dataclasses import dataclass
 from typing import Self, TypeVar
 from uuid import UUID, uuid4
 
@@ -49,6 +50,15 @@ TERMINAL = frozenset(
     }
 )
 EVENT_ADAPTER: TypeAdapter[MatchEvent] = TypeAdapter(MatchEvent)
+
+
+@dataclass(frozen=True, slots=True)
+class ScreenshotObservation:
+    match_id: UUID
+    revision: int
+    frame: int
+    mime_type: str
+    png: bytes
 
 
 class SDKError(Exception):
@@ -303,12 +313,38 @@ class AsyncAW2Client:
     async def observation(self, match_id: UUID) -> ObservationResponse:
         return await self._json(ObservationResponse, "GET", self._path(match_id) + "/observation")
 
-    async def screenshot(self, match_id: UUID, *, revision: int | None = None) -> bytes:
-        suffix = "" if revision is None else f"?revision={revision}"
-        response = await self._request("GET", self._path(match_id) + "/screenshot" + suffix)
-        if not response.content.startswith(b"\x89PNG\r\n\x1a\n"):
+    async def screenshot(self, match_id: UUID, *, revision: int) -> ScreenshotObservation:
+        from aw2_lab.match_contract import MAX_SAFE_REVISION
+
+        if isinstance(revision, bool) or not 0 <= revision <= MAX_SAFE_REVISION:
+            raise ValueError("Invalid screenshot revision")
+        response = await self._request(
+            "GET", self._path(match_id) + f"/screenshot?revision={revision}"
+        )
+        limit = 1024 * 1024
+        png_signature = b"\x89PNG\r\n\x1a\n"
+        if (
+            response.headers.get("content-type", "").split(";", 1)[0] != "image/png"
+            or len(response.content) < len(png_signature)
+            or len(response.content) > limit
+            or not response.content.startswith(png_signature)
+        ):
             raise ProtocolError("Invalid screenshot response")
-        return response.content
+        try:
+            response_match = UUID(response.headers["X-AW2-Match-ID"])
+            response_revision = int(response.headers["X-AW2-Revision"])
+            frame = int(response.headers["X-AW2-Frame"])
+        except KeyError, ValueError:
+            raise ProtocolError("Screenshot metadata is missing or invalid") from None
+        if (
+            response_match != match_id
+            or response_revision != revision
+            or not 0 <= frame <= 0xFFFFFFFF
+        ):
+            raise ProtocolError("Screenshot does not match the requested boundary")
+        return ScreenshotObservation(
+            match_id, response_revision, frame, "image/png", response.content
+        )
 
     async def submit(
         self,

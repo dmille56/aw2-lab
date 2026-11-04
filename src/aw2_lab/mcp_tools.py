@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 from uuid import UUID
 
+from mcp import types
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field, TypeAdapter
 from starlette.requests import Request
@@ -20,8 +21,10 @@ from aw2_lab.api_contract import (
     MatchConfiguration,
     MatchListResponse,
     MatchSummary,
+    ObservationResponse,
     ReadinessResponse,
     SlotAuthorization,
+    StateResponse,
 )
 from aw2_lab.authorization import AuthorizationError, Permission
 from aw2_lab.checkpoint_store import MAX_ARCHIVE_BYTES
@@ -40,6 +43,9 @@ from aw2_lab.match_contract import (
     PurchaseAction,
     Revision,
     SurrenderAction,
+)
+from aw2_lab.match_contract import (
+    Revision as MatchRevision,
 )
 from aw2_lab.mcp_auth import caller_from_request
 from aw2_lab.mcp_contract import MCPFailure
@@ -138,6 +144,43 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
         """Operator: queue Close. Acceptance is not completion; reconcile through get_command."""
         async with client(Permission.ADMIN, match_id) as sdk:
             return await sdk.close(match_id, request_id=request_id)
+
+    @server.tool()
+    async def get_state(match_id: UUID, contract_version: int = 1) -> StateResponse:
+        """Read settled/readiness state and explicit unknown fields without advancing frames."""
+        async with client(Permission.READ, match_id) as sdk:
+            return await sdk.state(match_id)
+
+    @server.tool()
+    async def get_observation(match_id: UUID, contract_version: int = 1) -> ObservationResponse:
+        """Read the versioned game observation, including unavailable decoder fields."""
+        async with client(Permission.READ, match_id) as sdk:
+            return await sdk.observation(match_id)
+
+    @server.tool(structured_output=False)
+    async def get_screenshot(
+        match_id: UUID, revision: MatchRevision, contract_version: int = 1
+    ) -> types.CallToolResult:
+        """Read the cached committed PNG for exactly this revision; executing frames are unavailable."""
+        async with client(Permission.READ, match_id) as sdk:
+            screenshot = await sdk.screenshot(match_id, revision=revision)
+            metadata = {
+                "contract_version": 1,
+                "match_id": str(screenshot.match_id),
+                "revision": screenshot.revision,
+                "frame": screenshot.frame,
+                "mime_type": screenshot.mime_type,
+            }
+            return types.CallToolResult(
+                content=[
+                    types.ImageContent(
+                        type="image",
+                        data=base64.b64encode(screenshot.png).decode("ascii"),
+                        mimeType=screenshot.mime_type,
+                    )
+                ],
+                structuredContent=metadata,
+            )
 
     @server.tool()
     async def get_command(
@@ -327,6 +370,24 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
             return await sdk.restore_checkpoint(
                 match_id, checkpoint_id, expected_revision, request_id=request_id
             )
+
+    @server.resource("aw2://v1/matches/{match_id}/state", mime_type="application/json")
+    async def match_state_resource(match_id: str) -> str:
+        """Authorized, committed match state; read-only and safe to refresh after reconnect."""
+        identifier = UUID(match_id)
+        async with client(Permission.READ, identifier) as sdk:
+            state = await sdk.state(identifier)
+            return state.model_dump_json()
+
+    @server.resource(
+        "aw2://v1/matches/{match_id}/commands/{command_id}", mime_type="application/json"
+    )
+    async def command_status_resource(match_id: str, command_id: str) -> str:
+        """Authorized command status and terminal error, independent of tool-call history."""
+        match, command = UUID(match_id), UUID(command_id)
+        async with client(Permission.READ, match) as sdk:
+            status = await sdk.command_status(match, command)
+            return status.model_dump_json()
 
     for tool in server._tool_manager.list_tools():
         if tool.fn_metadata.output_model is not None:
