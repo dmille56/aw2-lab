@@ -1,6 +1,6 @@
 # MCP v1 lifecycle, gameplay, observation, and debug tools
 
-The authenticated `/mcp` endpoint exposes 30 typed tools through the existing
+The authenticated `/mcp` endpoint exposes 31 typed tools through the existing
 Python SDK and HTTP v1 services. Use the pinned Python MCP SDK 1.29.0 and local
 bearer setup in [MCP-AUTHORIZATION.md](MCP-AUTHORIZATION.md). Discover schemas
 through `tools/list`; each schema includes `contract_version: 1` and rejects
@@ -11,7 +11,7 @@ unknown arguments. Mutations require an explicit UUID `request_id`.
 | System | `get_capabilities`, `get_readiness` | Authenticated capabilities; operator readiness |
 | Matches | `create_match`, `list_matches`, `inspect_match`, `revoke_slot`, `start_match`, `close_match` | Operator administration; joined player may inspect own match |
 | Observations | `get_state`, `get_observation`, `get_screenshot`; state and command resources | Operator or joined player in own match |
-| Commands | `get_command`, `wait_for_command` | Operator or joined player in own match |
+| Commands | `get_command`, `wait_for_command`, `wait_for_turn` | Operator or joined player in own match |
 | Gameplay | `move_wait`, `move_attack`, `move_capture`, `purchase`, `end_turn`, `surrender` | Player credential, own active slot |
 | Checkpoints | `create_checkpoint`, `list_checkpoints`, `inspect_checkpoint` | Operator or joined player in own match |
 | Transfers/recovery | `export_checkpoint`, `import_checkpoint`, `restore_checkpoint` | Operator only |
@@ -143,7 +143,7 @@ fixtures in these checks; this is not live emulator play evidence.
 
 State, screenshot, and debug operations have synthetic test coverage. The full pre-commit suite passes with worker-thread filesystem access.
 Authorized [resource notifications](MCP-NOTIFICATIONS.md) are implemented;
-`wait_for_turn` remains a subsequent task. The broader
+[Bounded `wait_for_turn`](MCP-TURN-WAIT.md) is implemented. The broader
 authorization acceptance check stays open until every delivered surface, including
 subscriptions, is covered. Live debug behavior against mGBA is not verified here.
 Human/agent live play in both emulator modes remains later Milestone 4 verification.

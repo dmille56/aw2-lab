@@ -51,6 +51,8 @@ from aw2_lab.match_contract import (
 from aw2_lab.mcp_auth import caller_from_request
 from aw2_lab.mcp_contract import MCPFailure
 from aw2_lab.mcp_runtime import MCPAdapterRuntime
+from aw2_lab.mcp_turn_wait import TurnWaitResult
+from aw2_lab.mcp_turn_wait import wait_for_turn as await_turn
 from aw2_lab.sdk import TERMINAL, AsyncAW2Client, WaitTimeout
 
 MAX_ARCHIVE_BASE64 = 4 * ((MAX_ARCHIVE_BYTES + 2) // 3)
@@ -219,6 +221,26 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
                 except WaitTimeout:
                     command = await sdk.command_status(match_id, command_id)
                 return CommandWaitResult(timed_out=command.status not in TERMINAL, command=command)
+
+    @server.tool()
+    async def wait_for_turn(
+        match_id: UUID,
+        player_slot: PlayerSlot,
+        after_revision: Revision,
+        timeout_seconds: WaitSeconds = 30,
+        contract_version: int = 1,
+    ) -> TurnWaitResult:
+        """Wait up to 60 seconds for a newer ready turn or terminal state. Players wait for their own slot; operators may monitor either. The host chooses actions; waiting reserves no turn."""
+        request = server.get_context().request_context.request
+        if not isinstance(request, Request):
+            raise AuthorizationError(ErrorCode.INVALID_CREDENTIAL, "Authentication required")
+        caller = caller_from_request(request)
+        if adapter is None:
+            raise AuthorizationError(ErrorCode.RUNTIME_UNAVAILABLE, "MCP adapter is unavailable")
+        async with adapter.sdk(caller) as sdk:
+            return await await_turn(
+                adapter, caller, sdk, match_id, player_slot, after_revision, timeout_seconds
+            )
 
     @server.tool()
     async def move_wait(

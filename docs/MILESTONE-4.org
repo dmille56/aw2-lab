@@ -11,7 +11,7 @@ Keep the verified fixed Bean Island profile and six existing gameplay actions.
 
 [[file:../src/aw2_lab/mcp.py][The current MCP module]] exposes authenticated SDK-backed lifecycle,
 gameplay, command, checkpoint, observation, and debug tools. Resource
-notifications are implemented; bounded turn waiting remains subsequent work.
+notifications and bounded turn waiting are implemented. Host integration examples remain subsequent work.
 The [[file:HTTP-API-DESIGN.md][HTTP/MCP design]] records the agreed application versioning, shared-event
 integration, and division of responsibilities between server and agent host.
 
@@ -97,12 +97,13 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    - [X] Keep application HTTP SSE envelopes and replay cursors separate from MCP framing; do not promise MCP transport replay because HTTP SSE supports replay.
    - [X] Enforce current authorization before each delivery and release subscriptions on revoke, close, session termination, unsubscribe, and shutdown (transient GET disconnects retain the bounded session until reconnect or idle expiry) without holding the mutation queue.
 
-** TODO Provide bounded turn waiting for hosts without subscriptions
-   - [ ] Implement =wait_for_turn(match_id, player_slot, after_revision, timeout_seconds)= on shared events, with a maximum wait of 60 seconds and bounded concurrent waits.
-   - [ ] Check current state and register atomically; return a newer ready boundary for the requested slot or a finished/closed/recovery-required outcome. Specify behavior before Start and validate slot access.
-   - [ ] Return explicit =timed_out= plus current state when the deadline expires; distinguish this from command failure, cancellation, and authorization loss.
-   - [ ] Never reserve a turn, hold the mutation queue, or advance emulation while waiting. Cancel/revoke/disconnect must clean up the waiter without cancelling accepted commands.
-   - [ ] Document that the agent host receives updates, invokes its model, chooses actions, and submits with the returned revision. Notifications do not themselves schedule model turns.
+** DONE Provide bounded turn waiting for hosts without subscriptions
+   Contract and synthetic evidence: [[file:MCP-TURN-WAIT.md][bounded MCP turn waiting]]. Live host/emulator scenarios remain in acceptance verification.
+   - [X] Implement =wait_for_turn(match_id, player_slot, after_revision, timeout_seconds)= on shared events, with a maximum wait of 60 seconds and bounded concurrent waits.
+   - [X] Check current state and register atomically; return a newer ready boundary for the requested slot or a finished/closed/recovery-required outcome. Specify behavior before Start and validate slot access.
+   - [X] Return explicit =timed_out= plus current state when the deadline expires; distinguish this from command failure, cancellation, and authorization loss.
+   - [X] Never reserve a turn, hold the mutation queue, or advance emulation while waiting. MCP cancellation, revocation, and session termination clean up the waiter (dropped POST connections retain bounded session work) without cancelling accepted commands.
+   - [X] Document that the agent host receives updates, invokes its model, chooses actions, and submits with the returned revision. Notifications do not themselves schedule model turns.
 
 * Documentation and verification
 

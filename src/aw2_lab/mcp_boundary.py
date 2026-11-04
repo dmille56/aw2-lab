@@ -13,6 +13,7 @@ from starlette.requests import Request
 from aw2_lab.api_validation import map_error
 from aw2_lab.authorization import AuthorizationError
 from aw2_lab.match_contract import ContractModel, ErrorCode
+from aw2_lab.match_controller import MatchControllerError
 from aw2_lab.mcp_auth import caller_from_request
 from aw2_lab.mcp_contract import MCPFailure
 from aw2_lab.mcp_tools import MCP_BODY_BYTES
@@ -108,7 +109,7 @@ class AW2MCP(FastMCP):
                     else None,
                     body=cause.response.error.model_dump(mode="json"),
                 )
-            if isinstance(cause, AuthorizationError):
+            if isinstance(cause, (AuthorizationError, MatchControllerError)):
                 mapped = map_error(cause.body)
                 return failure(
                     cause.body.code.value,
