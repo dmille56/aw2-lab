@@ -1,24 +1,22 @@
 """MCP server for AW2 Lab, mounted by the API server."""
 
-from typing import Annotated
+from typing import Any
 
+from mcp import McpError, types
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
-from pydantic import Field
-from starlette.requests import Request
 
 from aw2_lab import __version__
-from aw2_lab.api_contract import CapabilitiesResponse
-from aw2_lab.authorization import AuthorizationError
-from aw2_lab.match_contract import ContractModel, ErrorCode
-from aw2_lab.mcp_auth import caller_from_request
+from aw2_lab.mcp_boundary import AW2MCP
 from aw2_lab.mcp_runtime import MCPAdapterRuntime
+from aw2_lab.mcp_tools import MCP_BODY_BYTES, register_tools
 
 
 def create_mcp_server(adapter: MCPAdapterRuntime | None = None) -> FastMCP:
     """Each API application owns its transport sessions and identity bindings."""
-    server = FastMCP(
+    server = AW2MCP(
         "aw2-lab",
+        max_request_body_size=MCP_BODY_BYTES,
         streamable_http_path="/",
         transport_security=TransportSecuritySettings(
             enable_dns_rebinding_protection=True,
@@ -34,27 +32,23 @@ def create_mcp_server(adapter: MCPAdapterRuntime | None = None) -> FastMCP:
         ),
         instructions=(
             "AW2 game contract version 1 is independent of MCP protocol negotiation. "
-            "The authenticated get_capabilities tool uses the shared HTTP API. Gameplay and game resources "
-            "are unavailable. Read /v1/capabilities for implemented features."
+            "Authenticated lifecycle, gameplay, and checkpoint tools use the shared HTTP API. "
+            "Read capabilities for verified profiles and available actions. Mutations return receipts; "
+            "inspect command completion before acting again. Invitations/join use trusted host setup."
         ),
     )
     # FastMCP 1.29 has no constructor version argument.
     server._mcp_server.version = __version__
 
-    @server.tool()
-    async def get_capabilities(
-        contract_version: Annotated[int, Field(strict=True)] = 1,
-    ) -> CapabilitiesResponse:
-        """Read server capabilities; game contract v1 is independent of MCP protocol."""
-        ContractModel.model_validate({"contract_version": contract_version})
-        request = server.get_context().request_context.request
-        if not isinstance(request, Request):
-            raise AuthorizationError(ErrorCode.INVALID_CREDENTIAL, "Authentication required")
-        caller = caller_from_request(request)
-        if adapter is None:
-            raise AuthorizationError(ErrorCode.RUNTIME_UNAVAILABLE, "MCP adapter is unavailable")
-        async with adapter.sdk(caller) as client:
-            return await client.capabilities()
+    register_tools(server, adapter)
+    call_handler = server._mcp_server.request_handlers[types.CallToolRequest]
+
+    async def dispatch(request: Any) -> Any:
+        if server._tool_manager.get_tool(request.params.name) is None:
+            raise McpError(types.ErrorData(code=types.INVALID_PARAMS, message="Unknown tool"))
+        return await call_handler(request)
+
+    server._mcp_server.request_handlers[types.CallToolRequest] = dispatch
 
     server.streamable_http_app()
     # FastMCP 1.29 exposes this setting on its session manager, not its constructor.

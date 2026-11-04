@@ -58,8 +58,9 @@ AW2 contract v1 before constructing an SDK client, then returns the shared
 `CapabilitiesResponse` from HTTP. It works without a playable emulator boundary
 and reports unavailable runtime actions through the existing capabilities model.
 Connection failures use the SDK's sanitized diagnostics; unsupported versions do
-not make an HTTP call. No gameplay, checkpoint, debug, resource, subscription, or
-turn-wait surface is enabled by this lifecycle change.
+not make an HTTP call. The later [typed tool implementation](MCP-TOOLS.md) adds lifecycle, gameplay,
+commands, and checkpoints through this same owner. State/screenshot resources,
+debug, subscriptions, and turn waits remain later work.
 
 HTTP `/health`, `/v1` readiness/capabilities, HTTP SSE, and existing SDK clients
 retain their routes and controller. Capabilities equality between MCP and HTTP

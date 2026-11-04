@@ -1,0 +1,342 @@
+"""Typed SDK-backed MCP v1 lifecycle, gameplay, and checkpoint operations."""
+
+import asyncio
+import base64
+import binascii
+import hashlib
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from typing import Annotated
+from uuid import UUID
+
+from mcp.server.fastmcp import FastMCP
+from pydantic import Field, TypeAdapter
+from starlette.requests import Request
+
+from aw2_lab.api_contract import (
+    CapabilitiesResponse,
+    CheckpointListResponse,
+    CheckpointResponse,
+    MatchConfiguration,
+    MatchListResponse,
+    MatchSummary,
+    ReadinessResponse,
+    SlotAuthorization,
+)
+from aw2_lab.authorization import AuthorizationError, Permission
+from aw2_lab.checkpoint_store import MAX_ARCHIVE_BYTES
+from aw2_lab.match_contract import (
+    CheckpointReference,
+    CommandReceipt,
+    CommandResult,
+    ContractModel,
+    Coordinate,
+    EndTurnAction,
+    ErrorCode,
+    MoveAttackAction,
+    MoveCaptureAction,
+    MoveWaitAction,
+    PlayerSlot,
+    PurchaseAction,
+    Revision,
+    SurrenderAction,
+)
+from aw2_lab.mcp_auth import caller_from_request
+from aw2_lab.mcp_contract import MCPFailure
+from aw2_lab.mcp_runtime import MCPAdapterRuntime
+from aw2_lab.sdk import TERMINAL, AsyncAW2Client, WaitTimeout
+
+MAX_ARCHIVE_BASE64 = 4 * ((MAX_ARCHIVE_BYTES + 2) // 3)
+MCP_BODY_BYTES = MAX_ARCHIVE_BASE64 + 65536
+Path = Annotated[tuple[Coordinate, ...], Field(max_length=4096)]
+UnitID = Annotated[str, Field(min_length=1)]
+WaitSeconds = Annotated[float, Field(strict=True, gt=0, le=60, allow_inf_nan=False)]
+
+
+class CommandWaitResult(ContractModel):
+    timed_out: bool
+    command: CommandResult
+
+
+class ArchiveResult(ContractModel):
+    match_id: UUID
+    checkpoint_id: UUID
+    mime_type: str = "application/zip"
+    byte_length: int
+    sha256: str
+    archive_base64: str
+
+
+def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
+    @asynccontextmanager
+    async def client(
+        permission: Permission = Permission.READ, match_id: UUID | None = None
+    ) -> AsyncIterator[AsyncAW2Client]:
+        request = server.get_context().request_context.request
+        if not isinstance(request, Request):
+            raise AuthorizationError(ErrorCode.INVALID_CREDENTIAL, "Authentication required")
+        caller = caller_from_request(request)
+        caller.check(permission, match_id)
+        if adapter is None:
+            raise AuthorizationError(ErrorCode.RUNTIME_UNAVAILABLE, "MCP adapter is unavailable")
+        async with adapter.sdk(caller) as sdk:
+            yield sdk
+            caller.check(permission, match_id)
+
+    @server.tool()
+    async def get_capabilities(contract_version: int = 1) -> CapabilitiesResponse:
+        """Read current capabilities, supported profiles, action availability, and limits."""
+        async with client() as sdk:
+            return await sdk.capabilities()
+
+    @server.tool()
+    async def get_readiness(contract_version: int = 1) -> ReadinessResponse:
+        """Operator: inspect readiness without advancing the emulator."""
+        async with client(Permission.ADMIN) as sdk:
+            return await sdk.readiness()
+
+    @server.tool()
+    async def create_match(
+        request_id: UUID, configuration: MatchConfiguration | None = None, contract_version: int = 1
+    ) -> MatchSummary:
+        """Operator: create the verified fixed profile. Reuse request_id for identical retries."""
+        async with client(Permission.ADMIN) as sdk:
+            return await sdk.create_match(configuration, request_id=request_id)
+
+    @server.tool()
+    async def list_matches(contract_version: int = 1) -> MatchListResponse:
+        """Operator: list matches visible to this server."""
+        async with client(Permission.ADMIN) as sdk:
+            return await sdk.list_matches()
+
+    @server.tool()
+    async def inspect_match(match_id: UUID, contract_version: int = 1) -> MatchSummary:
+        """Inspect an authorized match summary and slot status."""
+        async with client(Permission.READ, match_id) as sdk:
+            return await sdk.inspect_match(match_id)
+
+    @server.tool()
+    async def revoke_slot(
+        match_id: UUID, player_slot: PlayerSlot, request_id: UUID, contract_version: int = 1
+    ) -> SlotAuthorization:
+        """Operator: revoke a slot's current access. Identical retries retain their meaning."""
+        async with client(Permission.ADMIN, match_id) as sdk:
+            return await sdk.revoke(match_id, player_slot, request_id=request_id)
+
+    @server.tool()
+    async def start_match(
+        match_id: UUID, expected_revision: Revision, request_id: UUID, contract_version: int = 1
+    ) -> CommandReceipt:
+        """Operator: queue Start at expected_revision; inspect the receipt's command to completion."""
+        async with client(Permission.ADMIN, match_id) as sdk:
+            return await sdk.start(match_id, expected_revision, request_id=request_id)
+
+    @server.tool()
+    async def close_match(
+        match_id: UUID, request_id: UUID, contract_version: int = 1
+    ) -> CommandReceipt:
+        """Operator: queue Close. Acceptance is not completion; reconcile through get_command."""
+        async with client(Permission.ADMIN, match_id) as sdk:
+            return await sdk.close(match_id, request_id=request_id)
+
+    @server.tool()
+    async def get_command(
+        match_id: UUID, command_id: UUID, contract_version: int = 1
+    ) -> CommandResult:
+        """Read queued/running or terminal command status. A terminal error remains part of this result."""
+        async with client(Permission.READ, match_id) as sdk:
+            return await sdk.command_status(match_id, command_id)
+
+    @server.tool()
+    async def wait_for_command(
+        match_id: UUID,
+        command_id: UUID,
+        timeout_seconds: WaitSeconds = 30,
+        contract_version: int = 1,
+    ) -> CommandWaitResult:
+        """Wait at most 60 seconds for completion; timeout or cancellation never cancels accepted work."""
+        async with client(Permission.READ, match_id) as sdk:
+            async with asyncio.timeout(timeout_seconds):
+                try:
+                    command = await sdk.wait_for_command(
+                        match_id, command_id, timeout=timeout_seconds * 0.9
+                    )
+                except WaitTimeout:
+                    command = await sdk.command_status(match_id, command_id)
+                return CommandWaitResult(timed_out=command.status not in TERMINAL, command=command)
+
+    @server.tool()
+    async def move_wait(
+        match_id: UUID,
+        expected_revision: Revision,
+        request_id: UUID,
+        unit_id: UnitID,
+        path: Path,
+        contract_version: int = 1,
+    ) -> CommandReceipt:
+        """Move then Wait. Path lists successive zero-based destination tiles, excluding the start."""
+        async with client(Permission.PLAY, match_id) as sdk:
+            return await sdk.submit(
+                match_id,
+                expected_revision,
+                MoveWaitAction(unit_id=unit_id, path=path),
+                request_id=request_id,
+            )
+
+    @server.tool()
+    async def move_attack(
+        match_id: UUID,
+        expected_revision: Revision,
+        request_id: UUID,
+        unit_id: UnitID,
+        path: Path,
+        target: Coordinate,
+        contract_version: int = 1,
+    ) -> CommandReceipt:
+        """Move then attack a zero-based target. Indirect units require an empty path; direct units may move."""
+        async with client(Permission.PLAY, match_id) as sdk:
+            return await sdk.submit(
+                match_id,
+                expected_revision,
+                MoveAttackAction(unit_id=unit_id, path=path, target=target),
+                request_id=request_id,
+            )
+
+    @server.tool()
+    async def move_capture(
+        match_id: UUID,
+        expected_revision: Revision,
+        request_id: UUID,
+        unit_id: UnitID,
+        path: Path,
+        contract_version: int = 1,
+    ) -> CommandReceipt:
+        """Move then capture with a capable unit. Empty path captures at its current position."""
+        async with client(Permission.PLAY, match_id) as sdk:
+            return await sdk.submit(
+                match_id,
+                expected_revision,
+                MoveCaptureAction(unit_id=unit_id, path=path),
+                request_id=request_id,
+            )
+
+    @server.tool()
+    async def purchase(
+        match_id: UUID,
+        expected_revision: Revision,
+        request_id: UUID,
+        property: Coordinate,
+        unit_type: UnitID,
+        contract_version: int = 1,
+    ) -> CommandReceipt:
+        """Purchase an advertised unit type at an owned production property's zero-based coordinate."""
+        async with client(Permission.PLAY, match_id) as sdk:
+            return await sdk.submit(
+                match_id,
+                expected_revision,
+                PurchaseAction(property=property, unit_type=unit_type),
+                request_id=request_id,
+            )
+
+    @server.tool()
+    async def end_turn(
+        match_id: UUID, expected_revision: Revision, request_id: UUID, contract_version: int = 1
+    ) -> CommandReceipt:
+        """End the caller's active turn at expected_revision. Wait for terminal command status."""
+        async with client(Permission.PLAY, match_id) as sdk:
+            return await sdk.submit(
+                match_id, expected_revision, EndTurnAction(), request_id=request_id
+            )
+
+    @server.tool()
+    async def surrender(
+        match_id: UUID, expected_revision: Revision, request_id: UUID, contract_version: int = 1
+    ) -> CommandReceipt:
+        """Surrender the caller's active slot. This queues an irreversible gameplay decision."""
+        async with client(Permission.PLAY, match_id) as sdk:
+            return await sdk.submit(
+                match_id, expected_revision, SurrenderAction(), request_id=request_id
+            )
+
+    @server.tool()
+    async def create_checkpoint(
+        match_id: UUID, expected_revision: Revision, request_id: UUID, contract_version: int = 1
+    ) -> CommandReceipt:
+        """Queue a checkpoint at the expected revision; terminal result contains checkpoint_id."""
+        async with client(Permission.CHECKPOINT_CREATE, match_id) as sdk:
+            return await sdk.create_checkpoint(match_id, expected_revision, request_id=request_id)
+
+    @server.tool()
+    async def list_checkpoints(match_id: UUID, contract_version: int = 1) -> CheckpointListResponse:
+        """List safe checkpoint references for this authorized match."""
+        async with client(Permission.READ, match_id) as sdk:
+            return await sdk.list_checkpoints(match_id)
+
+    @server.tool()
+    async def inspect_checkpoint(
+        match_id: UUID, checkpoint_id: UUID, contract_version: int = 1
+    ) -> CheckpointResponse:
+        """Read safe checkpoint compatibility metadata, excluding paths and credential verifiers."""
+        async with client(Permission.READ, match_id) as sdk:
+            return await sdk.inspect_checkpoint(match_id, checkpoint_id)
+
+    @server.tool()
+    async def export_checkpoint(
+        match_id: UUID, checkpoint_id: UUID, contract_version: int = 1
+    ) -> ArchiveResult:
+        """Operator: export a bounded ZIP as base64. Archives contain private verifiers/save RAM."""
+        async with client(Permission.ARCHIVE, match_id) as sdk:
+            archive = await sdk.export_checkpoint(match_id, checkpoint_id)
+            if not archive or len(archive) > MAX_ARCHIVE_BYTES:
+                raise ValueError("Invalid archive size")
+            return ArchiveResult(
+                match_id=match_id,
+                checkpoint_id=checkpoint_id,
+                byte_length=len(archive),
+                sha256=hashlib.sha256(archive).hexdigest(),
+                archive_base64=base64.b64encode(archive).decode("ascii"),
+            )
+
+    @server.tool()
+    async def import_checkpoint(
+        match_id: UUID,
+        request_id: UUID,
+        archive_base64: Annotated[str, Field(min_length=4, max_length=MAX_ARCHIVE_BASE64)],
+        contract_version: int = 1,
+    ) -> CheckpointReference:
+        """Operator: import strict base64 ZIP bytes. Reuse request_id and identical bytes on retries."""
+        async with client(Permission.ARCHIVE, match_id) as sdk:
+            try:
+                archive = base64.b64decode(archive_base64, validate=True)
+            except binascii.Error, ValueError:
+                raise ValueError("Invalid base64 archive") from None
+            if not archive or len(archive) > MAX_ARCHIVE_BYTES:
+                raise ValueError("Invalid archive size")
+            return await sdk.import_checkpoint(match_id, archive, request_id=request_id)
+
+    @server.tool()
+    async def restore_checkpoint(
+        match_id: UUID,
+        checkpoint_id: UUID,
+        expected_revision: Revision,
+        request_id: UUID,
+        contract_version: int = 1,
+    ) -> CommandReceipt:
+        """Operator: queue compatible checkpoint restoration at expected_revision; never restores revoked access."""
+        async with client(Permission.ARCHIVE, match_id) as sdk:
+            return await sdk.restore_checkpoint(
+                match_id, checkpoint_id, expected_revision, request_id=request_id
+            )
+
+    for tool in server._tool_manager.list_tools():
+        if tool.fn_metadata.output_model is not None:
+            tool.fn_metadata.output_schema = TypeAdapter(
+                tool.fn_metadata.output_model | MCPFailure
+            ).json_schema()
+            tool.fn_metadata.output_schema["type"] = "object"
+        tool.parameters["additionalProperties"] = False
+        tool.parameters["properties"]["contract_version"] = {
+            "type": "integer",
+            "const": 1,
+            "default": 1,
+        }

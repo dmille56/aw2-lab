@@ -295,3 +295,29 @@ async def test_sdk_turn_subscription_cleanup_and_rejects_mismatched_framing(
                 await events.aclose()
     finally:
         await runtime.controller.stop()
+
+
+@run_async_test
+async def test_checkpoint_export_stops_at_archive_limit():
+    from aw2_lab.checkpoint_store import MAX_ARCHIVE_BYTES
+
+    class ArchiveStream(httpx.AsyncByteStream):
+        def __init__(self):
+            self.chunks = 0
+            self.closed = False
+
+        async def __aiter__(self):
+            for _ in range(100):
+                self.chunks += 1
+                yield b"x" * 65536
+
+        async def aclose(self):
+            self.closed = True
+
+    stream = ArchiveStream()
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, stream=stream))
+    async with AsyncAW2Client(transport=transport) as client:
+        with pytest.raises(ProtocolError, match="exceeds limit"):
+            await client.export_checkpoint(uuid4(), uuid4())
+    assert stream.closed
+    assert stream.chunks <= MAX_ARCHIVE_BYTES // 65536 + 2

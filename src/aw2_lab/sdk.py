@@ -353,10 +353,35 @@ class AsyncAW2Client:
         )
 
     async def export_checkpoint(self, match_id: UUID, checkpoint_id: UUID) -> bytes:
-        response = await self._request(
-            "GET", self._path(match_id) + f"/checkpoints/{checkpoint_id}/archive"
-        )
-        return response.content
+        from aw2_lab.checkpoint_store import MAX_ARCHIVE_BYTES
+
+        for attempt in range(self._retries + 1):
+            try:
+                async with self._http.stream(
+                    "GET", self._path(match_id) + f"/checkpoints/{checkpoint_id}/archive"
+                ) as response:
+                    if response.status_code not in {429, 503} or attempt == self._retries:
+                        limit = MAX_ARCHIVE_BYTES if response.is_success else 65536
+                        data = bytearray()
+                        async for chunk in response.aiter_bytes(chunk_size=65536):
+                            if len(data) + len(chunk) > limit:
+                                raise ProtocolError("Checkpoint response exceeds limit")
+                            data.extend(chunk)
+                        checked = httpx.Response(
+                            response.status_code,
+                            headers=response.headers,
+                            content=bytes(data),
+                            request=response.request,
+                        )
+                        self._check(checked)
+                        if not data:
+                            raise ProtocolError("Empty checkpoint archive")
+                        return bytes(data)
+            except httpx.TransportError:
+                if attempt == self._retries:
+                    raise TransportError(None) from None
+            await asyncio.sleep(min(self._delay * 2**attempt, 30))
+        raise AssertionError("Unreachable retry state")
 
     async def import_checkpoint(
         self, match_id: UUID, archive: bytes, *, request_id: UUID | None = None

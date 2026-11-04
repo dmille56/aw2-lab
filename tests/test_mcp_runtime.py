@@ -69,8 +69,8 @@ async def test_mcp_http_sdk_and_sse_share_application(tmp_path, monkeypatch):
                         json={"jsonrpc": "2.0", "method": "notifications/initialized"},
                     )
                     catalog = result(await http.post("/mcp/", headers=h, json=rpc("tools/list")))
-                    assert [tool["name"] for tool in catalog["result"]["tools"]] == [
-                        "get_capabilities"
+                    assert "get_capabilities" in [
+                        tool["name"] for tool in catalog["result"]["tools"]
                     ]
                     call = rpc("tools/call", {"name": "get_capabilities", "arguments": {}})
                     response = result(await http.post("/mcp/", headers=h, json=call))["result"]

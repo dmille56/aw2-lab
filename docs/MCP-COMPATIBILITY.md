@@ -52,7 +52,7 @@ message size, subscription behavior, or credential configuration is verified yet
 MCP `initialize.serverInfo.version` reports `aw2_lab.__version__`, not the MCP SDK
 package version. FastMCP 1.29.0 has no constructor version argument; the adapter
 sets the underlying low-level server's explicit version, guarded by a compatibility
-check. Initialization instructions identify contract v1 and the capabilities-only
+check. Initialization instructions identify contract v1 and the SDK-backed tool
 status. The library continues to negotiate MCP protocol versions itself.
 
 Keep v1 tool names stable at `/mcp`; use
@@ -61,8 +61,8 @@ Keep v1 tool names stable at `/mcp`; use
 contract uses a separate endpoint such as `/mcp/v2` and corresponding resource
 URIs, retaining v1 during migration. Decoder schemas and checkpoint manifest
 schemas retain their own existing version fields. Tool/resource names remain
-specified in [MCP-API-DESIGN.md](MCP-API-DESIGN.md); no gameplay tools are enabled
-by this audit.
+specified in [MCP-API-DESIGN.md](MCP-API-DESIGN.md); the later [tool implementation](MCP-TOOLS.md) enables the SDK-backed
+lifecycle, gameplay, command, and checkpoint surface.
 
 ## Verification and sources
 

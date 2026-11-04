@@ -6,7 +6,6 @@ from uuid import UUID, uuid4
 
 import httpx
 import pytest
-from mcp.server.fastmcp.exceptions import ToolError
 from test_authorization import claim, create, invite, token
 
 from aw2_lab.authorization import AuthorizationError, AuthorizationService, Permission
@@ -150,8 +149,9 @@ async def test_missing_provisioning_remote_peer_and_direct_tool_are_denied():
         assert (
             await client.post("/", headers=headers(), json=rpc("initialize"))
         ).status_code == 403
-    with pytest.raises(ToolError, match="Context is not available"):
-        await server.call_tool("get_capabilities", {})
+    result = await server.call_tool("get_capabilities", {})
+    assert result.isError
+    assert result.structuredContent["error"]["code"] == "invalid_credential"
 
 
 @pytest.mark.anyio

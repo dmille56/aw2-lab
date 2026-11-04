@@ -1,7 +1,8 @@
 # MCP v1 contract and adapter design
 
 Status: design for Milestone 4; the current `mcp.py` capabilities tool uses the shared SDK;
-gameplay tools remain unimplemented. This document completes the first contract task in
+[typed lifecycle, gameplay, and checkpoint tools](MCP-TOOLS.md) are implemented
+with synthetic checks. This document completes the first contract task in
 [MILESTONE-4.org](MILESTONE-4.org). The [SDK compatibility audit](MCP-COMPATIBILITY.md) records the pinned baseline.
 The [local authorization boundary](MCP-AUTHORIZATION.md) implements transport
 authentication and shared operation guards. Production gameplay authorization
@@ -213,11 +214,11 @@ verifiers and save RAM and remain operator-only even when metadata is player-rea
 ## Implementation follow-through
 
 Required SDK work: debug wrappers, bounded screenshot metadata validation,
-bounded export reads, and revision-aware turn waiting (the current SDK helper
+revision-aware turn waiting (the current SDK helper
 has no `after_revision` and defaults to 300 seconds). Preserve existing SDK
 behavior for existing clients; add explicit bounded adapter helpers where needed.
 Protocol/SDK compatibility inspection must confirm structured results, images,
 auth context, session lifetime, and subscription behavior before implementation
-advertises them. This design asserts no currently working MCP gameplay or live
-host compatibility. Later milestone tasks cover implementation, regression checks,
+advertises them. The [tool implementation](MCP-TOOLS.md) has synthetic gameplay/transfer evidence;
+live emulator and agent-host play remain unverified. Later milestone tasks cover implementation, regression checks,
 and human/agent play in both emulator modes.

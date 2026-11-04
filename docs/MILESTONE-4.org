@@ -9,8 +9,8 @@ existing API process. Humans and agents use the same authoritative match,
 authorization, revisions, mutation queue, executors, checkpoints, and journal.
 Keep the verified fixed Bean Island profile and six existing gameplay actions.
 
-[[file:../src/aw2_lab/mcp.py][The current MCP module]] exposes an authenticated SDK-backed =get_capabilities= tool. Gameplay,
-resources, and subscriptions remain subsequent work.
+[[file:../src/aw2_lab/mcp.py][The current MCP module]] exposes authenticated SDK-backed lifecycle, gameplay, command, and checkpoint
+tools. State/screenshot resources, debug tools, and subscriptions remain subsequent work.
 The [[file:HTTP-API-DESIGN.md][HTTP/MCP design]] records the agreed application versioning, shared-event
 integration, and division of responsibilities between server and agent host.
 
@@ -63,13 +63,14 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
 
 * Tools and observations
 
-** TODO Implement typed lifecycle, gameplay, and checkpoint tools
-   - [ ] Expose capabilities/readiness and role-appropriate create/list/inspect, invitation/join/revoke, queued Start, and Close operations.
-   - [ ] Expose MoveWait, MoveAttack, MoveCapture, Purchase, EndTurn, and Surrender through shared typed models and the same authorized queue.
-   - [ ] Return command IDs and provide command-status/completion access; preserve request IDs and exact payloads across retries and uncertain responses.
-   - [ ] Expose checkpoint create/list/inspect, operator export/import, and queued restore with the existing compatibility checks and durable receipts.
-   - [ ] Preserve structured errors for invalid/unsupported requests, authentication/ownership, stale revisions, rejection, rollback, and recovery-required outcomes; distinguish MCP protocol errors from AW2 application results.
-   - [ ] Apply schema, payload, binary-transfer, timeout, and concurrency bounds. Do not imply legal-move enumeration or broader gameplay support than current capabilities.
+** DONE Implement typed lifecycle, gameplay, and checkpoint tools
+   Contract, bounds, and synthetic evidence: [[file:MCP-TOOLS.md][MCP v1 tools]]. Live gameplay and broader authorization acceptance remain later tasks.
+   - [X] Expose capabilities/readiness and role-appropriate create/list/inspect, revoke, queued Start, and Close operations. Invitation/join secrets stay in trusted HTTP/SDK host provisioning as specified by the contract.
+   - [X] Expose MoveWait, MoveAttack, MoveCapture, Purchase, EndTurn, and Surrender through shared typed models and the same authorized queue.
+   - [X] Return command IDs and provide command-status/completion access; preserve request IDs and exact payloads across retries and uncertain responses.
+   - [X] Expose checkpoint create/list/inspect, operator export/import, and queued restore with the existing compatibility checks and durable receipts.
+   - [X] Preserve structured errors for invalid/unsupported requests, authentication/ownership, stale revisions, rejection, rollback, and recovery-required outcomes; distinguish MCP protocol errors from AW2 application results.
+   - [X] Apply schema, payload, binary-transfer, timeout, and concurrency bounds. Do not imply legal-move enumeration or broader gameplay support than current capabilities.
 
 ** TODO Expose coherent state, command, and screenshot observations
    - [ ] Implement versioned match-state and command-status resources with authorization on every read; expose settled/readiness state and unknown fields explicitly.

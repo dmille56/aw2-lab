@@ -5,8 +5,8 @@ bearer credential as HTTP. Provision the operator through the existing private
 secret file and claim player slots through the trusted HTTP/SDK setup flow in
 [AUTHORIZATION.md](AUTHORIZATION.md). Credentials stay in host transport headers;
 they are never tool arguments. No OAuth issuer/discovery or remote host integration
-is introduced. The SDK-backed `get_capabilities` tool replaces the greeting; gameplay remains
-unimplemented.
+is introduced. The [SDK-backed tools](MCP-TOOLS.md) include lifecycle, gameplay, command, and
+checkpoint operations. State resources, debug, and subscriptions remain later work.
 
 ## Request and session enforcement
 
@@ -65,8 +65,9 @@ facade and queue keep their existing acceptance/execution-time checks for turn,
 ownership, revision, permissions, and cached responses. The adapter owns no
 alternative mutation path.
 
-Actual gameplay/checkpoint/debug tools, resource subscriptions, replay, and turn
-waits remain subsequent tasks. Their implementation must use these guards and
+Lifecycle/gameplay/checkpoint tools now use these guards and have mounted
+permission checks in `tests/test_mcp_tools.py`. State resources, debug tools,
+resource subscriptions, replay, and turn waits remain subsequent tasks. Their implementation must use these guards and
 retain the permission tests on each new operation. The Milestone 3 follow-up
 remains open until those delivered operations are verified; authenticated capabilities
 coverage alone does not satisfy that acceptance criterion.
