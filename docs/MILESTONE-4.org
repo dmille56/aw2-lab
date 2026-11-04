@@ -11,7 +11,7 @@ Keep the verified fixed Bean Island profile and six existing gameplay actions.
 
 [[file:../src/aw2_lab/mcp.py][The current MCP module]] exposes authenticated SDK-backed lifecycle,
 gameplay, command, checkpoint, observation, and debug tools. Resource
-notifications and turn waiting remain subsequent work.
+notifications are implemented; bounded turn waiting remains subsequent work.
 The [[file:HTTP-API-DESIGN.md][HTTP/MCP design]] records the agreed application versioning, shared-event
 integration, and division of responsibilities between server and agent host.
 
@@ -80,21 +80,22 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    - [X] Provide tool-based observation access for hosts that do not read resources, using the same state/image sources and permission checks.
    - [X] Verify observation reads and resource discovery do not advance frames, change revisions, or reveal other matches, credentials, or server paths.
 
-** IN-PROGRESS Expose clearly named operator-only debug tools
-   Implementation and synthetic test: [[file:MCP-TOOLS.md][MCP debug tools]]. The MCP async test hangs in this environment before completing; live mGBA debug verification also remains open.
+** DONE Expose clearly named operator-only debug tools
+   Implementation and synthetic test: [[file:MCP-TOOLS.md][MCP debug tools]]. The focused test and full pre-commit suite pass with worker-thread filesystem access. Live mGBA debug verification remains open.
    - [X] Wrap the existing input, frame advance, bounded memory read/write, and reset operations through SDK adapters instead of duplicating debug execution logic.
    - [X] Require the existing startup opt-in and operator credential, with shared queueing, execution-time revision checks, and established work-RAM/frame/payload bounds.
    - [X] Preserve revision invalidation, unavailable debug boundaries, and explicit checkpoint restoration before gameplay resumes; document those effects in tool descriptions.
 
 * Event delivery and turn handling
 
-** TODO Add authorized MCP resource notifications
-   - [ ] Subscribe the in-process adapter to the existing shared controller publisher and map state/command changes to protocol-supported resource notifications.
-   - [ ] Use the subscription operations supported by the negotiated MCP protocol and pinned SDK; verify clients before advertising subscription support.
-   - [ ] Capture initial authoritative state and register without a missed-update race; preserve committed-state/terminal-command ordering and tolerate duplicate notifications.
-   - [ ] Bound buffers and subscription counts; define slow-client overflow, resynchronization, reconnect, and server-restart behavior. Re-read authoritative state after reconnect.
-   - [ ] Keep application HTTP SSE envelopes and replay cursors separate from MCP framing; do not promise MCP transport replay because HTTP SSE supports replay.
-   - [ ] Enforce current authorization before each delivery and release subscriptions on revoke, close, disconnect, unsubscribe, and shutdown without holding the mutation queue.
+** DONE Add authorized MCP resource notifications
+   Contract and synthetic evidence: [[file:MCP-NOTIFICATIONS.md][MCP resource notifications]]. Real host reconnect/rendering and emulator parity remain in live acceptance verification.
+   - [X] Subscribe the in-process adapter to the existing shared controller publisher and map state/command changes to protocol-supported resource notifications.
+   - [X] Use the subscription operations supported by the negotiated MCP protocol and pinned SDK; verify clients before advertising subscription support.
+   - [X] Capture initial authoritative state and register without a missed-update race; preserve committed-state/terminal-command ordering and tolerate duplicate notifications.
+   - [X] Bound buffers and subscription counts; define slow-client overflow, resynchronization, reconnect, and server-restart behavior. Re-read authoritative state after reconnect.
+   - [X] Keep application HTTP SSE envelopes and replay cursors separate from MCP framing; do not promise MCP transport replay because HTTP SSE supports replay.
+   - [X] Enforce current authorization before each delivery and release subscriptions on revoke, close, session termination, unsubscribe, and shutdown (transient GET disconnects retain the bounded session until reconnect or idle expiry) without holding the mutation queue.
 
 ** TODO Provide bounded turn waiting for hosts without subscriptions
    - [ ] Implement =wait_for_turn(match_id, player_slot, after_revision, timeout_seconds)= on shared events, with a maximum wait of 60 seconds and bounded concurrent waits.

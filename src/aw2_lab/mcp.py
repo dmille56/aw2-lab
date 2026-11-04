@@ -8,6 +8,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 
 from aw2_lab import __version__
 from aw2_lab.mcp_boundary import AW2MCP
+from aw2_lab.mcp_notifications import register_notifications
 from aw2_lab.mcp_runtime import MCPAdapterRuntime
 from aw2_lab.mcp_tools import MCP_BODY_BYTES, register_tools
 
@@ -41,6 +42,7 @@ def create_mcp_server(adapter: MCPAdapterRuntime | None = None) -> FastMCP:
     server._mcp_server.version = __version__
 
     register_tools(server, adapter)
+    register_notifications(server, adapter)
     call_handler = server._mcp_server.request_handlers[types.CallToolRequest]
 
     async def dispatch(request: Any) -> Any:

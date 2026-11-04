@@ -326,7 +326,7 @@ async def capabilities(request: Request) -> CapabilitiesResponse:
         production_unit_types=tuple(UNIT_PROFILES[kind].name for kind in PRODUCTION_CHOICES),
         http_sse=feature("http_sse", True, configured, "Operator provisioning is required"),
         mcp_subscriptions=feature(
-            "mcp_subscriptions", False, False, "MCP subscriptions are not implemented"
+            "mcp_subscriptions", True, configured, "Operator provisioning is required"
         ),
     )
 
