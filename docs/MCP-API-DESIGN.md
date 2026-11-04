@@ -1,12 +1,13 @@
 # MCP v1 contract and adapter design
 
-Status: design for Milestone 4; the current `mcp.py` capabilities tool uses the shared SDK;
-[typed lifecycle, gameplay, and checkpoint tools](MCP-TOOLS.md) are implemented
-with synthetic checks. This document completes the first contract task in
-[MILESTONE-4.org](MILESTONE-4.org). The [SDK compatibility audit](MCP-COMPATIBILITY.md) records the pinned baseline.
-The [local authorization boundary](MCP-AUTHORIZATION.md) implements transport
-authentication and shared operation guards. Production gameplay authorization
-checks and live host verification remain subsequent tasks.
+Status: implemented contract and adapter design for Milestone 4. The
+[typed lifecycle, gameplay, observation, and checkpoint tools](MCP-TOOLS.md),
+[authorization boundary](MCP-AUTHORIZATION.md),
+[resource notifications](MCP-NOTIFICATIONS.md), and
+[bounded turn wait](MCP-TURN-WAIT.md) have ROM-independent checks. Live host
+interoperability and emulator verification remain subsequent tasks. The
+[SDK compatibility audit](MCP-COMPATIBILITY.md) records the pinned baseline;
+[host integration guide](MCP-INTEGRATION.md) documents connection and use.
 The [HTTP design](HTTP-API-DESIGN.md) remains authoritative for shared behavior.
 
 ## Boundary and versioning

@@ -32,8 +32,8 @@ the adapter's destination.
 
 `MCPAdapterRuntime.operation(caller)` leases pending adapter work under shared
 revocation guards. It yields an `AsyncExitStack` for resource subscription cleanup
-and wait cancellation callbacks. Future subscription and wait implementations must
-use this owner and retain their own delivery-time permission checks. The SDK lease
+and wait cancellation callbacks. Subscription and wait operations use this owner
+and retain their own delivery-time permission checks. The SDK lease
 registers client closure on the same stack. Completion, exceptions, revocation, and
 disconnect remove the lease and close its resources.
 
@@ -58,9 +58,10 @@ AW2 contract v1 before constructing an SDK client, then returns the shared
 `CapabilitiesResponse` from HTTP. It works without a playable emulator boundary
 and reports unavailable runtime actions through the existing capabilities model.
 Connection failures use the SDK's sanitized diagnostics; unsupported versions do
-not make an HTTP call. The later [typed tool implementation](MCP-TOOLS.md) adds lifecycle, gameplay,
-commands, and checkpoints through this same owner. State/screenshot resources,
-debug, subscriptions, and turn waits remain later work.
+not make an HTTP call. Lifecycle, gameplay, command, checkpoint, observation,
+debug, subscription, and turn-wait operations use this same owner. The
+[integration guide](MCP-INTEGRATION.md) documents host connection and
+responsibilities.
 
 HTTP `/health`, `/v1` readiness/capabilities, HTTP SSE, and existing SDK clients
 retain their routes and controller. Capabilities equality between MCP and HTTP

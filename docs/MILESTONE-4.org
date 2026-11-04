@@ -107,12 +107,13 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
 
 * Documentation and verification
 
-** TODO Document connection and host integration examples
-   - [ ] Add an MCP guide covering Nix startup, =/mcp= connection, tested SDK/client versions, authentication, roles, contract negotiation, capabilities, and fixed-profile limits.
-   - [ ] Provide separate human-versus-agent and agent-versus-agent examples with private per-slot credentials and explicit operator setup; keep credentials out of tracked artifacts and model prompts.
-   - [ ] Demonstrate observe/act/receipt/completion flow, event-driven resource reads, reconnect/resynchronization, and the bounded-wait fallback without repeated polling.
-   - [ ] Explain coordinates/paths, direct/indirect attack rules, turn changes, stale revisions, duplicate retries, client timeouts, rollback/recovery, checkpoints, screenshots, and debug opt-in.
-   - [ ] Keep example strategies in the host/examples; the server and adapter provide no built-in strategy or model scheduling.
+** DONE Document connection and host integration examples
+   Guide: [[file:MCP-INTEGRATION.md][connecting MCP hosts and driving AW2 matches]].
+   - [X] Add an MCP guide covering Nix startup, =/mcp= connection, tested SDK/client versions, authentication, roles, contract negotiation, capabilities, and fixed-profile limits.
+   - [X] Provide separate human-versus-agent and agent-versus-agent examples with private per-slot credentials and explicit operator setup; keep credentials out of tracked artifacts and model prompts.
+   - [X] Demonstrate observe/act/receipt/completion flow, event-driven resource reads, reconnect/resynchronization, and the bounded-wait fallback without repeated polling.
+   - [X] Explain coordinates/paths, direct/indirect attack rules, turn changes, stale revisions, duplicate retries, client timeouts, rollback/recovery, checkpoints, screenshots, and debug opt-in.
+   - [X] Keep example strategies in the host/examples; the server and adapter provide no built-in strategy or model scheduling.
 
 ** TODO Verify authorization on every delivered MCP operation
    - [ ] Apply the shared permission table to production tool calls, resource reads, cached receipts, checkpoint transfers, subscription registration, reconnect/replay, and each notification delivery.

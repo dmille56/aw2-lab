@@ -22,8 +22,11 @@ source. Length validation cannot prove randomness. Python's
 [`secrets.token_urlsafe(32)`](https://docs.python.org/3/library/secrets.html)
 uses 32 bytes of randomness; comparisons use `hmac.compare_digest`.
 
-The [HTTP lifecycle and read routes](HTTP-API.md) use this shared service layer.
-Authenticated SSE uses the same facade. SDK calls and MCP gameplay tools remain planned.
+The [HTTP lifecycle and read routes](HTTP-API.md), SDK clients, and authenticated
+MCP tools use this shared service layer. MCP player credentials are sent in the
+transport bearer header; invitation and join credentials remain in trusted host
+provisioning and are not model-visible tools. See
+[MCP host integration](MCP-INTEGRATION.md).
 Without an operator file, no
 `AuthorizedMatchService` is installed. An existing authorization ledger requires
 the operator file on subsequent startup; omitting it cannot enable legacy
