@@ -115,21 +115,22 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    - [X] Explain coordinates/paths, direct/indirect attack rules, turn changes, stale revisions, duplicate retries, client timeouts, rollback/recovery, checkpoints, screenshots, and debug opt-in.
    - [X] Keep example strategies in the host/examples; the server and adapter provide no built-in strategy or model scheduling.
 
-** IN-PROGRESS Verify authorization on every delivered MCP operation
+** DONE Verify authorization on every delivered MCP operation
    ROM-independent evidence: =tests/test_mcp_authorization.py=, =tests/test_mcp_tools.py=, =tests/test_mcp_notifications.py=, =tests/test_mcp_turn_wait.py=, =tests/test_mcp_runtime.py=, and =tests/test_authorized_match.py=.
    - [X] Apply the shared permission table to production tool calls, resource reads, cached receipts, checkpoint transfers, subscription registration, reconnect/session ownership, and each notification delivery.
    - [X] Verify queued gameplay/debug/restore operations retain shared execution-time ownership, current credentials, turn, and revision checks through the SDK.
    - [X] Verify resources, notifications, and wait tools wake and clean up on revoke/reclaim, principal-generation changes, disconnect, close, and application shutdown without affecting other callers.
    - [X] Verify MCP checkpoint restore/import use shared authorization, checkpoint restart cannot revive revoked access, and secret values/verifiers are absent from schemas, results, resource URIs, diagnostics, and examples.
-   - [ ] Complete =pre-commit run --all-files=; the pytest hook stalled in this environment after all preceding hooks passed. Keep the Milestone 3 follow-up open until the full gate completes.
+   - [X] Complete =pre-commit run --all-files= with worker-thread filesystem access; all hooks, including pytest, pass. Close the Milestone 3 MCP authorization follow-up. Third-party client interoperability remains in live-play verification.
 
-** TODO Cover MCP behavior without a ROM
-   - [ ] Exercise actual MCP initialization, tool/resource discovery, calls, reads, image delivery, and teardown over the mounted Streamable HTTP transport with controlled emulator observations.
-   - [ ] Verify shared HTTP/SDK/MCP schemas and observable results, including action receipt identity, execution-time stale rejection, duplicate/conflicting requests, and lost-response retry behavior.
-   - [ ] Check unauthenticated/wrong-role access, forged/cross-session identity, revocation, credential rotation, cached receipts, checkpoint permissions, and notification/wait cleanup.
-   - [ ] Check snapshot/subscription races, ordering, duplicates, overflow/resync, reconnect, unsupported protocol features, bounded turn waits, deadlines, cancellation, and shutdown.
-   - [ ] Check unknown menus, rollback failure, recovery-required blocking, debug invalidation, and explicit restoration through the same services; retain ROM-independent defaults.
-   - [ ] Verify simultaneous HTTP and MCP clients share one match, queue, durable journal, and checkpoint state rather than parallel execution paths.
+** DONE Cover MCP behavior without a ROM
+   Evidence: =tests/test_mcp_authorization.py=, =tests/test_mcp_compatibility.py=, =tests/test_mcp_notifications.py=, =tests/test_mcp_runtime.py=, =tests/test_mcp_tools.py=, =tests/test_mcp_turn_wait.py=, =tests/test_authorized_match.py=, =tests/test_coordination_acceptance.py=, =tests/test_http_gameplay_checkpoints.py=, and =tests/test_playable_runtime.py=. Full =pre-commit run --all-files= passed with worker-thread filesystem access.
+   - [X] Exercise actual MCP initialization, tool/resource discovery, calls, reads, image delivery, and teardown over the mounted Streamable HTTP transport with controlled emulator observations.
+   - [X] Verify shared HTTP/SDK/MCP schemas and observable results, including action receipt identity, execution-time stale rejection, duplicate/conflicting requests, and lost-response retry behavior.
+   - [X] Check unauthenticated/wrong-role access, forged/cross-session identity, revocation, credential rotation, cached receipts, checkpoint permissions, and notification/wait cleanup.
+   - [X] Check snapshot/subscription races, ordering, duplicates, overflow/resync, reconnect/resynchronization, unsupported protocol negotiation, bounded turn waits, deadlines, cancellation, and shutdown.
+   - [X] Check unknown menus, rollback failure, recovery-required blocking, debug invalidation, and explicit restoration through the same services; retain ROM-independent defaults.
+   - [X] Verify simultaneous HTTP and MCP clients share one match, queue, durable journal, and checkpoint state rather than parallel execution paths.
 
 ** TODO Verify human-versus-agent and agent-versus-agent play in both emulator modes
    - [ ] Add opt-in integration scenarios using the supported external ROM and actual listening server; retain isolated saves, credentials, storage, and evidence outside Git/Nix.

@@ -72,10 +72,18 @@ async def test_mcp_http_sdk_and_sse_share_application(tmp_path, monkeypatch):
                     assert "get_capabilities" in [
                         tool["name"] for tool in catalog["result"]["tools"]
                     ]
+                    templates = result(
+                        await http.post("/mcp/", headers=h, json=rpc("resources/templates/list"))
+                    )["result"]["resourceTemplates"]
+                    resource_uris = {template["uriTemplate"] for template in templates}
+                    assert "aw2://v1/matches/{match_id}/state" in resource_uris
+                    assert "aw2://v1/matches/{match_id}/commands/{command_id}" in resource_uris
                     call = rpc("tools/call", {"name": "get_capabilities", "arguments": {}})
                     response = result(await http.post("/mcp/", headers=h, json=call))["result"]
                     direct = (await http.get("/v1/capabilities")).json()
                     assert response["structuredContent"] == direct
+                    assert direct["mcp_resources"]["implemented"]
+                    assert direct["mcp_resources"]["available"]
                     assert not any(action["available"] for action in direct["actions"])
                     before = len(clients)
                     bad = rpc(

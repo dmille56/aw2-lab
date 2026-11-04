@@ -43,7 +43,7 @@ Accepted controller commands retain their existing execution and journal lifetim
 Transport cancellation never revokes or rolls back accepted commands by itself.
 An unaffected caller's requests and sessions continue to work.
 
-## Operation guards for the remaining adapter work
+## Shared operation guards
 
 `caller_from_request` obtains a private `MCPCaller` from the current protocol
 request's ASGI scope, and rechecks authorization. Every tool and resource
@@ -72,9 +72,9 @@ Lifecycle, gameplay, checkpoint, state, screenshot, debug, subscription, and
 turn-wait operations use these guards. MCP resource subscriptions are bounded
 invalidations, not replay; reconnect requires a fresh authorized read. The
 Mounted operation and shared-service checks are linked in
-[Milestone 4](MILESTONE-4.org). The Milestone 3 follow-up remains open until the
-repository's full verification gate passes. Third-party client reconnect and
-rendering behavior remains a separate live-host check.
+[Milestone 4](MILESTONE-4.org); the full repository verification gate passes.
+Third-party client reconnect and rendering behavior remains a separate
+live-host check.
 
 ## Evidence
 

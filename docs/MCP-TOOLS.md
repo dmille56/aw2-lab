@@ -142,8 +142,7 @@ oversized archive streams stop reading and close. Gameplay executors are control
 fixtures in these checks; this is not live emulator play evidence.
 
 State, screenshot, and debug operations have synthetic test coverage. The full
-pre-commit gate, including pytest, must pass before marking the authorization
-acceptance work complete.
+pre-commit gate, including pytest, passed with worker-thread filesystem access.
 Authorized [resource notifications](MCP-NOTIFICATIONS.md) are implemented;
 [Bounded `wait_for_turn`](MCP-TURN-WAIT.md) is implemented. The broader
 authorization acceptance checks now cover every delivered surface, including

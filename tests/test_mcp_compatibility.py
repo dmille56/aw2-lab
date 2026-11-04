@@ -14,7 +14,7 @@ from aw2_lab.api_contract import MCPCompatibility, Request
 from aw2_lab.mcp import create_mcp_server
 
 
-def test_mcp_version_reporting_and_unimplemented_subscriptions() -> None:
+def test_mcp_version_reporting_without_adapter_disables_subscriptions() -> None:
     compatibility = MCPCompatibility()
     options = create_mcp_server()._mcp_server.create_initialization_options()
     assert compatibility.sdk_version == version("mcp") == "1.29.0"

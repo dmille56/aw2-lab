@@ -81,6 +81,17 @@ async def test_mounted_authentication_sessions_origins_and_revocation(auth):
                 "clientInfo": {"name": "test", "version": "1"},
             },
         )
+        unsupported = rpc(
+            "initialize",
+            {
+                "protocolVersion": "1900-01-01",
+                "capabilities": {},
+                "clientInfo": {"name": "unsupported-version-test", "version": "1"},
+            },
+            identifier=9,
+        )
+        negotiated = result(await client.post("/", headers=headers("o"), json=unsupported))
+        assert negotiated["result"]["protocolVersion"] == "2025-11-25"
         assert (await client.post("/", json=initialize)).status_code == 401
         assert (await client.post("/", headers=headers("x"), json=initialize)).status_code == 401
         rejected = await client.post(

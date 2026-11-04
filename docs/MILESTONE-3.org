@@ -345,9 +345,9 @@ screenshots, and machine-specific paths outside Git and the Nix store.
   built-in strategy, legal-move enumeration, and forked rollouts remain outside
   the initial roadmap scope.
 
-** TODO Enforce shared authorization in the Milestone 4 MCP adapter
-   - ROM-independent coverage and the principal-generation regression are recorded in [[file:MILESTONE-4.org::#mcp-authorization][the Milestone 4 MCP authorization checklist]]. Keep this follow-up open until its full pre-commit gate passes. Host-specific reconnect behavior remains part of live host verification.
-   - [ ] Apply the existing shared authorization service to gameplay tools, resources, replay/live delivery, and active subscriptions. Cover operator/player roles, revocation wakeups, cached results, and reconnects; do not expose gameplay through the greeting scaffold before these checks pass.
+** DONE Enforce shared authorization in the Milestone 4 MCP adapter
+   - Verified through mounted MCP operations and shared-service restart/revocation checks; the full pre-commit gate passes. See [[file:MILESTONE-4.org::#mcp-authorization][the Milestone 4 MCP authorization evidence]]. Host-specific reconnect behavior remains part of live host verification.
+   - [X] Apply the existing shared authorization service to gameplay tools, resources, replay/live delivery, and active subscriptions. Cover operator/player roles, revocation wakeups, cached results, and reconnects; do not expose gameplay through the greeting scaffold before these checks pass.
 
 ** TODO Expand gameplay command coverage in Milestone 5
    - [ ] Add a distinct typed =attack= command for attacking without movement, including indirect units. Reuse the existing stationary =move_attack= behavior (=path: []=); preserve the rule that indirect units cannot move and attack in the same turn. Cover shared models, capabilities, executors, HTTP/SDK/MCP adapters as available, error/recovery tests, and live verification.

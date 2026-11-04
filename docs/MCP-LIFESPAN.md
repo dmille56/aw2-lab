@@ -65,8 +65,7 @@ responsibilities.
 
 HTTP `/health`, `/v1` readiness/capabilities, HTTP SSE, and existing SDK clients
 retain their routes and controller. Capabilities equality between MCP and HTTP
-shows that the first tool uses the shared API; later high-level tools must retain
-this path and their shared error/result contracts.
+shows that MCP tools use the shared API and preserve its error/result contracts.
 
 ## Verification
 

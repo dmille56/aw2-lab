@@ -27,14 +27,14 @@ update the pin, and run the compatibility checks.
 | Resource subscriptions | Low-level `subscribe_resource()` / `unsubscribe_resource()` handlers and `ServerSession.send_resource_updated()` exist | AW2 implements authorized `resources/subscribe`, `resources/unsubscribe`, and `notifications/resources/updated`, including bounded per-session ownership and resynchronization invalidations. The adapter explicitly advertises subscriptions after installing the handlers. Host-specific behavior remains unverified. No additional newer subscription API is assumed. |
 | Images | `Image(data=..., format="png")` and `types.ImageContent` support in-memory base64 content | Return bounded committed screenshots and revision/frame metadata, without filesystem paths. A synthetic round trip checks image content serialization, not image decoding or a real screenshot. |
 | Structured results | Tool annotations produce `outputSchema`; `CallToolResult.structuredContent` supports structured metadata alongside image content | Shared models can supply typed results. Synthetic checks verify a model return, mixed image/metadata result, and rejection of application contract v2 before the probe tool executes. |
-| Request bounds | FastMCP defaults `max_request_body_size` to 4,194,304 bytes | The planned base64 archive envelope exceeds this. Configure the future MCP transport's outer limit to the bounded archive envelope, with smaller per-tool limits before decoding. Do not enable archive tools until both server and host limits are verified. |
+| Request bounds | FastMCP defaults `max_request_body_size` to 4,194,304 bytes | AW2 configures the mounted transport for the bounded archive envelope and enforces smaller ordinary-argument and archive limits before decoding. The pinned Python MCP client passes a maximum-size transfer test; limits of other hosts are unverified. |
 | Replay | Streamable HTTP accepts an optional event store; the adapter supplies none | Advertise no MCP replay guarantee. Reconnect reads authoritative state regardless of HTTP SSE replay support. |
 
 Subscriptions use the SDK's resource operations across the audited revision
 family; later revisions in this SDK do not introduce a replacement subscription
-contract. Feature/protocol gating and notification routing must be checked with
-actual supported hosts before changing availability flags. No host-specific
-message size, subscription behavior, or credential configuration is verified yet.
+contract. Mounted ROM-independent tests verify the advertised capability and
+notification routing. Behavior in third-party hosts, including reconnect and
+message-size limits, remains unverified.
 
 ## Explicit version boundaries
 
@@ -42,7 +42,7 @@ message size, subscription behavior, or credential configuration is verified yet
 
 - `supported_game_contract_versions: [1]`: AW2 payload semantics, unchanged by MCP
   protocol negotiation. Shared models reject unsupported versions and noninteger
-  versions before service calls; future gameplay tools must use those models.
+  versions before service calls; all implemented tools use those models.
 - `mcp_compatibility`: actual installed SDK version, SDK-supported protocol
   revisions, preferred revision, `/mcp` endpoint, and Streamable HTTP transport.
   These describe SDK compatibility, not enabled gameplay.
@@ -58,22 +58,22 @@ status. The library continues to negotiate MCP protocol versions itself.
 
 Keep v1 tool names stable at `/mcp`; use
 `aw2://v1/matches/{match}/state` and
-`aw2://v1/matches/{match}/commands/{command}` for future resources. A breaking AW2
-contract uses a separate endpoint such as `/mcp/v2` and corresponding resource
-URIs, retaining v1 during migration. Decoder schemas and checkpoint manifest
-schemas retain their own existing version fields. Tool/resource names remain
-specified in [MCP-API-DESIGN.md](MCP-API-DESIGN.md); the later [tool implementation](MCP-TOOLS.md) enables the SDK-backed
-lifecycle, gameplay, command, and checkpoint surface.
+`aw2://v1/matches/{match}/commands/{command}` for the implemented resources. A
+breaking AW2 contract uses a separate endpoint such as `/mcp/v2` and
+corresponding resource URIs, retaining v1 during migration. Decoder schemas and
+checkpoint manifest schemas retain their own existing version fields.
+Tool/resource names are specified in [MCP-API-DESIGN.md](MCP-API-DESIGN.md);
+the SDK-backed surface is listed in [MCP-TOOLS.md](MCP-TOOLS.md).
 
 ## Verification and sources
 
 `tests/test_mcp_compatibility.py` exercises the pinned SDK over in-memory MCP
 sessions. It checks typed output, image plus metadata content, application-version
 rejection before tool execution, initialization implementation version, protocol
-metadata, and the default false subscription advertisement. Capability model
-checks confirm game resources/subscriptions stay unavailable. This is synthetic
-SDK evidence; mounted authenticated HTTP sessions, resource delivery, and actual
-agent hosts remain later milestone verification tasks.
+metadata, and that a standalone server without the AW2 adapter does not advertise
+subscriptions. `tests/test_mcp_runtime.py` checks mounted capability parity and
+resource-template discovery; notification delivery and host-specific behavior
+are covered separately in Milestone 4.
 
 The audit inspected the installed Nix package sources corresponding to these
 versioned upstream files:

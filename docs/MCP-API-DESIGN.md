@@ -212,14 +212,12 @@ gated until host message limits are verified. Transfer by bytes and checkpoint I
 only; never accept or return server filesystem paths. Archives contain private
 verifiers and save RAM and remain operator-only even when metadata is player-readable.
 
-## Implementation follow-through
+## Implementation and verification
 
-Required SDK work: debug wrappers, bounded screenshot metadata validation,
-revision-aware turn waiting (the current SDK helper
-has no `after_revision` and defaults to 300 seconds). Preserve existing SDK
-behavior for existing clients; add explicit bounded adapter helpers where needed.
-Protocol/SDK compatibility inspection must confirm structured results, images,
-auth context, session lifetime, and subscription behavior before implementation
-advertises them. The [tool implementation](MCP-TOOLS.md) has synthetic gameplay/transfer evidence;
-live emulator and agent-host play remain unverified. Later milestone tasks cover implementation, regression checks,
-and human/agent play in both emulator modes.
+The SDK-backed [tool implementation](MCP-TOOLS.md) includes bounded screenshot
+metadata validation, debug wrappers, and revision-aware bounded turn waiting.
+Protocol/SDK compatibility, authenticated sessions, resource subscriptions, and
+application limits are implemented and covered by ROM-independent tests; see
+[MCP-COMPATIBILITY.md](MCP-COMPATIBILITY.md) and the acceptance evidence in
+[MILESTONE-4.org](MILESTONE-4.org). Live emulator play and interoperability with
+third-party agent hosts remain unverified and are tracked separately.
