@@ -582,3 +582,135 @@ async def test_authorized_state_command_resources_and_coherent_screenshot(
             assert bridge.frame == actions_before + 1
     finally:
         await runtime.controller.stop()
+
+
+@run_async_test
+async def test_operator_debug_tools_opt_in_bounds_and_restore(memory, tmp_path, monkeypatch):
+    app, runtime, public, match_id, operator, bridge = await setup(memory, tmp_path, monkeypatch)
+    app.state.playable_runtime = runtime
+    try:
+        async with mounted(app, monkeypatch) as (call, _, _http):
+            current = await public.state(operator, match_id)
+            player = await call(
+                "debug_read_memory",
+                {
+                    "match_id": str(match_id),
+                    "expected_revision": current.summary.revision,
+                    "address": 0x02000000,
+                    "length": 8,
+                },
+                letter="p",
+            )
+            assert player["structuredContent"]["error"]["code"] == "permission_denied"
+            disabled = await call(
+                "debug_advance_frames",
+                {
+                    "match_id": str(match_id),
+                    "expected_revision": current.summary.revision,
+                    "request_id": str(uuid4()),
+                    "frames": 1,
+                },
+                letter="o",
+            )
+            assert disabled["structuredContent"]["error"]["code"] == "unsupported_feature"
+            public.authorization.debug_enabled = True
+            current = await public.state(operator, match_id)
+            checkpoint_receipt = payload(
+                await call(
+                    "create_checkpoint",
+                    {
+                        "match_id": str(match_id),
+                        "expected_revision": current.summary.revision,
+                        "request_id": str(uuid4()),
+                    },
+                    letter="o",
+                )
+            )
+            checkpoint_result = await runtime.controller.wait_for_command(
+                match_id, UUID(checkpoint_receipt["command_id"]), timeout=2
+            )
+            assert checkpoint_result.status is CommandStatus.COMPLETED
+            read = payload(
+                await call(
+                    "debug_read_memory",
+                    {
+                        "match_id": str(match_id),
+                        "expected_revision": current.summary.revision,
+                        "address": 0x02000000,
+                        "length": 8,
+                    },
+                    letter="o",
+                )
+            )
+            assert (
+                read["match_id"] == str(match_id) and read["revision"] == current.summary.revision
+            )
+            assert len(base64.b64decode(read["data"], validate=True)) == 8
+            for name, fields in (
+                ("debug_press_buttons", {"buttons": ["neutral"], "frames": 1}),
+                ("debug_advance_frames", {"frames": 1}),
+                ("debug_write_memory", {"address": 0x02000000, "data": "AQ=="}),
+                ("debug_reset", {}),
+            ):
+                current = await public.state(operator, match_id)
+                receipt = payload(
+                    await call(
+                        name,
+                        {
+                            "match_id": str(match_id),
+                            "expected_revision": current.summary.revision,
+                            "request_id": str(uuid4()),
+                            **fields,
+                        },
+                        letter="o",
+                    )
+                )
+                result = await runtime.controller.wait_for_command(
+                    match_id, UUID(receipt["command_id"]), timeout=2
+                )
+                assert result.status is CommandStatus.RECOVERY_REQUIRED
+                unavailable = await public.state(operator, match_id)
+                assert unavailable.summary.revision == current.summary.revision + 1
+                assert unavailable.observation.identity_status.value == "unavailable"
+                checkpoint = runtime.store.current()
+                restored = payload(
+                    await call(
+                        "restore_checkpoint",
+                        {
+                            "match_id": str(match_id),
+                            "checkpoint_id": str(checkpoint.checkpoint_id),
+                            "expected_revision": unavailable.summary.revision,
+                            "request_id": str(uuid4()),
+                        },
+                        letter="o",
+                    )
+                )
+                restored_result = await runtime.controller.wait_for_command(
+                    match_id, UUID(restored["command_id"]), timeout=2
+                )
+                assert restored_result.status is CommandStatus.COMPLETED
+            bad_frames = await call(
+                "debug_advance_frames",
+                {
+                    "match_id": str(match_id),
+                    "expected_revision": 5,
+                    "request_id": str(uuid4()),
+                    "frames": 601,
+                },
+                letter="o",
+            )
+            assert bad_frames["structuredContent"]["error"]["code"] == "invalid_request"
+            bad_address = await call(
+                "debug_read_memory",
+                {
+                    "match_id": str(match_id),
+                    "expected_revision": (await public.state(operator, match_id)).summary.revision,
+                    "address": 0x08000000,
+                    "length": 1,
+                },
+                letter="o",
+            )
+            assert bad_address["isError"]
+            assert bridge.resets >= 2
+    finally:
+        await runtime.controller.stop()

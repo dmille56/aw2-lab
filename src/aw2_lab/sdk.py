@@ -6,7 +6,7 @@ import asyncio
 from collections import deque
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from typing import Self, TypeVar
+from typing import Literal, Self, TypeVar
 from uuid import UUID, uuid4
 
 import httpx
@@ -17,6 +17,7 @@ from aw2_lab.api_contract import (
     CheckpointListResponse,
     CheckpointResponse,
     CreateMatchRequest,
+    DebugMemoryReadResponse,
     GameplayCommandRequest,
     InvitationReference,
     JoinSlotResponse,
@@ -385,7 +386,9 @@ class AsyncAW2Client:
 
     async def inspect_checkpoint(self, match_id: UUID, checkpoint_id: UUID) -> CheckpointResponse:
         return await self._json(
-            CheckpointResponse, "GET", self._path(match_id) + f"/checkpoints/{checkpoint_id}"
+            CheckpointResponse,
+            "GET",
+            self._path(match_id) + f"/checkpoints/{checkpoint_id}",
         )
 
     async def export_checkpoint(self, match_id: UUID, checkpoint_id: UUID) -> bytes:
@@ -451,6 +454,97 @@ class AsyncAW2Client:
             match_id,
             f"/checkpoints/{checkpoint_id}/restore",
             expected_revision,
+            request_id=request_id,
+        )
+
+    async def debug_buttons(
+        self,
+        match_id: UUID,
+        expected_revision: int,
+        buttons: tuple[
+            Literal[
+                "a", "b", "select", "start", "up", "down", "left", "right", "l", "r", "neutral"
+            ],
+            ...,
+        ],
+        frames: int,
+        *,
+        request_id: UUID,
+    ) -> CommandReceipt:
+        from aw2_lab.api_contract import DebugButtonsRequest
+
+        body = DebugButtonsRequest(
+            request_id=request_id,
+            expected_revision=expected_revision,
+            buttons=buttons,
+            frames=frames,
+        )
+        return await self._json(
+            CommandReceipt,
+            "POST",
+            self._path(match_id) + "/debug/buttons",
+            payload=body.model_dump(mode="json"),
+            request_id=request_id,
+        )
+
+    async def debug_frames(
+        self, match_id: UUID, expected_revision: int, frames: int, *, request_id: UUID
+    ) -> CommandReceipt:
+        from aw2_lab.api_contract import DebugFramesRequest
+
+        body = DebugFramesRequest(
+            request_id=request_id, expected_revision=expected_revision, frames=frames
+        )
+        return await self._json(
+            CommandReceipt,
+            "POST",
+            self._path(match_id) + "/debug/frames",
+            payload=body.model_dump(mode="json"),
+            request_id=request_id,
+        )
+
+    async def debug_reset(
+        self, match_id: UUID, expected_revision: int, *, request_id: UUID
+    ) -> CommandReceipt:
+        from aw2_lab.api_contract import DebugResetRequest
+
+        body = DebugResetRequest(request_id=request_id, expected_revision=expected_revision)
+        return await self._json(
+            CommandReceipt,
+            "POST",
+            self._path(match_id) + "/debug/reset",
+            payload=body.model_dump(mode="json"),
+            request_id=request_id,
+        )
+
+    async def debug_read_memory(
+        self, match_id: UUID, expected_revision: int, address: int, length: int
+    ) -> DebugMemoryReadResponse:
+        from aw2_lab.api_contract import DebugMemoryReadRequest, DebugMemoryReadResponse
+
+        body = DebugMemoryReadRequest(
+            expected_revision=expected_revision, address=address, length=length
+        )
+        return await self._json(
+            DebugMemoryReadResponse,
+            "POST",
+            self._path(match_id) + "/debug/memory/read",
+            payload=body.model_dump(mode="json"),
+        )
+
+    async def debug_write_memory(
+        self, match_id: UUID, expected_revision: int, address: int, data: str, *, request_id: UUID
+    ) -> CommandReceipt:
+        from aw2_lab.api_contract import DebugMemoryWriteRequest
+
+        body = DebugMemoryWriteRequest(
+            request_id=request_id, expected_revision=expected_revision, address=address, data=data
+        )
+        return await self._json(
+            CommandReceipt,
+            "POST",
+            self._path(match_id) + "/debug/memory/write",
+            payload=body.model_dump(mode="json"),
             request_id=request_id,
         )
 

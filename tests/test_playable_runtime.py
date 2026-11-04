@@ -18,6 +18,7 @@ from aw2_lab.api_contract import (
 )
 from aw2_lab.authorization import AuthorizationError, AuthorizationService
 from aw2_lab.authorized_match import AuthorizedMatchService
+from aw2_lab.bridge import MemorySnapshot
 from aw2_lab.checkpoint_store import CheckpointStore
 from aw2_lab.cold_boot import ColdBootResult
 from aw2_lab.command_journal import JsonlCommandJournal
@@ -27,10 +28,47 @@ from aw2_lab.playable_runtime import PlayableRuntime
 
 
 class RuntimeBridge(MemoryBridge):
+    async def press_keys(self, keys, frames):
+        self.keys = keys
+        self.frame += frames
+        self.keys = 0
+        return self.frame
+
+    async def advance_frames(self, frames):
+        self.frame += frames
+        return self.frame
+
     async def reset(self):
         self.resets = getattr(self, "resets", 0) + 1
         self.frame = 0
         return 0
+
+    async def read_memory_snapshot(self, ranges):
+        _, ewram, iwram = self.memory
+        values = []
+        for address, length in ranges:
+            if 0x02000000 <= address and address + length <= 0x02040000:
+                values.append(bytes(ewram[address - 0x02000000 : address - 0x02000000 + length]))
+            elif 0x03000000 <= address and address + length <= 0x03008000:
+                values.append(bytes(iwram[address - 0x03000000 : address - 0x03000000 + length]))
+            else:
+                raise ValueError("synthetic memory read is outside work RAM")
+        return MemorySnapshot(frame=self.frame, ranges=tuple(values))
+
+    async def request(self, operation, **payload):
+        if operation != "write_memory":
+            raise ValueError(f"unsupported synthetic bridge operation: {operation}")
+        address = payload["address"]
+        values = bytes(payload["bytes"])
+        _, ewram, iwram = self.memory
+        if 0x02000000 <= address and address + len(values) <= 0x02040000:
+            target, offset = ewram, address - 0x02000000
+        elif 0x03000000 <= address and address + len(values) <= 0x03008000:
+            target, offset = iwram, address - 0x03000000
+        else:
+            raise ValueError("synthetic memory write is outside work RAM")
+        target[offset : offset + len(values)] = values
+        return {"written": len(values)}
 
 
 async def setup(memory, tmp_path, *, joins=2, boot=None):

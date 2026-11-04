@@ -1,6 +1,6 @@
-# MCP v1 lifecycle, gameplay, and checkpoint tools
+# MCP v1 lifecycle, gameplay, observation, and debug tools
 
-The authenticated `/mcp` endpoint now exposes 22 typed tools through the existing
+The authenticated `/mcp` endpoint exposes 30 typed tools through the existing
 Python SDK and HTTP v1 services. Use the pinned Python MCP SDK 1.29.0 and local
 bearer setup in [MCP-AUTHORIZATION.md](MCP-AUTHORIZATION.md). Discover schemas
 through `tools/list`; each schema includes `contract_version: 1` and rejects
@@ -15,6 +15,7 @@ unknown arguments. Mutations require an explicit UUID `request_id`.
 | Gameplay | `move_wait`, `move_attack`, `move_capture`, `purchase`, `end_turn`, `surrender` | Player credential, own active slot |
 | Checkpoints | `create_checkpoint`, `list_checkpoints`, `inspect_checkpoint` | Operator or joined player in own match |
 | Transfers/recovery | `export_checkpoint`, `import_checkpoint`, `restore_checkpoint` | Operator only |
+| Debug | `debug_press_buttons`, `debug_advance_frames`, `debug_read_memory`, `debug_write_memory`, `debug_reset` | Operator only; requires server startup opt-in |
 
 Invitation issuance and joining remain trusted host provisioning through SDK
 `invite` and `join`. They do not appear in model-visible tool schemas, and their
@@ -114,9 +115,25 @@ maximum-size upload to verify envelope handling. Other agent hosts may impose
 smaller message limits; use a compatible trusted operator host for transfers.
 No compatibility with another host is advertised by these checks.
 
+## Operator debug tools
+
+Start the API with `--enable-debug-api` and authenticate as the operator to expose
+debug operations. Player credentials remain denied, and schemas or tool arguments
+cannot enable debug access. The five tools wrap the existing serialized debug API:
+named button presses and frame advances accept 1–600 frames; memory reads are
+limited to 1–4,096 bytes; memory writes accept 1–256 bytes of canonical base64.
+Memory addresses and ranges must remain inside GBA EWRAM or IWRAM.
+
+Memory reads are revision checked and do not mutate the emulator. Button presses,
+frame advances, writes, and reset return command receipts; wait for the terminal
+result. A successful debug mutation deliberately invalidates tracked game identity
+and leaves the match recovery required. Restore a compatible checkpoint explicitly
+before resuming gameplay. Debug tools do not expose arbitrary bridge operations or
+server paths.
+
 ## Verification and remaining scope
 
-`tests/test_mcp_tools.py` exercises actual MCP initialization/tool calls, SDK/HTTP
+`tests/test_mcp_tools.py` covers actual MCP initialization/tool calls, SDK/HTTP
 routing, shared synthetic-runtime queue execution, all six gameplay mappings,
 queued Start, durable retries and request-ID conflicts, lost-response retry,
 checkpoint create/list/inspect/export/import/restore, revocation, validation,
@@ -124,7 +141,10 @@ capacity, waits, and Python MCP client transfer envelopes. SDK tests verify that
 oversized archive streams stop reading and close. Gameplay executors are controlled
 fixtures in these checks; this is not live emulator play evidence.
 
-State/screenshot tools and resources, debug operations, resource notifications,
-and `wait_for_turn` remain subsequent tasks. The broader authorization acceptance
-check stays open until every delivered surface, including subscriptions, is covered.
+State, screenshot, and debug operations have synthetic test coverage. The MCP
+async test suite currently hangs in this environment before completing, so those
+tests have not been confirmed in this run.
+Resource notifications and `wait_for_turn` remain subsequent tasks. The broader
+authorization acceptance check stays open until every delivered surface, including
+subscriptions, is covered. Live debug behavior against mGBA is not verified here.
 Human/agent live play in both emulator modes remains later Milestone 4 verification.

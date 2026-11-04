@@ -6,7 +6,7 @@ import binascii
 import hashlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from mcp import types
@@ -18,6 +18,7 @@ from aw2_lab.api_contract import (
     CapabilitiesResponse,
     CheckpointListResponse,
     CheckpointResponse,
+    DebugMemoryReadResponse,
     MatchConfiguration,
     MatchListResponse,
     MatchSummary,
@@ -57,6 +58,17 @@ MCP_BODY_BYTES = MAX_ARCHIVE_BASE64 + 65536
 Path = Annotated[tuple[Coordinate, ...], Field(max_length=4096)]
 UnitID = Annotated[str, Field(min_length=1)]
 WaitSeconds = Annotated[float, Field(strict=True, gt=0, le=60, allow_inf_nan=False)]
+DebugFrames = Annotated[int, Field(strict=True, ge=1, le=600)]
+DebugAddress = Annotated[int, Field(strict=True, ge=0, le=0xFFFFFFFF)]
+DebugReadLength = Annotated[int, Field(strict=True, ge=1, le=4096)]
+DebugButtons = Annotated[
+    tuple[
+        Literal["a", "b", "select", "start", "up", "down", "left", "right", "l", "r", "neutral"],
+        ...,
+    ],
+    Field(min_length=1, max_length=10),
+]
+DebugWriteData = Annotated[str, Field(min_length=4, max_length=344)]
 
 
 class CommandWaitResult(ContractModel):
@@ -388,6 +400,70 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
         async with client(Permission.READ, match) as sdk:
             status = await sdk.command_status(match, command)
             return status.model_dump_json()
+
+    @server.tool()
+    async def debug_press_buttons(
+        match_id: UUID,
+        expected_revision: Revision,
+        request_id: UUID,
+        buttons: DebugButtons,
+        frames: DebugFrames,
+        contract_version: int = 1,
+    ) -> CommandReceipt:
+        """Operator debug: press named buttons for 1–600 frames. Changes invalidate game identity; restore before gameplay."""
+        async with client(Permission.DEBUG, match_id) as sdk:
+            return await sdk.debug_buttons(
+                match_id, expected_revision, buttons, frames, request_id=request_id
+            )
+
+    @server.tool()
+    async def debug_advance_frames(
+        match_id: UUID,
+        expected_revision: Revision,
+        request_id: UUID,
+        frames: DebugFrames,
+        contract_version: int = 1,
+    ) -> CommandReceipt:
+        """Operator debug: advance 1–600 frames. The resulting boundary requires explicit restore before gameplay."""
+        async with client(Permission.DEBUG, match_id) as sdk:
+            return await sdk.debug_frames(
+                match_id, expected_revision, frames, request_id=request_id
+            )
+
+    @server.tool()
+    async def debug_read_memory(
+        match_id: UUID,
+        expected_revision: Revision,
+        address: DebugAddress,
+        length: DebugReadLength,
+        contract_version: int = 1,
+    ) -> DebugMemoryReadResponse:
+        """Operator debug: read at most 4,096 bytes of EWRAM/IWRAM at a serialized, revision-checked boundary."""
+        async with client(Permission.DEBUG, match_id) as sdk:
+            return await sdk.debug_read_memory(match_id, expected_revision, address, length)
+
+    @server.tool()
+    async def debug_write_memory(
+        match_id: UUID,
+        expected_revision: Revision,
+        request_id: UUID,
+        address: DebugAddress,
+        data: DebugWriteData,
+        contract_version: int = 1,
+    ) -> CommandReceipt:
+        """Operator debug: write 1–256 canonical-base64 bytes within EWRAM/IWRAM. Restore before gameplay resumes."""
+        async with client(Permission.DEBUG, match_id) as sdk:
+            return await sdk.debug_write_memory(
+                match_id, expected_revision, address, data, request_id=request_id
+            )
+
+    @server.tool()
+    async def debug_reset(
+        match_id: UUID, expected_revision: Revision, request_id: UUID, contract_version: int = 1
+    ) -> CommandReceipt:
+        """Operator debug: reset the emulator. Game observation becomes unavailable; restore before gameplay resumes."""
+        async with client(Permission.DEBUG, match_id) as sdk:
+            return await sdk.debug_reset(match_id, expected_revision, request_id=request_id)
 
     for tool in server._tool_manager.list_tools():
         if tool.fn_metadata.output_model is not None:

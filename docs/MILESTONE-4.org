@@ -9,8 +9,9 @@ existing API process. Humans and agents use the same authoritative match,
 authorization, revisions, mutation queue, executors, checkpoints, and journal.
 Keep the verified fixed Bean Island profile and six existing gameplay actions.
 
-[[file:../src/aw2_lab/mcp.py][The current MCP module]] exposes authenticated SDK-backed lifecycle, gameplay, command, and checkpoint
-tools. State/screenshot resources, debug tools, and subscriptions remain subsequent work.
+[[file:../src/aw2_lab/mcp.py][The current MCP module]] exposes authenticated SDK-backed lifecycle,
+gameplay, command, checkpoint, observation, and debug tools. Resource
+notifications and turn waiting remain subsequent work.
 The [[file:HTTP-API-DESIGN.md][HTTP/MCP design]] records the agreed application versioning, shared-event
 integration, and division of responsibilities between server and agent host.
 
@@ -79,10 +80,11 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    - [X] Provide tool-based observation access for hosts that do not read resources, using the same state/image sources and permission checks.
    - [X] Verify observation reads and resource discovery do not advance frames, change revisions, or reveal other matches, credentials, or server paths.
 
-** TODO Expose clearly named operator-only debug tools
-   - [ ] Wrap the existing input, frame advance, bounded memory read/write, and reset operations; add SDK adapters where needed instead of duplicating debug execution logic.
-   - [ ] Require the existing startup opt-in and operator credential, with shared queueing, execution-time revision checks, and established work-RAM/frame/payload bounds.
-   - [ ] Preserve revision invalidation, unavailable debug boundaries, and explicit checkpoint restoration before gameplay resumes; document those effects in tool descriptions.
+** IN-PROGRESS Expose clearly named operator-only debug tools
+   Implementation and synthetic test: [[file:MCP-TOOLS.md][MCP debug tools]]. The MCP async test hangs in this environment before completing; live mGBA debug verification also remains open.
+   - [X] Wrap the existing input, frame advance, bounded memory read/write, and reset operations through SDK adapters instead of duplicating debug execution logic.
+   - [X] Require the existing startup opt-in and operator credential, with shared queueing, execution-time revision checks, and established work-RAM/frame/payload bounds.
+   - [X] Preserve revision invalidation, unavailable debug boundaries, and explicit checkpoint restoration before gameplay resumes; document those effects in tool descriptions.
 
 * Event delivery and turn handling
 
