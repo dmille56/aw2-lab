@@ -40,6 +40,16 @@ const capabilities = ajv.compile({
 outputs["validate-capabilities.js"] = standaloneCode(ajv, capabilities);
 outputs["validate-capabilities.d.ts"] =
   "export default function validate(value: unknown): boolean;\n";
+for (const name of ["CommandReceipt", "CommandResult"]) {
+  const validator = ajv.compile({
+    ...schema,
+    $ref: `#/components/schemas/${name}`,
+  });
+  outputs[`validate-${name === "CommandReceipt" ? "receipt" : "result"}.js`] =
+    standaloneCode(ajv, validator);
+  outputs[`validate-${name === "CommandReceipt" ? "receipt" : "result"}.d.ts`] =
+    "export default function validate(value: unknown): boolean;\n";
+}
 const check = process.argv.includes("--check");
 for (const [name, text] of Object.entries(outputs)) {
   const destination = new URL(`../web/generated/${name}`, import.meta.url);

@@ -474,6 +474,77 @@ export interface components {
              */
             request_id: string;
         };
+        /** CommandReceipt */
+        CommandReceipt: {
+            /** Accepted Revision */
+            accepted_revision: number;
+            /**
+             * Command Id
+             * Format: uuid
+             */
+            command_id: string;
+            /**
+             * Contract Version
+             * @default 1
+             * @constant
+             */
+            contract_version: 1;
+            /**
+             * Match Id
+             * Format: uuid
+             */
+            match_id: string;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            status: components["schemas"]["CommandStatus"];
+        };
+        /** CommandResult */
+        CommandResult: {
+            /** Accepted Revision */
+            accepted_revision: number;
+            /**
+             * Checkpoint Id
+             * @default null
+             */
+            checkpoint_id: string | null;
+            /**
+             * Command Id
+             * Format: uuid
+             */
+            command_id: string;
+            /**
+             * Contract Version
+             * @default 1
+             * @constant
+             */
+            contract_version: 1;
+            /** @default null */
+            error: components["schemas"]["ErrorBody"] | null;
+            /**
+             * Match Id
+             * Format: uuid
+             */
+            match_id: string;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            /**
+             * Resulting Revision
+             * @default null
+             */
+            resulting_revision: number | null;
+            status: components["schemas"]["CommandStatus"];
+        };
+        /**
+         * CommandStatus
+         * @enum {string}
+         */
+        CommandStatus: "queued" | "running" | "completed" | "rejected" | "rolled_back" | "recovery_required";
         /**
          * ConfigurationOptions
          * @description Accepted options derived from the verified profile, not the recognition catalog.
@@ -770,6 +841,32 @@ export interface components {
              */
             kind: "end_turn";
         };
+        /** ErrorBody */
+        ErrorBody: {
+            code: components["schemas"]["ErrorCode"];
+            /**
+             * Contract Version
+             * @default 1
+             * @constant
+             */
+            contract_version: 1;
+            /** Details */
+            details?: {
+                [key: string]: string | number | boolean | null;
+            };
+            /** Message */
+            message: string;
+            /**
+             * Retryable
+             * @default false
+             */
+            retryable: boolean;
+        };
+        /**
+         * ErrorCode
+         * @enum {string}
+         */
+        ErrorCode: "invalid_request" | "unsupported_feature" | "match_not_found" | "active_match_exists" | "match_closed" | "match_finished" | "slot_unavailable" | "invalid_credential" | "permission_denied" | "invalid_invitation" | "not_your_turn" | "stale_revision" | "request_id_conflict" | "command_not_found" | "command_capacity" | "server_shutting_down" | "observation_unavailable" | "action_rejected" | "timeout" | "rollback_failed" | "recovery_required" | "checkpoint_incompatible" | "checkpoint_corrupt" | "checkpoint_not_found" | "journal_corrupt" | "storage_unavailable" | "runtime_unavailable" | "internal_error";
         /** FeatureAvailability */
         FeatureAvailability: {
             /** Available */

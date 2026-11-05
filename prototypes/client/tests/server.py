@@ -9,12 +9,26 @@ from collections.abc import AsyncIterator
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import Response, StreamingResponse
 
-from aw2_lab.api_contract import CapabilitiesResponse, FeatureAvailability, StateResponse
+from aw2_lab.api_contract import (
+    CapabilitiesResponse,
+    FeatureAvailability,
+    GameplayCommandRequest,
+    StateResponse,
+)
+from aw2_lab.match_contract import (
+    CommandReceipt,
+    CommandResult,
+    CommandStatus,
+    MoveAttackAction,
+    MoveCaptureAction,
+    MoveWaitAction,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("client_serve", ROOT / "serve.py")
@@ -45,9 +59,23 @@ def available(name: str) -> FeatureAvailability:
 
 capabilities = CapabilitiesResponse(
     operations=(available("state"), available("events")),
+    actions=tuple(
+        available(name)
+        for name in (
+            "move_wait",
+            "move_attack",
+            "move_capture",
+            "purchase",
+            "end_turn",
+            "surrender",
+        )
+    ),
+    production_unit_types=("Infantry", "Mech"),
     http_sse=available("http_sse"),
     mcp_subscriptions=available("mcp_subscriptions"),
 ).model_dump(mode="json")
+commands: dict[str, CommandResult] = {}
+receipts_by_request: dict[str, tuple[dict[str, Any], CommandReceipt]] = {}
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aKd8AAAAASUVORK5CYII="
 )
@@ -78,12 +106,14 @@ async def get_capabilities() -> dict[str, Any]:
 
 @app.post("/__test/reset")
 async def reset() -> dict[str, Any]:
-    global state, revoked, mismatch, connections
+    global state, revoked, mismatch, connections, commands, receipts_by_request
     for queue in tuple(watchers):
         queue.put_nowait(None)
     state = deepcopy(template)
     revoked = mismatch = False
     connections = 0
+    commands = {}
+    receipts_by_request = {}
     return state
 
 
@@ -122,7 +152,80 @@ async def corrupt_state() -> dict[str, object]:
 
 @app.get("/__test/stats")
 async def stats() -> dict[str, int]:
-    return {"connections": connections, "watchers": len(watchers)}
+    return {
+        "connections": connections,
+        "watchers": len(watchers),
+        "commands": len(commands),
+    }
+
+
+@app.post("/v1/matches/{mid}/commands")
+async def submit_command(
+    mid: str, request: Request, body: GameplayCommandRequest
+) -> dict[str, Any]:
+    authorize(request, mid)
+    payload = body.model_dump(mode="json")
+    request_key = str(body.request_id)
+    previous = receipts_by_request.get(request_key)
+    if previous is not None:
+        previous_payload, receipt = previous
+        if previous_payload != payload:
+            raise HTTPException(409)
+        return receipt.model_dump(mode="json")
+    if body.expected_revision != state["summary"]["revision"]:
+        raise HTTPException(409)
+
+    command_id = uuid4()
+    accepted = state["summary"]["revision"]
+    action = body.action
+    battle = state["observation"]["game_state"]["battle"]["value"]
+    if isinstance(action, (MoveWaitAction, MoveAttackAction, MoveCaptureAction)):
+        identity = next(
+            item
+            for item in state["observation"]["unit_identities"]
+            if item["identity_id"] == action.unit_id
+        )
+        unit = next(item for item in battle["units"] if item["reference"] == identity["reference"])
+        if action.path:
+            unit["x"], unit["y"] = action.path[-1].x, action.path[-1].y
+        unit["used_this_turn"] = True
+    elif action.kind == "end_turn":
+        battle["active_player_slot"] = 2 if battle["active_player_slot"] == 1 else 1
+    elif action.kind == "surrender":
+        state["summary"]["lifecycle"] = "finished"
+
+    state["summary"]["revision"] += 1
+    state["observation"]["revision"] = state["summary"]["revision"]
+    state["observation"]["game_state"]["frame"] += 1
+    result = CommandResult(
+        command_id=command_id,
+        request_id=body.request_id,
+        match_id=state["summary"]["match_id"],
+        status=CommandStatus.COMPLETED,
+        accepted_revision=accepted,
+        resulting_revision=state["summary"]["revision"],
+    )
+    receipt = CommandReceipt(
+        command_id=command_id,
+        request_id=body.request_id,
+        match_id=state["summary"]["match_id"],
+        status=CommandStatus.QUEUED,
+        accepted_revision=accepted,
+    )
+    commands[str(command_id)] = result
+    receipts_by_request[request_key] = (payload, receipt)
+    for queue in tuple(watchers):
+        queue.put_nowait("match.updated")
+    return receipt.model_dump(mode="json")
+
+
+@app.get("/v1/matches/{mid}/commands/{command_id}")
+async def command_status(mid: str, command_id: str, request: Request) -> dict[str, Any]:
+    authorize(request, mid)
+    result = commands.get(command_id)
+    if result is None:
+        raise HTTPException(404)
+    return result.model_dump(mode="json")
 
 
 @app.get("/v1/matches/{mid}/identity")

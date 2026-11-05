@@ -124,6 +124,19 @@ input {
   margin-top: 5px;
 }
 
+textarea {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+  padding: 8px;
+  border: 1px solid var(--control-border);
+  border-radius: 5px;
+  background: var(--input);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
 input[type="range"] {
   max-width: 160px;
 }
@@ -199,6 +212,7 @@ select {
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
+textarea:focus-visible,
 .file-label:focus-within {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
@@ -486,4 +500,81 @@ summary {
 
 .active-player strong::before {
   content: "▶ ";
+}
+
+.command-preview,
+.command-result {
+  overflow-wrap: anywhere;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.command-preview code {
+  display: block;
+  margin-top: 5px;
+}
+
+.command-result {
+  margin-top: 14px;
+}
+
+.command-result h3 {
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.command-result pre {
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.command-stale,
+.command-error {
+  color: var(--accent);
+}
+
+.command-stale button {
+  display: block;
+  margin-top: 8px;
+}
+
+.command-panel form {
+  align-items: stretch;
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(220px, 2fr);
+  gap: 10px 14px;
+}
+
+.command-panel form > label {
+  align-self: center;
+  min-width: 0;
+}
+
+.command-panel form > select,
+.command-panel form > input,
+.command-panel form > textarea,
+.command-panel form > button,
+.command-panel form > .command-preview,
+.command-panel form > .command-stale,
+.command-panel form > .command-error,
+.command-panel form > .hint {
+  grid-column: 2;
+}
+
+@media (width <= 600px) {
+  .command-panel form {
+    grid-template-columns: 1fr;
+  }
+
+  .command-panel form > select,
+  .command-panel form > input,
+  .command-panel form > textarea,
+  .command-panel form > button,
+  .command-panel form > .command-preview,
+  .command-panel form > .command-stale,
+  .command-panel form > .command-error,
+  .command-panel form > .hint {
+    grid-column: 1;
+  }
 }

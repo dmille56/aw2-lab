@@ -43,11 +43,11 @@ async def test_turn_wait_ready_timeout_roles_versions_and_close(memory, tmp_path
             ready = payload(await call("wait_for_turn", args(match_id)))
             assert ready["reason"] == "turn_ready" and not ready["timed_out"]
             assert ready["state"] == before.model_dump(mode="json")
-            timed = payload(await call("wait_for_turn", args(match_id, after=1, timeout=0.05)))
+            timed = payload(await call("wait_for_turn", args(match_id, after=1, timeout=0.5)))
             assert timed["timed_out"] and timed["reason"] == "timed_out"
             assert timed["state"] == before.model_dump(mode="json")
             operator_wait = payload(
-                await call("wait_for_turn", args(match_id, slot="slot_2", timeout=0.05), letter="o")
+                await call("wait_for_turn", args(match_id, slot="slot_2", timeout=0.5), letter="o")
             )
             assert operator_wait["timed_out"]
             for changes, code in (

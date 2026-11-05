@@ -171,3 +171,78 @@ it("rejects identity from a different match without displaying a player perspect
   });
   expect(view.getSnapshot().error).toContain("inconsistent match identity");
 });
+
+it("retries an uncertain command with the exact same request ID and payload", async () => {
+  const commandId = "00000000-0000-4000-8000-000000000045";
+  const payloads: unknown[] = [];
+  let firstSubmission = true;
+  const fetcher = vi.fn((url: string, init: RequestInit = {}) => {
+    if (url.endsWith("/capabilities"))
+      return Promise.resolve(response(capabilities));
+    if (url.endsWith("/identity"))
+      return Promise.resolve(
+        response({
+          contract_version: 1,
+          match_id: fixture.summary.match_id,
+          role: "player",
+          player_slot: "slot_1",
+        }),
+      );
+    if (url.endsWith("/events"))
+      return new Promise<Response>((_, reject) => {
+        init.signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("Aborted", "AbortError")),
+          { once: true },
+        );
+      });
+    if (url.endsWith("/commands") && init.method === "POST") {
+      const submitted = JSON.parse(
+        typeof init.body === "string" ? init.body : "",
+      ) as unknown;
+      payloads.push(submitted);
+      if (firstSubmission) {
+        firstSubmission = false;
+        return Promise.reject(new Error("connection reset"));
+      }
+      const request = submitted as { request_id: string };
+      return Promise.resolve(
+        response({
+          contract_version: 1,
+          command_id: commandId,
+          request_id: request.request_id,
+          match_id: fixture.summary.match_id,
+          status: "queued",
+          accepted_revision: fixture.summary.revision,
+        }),
+      );
+    }
+    if (url.endsWith(`/commands/${commandId}`))
+      return Promise.resolve(
+        response({
+          contract_version: 1,
+          command_id: commandId,
+          request_id: (payloads[0] as { request_id: string }).request_id,
+          match_id: fixture.summary.match_id,
+          status: "completed",
+          accepted_revision: fixture.summary.revision,
+          resulting_revision: fixture.summary.revision + 1,
+          error: null,
+          checkpoint_id: null,
+        }),
+      );
+    return Promise.resolve(response(fixture));
+  });
+  vi.stubGlobal("fetch", fetcher);
+  const view = session();
+  await view.connect(fixture.summary.match_id, "private");
+  await view.submitAction(
+    { contract_version: 1, kind: "end_turn" },
+    fixture.summary.revision,
+  );
+  expect(view.getSnapshot().command?.phase).toBe("uncertain");
+  await view.retryUncertainAction();
+  expect(view.getSnapshot().command?.phase).toBe("completed");
+  expect(payloads).toHaveLength(2);
+  expect(payloads[1]).toEqual(payloads[0]);
+});

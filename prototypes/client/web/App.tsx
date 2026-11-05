@@ -3,6 +3,7 @@ import { MapPanel } from "./MapPanel";
 import { coName, humanSlot, perspective, playerName } from "./presentation";
 import { Health } from "./Health";
 import { MatchSession } from "./session";
+import { CommandPanel } from "./CommandPanel";
 import {
   activePowerLabel,
   nextPowerThresholdLabel,
@@ -275,8 +276,7 @@ export function App() {
             </button>
           </div>
           <p className="hint">
-            Inspect the full structured state. Gameplay controls are coming in
-            the next delivery step. Tokens stay in page memory.
+            Inspect the full structured state. Tokens stay in page memory.
           </p>
         </section>
         <p id="error" role="alert" hidden={!view.error}>
@@ -367,6 +367,15 @@ export function App() {
             ))}
           </div>
         </section>
+        <CommandPanel
+          snapshot={snapshot}
+          identity={view.identity}
+          capabilities={view.capabilities}
+          view={view}
+          onSubmit={session.submitAction}
+          onRetry={session.retryUncertainAction}
+          onCheckStatus={session.checkCommandStatus}
+        />
         <div className="workspace">
           <MapPanel
             battle={battle}

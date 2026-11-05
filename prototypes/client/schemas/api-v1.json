@@ -688,6 +688,144 @@
         "title": "CloseMatchRequest",
         "type": "object"
       },
+      "CommandReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "title": "Accepted Revision",
+            "type": "integer"
+          },
+          "command_id": {
+            "format": "uuid",
+            "title": "Command Id",
+            "type": "string"
+          },
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "match_id": {
+            "format": "uuid",
+            "title": "Match Id",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CommandStatus"
+          }
+        },
+        "required": [
+          "command_id",
+          "request_id",
+          "match_id",
+          "status",
+          "accepted_revision"
+        ],
+        "title": "CommandReceipt",
+        "type": "object"
+      },
+      "CommandResult": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "title": "Accepted Revision",
+            "type": "integer"
+          },
+          "checkpoint_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Checkpoint Id"
+          },
+          "command_id": {
+            "format": "uuid",
+            "title": "Command Id",
+            "type": "string"
+          },
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "match_id": {
+            "format": "uuid",
+            "title": "Match Id",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "resulting_revision": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resulting Revision"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CommandStatus"
+          }
+        },
+        "required": [
+          "command_id",
+          "request_id",
+          "match_id",
+          "status",
+          "accepted_revision"
+        ],
+        "title": "CommandResult",
+        "type": "object"
+      },
+      "CommandStatus": {
+        "enum": [
+          "queued",
+          "running",
+          "completed",
+          "rejected",
+          "rolled_back",
+          "recovery_required"
+        ],
+        "title": "CommandStatus",
+        "type": "string"
+      },
       "ConfigurationOptions": {
         "additionalProperties": false,
         "description": "Accepted options derived from the verified profile, not the recognition catalog.",
@@ -1193,6 +1331,89 @@
         },
         "title": "EndTurnAction",
         "type": "object"
+      },
+      "ErrorBody": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode"
+          },
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "details": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Details",
+            "type": "object"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "retryable": {
+            "default": false,
+            "title": "Retryable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorBody",
+        "type": "object"
+      },
+      "ErrorCode": {
+        "enum": [
+          "invalid_request",
+          "unsupported_feature",
+          "match_not_found",
+          "active_match_exists",
+          "match_closed",
+          "match_finished",
+          "slot_unavailable",
+          "invalid_credential",
+          "permission_denied",
+          "invalid_invitation",
+          "not_your_turn",
+          "stale_revision",
+          "request_id_conflict",
+          "command_not_found",
+          "command_capacity",
+          "server_shutting_down",
+          "observation_unavailable",
+          "action_rejected",
+          "timeout",
+          "rollback_failed",
+          "recovery_required",
+          "checkpoint_incompatible",
+          "checkpoint_corrupt",
+          "checkpoint_not_found",
+          "journal_corrupt",
+          "storage_unavailable",
+          "runtime_unavailable",
+          "internal_error"
+        ],
+        "title": "ErrorCode",
+        "type": "string"
       },
       "FeatureAvailability": {
         "additionalProperties": false,

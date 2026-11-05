@@ -6,6 +6,11 @@ import { Board, UnitInspector } from "../web/Board";
 import { Health } from "../web/Health";
 import { App } from "../web/App";
 import { validateState } from "../web/state";
+import {
+  parseCoordinate,
+  parsePath,
+  supportedProductionProperties,
+} from "../web/command_input";
 import fixture from "./fixtures/state.json";
 const snapshot = validateState(fixture);
 const battle = snapshot.observation?.game_state.battle.value;
@@ -16,6 +21,33 @@ afterEach(() => {
 });
 
 describe("React viewer", () => {
+  it("parses bounded explicit coordinates and adjacent movement paths", () => {
+    expect(parseCoordinate("1,0", 2, 2)).toEqual({
+      contract_version: 1,
+      x: 1,
+      y: 0,
+    });
+    expect(
+      parsePath("1,0 1,1", { contract_version: 1, x: 0, y: 0 }, 2, 2),
+    ).toEqual([
+      { contract_version: 1, x: 1, y: 0 },
+      { contract_version: 1, x: 1, y: 1 },
+    ]);
+    expect(() =>
+      parsePath("1,1", { contract_version: 1, x: 0, y: 0 }, 2, 2),
+    ).toThrow(/adjacent/);
+    expect(() => parseCoordinate("2,0", 2, 2)).toThrow(/outside/);
+  });
+  it("offers only owned production bases for purchase", () => {
+    const properties = [
+      { owner_slot: 1, terrain_class: 6, x: 0, y: 0 },
+      { owner_slot: 1, terrain_class: 14, x: 1, y: 0 },
+      { owner_slot: 2, terrain_class: 14, x: 0, y: 1 },
+    ];
+    expect(supportedProductionProperties(properties, 1)).toEqual([
+      properties[1],
+    ]);
+  });
   it("selects tiles with mouse and arrow keys while preserving focus", async () => {
     const select = vi.fn();
     Element.prototype.scrollIntoView = vi.fn();

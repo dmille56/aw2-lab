@@ -263,6 +263,92 @@ test("rejects screenshot metadata from a different boundary", async ({
   await expect(page.locator("#screenshot")).toBeHidden();
 });
 
+test("submits gameplay actions with a revision and follows the command receipt", async ({
+  page,
+  request,
+}) => {
+  await connect(page);
+  const action = page.locator("#action-kind");
+  await action.selectOption("move_wait");
+  await expect(page.locator("#action-unit option")).toHaveCount(1);
+  await page.locator("#action-path").fill("1,0");
+  await expect(page.locator("#submit-action")).toBeEnabled();
+  await expect(page.locator(".command-preview")).toContainText('"unit_id":"1"');
+  await action.selectOption("move_attack");
+  await page.locator("#action-target").fill("1,1");
+  await expect(page.locator(".command-preview")).toContainText(
+    '"kind":"move_attack"',
+  );
+  await action.selectOption("move_capture");
+  await expect(page.locator(".command-preview")).toContainText(
+    '"kind":"move_capture"',
+  );
+  await action.selectOption("purchase");
+  await expect(page.locator("#purchase-unit-type option")).toHaveCount(2);
+  await action.selectOption("end_turn");
+  await page.locator("#submit-action").click();
+  await expect(page.locator(".command-result")).toContainText(
+    "Command status: completed",
+  );
+  await expect(page.locator(".command-result")).toContainText(
+    "expected revision 1",
+  );
+  await expect(page.locator(".command-result")).toContainText(
+    "Resulting revision 2",
+  );
+  await expect(page.locator("#boundary")).toContainText("Revision 2 ·");
+  await expect(page.locator("#players")).toContainText(
+    "Player 2 · two · Active",
+  );
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(1);
+});
+
+test("blocks stale action previews until explicitly rebased", async ({
+  page,
+  request,
+}) => {
+  await connect(page);
+  await page.locator("#action-path").fill("1,0");
+  await request.post("/__test/advance");
+  await expect(page.locator(".command-stale")).toContainText(
+    "preview uses revision 1; the live match is now at revision 2",
+  );
+  await expect(page.locator("#submit-action")).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Rebase preview to revision 2" })
+    .click();
+  await expect(page.locator(".command-stale")).toHaveCount(0);
+  await expect(page.locator("#submit-action")).toBeEnabled();
+});
+
+test("safely retries an accepted command after losing its receipt", async ({
+  page,
+  request,
+}) => {
+  await connect(page);
+  let dropFirstReceipt = true;
+  await page.route("**/v1/matches/*/commands", async (route) => {
+    if (!dropFirstReceipt) return route.continue();
+    dropFirstReceipt = false;
+    await route.fetch();
+    await route.abort("failed");
+  });
+  await page.locator("#action-kind").selectOption("end_turn");
+  await page.locator("#submit-action").click();
+  await expect(page.locator(".command-result")).toContainText(
+    "Command status: uncertain",
+  );
+  await page
+    .getByRole("button", { name: "Retry safely with the same request ID" })
+    .click();
+  await expect(page.locator(".command-result")).toContainText(
+    "Command status: completed",
+  );
+  await expect(page.locator("#boundary")).toContainText("Revision 2 ·");
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(1);
+  await page.unroute("**/v1/matches/*/commands");
+});
+
 test("switches themes, follows system appearance, and persists explicit choices", async ({
   page,
 }) => {

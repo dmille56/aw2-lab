@@ -1,9 +1,25 @@
 import validateIdentity from "./generated/validate-identity.js";
+import validateReceipt from "./generated/validate-receipt.js";
+import validateResult from "./generated/validate-result.js";
 import type { components } from "./generated/api";
 export type MatchIdentity = components["schemas"]["MatchIdentityResponse"];
 import { getApiBase } from "./transport";
 import { MATCH_ID, validateState, type StateResponse } from "./state";
 import { validateCapabilitiesResponse } from "./capabilities";
+import type { CapabilitiesResponse } from "./capabilities";
+
+type GameplayAction = components["schemas"]["GameplayCommandRequest"]["action"];
+type GameplayCommandRequest = components["schemas"]["GameplayCommandRequest"];
+type CommandReceipt = components["schemas"]["CommandReceipt"];
+type CommandResult = components["schemas"]["CommandResult"];
+type CommandStatus = components["schemas"]["CommandStatus"];
+
+export interface CommandProgress {
+  request: GameplayCommandRequest;
+  receipt: CommandReceipt | null;
+  result: CommandResult | null;
+  phase: "submitting" | "uncertain" | CommandStatus;
+}
 
 interface Connection {
   id: string;
@@ -15,6 +31,8 @@ interface Connection {
 export interface ViewState {
   snapshot: StateResponse | null;
   identity: MatchIdentity | null;
+  capabilities: CapabilitiesResponse | null;
+  command: CommandProgress | null;
   connected: boolean;
   ready: boolean;
   status: string;
@@ -36,6 +54,8 @@ export class MatchSession {
   private state: ViewState = {
     snapshot: null,
     identity: null,
+    capabilities: null,
+    command: null,
     connected: false,
     ready: false,
     status: "Open a snapshot or connect to a match",
@@ -66,6 +86,8 @@ export class MatchSession {
     this.update({
       snapshot: null,
       identity: null,
+      capabilities: null,
+      command: null,
       connected: false,
       ready: false,
       status,
@@ -201,8 +223,9 @@ export class MatchSession {
     this.connection = c;
     this.update({ connected: true });
     try {
-      await this.checkCapabilities(c);
+      const capabilities = await this.checkCapabilities(c);
       if (this.connection !== c) return;
+      this.update({ capabilities });
       const response = await this.request(c, "identity", true);
       if (this.connection !== c) return;
       if (response.ok) {
@@ -241,6 +264,191 @@ export class MatchSession {
         this.update({ error: message(error) });
     }
   };
+  submitAction = async (action: GameplayAction, expectedRevision: number) => {
+    const c = this.connection;
+    const snapshot = this.state.snapshot;
+    const identity = this.state.identity;
+    if (!c || !snapshot || !this.state.ready) return;
+    if (
+      this.state.command &&
+      ["submitting", "uncertain", "queued", "running"].includes(
+        this.state.command.phase,
+      )
+    ) {
+      this.update({
+        error: "Resolve the pending command before submitting another action.",
+      });
+      return;
+    }
+    if (snapshot.summary.revision !== expectedRevision) {
+      this.update({
+        error:
+          "This action preview is stale. Refresh or rebase it to the current revision.",
+      });
+      return;
+    }
+    if (
+      !identity ||
+      identity.role !== "player" ||
+      identity.player_slot === null
+    ) {
+      this.update({
+        error: "Gameplay commands require an authenticated player slot.",
+      });
+      return;
+    }
+    const request: GameplayCommandRequest = {
+      contract_version: 1,
+      request_id: crypto.randomUUID(),
+      expected_revision: expectedRevision,
+      action,
+    };
+    await this.transmitAction(c, request);
+  };
+  retryUncertainAction = async () => {
+    const c = this.connection;
+    const command = this.state.command;
+    if (!c || !command || command.phase !== "uncertain" || command.receipt)
+      return;
+    await this.transmitAction(c, command.request);
+  };
+  checkCommandStatus = async () => {
+    const c = this.connection;
+    const command = this.state.command;
+    if (!c || !command) return;
+    if (!command.receipt) {
+      if (command.phase === "uncertain") await this.retryUncertainAction();
+      return;
+    }
+    await this.pollCommand(c, command.receipt, 1);
+  };
+  private async transmitAction(c: Connection, request: GameplayCommandRequest) {
+    this.update({
+      command: { request, receipt: null, result: null, phase: "submitting" },
+      error: "",
+    });
+    try {
+      const apiBase = await getApiBase();
+      const response = await fetch(`${apiBase}/v1/matches/${c.id}/commands`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${c.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+        signal: c.abort.signal,
+        cache: "no-store",
+        credentials: "omit",
+        redirect: "error",
+      });
+      if (this.connection !== c) return;
+      if (response.status === 401 || response.status === 403) {
+        this.disconnect("Authorization lost · reconnect required");
+        throw new Error("This credential no longer has access to the match.");
+      }
+      if (!response.ok) {
+        const detail = await this.readError(response);
+        if (response.status === 408 || response.status >= 500)
+          throw new Error(detail);
+        this.update({ command: null, error: detail });
+        return;
+      }
+      const value: unknown = await response.json();
+      if (!validateReceipt(value)) throw new Error("Invalid command receipt");
+      const receipt = value as CommandReceipt;
+      if (
+        receipt.match_id !== c.id ||
+        receipt.request_id !== request.request_id
+      )
+        throw new Error("Command receipt does not match this request.");
+      this.update({
+        command: { request, receipt, result: null, phase: receipt.status },
+      });
+      await this.pollCommand(c, receipt, 30);
+    } catch (error) {
+      if (this.connection !== c || aborted(error)) return;
+      const command = this.state.command;
+      if (
+        command?.request.request_id === request.request_id &&
+        !command.receipt
+      ) {
+        this.update({
+          command: { ...command, phase: "uncertain" },
+          error: `The command submission outcome is unknown (${message(error)}). Retry safely to resend the identical request ID and payload.`,
+        });
+      } else {
+        this.update({ error: message(error) });
+      }
+    }
+  }
+  private async pollCommand(
+    c: Connection,
+    receipt: CommandReceipt,
+    attempts: number,
+  ) {
+    for (let index = 0; index < attempts && this.connection === c; index++) {
+      try {
+        const response = await this.request(
+          c,
+          `commands/${receipt.command_id}`,
+        );
+        const value: unknown = await response.json();
+        if (!validateResult(value))
+          throw new Error("Invalid command status response");
+        const result = value as CommandResult;
+        if (
+          result.match_id !== c.id ||
+          result.command_id !== receipt.command_id ||
+          result.request_id !== receipt.request_id
+        )
+          throw new Error(
+            "Command status does not match the accepted receipt.",
+          );
+        const request = this.state.command?.request;
+        if (!request || request.request_id !== receipt.request_id)
+          throw new Error("Command receipt has no matching submitted request.");
+        this.update({
+          command: {
+            request,
+            receipt,
+            result,
+            phase: result.status,
+          },
+          error: result.error?.message ?? "",
+        });
+        if (!["queued", "running"].includes(result.status)) {
+          await this.refresh(c);
+          return;
+        }
+      } catch (error) {
+        if (this.connection !== c || aborted(error)) return;
+        this.update({
+          error: `Command accepted; status could not be confirmed: ${message(error)}`,
+        });
+        return;
+      }
+      if (index + 1 < attempts)
+        await new Promise<void>((resolve) => setTimeout(resolve, 500));
+    }
+  }
+  private async readError(response: Response) {
+    try {
+      const body: unknown = await response.json();
+      if (
+        typeof body === "object" &&
+        body !== null &&
+        "error" in body &&
+        typeof body.error === "object" &&
+        body.error !== null &&
+        "message" in body.error &&
+        typeof body.error.message === "string"
+      )
+        return `${response.status}: ${body.error.message}`;
+    } catch {
+      // Use a stable status message when the server returns no JSON error body.
+    }
+    return `Command request failed (${response.status}). Refresh state and review the server response.`;
+  }
   openSnapshot = async (file: File) => {
     this.disconnect("Opening snapshot…");
     const generation = this.generation;

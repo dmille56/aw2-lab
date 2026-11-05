@@ -8,21 +8,21 @@ from pydantic import BaseModel
 from pydantic.json_schema import JsonSchemaMode, models_json_schema
 
 from aw2_lab import api_contract
+from aw2_lab.match_contract import CommandReceipt, CommandResult
 
 SCHEMA_PATH = Path(__file__).parent / "schemas" / "api-v1.json"
 
 
 def schema_text() -> str:
-    models = sorted(
-        {
-            model
-            for model in vars(api_contract).values()
-            if isinstance(model, type)
-            and issubclass(model, BaseModel)
-            and model.__module__ == api_contract.__name__
-        },
-        key=lambda model: model.__name__,
-    )
+    models: list[type[BaseModel]] = [
+        model
+        for model in vars(api_contract).values()
+        if isinstance(model, type)
+        and issubclass(model, BaseModel)
+        and model.__module__ == api_contract.__name__
+    ]
+    models.extend([CommandReceipt, CommandResult])
+    models.sort(key=lambda model: model.__name__)
     modes: tuple[JsonSchemaMode, ...] = ("validation", "serialization")
     _, schema = models_json_schema(
         [(model, mode) for model in models for mode in modes],
