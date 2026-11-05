@@ -240,7 +240,8 @@ textarea:focus-visible,
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 290px;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  align-items: start;
   gap: 16px;
 }
 
@@ -529,52 +530,54 @@ summary {
   white-space: pre-wrap;
 }
 
-.command-stale,
-.command-error {
-  color: var(--accent);
-}
-
-.command-stale button {
-  display: block;
-  margin-top: 8px;
-}
-
-.command-panel form {
-  align-items: stretch;
+.gameplay-sidebar {
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) minmax(220px, 2fr);
-  gap: 10px 14px;
-}
-
-.command-panel form > label {
-  align-self: center;
+  gap: 1rem;
+  align-content: start;
   min-width: 0;
 }
 
-.command-panel form > select,
-.command-panel form > input,
-.command-panel form > textarea,
-.command-panel form > button,
-.command-panel form > .command-preview,
-.command-panel form > .command-stale,
-.command-panel form > .command-error,
-.command-panel form > .hint {
-  grid-column: 2;
+.command-panel select {
+  width: 100%;
+  margin-block: 0.4rem 0.8rem;
 }
 
-@media (width <= 600px) {
-  .command-panel form {
-    grid-template-columns: 1fr;
-  }
+.route-editor,
+.command-panel p {
+  overflow-wrap: anywhere;
+}
 
-  .command-panel form > select,
-  .command-panel form > input,
-  .command-panel form > textarea,
-  .command-panel form > button,
-  .command-panel form > .command-preview,
-  .command-panel form > .command-stale,
-  .command-panel form > .command-error,
-  .command-panel form > .hint {
-    grid-column: 1;
-  }
+.tile[data-route-step] {
+  outline: 2px dashed currentcolor;
+  outline-offset: -4px;
+}
+
+.tile[data-destination],
+.tile[data-target] {
+  outline-style: solid;
+  outline-width: 3px;
+}
+
+.route-marker {
+  position: absolute;
+  inset: 0 auto auto 0;
+  display: grid;
+  place-content: center;
+  background: var(--card);
+  color: var(--text);
+  font-size: 9px;
+  font-weight: bold;
+  border: 2px solid currentcolor;
+  pointer-events: none;
+}
+
+.tile[data-route-step]:focus-visible,
+.tile[data-target]:focus-visible {
+  outline: 3px solid var(--focus-on-board);
+  outline-offset: -3px;
+}
+
+.selection-lists,
+.route-editor details {
+  margin-block: 0.75rem;
 }

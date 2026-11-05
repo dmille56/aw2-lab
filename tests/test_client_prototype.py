@@ -172,6 +172,18 @@ async def test_viewer_assets_and_native_authorization_preflight(prototype, tmp_p
             assert response.status_code == 200
             assert response.headers["access-control-allow-origin"] == origin
             assert "authorization" in response.headers["access-control-allow-headers"].lower()
+        for origin in ("tauri://localhost", "http://tauri.localhost", "https://tauri.localhost"):
+            response = await client.options(
+                "/v1/matches/example/commands",
+                headers={
+                    "Origin": origin,
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "authorization, content-type",
+                },
+            )
+            assert response.status_code == 200
+            assert response.headers["access-control-allow-origin"] == origin
+            assert "POST" in response.headers["access-control-allow-methods"]
         denied = await client.options(
             "/health",
             headers={"Origin": "https://unrelated.example", "Access-Control-Request-Method": "GET"},

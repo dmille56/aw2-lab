@@ -9,12 +9,20 @@ export function MapPanel({
   select,
   empty,
   yourSlot,
+  activate,
+  cancel,
+  route,
+  target,
 }: {
   battle: BattleState | null;
   selected: Position | null;
   select: (position: Position) => void;
   empty: string;
   yourSlot: number | null;
+  activate?: (position: Position) => void;
+  cancel?: () => void;
+  route?: Position[];
+  target?: Position | null;
 }) {
   const [size, setSize] = useState(58);
   const [fit, setFit] = useState(true);
@@ -106,6 +114,13 @@ export function MapPanel({
         Property owners appear at the top; unit owners and internal health
         appear below. Your units have an underlined label.
       </p>
+      {(!!route?.length || target) && (
+        <p className="hint">
+          Route markers: S = start, numbers = steps, D = destination, T = attack
+          target. Outlines show the planned route; gameplay legality is checked
+          by the server.
+        </p>
+      )}
       <p id="empty" hidden={!!battle}>
         {empty}
       </p>
@@ -114,6 +129,10 @@ export function MapPanel({
           battle={battle}
           selected={selected}
           select={select}
+          activate={activate}
+          cancel={cancel}
+          route={route}
+          target={target}
           coordinates={coordinates}
           yourSlot={yourSlot}
         />

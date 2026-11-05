@@ -4,6 +4,7 @@ import { coName, humanSlot, perspective, playerName } from "./presentation";
 import { Health } from "./Health";
 import { MatchSession } from "./session";
 import { CommandPanel } from "./CommandPanel";
+import { useGameplay } from "./gameplay";
 import {
   activePowerLabel,
   nextPowerThresholdLabel,
@@ -87,6 +88,7 @@ export function App() {
     setSelected(position);
     setCargo(null);
   };
+  const gameplay = useGameplay(view, select);
   const empty = !snapshot
     ? "Connect or open an exported StateResponse JSON file to see the board."
     : obs
@@ -367,64 +369,78 @@ export function App() {
             ))}
           </div>
         </section>
-        <CommandPanel
-          snapshot={snapshot}
-          identity={view.identity}
-          capabilities={view.capabilities}
-          view={view}
-          onSubmit={session.submitAction}
-          onRetry={session.retryUncertainAction}
-          onCheckStatus={session.checkCommandStatus}
-        />
         <div className="workspace">
           <MapPanel
             battle={battle}
             selected={selected}
-            select={select}
+            select={gameplay.inspectTile}
+            activate={gameplay.activate}
+            cancel={gameplay.pending ? undefined : gameplay.cancel}
+            route={
+              gameplay.draft.boundary === gameplay.boundary &&
+              gameplay.draft.origin &&
+              gameplay.draft.phase !== "unit"
+                ? [gameplay.draft.origin, ...gameplay.draft.path]
+                : []
+            }
+            target={
+              gameplay.draft.boundary === gameplay.boundary
+                ? gameplay.draft.target
+                : null
+            }
             empty={empty}
             yourSlot={humanSlot(view.identity)}
           />
-          <aside className="card">
-            <h2>Inspector</h2>
-            <div id="inspector">
-              {snapshot && battle && cargoUnit ? (
-                <UnitInspector unit={cargoUnit} snapshot={snapshot} />
-              ) : tile && snapshot ? (
-                <>
-                  <h3>
-                    Tile ({tile.x}, {tile.y})
-                  </h3>
-                  <Details
-                    entries={[
-                      ["Terrain", terrainName(tile.terrain_class)],
-                      ["Owner", owner(tile.owner_slot)],
-                    ]}
-                  />
-                  {unit && (
-                    <>
-                      <UnitInspector unit={unit} snapshot={snapshot} />
-                      {unit.cargo_references.map((ref) => {
-                        const item = battle?.units.find(
-                          (u) => u.reference === ref,
-                        );
-                        return item ? (
-                          <UnitInspector
-                            key={ref}
-                            unit={item}
-                            snapshot={snapshot}
-                          />
-                        ) : null;
-                      })}
-                    </>
-                  )}
-                </>
-              ) : snapshot && !battle ? (
-                "No battle data to inspect."
-              ) : (
-                "Select a tile or a unit."
-              )}
-            </div>
-          </aside>
+          <div className="gameplay-sidebar">
+            <CommandPanel
+              model={gameplay}
+              view={view}
+              onSubmit={session.submitAction}
+              onRetry={session.retryUncertainAction}
+              onCheckStatus={session.checkCommandStatus}
+            />
+            <aside className="card">
+              <h2>Inspector</h2>
+              <div id="inspector">
+                {snapshot && battle && cargoUnit ? (
+                  <UnitInspector unit={cargoUnit} snapshot={snapshot} />
+                ) : tile && snapshot ? (
+                  <>
+                    <h3>
+                      Tile ({tile.x}, {tile.y})
+                    </h3>
+                    <Details
+                      entries={[
+                        ["Terrain", terrainName(tile.terrain_class)],
+                        ["Owner", owner(tile.owner_slot)],
+                      ]}
+                    />
+                    {unit && (
+                      <>
+                        <UnitInspector unit={unit} snapshot={snapshot} />
+                        {unit.cargo_references.map((ref) => {
+                          const item = battle?.units.find(
+                            (u) => u.reference === ref,
+                          );
+                          return item ? (
+                            <UnitInspector
+                              key={ref}
+                              unit={item}
+                              snapshot={snapshot}
+                            />
+                          ) : null;
+                        })}
+                      </>
+                    )}
+                  </>
+                ) : snapshot && !battle ? (
+                  "No battle data to inspect."
+                ) : (
+                  "Select a tile or a unit."
+                )}
+              </div>
+            </aside>
+          </div>
         </div>
         <section className="card">
           <h2>Unit roster</h2>
@@ -448,7 +464,12 @@ export function App() {
                   onClick={() => {
                     if (item.embarked) setCargo(item.reference);
                     else {
-                      select(item);
+                      gameplay.inspectTile(item);
+                      gameplay.selectUnit(
+                        obs?.unit_identities.find(
+                          (identity) => identity.reference === item.reference,
+                        )?.identity_id ?? "",
+                      );
                       const button = document.querySelector<HTMLButtonElement>(
                         `#board button[data-x="${item.x}"][data-y="${item.y}"]`,
                       );

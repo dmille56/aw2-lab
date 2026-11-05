@@ -1,11 +1,16 @@
-"""Generate the client's public rule labels; no ROM or emulator is required."""
+"""Generate client labels and movement rule tables from shared Python data."""
 
 import argparse
 import json
 from pathlib import Path
 
-from aw2_lab.aw2_rules_data import TERRAIN_NAMES, VERIFIED_CO_NAMES
-from aw2_lab.aw2_unit_profiles import UNIT_PROFILES
+from aw2_lab.aw2_rules_data import (
+    CO_MOVEMENT_VARIANTS,
+    TERRAIN_COSTS,
+    TERRAIN_NAMES,
+    VERIFIED_CO_NAMES,
+)
+from aw2_lab.aw2_unit_profiles import UNIT_PROFILES, MovementType, RuleContext
 
 CATALOG_PATH = Path(__file__).parent / "web" / "catalog.json"
 
@@ -15,6 +20,30 @@ def catalog_text() -> str:
         "schema_version": 1,
         "terrain": TERRAIN_NAMES,
         "cos": VERIFIED_CO_NAMES,
+        "movement": {
+            "types": {kind.name: kind.value for kind in MovementType},
+            "costs": TERRAIN_COSTS,
+            "contexts": {
+                ("baseline" if co is None else f"{co}:{power}"): {
+                    "weather_variants": dict(
+                        zip(
+                            ("clear", "snow", "rain"),
+                            CO_MOVEMENT_VARIANTS.get((co, power), ("clear", "snow", "rain")),
+                            strict=True,
+                        )
+                    ),
+                    "movement_bonuses": {
+                        kind: RuleContext(co, power).unit_limits(kind)[0] - profile.movement
+                        for kind, profile in UNIT_PROFILES.items()
+                        if RuleContext(co, power).unit_limits(kind)[0] != profile.movement
+                    },
+                }
+                for co, power in [
+                    (None, 0),
+                    *((co, power) for co in range(19) for power in range(3)),
+                ]
+            },
+        },
         "units": {
             key: {
                 "name": profile.name,

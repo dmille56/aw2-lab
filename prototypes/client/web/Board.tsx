@@ -97,12 +97,20 @@ export function Board({
   select,
   coordinates = false,
   yourSlot = null,
+  activate,
+  cancel,
+  route = [],
+  target = null,
 }: {
   battle: BattleState | null;
   selected: Position | null;
   select: (position: Position) => void;
   coordinates?: boolean;
   yourSlot?: number | null;
+  activate?: (position: Position) => void;
+  cancel?: () => void;
+  route?: Position[];
+  target?: Position | null;
 }) {
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const occupancy = new Map(
@@ -123,6 +131,11 @@ export function Board({
           .map((tile) => {
             const unit = occupancy.get(`${tile.x},${tile.y}`);
             const match = selected?.x === tile.x && selected.y === tile.y;
+            const step = route.findIndex(
+              (p) => p.x === tile.x && p.y === tile.y,
+            );
+            const destination = step >= 0 && step === route.length - 1;
+            const isTarget = target?.x === tile.x && target.y === tile.y;
             return (
               <button
                 key={`${tile.x},${tile.y}`}
@@ -135,12 +148,19 @@ export function Board({
                 data-x={tile.x}
                 data-y={tile.y}
                 className={`tile terrain-${tile.terrain_class} owner-${unit?.army_slot ?? tile.owner_slot}${match ? " selected" : ""}`}
+                data-route-step={step >= 0 ? step : undefined}
+                data-destination={destination || undefined}
+                data-target={isTarget || undefined}
                 data-your-unit={!!unit && unit.army_slot === yourSlot}
                 title={`${terrainName(tile.terrain_class)}${unit ? ` · ${unitName(unit)}` : ""}`}
                 aria-pressed={match}
-                aria-label={`(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}` : ""}`}
-                onClick={() => select(tile)}
+                aria-label={`${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}` : ""}`}
+                onClick={() => (activate ?? select)(tile)}
                 onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    cancel?.();
+                    return;
+                  }
                   const delta: Record<string, [number, number]> = {
                     ArrowLeft: [-1, 0],
                     ArrowRight: [1, 0],
@@ -169,6 +189,12 @@ export function Board({
                   });
                 }}
               >
+                {(step >= 0 || isTarget) && (
+                  <span className="route-marker" aria-hidden="true">
+                    {isTarget ? "T" : step === 0 ? "S" : step}
+                    {destination ? "·D" : ""}
+                  </span>
+                )}
                 <span className="owner-tag">P{tile.owner_slot || "–"}</span>
                 <span className="terrain-label" aria-hidden="true">
                   {terrainLabel(

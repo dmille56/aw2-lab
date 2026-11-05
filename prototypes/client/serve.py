@@ -18,7 +18,7 @@ def configure_client(app: FastAPI, *, assets: Path | None = None) -> None:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["tauri://localhost", "http://tauri.localhost", "https://tauri.localhost"],
-        allow_methods=["GET"],
+        allow_methods=["GET", "POST"],
         allow_headers=["Authorization"],
         expose_headers=["X-AW2-Match-ID", "X-AW2-Revision", "X-AW2-Frame"],
     )

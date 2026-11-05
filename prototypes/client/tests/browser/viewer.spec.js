@@ -34,7 +34,11 @@ async function rejectCapabilities(page, value, reason) {
 }
 test.beforeEach(async ({ page, request }) => {
   await request.post("/__test/reset");
-  const messages = { errors: [], expectedRevocation: false };
+  const messages = {
+    errors: [],
+    expectedRevocation: false,
+    expectedDroppedReceipt: false,
+  };
   diagnostics.set(page, messages);
   page.on("pageerror", (error) => {
     messages.errors.push(error.message);
@@ -46,6 +50,12 @@ test.beforeEach(async ({ page, request }) => {
       messages.expectedRevocation &&
       message.location().url.endsWith("/events") &&
       message.text().includes("403")
+    )
+      return;
+    if (
+      messages.expectedDroppedReceipt &&
+      message.location().url.endsWith("/commands") &&
+      message.text().includes("net::ERR_FAILED")
     )
       return;
     messages.errors.push(message.text());
@@ -268,24 +278,10 @@ test("submits gameplay actions with a revision and follows the command receipt",
   request,
 }) => {
   await connect(page);
-  const action = page.locator("#action-kind");
-  await action.selectOption("move_wait");
-  await expect(page.locator("#action-unit option")).toHaveCount(1);
-  await page.locator("#action-path").fill("1,0");
-  await expect(page.locator("#submit-action")).toBeEnabled();
-  await expect(page.locator(".command-preview")).toContainText('"unit_id":"1"');
-  await action.selectOption("move_attack");
-  await page.locator("#action-target").fill("1,1");
+  await page.getByRole("button", { name: "End turn", exact: true }).click();
   await expect(page.locator(".command-preview")).toContainText(
-    '"kind":"move_attack"',
+    "ready units remaining",
   );
-  await action.selectOption("move_capture");
-  await expect(page.locator(".command-preview")).toContainText(
-    '"kind":"move_capture"',
-  );
-  await action.selectOption("purchase");
-  await expect(page.locator("#purchase-unit-type option")).toHaveCount(2);
-  await action.selectOption("end_turn");
   await page.locator("#submit-action").click();
   await expect(page.locator(".command-result")).toContainText(
     "Command status: completed",
@@ -303,22 +299,25 @@ test("submits gameplay actions with a revision and follows the command receipt",
   expect((await (await request.get("/__test/stats")).json()).commands).toBe(1);
 });
 
-test("blocks stale action previews until explicitly rebased", async ({
+test("resets action drafts when the committed revision changes", async ({
   page,
   request,
 }) => {
   await connect(page);
-  await page.locator("#action-path").fill("1,0");
-  await request.post("/__test/advance");
-  await expect(page.locator(".command-stale")).toContainText(
-    "preview uses revision 1; the live match is now at revision 2",
-  );
-  await expect(page.locator("#submit-action")).toBeDisabled();
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
   await page
-    .getByRole("button", { name: "Rebase preview to revision 2" })
+    .getByRole("button", { name: "Plan movement", exact: true })
     .click();
-  await expect(page.locator(".command-stale")).toHaveCount(0);
+  await page.locator('#board [data-x="1"][data-y="0"]').click();
+  await page.getByRole("button", { name: "Wait here" }).click();
   await expect(page.locator("#submit-action")).toBeEnabled();
+  await request.post("/__test/advance");
+  await expect(page.locator("#boundary")).toContainText("Revision 2");
+  await expect(page.locator("#submit-action")).toHaveCount(0);
+  await expect(page.locator(".command-panel")).toContainText(
+    "Match state changed",
+  );
+  await expect(page.locator("#board [data-route-step]")).toHaveCount(0);
 });
 
 test("safely retries an accepted command after losing its receipt", async ({
@@ -326,6 +325,7 @@ test("safely retries an accepted command after losing its receipt", async ({
   request,
 }) => {
   await connect(page);
+  diagnostics.get(page).expectedDroppedReceipt = true;
   let dropFirstReceipt = true;
   await page.route("**/v1/matches/*/commands", async (route) => {
     if (!dropFirstReceipt) return route.continue();
@@ -333,7 +333,7 @@ test("safely retries an accepted command after losing its receipt", async ({
     await route.fetch();
     await route.abort("failed");
   });
-  await page.locator("#action-kind").selectOption("end_turn");
+  await page.getByRole("button", { name: "End turn", exact: true }).click();
   await page.locator("#submit-action").click();
   await expect(page.locator(".command-result")).toContainText(
     "Command status: uncertain",
@@ -347,6 +347,351 @@ test("safely retries an accepted command after losing its receipt", async ({
   await expect(page.locator("#boundary")).toContainText("Revision 2 ·");
   expect((await (await request.get("/__test/stats")).json()).commands).toBe(1);
   await page.unroute("**/v1/matches/*/commands");
+});
+
+for (const kind of ["move_wait", "move_attack", "move_capture"]) {
+  test(`plans ${kind} through board activation and sends its explicit path`, async ({
+    page,
+  }) => {
+    if (kind === "move_capture") {
+      const state = structuredClone(fixture);
+      state.observation.game_state.battle.value.properties.push({
+        x: 1,
+        y: 0,
+        owner_slot: 0,
+        terrain_class: 6,
+      });
+      await page.route("**/state", (route) => route.fulfill({ json: state }));
+    }
+    await connect(page);
+    const tile = (x, y) =>
+      page.locator(`#board [data-x="${x}"][data-y="${y}"]`);
+    await tile(0, 0).click();
+    await page
+      .getByRole("button", { name: "Plan movement", exact: true })
+      .click();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.locator("#board [data-route-step]")).toHaveCount(1);
+    await expect(tile(1, 0)).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(tile(1, 0)).toHaveAttribute("data-route-step", "1");
+    if (kind === "move_capture") {
+      await page.getByRole("button", { name: "Capture here" }).click();
+    } else if (kind === "move_attack") {
+      await page.getByRole("button", { name: "Choose attack target" }).click();
+      await tile(1, 1).click();
+      await expect(tile(1, 1)).toHaveAttribute("data-target", "true");
+    } else await page.getByRole("button", { name: "Wait here" }).click();
+    const sent = page.waitForRequest(
+      (request) =>
+        request.url().endsWith("/commands") && request.method() === "POST",
+    );
+    await page.locator("#submit-action").click();
+    const body = (await sent).postDataJSON();
+    expect(body.expected_revision).toBe(1);
+    expect(body.action).toMatchObject({
+      kind,
+      unit_id: "1",
+      path: [{ contract_version: 1, x: 1, y: 0 }],
+    });
+    if (kind === "move_attack")
+      expect(body.action.target).toEqual({ contract_version: 1, x: 1, y: 1 });
+    await expect(page.locator(".command-result")).toContainText(
+      "Command status: completed",
+    );
+  });
+}
+
+test("lists only unoccupied supported bases for purchases", async ({
+  page,
+}) => {
+  const state = structuredClone(fixture);
+  const battle = state.observation.game_state.battle.value;
+  battle.properties.push({ x: 0, y: 1, terrain_class: 14, owner_slot: 1 });
+  battle.properties[0].terrain_class = 14;
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await connect(page);
+  await page.locator(".selection-lists summary").click();
+  expect(
+    await page
+      .locator("#purchase-property option")
+      .evaluateAll((options) => options.map((option) => option.value)),
+  ).toEqual(["", "0,1"]);
+  await page.locator("#purchase-property").selectOption("0,1");
+  await expect(page.locator("#purchase-unit-type")).toBeEnabled();
+  await page.locator("#purchase-unit-type").selectOption("Infantry");
+  await expect(page.locator(".command-preview")).toContainText(
+    "Baseline cost: 1000",
+  );
+  const sent = page.waitForRequest(
+    (request) =>
+      request.url().endsWith("/commands") && request.method() === "POST",
+  );
+  await page.locator("#submit-action").click();
+  expect((await sent).postDataJSON().action).toEqual({
+    contract_version: 1,
+    kind: "purchase",
+    property: { contract_version: 1, x: 0, y: 1 },
+    unit_type: "Infantry",
+  });
+  await expect(page.locator(".command-result")).toContainText(
+    "Command status: completed",
+  );
+  state.summary.revision = state.observation.revision = 2;
+  battle.units[0].x = 0;
+  battle.units[0].y = 1;
+  await page.locator("#refresh").click();
+  await expect(page.locator("#purchase-property option")).toHaveText([
+    "Choose a production base",
+    "(0,0)",
+  ]);
+});
+
+test("dismisses base purchase drafts when inspecting another tile by click or keyboard", async ({
+  page,
+  request,
+}) => {
+  const state = structuredClone(fixture);
+  state.observation.game_state.battle.value.properties.push({
+    x: 0,
+    y: 1,
+    terrain_class: 14,
+    owner_slot: 1,
+  });
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await connect(page);
+  const base = page.locator('#board [data-x="0"][data-y="1"]');
+  await base.click();
+  await page.locator("#purchase-unit-type").selectOption("Infantry");
+  await expect(page.locator("#submit-action")).toBeEnabled();
+  await page.locator('#board [data-x="1"][data-y="0"]').click();
+  await expect(page.locator("#purchase-unit-type")).toHaveCount(0);
+  await expect(page.locator(".command-preview")).toHaveCount(0);
+  await base.click();
+  await expect(page.locator("#purchase-unit-type")).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("#inspector")).toContainText("Tile (1, 1)");
+  await expect(page.locator("#purchase-unit-type")).toHaveCount(0);
+  await expect(page.locator(".command-preview")).toHaveCount(0);
+  await base.click();
+  await page.locator("#roster button").first().click();
+  await expect(page.locator("#purchase-unit-type")).toHaveCount(0);
+  await expect(page.locator("#action-unit")).toHaveValue("1");
+  await expect(page.locator(".route-editor")).toContainText("Infantry");
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
+});
+
+for (const relationship of ["own", "allied", "enemy"]) {
+  test(`movement ${relationship === "enemy" ? "blocks enemy units" : `passes through ${relationship} units without ending on them`}`, async ({
+    page,
+    request,
+  }) => {
+    const state = structuredClone(fixture);
+    const battle = state.observation.game_state.battle.value;
+    battle.map.width = 3;
+    battle.map.tiles = Array.from({ length: 6 }, (_, index) => ({
+      x: index % 3,
+      y: Math.floor(index / 3),
+      terrain_class: 1,
+      graphical_tile_id: 1,
+      owner_slot: 0,
+    }));
+    battle.units[1].x = 1;
+    battle.units[1].y = 0;
+    battle.units[1].used_this_turn = true;
+    if (relationship === "own") {
+      battle.units[1].army_slot = 1;
+      battle.units[1].unit_slot = 1;
+      battle.units[1].reference = 2;
+      for (const identity of state.observation.unit_identities)
+        if (identity.reference === 65) identity.reference = 2;
+    }
+    if (relationship === "allied")
+      battle.players[1].team_id = battle.players[0].team_id;
+    await page.route("**/state", (route) => route.fulfill({ json: state }));
+    await page.locator("#match-id").fill(fixture.summary.match_id);
+    await page.locator("#token").fill(token);
+    await page.locator("#connect button").click();
+    await expect(page.locator("#board .tile")).toHaveCount(6);
+    await page.locator('#board [data-x="0"][data-y="0"]').click();
+    await page
+      .getByRole("button", { name: "Plan movement", exact: true })
+      .click();
+    await page.locator('#board [data-x="1"][data-y="0"]').click();
+    if (relationship === "enemy") {
+      await expect(page.locator(".command-panel")).toContainText(
+        "enemy unit blocks",
+      );
+      await expect(page.locator("#board [data-route-step]")).toHaveCount(1);
+    } else {
+      await expect(page.locator("#board [data-route-step]")).toHaveCount(2);
+      await expect(
+        page.getByRole("button", { name: "Wait here" }),
+      ).toBeDisabled();
+      await expect(page.locator(".route-editor")).toContainText(
+        "You can move through it",
+      );
+      await page.locator('#board [data-x="2"][data-y="0"]').click();
+      await expect(page.locator("#board [data-route-step]")).toHaveCount(3);
+      await page.getByRole("button", { name: "Wait here" }).click();
+      await expect(page.locator("#submit-action")).toBeEnabled();
+      await expect(page.locator(".command-preview")).toContainText(
+        "(1,0) → (2,0)",
+      );
+    }
+    expect((await (await request.get("/__test/stats")).json()).commands).toBe(
+      0,
+    );
+  });
+}
+
+test("rejects impossible route steps and cancels movement without deselecting the unit", async ({
+  page,
+  request,
+}) => {
+  const state = structuredClone(fixture);
+  const battle = state.observation.game_state.battle.value;
+  battle.map.width = 5;
+  battle.map.tiles = Array.from({ length: 10 }, (_, index) => ({
+    x: index % 5,
+    y: Math.floor(index / 5),
+    terrain_class: index === 5 ? 7 : 1,
+    graphical_tile_id: 1,
+    owner_slot: 0,
+  }));
+  battle.units = [battle.units[0]];
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await page.locator("#match-id").fill(fixture.summary.match_id);
+  await page.locator("#token").fill(token);
+  await page.locator("#connect button").click();
+  await expect(page.locator("#board .tile")).toHaveCount(10);
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  await page
+    .getByRole("button", { name: "Plan movement", exact: true })
+    .click();
+  await page.locator('#board [data-x="0"][data-y="1"]').click();
+  await expect(page.locator(".command-panel")).toContainText(
+    "cannot enter Sea",
+  );
+  await expect(page.locator("#board [data-route-step]")).toHaveCount(1);
+  for (let x = 1; x <= 4; x++)
+    await page.locator(`#board [data-x="${x}"][data-y="0"]`).click();
+  await expect(page.locator(".command-panel")).toContainText("this unit has 3");
+  await expect(page.locator("#board [data-route-step]")).toHaveCount(4);
+  await page
+    .getByRole("button", { name: "Cancel movement", exact: true })
+    .click();
+  await expect(page.locator("#board [data-route-step]")).toHaveCount(0);
+  await expect(page.locator("#action-unit")).toHaveValue("1");
+  await expect(
+    page.getByRole("button", { name: "Plan movement", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator("#submit-action")).toHaveCount(0);
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
+});
+
+test("selects a unit without entering movement planning and deselects when inspecting elsewhere", async ({
+  page,
+}) => {
+  const state = structuredClone(fixture);
+  state.observation.game_state.battle.value.units[0].internal_health = 67;
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await connect(page);
+  const unit = page.locator('#board [data-x="0"][data-y="0"]');
+  const empty = page.locator('#board [data-x="1"][data-y="0"]');
+  await unit.click();
+  await expect(page.getByLabel("Selected unit HP")).toHaveText("HP: 67/100");
+  await expect(
+    page.getByRole("button", { name: "Plan movement", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator("#board [data-route-step]")).toHaveCount(0);
+  await empty.click();
+  await expect(page.getByLabel("Selected unit HP")).toHaveCount(0);
+  await expect(page.locator("#action-unit")).toHaveValue("");
+  await expect(page.locator(".route-editor")).toHaveCount(0);
+  await unit.click();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator(".route-editor")).toHaveCount(0);
+  await unit.click();
+  await page.getByRole("button", { name: "Wait here" }).click();
+  await expect(page.locator(".command-preview")).toContainText("stay in place");
+});
+
+test("restricts indirect attacks after movement and supports cancelling with Escape", async ({
+  page,
+}) => {
+  const state = structuredClone(fixture);
+  state.observation.game_state.battle.value.units[0].unit_type = 10;
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await connect(page);
+  await page.locator(".selection-lists").evaluate((node) => (node.open = true));
+  await page.locator("#action-unit").focus();
+  await page.locator("#action-unit").selectOption("1");
+  const attack = page.getByRole("button", { name: "Choose attack target" });
+  await expect(attack).toBeEnabled();
+  await page
+    .getByRole("button", { name: "Plan movement", exact: true })
+    .click();
+  await page.locator('#board [data-x="1"][data-y="0"]').click();
+  await expect(attack).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#board [data-route-step]")).toHaveCount(0);
+  await expect(page.locator(".command-panel")).toContainText(
+    "Movement cancelled",
+  );
+});
+
+test("keeps inspection available for opponents and used units and announces keyboard planning", async ({
+  page,
+}) => {
+  await connect(page);
+  await page.locator('#board [data-x="1"][data-y="1"]').click();
+  await expect(page.locator("#inspector")).toContainText("Tile (1, 1)");
+  await expect(page.locator("#action-unit")).toHaveValue("");
+  await expect(page.locator(".command-panel")).toContainText(
+    "Select one of your ready units",
+  );
+  await page.locator(".selection-lists").evaluate((node) => (node.open = true));
+  await page.locator("#action-unit").focus();
+  await page.locator("#action-unit").selectOption("1");
+  await expect(page.locator("#action-unit")).toBeFocused();
+  await page
+    .getByRole("button", { name: "Plan movement", exact: true })
+    .click();
+  await page.locator(".route-editor details summary").click();
+  await page.locator("#next-step").selectOption("1,0");
+  await expect(page.locator(".route-editor")).toContainText(
+    "Destination: (1,0)",
+  );
+  await page.getByRole("button", { name: "Undo step" }).click();
+  await expect(page.locator(".route-editor")).toContainText("Act in place");
+  await page.getByRole("button", { name: "Wait here" }).click();
+  await expect(page.locator("#submit-action")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#draft-heading")).toBeFocused();
+  for (const theme of ["classic", "gruvbox"]) {
+    await page.locator("#theme").selectOption(theme);
+    for (const appearance of ["light", "dark"]) {
+      await page.locator("#appearance").selectOption(appearance);
+      await page
+        .locator(".selection-lists")
+        .evaluate((node) => (node.open = true));
+      await page.locator("#action-unit").focus();
+      await page.locator("#action-unit").selectOption("1");
+      const result = await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa"])
+        .analyze();
+      expect(result.violations).toEqual([]);
+    }
+  }
+  await page.setViewportSize({ width: 600, height: 900 });
+  await expect(page.locator(".command-panel")).toBeVisible();
+  const state = structuredClone(fixture);
+  state.observation.game_state.battle.value.units[0].used_this_turn = true;
+  state.summary.revision = state.observation.revision = 2;
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await page.locator("#refresh").click();
+  await expect(page.locator("#action-unit option")).toHaveCount(1);
 });
 
 test("switches themes, follows system appearance, and persists explicit choices", async ({

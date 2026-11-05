@@ -38,6 +38,2660 @@
     "1": "Andy",
     "2": "Max"
   },
+  "movement": {
+    "types": {
+      "FOOT": 0,
+      "MECH": 1,
+      "TREADS": 2,
+      "WHEELS": 3,
+      "AIR": 4,
+      "SHIP": 5,
+      "LANDER": 6
+    },
+    "costs": {
+      "clear": {
+        "0": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "1": [
+          1,
+          1,
+          1,
+          2,
+          1,
+          null,
+          null
+        ],
+        "2": [
+          2,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null
+        ],
+        "3": [
+          2,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null
+        ],
+        "4": [
+          1,
+          1,
+          2,
+          3,
+          1,
+          null,
+          null
+        ],
+        "5": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "6": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "7": [
+          null,
+          null,
+          null,
+          null,
+          1,
+          1,
+          1
+        ],
+        "8": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "9": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "10": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "11": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "12": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "13": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          1
+        ],
+        "14": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "15": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "16": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "17": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "18": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "19": [
+          null,
+          null,
+          null,
+          null,
+          1,
+          2,
+          2
+        ],
+        "20": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "21": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "22": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "23": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "24": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "25": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "26": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "27": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "28": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "29": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "30": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "31": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      },
+      "snow": {
+        "0": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "1": [
+          2,
+          1,
+          2,
+          3,
+          2,
+          null,
+          null
+        ],
+        "2": [
+          2,
+          1,
+          null,
+          null,
+          2,
+          null,
+          null
+        ],
+        "3": [
+          4,
+          2,
+          null,
+          null,
+          2,
+          null,
+          null
+        ],
+        "4": [
+          2,
+          1,
+          2,
+          3,
+          2,
+          null,
+          null
+        ],
+        "5": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "6": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "7": [
+          null,
+          null,
+          null,
+          null,
+          2,
+          2,
+          2
+        ],
+        "8": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "9": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "10": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "11": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          2,
+          2
+        ],
+        "12": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "13": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          1
+        ],
+        "14": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "15": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "16": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "17": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "18": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "19": [
+          null,
+          null,
+          null,
+          null,
+          2,
+          2,
+          2
+        ],
+        "20": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "21": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "22": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "23": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "24": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "25": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "26": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "27": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "28": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "29": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "30": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "31": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      },
+      "rain": {
+        "0": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "1": [
+          1,
+          1,
+          2,
+          3,
+          1,
+          null,
+          null
+        ],
+        "2": [
+          2,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null
+        ],
+        "3": [
+          2,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null
+        ],
+        "4": [
+          1,
+          1,
+          3,
+          4,
+          1,
+          null,
+          null
+        ],
+        "5": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "6": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "7": [
+          null,
+          null,
+          null,
+          null,
+          1,
+          1,
+          1
+        ],
+        "8": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "9": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "10": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "11": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "12": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "13": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          1
+        ],
+        "14": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "15": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "16": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "17": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "18": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "19": [
+          null,
+          null,
+          null,
+          null,
+          1,
+          2,
+          2
+        ],
+        "20": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "21": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "22": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "23": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "24": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "25": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "26": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "27": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "28": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "29": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "30": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "31": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      },
+      "cost_one": {
+        "0": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "1": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "2": [
+          1,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null
+        ],
+        "3": [
+          1,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null
+        ],
+        "4": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "5": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "6": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "7": [
+          null,
+          null,
+          null,
+          null,
+          1,
+          1,
+          1
+        ],
+        "8": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "9": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "10": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "11": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "12": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "13": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          1
+        ],
+        "14": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "15": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "16": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "17": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "18": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "19": [
+          null,
+          null,
+          null,
+          null,
+          1,
+          1,
+          1
+        ],
+        "20": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "21": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "22": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "23": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "24": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "25": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "26": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "27": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "28": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "29": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "30": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "31": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      },
+      "sami_clear": {
+        "0": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "1": [
+          1,
+          1,
+          1,
+          2,
+          1,
+          null,
+          null
+        ],
+        "2": [
+          2,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null
+        ],
+        "3": [
+          2,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null
+        ],
+        "4": [
+          1,
+          1,
+          2,
+          3,
+          1,
+          null,
+          null
+        ],
+        "5": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "6": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "7": [
+          null,
+          null,
+          null,
+          null,
+          1,
+          1,
+          1
+        ],
+        "8": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "9": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "10": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "11": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "12": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "13": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          1
+        ],
+        "14": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "15": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "16": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "17": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "18": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "19": [
+          null,
+          null,
+          null,
+          null,
+          1,
+          2,
+          2
+        ],
+        "20": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "21": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "22": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "23": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "24": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "25": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "26": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "27": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "28": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "29": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "30": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "31": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      },
+      "sami_snow": {
+        "0": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "1": [
+          2,
+          1,
+          2,
+          3,
+          2,
+          null,
+          null
+        ],
+        "2": [
+          2,
+          1,
+          null,
+          null,
+          2,
+          null,
+          null
+        ],
+        "3": [
+          4,
+          2,
+          null,
+          null,
+          2,
+          null,
+          null
+        ],
+        "4": [
+          2,
+          1,
+          2,
+          3,
+          2,
+          null,
+          null
+        ],
+        "5": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "6": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "7": [
+          null,
+          null,
+          null,
+          null,
+          2,
+          2,
+          2
+        ],
+        "8": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "9": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "10": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "11": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          2,
+          2
+        ],
+        "12": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "13": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          1
+        ],
+        "14": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "15": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "16": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "17": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "18": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "19": [
+          null,
+          null,
+          null,
+          null,
+          2,
+          2,
+          2
+        ],
+        "20": [
+          1,
+          1,
+          1,
+          1,
+          2,
+          null,
+          null
+        ],
+        "21": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "22": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "23": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "24": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "25": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "26": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "27": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "28": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "29": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "30": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "31": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      },
+      "sami_rain": {
+        "0": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "1": [
+          1,
+          1,
+          2,
+          3,
+          1,
+          null,
+          null
+        ],
+        "2": [
+          2,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null
+        ],
+        "3": [
+          2,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null
+        ],
+        "4": [
+          1,
+          1,
+          3,
+          4,
+          1,
+          null,
+          null
+        ],
+        "5": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "6": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "7": [
+          null,
+          null,
+          null,
+          null,
+          1,
+          1,
+          1
+        ],
+        "8": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "9": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "10": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "11": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "12": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "13": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          1
+        ],
+        "14": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "15": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "16": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "17": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "18": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "19": [
+          null,
+          null,
+          null,
+          null,
+          1,
+          2,
+          2
+        ],
+        "20": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          null,
+          null
+        ],
+        "21": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "22": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "23": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "24": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "25": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "26": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "27": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "28": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "29": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "30": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "31": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      }
+    },
+    "contexts": {
+      "baseline": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "0:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "0:1": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "0:2": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "1:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "1:1": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "1:2": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {
+          "1": 1,
+          "2": 1,
+          "3": 1,
+          "5": 1,
+          "6": 1,
+          "7": 1,
+          "8": 1,
+          "10": 1,
+          "11": 1,
+          "14": 1,
+          "15": 1,
+          "16": 1,
+          "17": 1,
+          "19": 1,
+          "20": 1,
+          "21": 1,
+          "22": 1,
+          "23": 1,
+          "24": 1
+        }
+      },
+      "2:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "2:1": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {
+          "3": 1,
+          "5": 1,
+          "6": 1,
+          "8": 1,
+          "14": 1,
+          "16": 1,
+          "17": 1,
+          "19": 1,
+          "22": 1,
+          "24": 1
+        }
+      },
+      "2:2": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {
+          "3": 2,
+          "5": 2,
+          "6": 2,
+          "8": 2,
+          "14": 2,
+          "16": 2,
+          "17": 2,
+          "19": 2,
+          "22": 2,
+          "24": 2
+        }
+      },
+      "3:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "clear",
+          "rain": "snow"
+        },
+        "movement_bonuses": {}
+      },
+      "3:1": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "clear",
+          "rain": "snow"
+        },
+        "movement_bonuses": {}
+      },
+      "3:2": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "clear",
+          "rain": "snow"
+        },
+        "movement_bonuses": {}
+      },
+      "4:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {
+          "7": 1,
+          "20": 1,
+          "23": 1
+        }
+      },
+      "4:1": {
+        "weather_variants": {
+          "clear": "sami_clear",
+          "snow": "sami_snow",
+          "rain": "sami_rain"
+        },
+        "movement_bonuses": {
+          "1": 1,
+          "2": 1,
+          "7": 1,
+          "20": 1,
+          "23": 1
+        }
+      },
+      "4:2": {
+        "weather_variants": {
+          "clear": "sami_clear",
+          "snow": "sami_snow",
+          "rain": "sami_rain"
+        },
+        "movement_bonuses": {
+          "1": 2,
+          "2": 2,
+          "7": 1,
+          "20": 1,
+          "23": 1
+        }
+      },
+      "5:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "5:1": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "5:2": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "6:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "6:1": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "6:2": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "7:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "7:1": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "7:2": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "8:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "8:1": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "8:2": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "9:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "clear"
+        },
+        "movement_bonuses": {
+          "21": 1,
+          "22": 1,
+          "23": 1,
+          "24": 1
+        }
+      },
+      "9:1": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "clear"
+        },
+        "movement_bonuses": {
+          "21": 1,
+          "22": 1,
+          "23": 1,
+          "24": 1
+        }
+      },
+      "9:2": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "clear"
+        },
+        "movement_bonuses": {
+          "21": 1,
+          "22": 1,
+          "23": 1,
+          "24": 1
+        }
+      },
+      "10:0": {
+        "weather_variants": {
+          "clear": "cost_one",
+          "snow": "snow",
+          "rain": "cost_one"
+        },
+        "movement_bonuses": {}
+      },
+      "10:1": {
+        "weather_variants": {
+          "clear": "cost_one",
+          "snow": "snow",
+          "rain": "cost_one"
+        },
+        "movement_bonuses": {}
+      },
+      "10:2": {
+        "weather_variants": {
+          "clear": "cost_one",
+          "snow": "snow",
+          "rain": "cost_one"
+        },
+        "movement_bonuses": {}
+      },
+      "11:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "11:1": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "11:2": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "12:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "12:1": {
+        "weather_variants": {
+          "clear": "cost_one",
+          "snow": "snow",
+          "rain": "cost_one"
+        },
+        "movement_bonuses": {}
+      },
+      "12:2": {
+        "weather_variants": {
+          "clear": "cost_one",
+          "snow": "snow",
+          "rain": "cost_one"
+        },
+        "movement_bonuses": {}
+      },
+      "13:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "13:1": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {
+          "1": 1,
+          "2": 1,
+          "3": 1,
+          "5": 1,
+          "6": 1,
+          "7": 1,
+          "8": 1,
+          "10": 1,
+          "11": 1,
+          "14": 1,
+          "15": 1,
+          "16": 1,
+          "17": 1,
+          "19": 1,
+          "20": 1,
+          "21": 1,
+          "22": 1,
+          "23": 1,
+          "24": 1
+        }
+      },
+      "13:2": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {
+          "1": 2,
+          "2": 2,
+          "3": 2,
+          "5": 2,
+          "6": 2,
+          "7": 2,
+          "8": 2,
+          "10": 2,
+          "11": 2,
+          "14": 2,
+          "15": 2,
+          "16": 2,
+          "17": 2,
+          "19": 2,
+          "20": 2,
+          "21": 2,
+          "22": 2,
+          "23": 2,
+          "24": 2
+        }
+      },
+      "14:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "14:1": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "14:2": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "15:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "15:1": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "15:2": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "16:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "16:1": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "16:2": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "17:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {}
+      },
+      "17:1": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {
+          "3": 1,
+          "5": 1,
+          "6": 1,
+          "7": 1,
+          "8": 1,
+          "10": 1,
+          "11": 1,
+          "14": 1,
+          "15": 1
+        }
+      },
+      "17:2": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {
+          "3": 2,
+          "5": 2,
+          "6": 2,
+          "7": 2,
+          "8": 2,
+          "10": 2,
+          "11": 2,
+          "14": 2,
+          "15": 2
+        }
+      },
+      "18:0": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {
+          "7": 1,
+          "20": 1,
+          "23": 1
+        }
+      },
+      "18:1": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {
+          "7": 1,
+          "20": 1,
+          "23": 1
+        }
+      },
+      "18:2": {
+        "weather_variants": {
+          "clear": "clear",
+          "snow": "snow",
+          "rain": "rain"
+        },
+        "movement_bonuses": {
+          "7": 1,
+          "20": 1,
+          "23": 1
+        }
+      }
+    }
+  },
   "units": {
     "1": {
       "name": "Infantry",

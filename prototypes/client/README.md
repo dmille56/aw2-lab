@@ -1,13 +1,13 @@
 # Human client prototype
 
 This checks the proposed [client architecture](../../docs/CLIENT-ARCHITECTURE.md).
-It shares browser assets with Tauri 2 and includes an initial read-only match
-viewer: selectable terrain and unit tiles, an inspector and roster, player funds
+It shares browser assets with Tauri 2 and includes a match viewer and gameplay controls: selectable terrain and unit tiles, an inspector and roster, player funds
 and observed CO power data, snapshot import/export, HTTP SSE updates, and
 revision-matched screenshots. The existing health check and native smoke reporting
 remain available. Verified CO charge thresholds are shown as reference data where
-known; gameplay controls remain planned. It does not execute gameplay commands
-or bundle the server. Cargo.lock pins the
+known. Authenticated players can plan and confirm purchases, movement, attacks,
+captures, end turns, and surrender through the existing API. The client does not
+bundle the server. Cargo.lock pins the
 native dependencies; `package-lock.json` pins React, TypeScript, Vite, and the
 quality tools. React renders the viewer; Vite builds one shared production asset
 directory for the browser and native shell. The small solid-color PNG is a placeholder required by Tauri.
@@ -114,7 +114,7 @@ dependency, not a native runtime requirement.
 
 The normal native client defaults to the API at `127.0.0.1:43127`; the smoke-test
 runner can override that port for its isolated fixture. Production server
-selection, mobile HTTPS, and gameplay controls remain follow-up work. Native platforms other than Linux require their own
+selection and mobile HTTPS remain follow-up work. Native platforms other than Linux require their own
 shell scaffolding, SDKs, signing and runtime evidence.
 
 ## Inspect a match or snapshot
@@ -140,7 +140,28 @@ page requires reconnecting.
 `Export snapshot` saves the displayed state without the connection credential.
 The bundled native viewer can inspect snapshots with the server stopped; the
 browser page must first be served by the helper. See
-[the client design](../../docs/HUMAN-CLIENT-DESIGN.md) for the remaining action controls.
+[the client design](../../docs/HUMAN-CLIENT-DESIGN.md) for the broader interface plan.
+
+During your turn, select a ready unit on the board or in the roster. Choose
+Plan movement, then activate adjacent tiles to build an explicit route; selecting an earlier step truncates it.
+Selecting another tile before choosing Plan movement clears the unit selection.
+Use Undo step or Clear path to revise the route, or Cancel movement (Escape)
+to discard it and return to the selected unit. Route steps are checked using the
+shared terrain costs, observed weather/CO/power, movement allowance, fuel, and
+visible occupants. Allied units can be passed through, but the destination must
+be empty; observed enemies block the route. Missing rule observations block movement steps; hidden
+fog blockers still require executor verification. Then choose Wait, Attack, or
+Capture. Attack asks you to select an observed enemy target. Arrow keys inspect
+board tiles; Enter/Space activates a tile. Expand the unit/base and route lists
+for equivalent controls without using the board. Escape cancels planning.
+
+Select an owned production base to purchase an advertised unit type. Occupied
+bases cannot produce units; airports and ports are deferred until API support.
+Costs are baseline reference values and the server validates legality. Every
+action has a readable confirmation before submission. A committed state change
+clears the draft with a notice. Pending or uncertain commands lock editing;
+uncertain submissions offer retry with the same request ID. Full gameplay
+acceptance against a live emulator in both modes remains tracked in Milestone 4.
 
 The board uses compact labels with full names in the inspector, accessible tile
 labels, tooltips, and legend. Fit to map responds to resizing; its minimum tile

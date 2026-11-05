@@ -1,390 +1,444 @@
-import { useEffect, useMemo, useState } from "react";
-import type { components } from "./generated/api";
-import type { MatchIdentity, ViewState } from "./session";
-import {
-  parseCoordinate,
-  parsePath,
-  supportedProductionProperties,
-  type GameplayAction,
-} from "./command_input";
-import type { StateResponse } from "./state";
+import { useEffect, useRef } from "react";
+import type { ViewState } from "./session";
+import type { GameplayAction } from "./command_input";
+import { positionLabel, type GameplayModel, type ActionKind } from "./gameplay";
 import { unitName } from "./Board";
+import catalog from "./catalog.json";
 
-type Capabilities = components["schemas"]["CapabilitiesResponse"];
-type Unit = components["schemas"]["UnitState"];
-type ActionKind =
-  | "move_wait"
-  | "move_attack"
-  | "move_capture"
-  | "purchase"
-  | "end_turn"
-  | "surrender";
-
-const actionLabels: Record<ActionKind, string> = {
-  move_wait: "Move then wait",
-  move_attack: "Move then attack",
-  move_capture: "Move then capture",
+const labels: Record<ActionKind, string> = {
+  move_wait: "Wait",
+  move_attack: "Attack",
+  move_capture: "Capture",
   purchase: "Purchase unit",
   end_turn: "End turn",
   surrender: "Surrender",
 };
-const noProductionTypes: string[] = [];
 
 export function CommandPanel({
-  snapshot,
-  identity,
-  capabilities,
+  model,
   view,
   onSubmit,
   onRetry,
   onCheckStatus,
 }: {
-  snapshot: StateResponse | null;
-  identity: MatchIdentity | null;
-  capabilities: Capabilities | null;
+  model: GameplayModel;
   view: ViewState;
-  onSubmit: (action: GameplayAction, expectedRevision: number) => void;
+  onSubmit: (action: GameplayAction, revision: number) => void;
   onRetry: () => void;
   onCheckStatus: () => void;
 }) {
-  const battleObservation = snapshot?.observation?.game_state.battle;
-  const battle =
-    battleObservation?.status === "available" ? battleObservation.value : null;
-  const slot = identity?.role === "player" ? identity.player_slot : null;
-  const slotNumber = slot === "slot_1" ? 1 : slot === "slot_2" ? 2 : null;
-  const active =
-    !!battle && !!slotNumber && battle.active_player_slot === slotNumber;
-  const observationReady =
-    !!snapshot &&
-    snapshot.settled &&
-    snapshot.observation?.action_readiness === "ready" &&
-    snapshot.observation.identity_status === "available";
-  const activeUnits = useMemo(
-    () =>
-      battle?.units.filter(
-        (unit) =>
-          unit.army_slot === slotNumber &&
-          !unit.used_this_turn &&
-          !unit.embarked,
-      ) ?? [],
-    [battle, slotNumber],
-  );
-  const [kind, setKind] = useState<ActionKind>("move_wait");
-  const [unitId, setUnitId] = useState("");
-  const [pathText, setPathText] = useState("");
-  const [targetText, setTargetText] = useState("");
-  const [propertyText, setPropertyText] = useState("");
-  const [unitType, setUnitType] = useState("");
-  const [formError, setFormError] = useState("");
-  const [previewRevision, setPreviewRevision] = useState<number | null>(
-    snapshot?.summary.revision ?? null,
-  );
-  const revision = snapshot?.summary.revision ?? null;
-  useEffect(() => {
-    if (previewRevision === null && revision !== null)
-      setPreviewRevision(revision);
-  }, [previewRevision, revision]);
-
-  const identities = snapshot?.observation?.unit_identities ?? [];
-  const unitsWithIdentity = activeUnits.flatMap((unit: Unit) => {
-    const identityForUnit = identities.find(
-      (entry) => entry.reference === unit.reference,
-    );
-    return identityForUnit ? [{ unit, id: identityForUnit.identity_id }] : [];
-  });
-  useEffect(() => {
-    if (!unitsWithIdentity.some(({ id }) => id === unitId))
-      setUnitId(unitsWithIdentity[0]?.id ?? "");
-  }, [unitId, unitsWithIdentity]);
-
-  const selectedUnit = unitsWithIdentity.find(({ id }) => id === unitId)?.unit;
-  const propertyChoices = useMemo(
-    () =>
-      battle
-        ? supportedProductionProperties(battle.properties, slotNumber ?? 0)
-        : [],
-    [battle, slotNumber],
-  );
-  const productionTypes =
-    capabilities?.production_unit_types ?? noProductionTypes;
-  useEffect(() => {
-    if (
-      propertyText &&
-      !propertyChoices.some(({ x, y }) => `${x},${y}` === propertyText)
-    )
-      setPropertyText("");
-    if (!propertyText && propertyChoices[0])
-      setPropertyText(`${propertyChoices[0].x},${propertyChoices[0].y}`);
-  }, [propertyChoices, propertyText]);
-  useEffect(() => {
-    if (unitType && !productionTypes.includes(unitType)) setUnitType("");
-    if (!unitType && productionTypes[0]) setUnitType(productionTypes[0]);
-  }, [productionTypes, unitType]);
-
-  const actionFeature = capabilities?.actions.find(({ name }) => name === kind);
-  const actionAvailable =
-    !!actionFeature?.implemented && !!actionFeature.available;
+  const { draft, dispatch, editable, selectedUnit, destination } = model;
   const command = view.command;
-  const commandPending =
-    !!command &&
-    ["submitting", "uncertain", "queued", "running"].includes(command.phase);
-  const stale =
-    previewRevision !== null &&
-    revision !== null &&
-    previewRevision !== revision;
-  let preview: GameplayAction | null = null;
-  let validationError = "";
-  try {
-    if (kind === "end_turn") preview = { contract_version: 1, kind };
-    else if (kind === "surrender") preview = { contract_version: 1, kind };
-    else if (kind === "purchase") {
-      const property = propertyChoices.find(
-        ({ x, y }) => `${x},${y}` === propertyText,
-      );
-      if (!property || !unitType)
-        throw new Error(
-          "Select an owned production base and an available unit type.",
-        );
-      preview = {
-        contract_version: 1,
-        kind,
-        property: { contract_version: 1, x: property.x, y: property.y },
-        unit_type: unitType,
-      };
-    } else {
-      if (!selectedUnit || !unitId)
-        throw new Error("Select one of your ready, identified units.");
-      const path = parsePath(
-        pathText,
-        { contract_version: 1, x: selectedUnit.x, y: selectedUnit.y },
-        battle?.map.width ?? 0,
-        battle?.map.height ?? 0,
-      );
-      if (kind === "move_attack") {
-        preview = {
-          contract_version: 1,
-          kind,
-          unit_id: unitId,
-          path,
-          target: parseCoordinate(
-            targetText,
-            battle?.map.width ?? 0,
-            battle?.map.height ?? 0,
-          ),
-        };
-      } else {
-        preview = { contract_version: 1, kind, unit_id: unitId, path };
-      }
-    }
-  } catch (error) {
-    validationError = error instanceof Error ? error.message : String(error);
-  }
-
-  const canPlay =
-    view.connected &&
-    view.ready &&
-    identity?.role === "player" &&
-    !!slotNumber &&
-    active &&
-    observationReady;
-  let unavailableReason = "";
-  if (!view.connected)
-    unavailableReason = "Connect to a live match to submit actions.";
-  else if (!view.ready)
-    unavailableReason = "The live match is still synchronizing.";
-  else if (identity?.role !== "player" || !slotNumber)
-    unavailableReason =
-      "Gameplay commands require an authenticated player identity.";
-  else if (!battle) unavailableReason = "Live battle state is unavailable.";
-  else if (!active) unavailableReason = "It is not your player slot's turn.";
-  else if (!observationReady)
-    unavailableReason =
-      "The current observation is not settled and action-ready.";
-  else if (!actionFeature?.implemented)
-    unavailableReason = `The server does not implement ${actionLabels[kind]}.`;
-  else if (!actionFeature.available)
-    unavailableReason =
-      actionFeature.unavailable_reason ||
-      `${actionLabels[kind]} is unavailable.`;
-
-  const selectAction = (value: string) => {
-    if (value in actionLabels) {
-      setKind(value as ActionKind);
-      setFormError("");
-    }
+  const panel = useRef<HTMLElement>(null);
+  const previousPhase = useRef(draft.phase);
+  useEffect(() => {
+    if (previousPhase.current === draft.phase) return;
+    previousPhase.current = draft.phase;
+    const current = document.activeElement;
+    if (current !== document.body && !panel.current?.contains(current)) return;
+    if (
+      draft.phase !== "review" &&
+      draft.phase !== "target" &&
+      current !== document.body
+    )
+      return;
+    const next =
+      draft.phase === "review"
+        ? "#submit-action"
+        : draft.phase === "target"
+          ? "#action-target"
+          : "#draft-heading";
+    panel.current?.querySelector<HTMLElement>(next)?.focus();
+  }, [draft.phase]);
+  const choose = (kind: ActionKind) => {
+    if (editable) dispatch({ type: "choose", kind });
   };
-
+  const profileByName = (name: string) =>
+    Object.values(catalog.units).find((unit) => unit.name === name);
+  const funds = model.battle?.players.find(
+    (player) => player.slot === model.slot,
+  )?.funds;
   return (
-    <section className="card command-panel" aria-label="Gameplay actions">
-      <h2>Gameplay actions</h2>
-      <p className="hint">
-        Actions are checked against the live match. Enter every movement tile in
-        order as <code>x,y</code>, separated by spaces; the server remains
-        authoritative about gameplay legality.
-      </p>
-      <form
-        id="gameplay-command"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setFormError("");
-          if (!preview || validationError) {
-            setFormError(
-              validationError || "Complete the action details first.",
-            );
-            return;
-          }
-          if (stale || previewRevision === null) {
-            setFormError(
-              "This action preview is stale. Rebase it to the current revision before submitting.",
-            );
-            return;
-          }
-          if (
-            kind === "surrender" &&
-            !window.confirm(
-              "Surrender this match? This action cannot be undone.",
-            )
-          )
-            return;
-          onSubmit(preview, previewRevision);
-        }}
-      >
-        <label htmlFor="action-kind">Action</label>
+    <section
+      ref={panel}
+      className="card command-panel"
+      aria-label="Gameplay actions"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && !model.pending) model.cancel();
+      }}
+    >
+      <h2 id="draft-heading" tabIndex={-1}>
+        Gameplay actions
+      </h2>
+      {draft.phase === "select" && !draft.base && (
+        <p className="hint">
+          Select your ready unit or production base on the board.
+        </p>
+      )}
+      <details className="selection-lists">
+        <summary>Choose a unit or base from lists</summary>
+        <label htmlFor="action-unit">Ready unit</label>
         <select
-          id="action-kind"
-          value={kind}
-          onChange={(event) => selectAction(event.currentTarget.value)}
-          disabled={commandPending}
+          id="action-unit"
+          value={draft.unitId}
+          disabled={!editable}
+          onChange={(event) => model.selectUnit(event.currentTarget.value)}
         >
-          {Object.entries(actionLabels).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
+          <option value="">Choose a ready unit</option>
+          {model.units.map(({ unit, id }) => (
+            <option key={id} value={id}>
+              {unitName(unit)} · {positionLabel(unit)}
             </option>
           ))}
         </select>
-        {kind !== "end_turn" && kind !== "surrender" && kind !== "purchase" && (
-          <>
-            <label htmlFor="action-unit">Ready unit</label>
-            <select
-              id="action-unit"
-              value={unitId}
-              onChange={(event) => setUnitId(event.currentTarget.value)}
-              disabled={commandPending || !unitsWithIdentity.length}
-            >
-              {unitsWithIdentity.map(({ unit, id }) => (
-                <option key={id} value={id}>
-                  {unitName(unit)} · ({unit.x},{unit.y}) · ID {id}
-                </option>
-              ))}
-            </select>
-            <label htmlFor="action-path">Explicit movement path</label>
-            <textarea
-              id="action-path"
-              rows={3}
-              placeholder="4,3 4,4"
-              value={pathText}
-              onChange={(event) => setPathText(event.currentTarget.value)}
-              disabled={commandPending || !selectedUnit}
-            />
-            {kind === "move_attack" && (
-              <>
-                <label htmlFor="action-target">
-                  Attack target coordinate (x,y)
-                </label>
-                <input
-                  id="action-target"
-                  value={targetText}
-                  onChange={(event) => setTargetText(event.currentTarget.value)}
-                  placeholder="5,4"
-                  disabled={commandPending}
-                />
-              </>
-            )}
-          </>
+        <label htmlFor="purchase-property">Owned production base</label>
+        <select
+          id="purchase-property"
+          value={draft.base ? `${draft.base.x},${draft.base.y}` : ""}
+          disabled={!editable}
+          onChange={(event) => {
+            const base = model.productionBases.find(
+              (p) => `${p.x},${p.y}` === event.currentTarget.value,
+            );
+            if (base) model.selectBase(base);
+          }}
+        >
+          <option value="">Choose a production base</option>
+          {model.productionBases.map((p) => (
+            <option key={`${p.x},${p.y}`} value={`${p.x},${p.y}`}>
+              {positionLabel(p)}
+            </option>
+          ))}
+        </select>
+        {!model.productionBases.length && (
+          <p>
+            No unoccupied owned production base is available in this
+            observation.
+          </p>
         )}
-        {kind === "purchase" && (
-          <>
-            <label htmlFor="purchase-property">Owned production base</label>
-            <select
-              id="purchase-property"
-              value={propertyText}
-              onChange={(event) => setPropertyText(event.currentTarget.value)}
-              disabled={commandPending || !propertyChoices.length}
-            >
-              {propertyChoices.map(({ x, y }) => (
-                <option key={`${x},${y}`} value={`${x},${y}`}>
-                  ({x},{y})
-                </option>
-              ))}
-            </select>
-            {!propertyChoices.length && (
-              <p role="status">
-                No owned production base is available in this observation.
+      </details>
+      {draft.origin && selectedUnit && (
+        <div className="route-editor">
+          <h3>
+            {unitName(selectedUnit)} · from {positionLabel(draft.origin)}
+          </h3>
+          <p aria-label="Selected unit HP">
+            HP: {selectedUnit.internal_health}/100
+          </p>
+          <p>
+            Destination: {destination && positionLabel(destination)} ·{" "}
+            {draft.path.length} steps
+          </p>
+          <p>
+            {draft.path.length
+              ? draft.path.map(positionLabel).join(" → ")
+              : "Act in place (no movement)."}
+          </p>
+          {draft.phase === "route" && model.movement && (
+            <>
+              <p>
+                Movement cost: {model.movement.cost} /{" "}
+                {model.movement.allowance ?? "unknown"} · Fuel:{" "}
+                {selectedUnit.fuel}
               </p>
-            )}
-            <label htmlFor="purchase-unit-type">Production unit type</label>
-            <select
-              id="purchase-unit-type"
-              value={unitType}
-              onChange={(event) => setUnitType(event.currentTarget.value)}
-              disabled={commandPending || !productionTypes.length}
-            >
-              {productionTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </>
-        )}
-        {preview && (
-          <div className="command-preview" aria-label="Action preview">
-            <strong>
-              {actionLabels[kind]} · revision {previewRevision ?? "unknown"}
-            </strong>
-            <code>{JSON.stringify(preview)}</code>
-          </div>
-        )}
-        {stale && (
-          <div className="command-stale" role="status">
-            This preview uses revision {previewRevision}; the live match is now
-            at revision {revision}.
+              {model.movement.error && (
+                <p role="alert">{model.movement.error}</p>
+              )}
+              {model.movement.endpointError && (
+                <p role="status" className="hint">
+                  {model.movement.endpointError}
+                </p>
+              )}
+              {model.battle?.fog_enabled.value === true && (
+                <p className="hint">
+                  Only observed blockers can be checked. An unseen enemy stops
+                  movement before its tile; the server verifies the reached
+                  position.
+                </p>
+              )}
+            </>
+          )}
+          {draft.phase === "route" || draft.phase === "unit" ? (
+            <>
+              {draft.phase === "unit" && (
+                <button
+                  type="button"
+                  disabled={!editable}
+                  onClick={() => {
+                    dispatch({ type: "plan" });
+                    document
+                      .querySelector<HTMLButtonElement>(
+                        `#board button[data-x="${draft.origin?.x}"][data-y="${draft.origin?.y}"]`,
+                      )
+                      ?.focus();
+                  }}
+                >
+                  Plan movement
+                </button>
+              )}
+              {draft.phase === "route" && (
+                <>
+                  <p>
+                    Activate adjacent tiles to add steps or an earlier step to
+                    shorten the route. Arrow keys inspect; Enter/Space adds a
+                    step.
+                  </p>
+                  <details>
+                    <summary>Choose route steps from a list</summary>
+                    <label htmlFor="next-step">Next adjacent step</label>
+                    <select
+                      id="next-step"
+                      value=""
+                      disabled={!editable}
+                      onChange={(event) => {
+                        const tile = model.battle?.map.tiles.find(
+                          (p) => `${p.x},${p.y}` === event.currentTarget.value,
+                        );
+                        if (tile) model.activate(tile);
+                      }}
+                    >
+                      <option value="">Choose next step</option>
+                      {model.battle?.map.tiles
+                        .filter(
+                          (p) =>
+                            destination &&
+                            Math.abs(p.x - destination.x) +
+                              Math.abs(p.y - destination.y) ===
+                              1,
+                        )
+                        .map((p) => (
+                          <option key={`${p.x},${p.y}`} value={`${p.x},${p.y}`}>
+                            {positionLabel(p)}
+                          </option>
+                        ))}
+                    </select>
+                  </details>
+                  <div className="toolbar">
+                    <button
+                      type="button"
+                      disabled={!editable || !draft.path.length}
+                      onClick={() => dispatch({ type: "undo" })}
+                    >
+                      Undo step
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!editable || !draft.path.length}
+                      onClick={() => dispatch({ type: "clear" })}
+                    >
+                      Clear path
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!editable}
+                      onClick={model.cancel}
+                    >
+                      Cancel movement
+                    </button>
+                  </div>
+                </>
+              )}
+              <div className="toolbar">
+                <button
+                  type="button"
+                  disabled={
+                    !editable ||
+                    !model.movementReady ||
+                    !model.available("move_wait")
+                  }
+                  onClick={() => choose("move_wait")}
+                >
+                  Wait here
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    !editable ||
+                    !model.movementReady ||
+                    !model.available("move_attack") ||
+                    !model.canAttack
+                  }
+                  onClick={() => choose("move_attack")}
+                >
+                  Choose attack target
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    !editable ||
+                    !model.movementReady ||
+                    !model.available("move_capture") ||
+                    !model.canCapture
+                  }
+                  onClick={() => choose("move_capture")}
+                >
+                  Capture here
+                </button>
+              </div>
+              {!model.canAttack && (
+                <p>
+                  Attack requires an attacking unit; indirect units must remain
+                  in place.
+                </p>
+              )}
+              {!model.canCapture && (
+                <p>
+                  Capture requires Infantry or Mech ending on a capturable
+                  property not owned by your slot.
+                </p>
+              )}
+            </>
+          ) : (
             <button
               type="button"
-              onClick={() => {
-                setPreviewRevision(revision);
-                setFormError("");
-              }}
+              disabled={!editable}
+              onClick={() => dispatch({ type: "edit" })}
             >
-              Rebase preview to revision {revision}
+              Edit route
             </button>
-          </div>
-        )}
-        {(validationError || formError) && (
-          <p className="command-error" role="alert">
-            {formError || validationError}
+          )}
+        </div>
+      )}
+      {draft.phase === "target" && (
+        <>
+          <label htmlFor="action-target">Observed enemy target</label>
+          <select
+            id="action-target"
+            value=""
+            disabled={!editable}
+            onChange={(event) => {
+              const target = model.targets.find(
+                (p) => `${p.x},${p.y}` === event.currentTarget.value,
+              );
+              if (target) model.activate(target);
+            }}
+          >
+            <option value="">Choose a target</option>
+            {model.targets.map((unit) => (
+              <option key={unit.reference} value={`${unit.x},${unit.y}`}>
+                {unitName(unit)} · {positionLabel(unit)}
+              </option>
+            ))}
+          </select>
+          <p>
+            Targets are observed enemies; weapon compatibility and attack range
+            are checked by the server.
           </p>
-        )}
-        {unavailableReason && (
-          <p className="hint" role="status">
-            {unavailableReason}
+        </>
+      )}
+      {draft.base && (
+        <>
+          <h3>Production base {positionLabel(draft.base)}</h3>
+          <p>
+            Observed funds: {funds ?? "Unavailable"}. Costs below are baseline
+            reference values.
           </p>
-        )}
+          {model.occupiedBase && (
+            <p role="status">
+              This base is occupied. Move its unit before purchasing.
+            </p>
+          )}
+          <label htmlFor="purchase-unit-type">Production unit type</label>
+          <select
+            id="purchase-unit-type"
+            value={draft.unitType}
+            disabled={
+              !editable || model.occupiedBase || !model.available("purchase")
+            }
+            onChange={(event) =>
+              dispatch({
+                type: "purchase",
+                unitType: event.currentTarget.value,
+              })
+            }
+          >
+            <option value="">Choose a unit to purchase</option>
+            {view.capabilities?.production_unit_types.map((name) => (
+              <option key={name} value={name}>
+                {name} · baseline cost {profileByName(name)?.cost ?? "unknown"}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+      <div className="toolbar">
         <button
-          type="submit"
-          id="submit-action"
-          disabled={
-            !canPlay ||
-            !actionAvailable ||
-            commandPending ||
-            stale ||
-            !!validationError ||
-            !preview
-          }
+          type="button"
+          disabled={!editable || !model.available("end_turn")}
+          onClick={() => choose("end_turn")}
         >
-          Submit {actionLabels[kind]}
+          End turn
         </button>
-      </form>
+        <button
+          type="button"
+          disabled={!editable || !model.available("surrender")}
+          onClick={() => choose("surrender")}
+        >
+          Surrender
+        </button>
+        <button type="button" disabled={model.pending} onClick={model.reset}>
+          Cancel action
+        </button>
+      </div>
+      {draft.phase === "review" && draft.kind && (
+        <div className="command-preview" aria-label="Action preview">
+          <h3>Confirm {labels[draft.kind]}</h3>
+          {draft.kind.startsWith("move_") && selectedUnit && (
+            <p>
+              {unitName(selectedUnit)} from{" "}
+              {draft.origin && positionLabel(draft.origin)} to{" "}
+              {destination && positionLabel(destination)}. Route:{" "}
+              {draft.path.length
+                ? draft.path.map(positionLabel).join(" → ")
+                : "stay in place"}
+              .{" "}
+              {draft.target && `Attack target: ${positionLabel(draft.target)}.`}
+            </p>
+          )}
+          {draft.kind === "purchase" && draft.base && (
+            <p>
+              Buy {draft.unitType} at base {positionLabel(draft.base)}. Baseline
+              cost: {profileByName(draft.unitType)?.cost ?? "unknown"}.
+            </p>
+          )}
+          {draft.kind === "end_turn" && (
+            <p>
+              End your turn with {model.units.length} ready units remaining?
+            </p>
+          )}
+          {draft.kind === "surrender" && (
+            <p>Surrender this match? This action cannot be undone.</p>
+          )}
+          <p>Committed revision {view.snapshot?.summary.revision}</p>
+          <button
+            id="submit-action"
+            type="button"
+            disabled={!model.action}
+            onClick={() => {
+              if (model.action && view.snapshot)
+                onSubmit(model.action, view.snapshot.summary.revision);
+            }}
+          >
+            Confirm {labels[draft.kind]}
+          </button>
+        </div>
+      )}
+      <p role="status" aria-live="polite">
+        {draft.notice}
+      </p>
+      {view.capabilities?.actions
+        .filter((feature) => !feature.implemented || !feature.available)
+        .map((feature) => (
+          <p key={feature.name} className="hint">
+            {feature.name}:{" "}
+            {feature.unavailable_reason || "Unavailable on this server."}
+          </p>
+        ))}
+      {model.unavailable && (
+        <p className="hint" role="status">
+          {model.unavailable}
+        </p>
+      )}
       {command && (
         <div className="command-result" aria-live="polite">
           <h3>Command status: {command.phase}</h3>
