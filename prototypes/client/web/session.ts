@@ -1,3 +1,6 @@
+import validateIdentity from "./generated/validate-identity.js";
+import type { components } from "./generated/api";
+export type MatchIdentity = components["schemas"]["MatchIdentityResponse"];
 import { API_BASE } from "./transport";
 import { MATCH_ID, validateState, type StateResponse } from "./state";
 
@@ -10,6 +13,7 @@ interface Connection {
 }
 export interface ViewState {
   snapshot: StateResponse | null;
+  identity: MatchIdentity | null;
   connected: boolean;
   ready: boolean;
   status: string;
@@ -30,6 +34,7 @@ export class MatchSession {
   private listeners = new Set<() => void>();
   private state: ViewState = {
     snapshot: null,
+    identity: null,
     connected: false,
     ready: false,
     status: "Open a snapshot or connect to a match",
@@ -59,6 +64,7 @@ export class MatchSession {
     this.clearImage();
     this.update({
       snapshot: null,
+      identity: null,
       connected: false,
       ready: false,
       status,
@@ -69,7 +75,7 @@ export class MatchSession {
     this.clearImage();
     this.update({ snapshot });
   }
-  private async request(c: Connection, suffix: string) {
+  private async request(c: Connection, suffix: string, optional = false) {
     const response = await fetch(`${API_BASE}/v1/matches/${c.id}/${suffix}`, {
       headers: { Authorization: `Bearer ${c.token}` },
       signal: c.abort.signal,
@@ -82,6 +88,7 @@ export class MatchSession {
         this.disconnect("Authorization lost · reconnect required");
       throw new Error("This credential no longer has access to the match.");
     }
+    if (optional && response.status === 404) return response;
     if (!response.ok)
       throw new Error(
         `Request failed (${response.status}). Check match access and server status.`,
@@ -178,6 +185,23 @@ export class MatchSession {
     this.connection = c;
     this.update({ connected: true });
     try {
+      const response = await this.request(c, "identity", true);
+      if (this.connection !== c) return;
+      if (response.ok) {
+        const value: unknown = await response.json();
+        if (!validateIdentity(value))
+          throw new Error("Server returned an invalid match identity.");
+        const identity = value as MatchIdentity;
+        if (
+          identity.match_id !== c.id ||
+          (identity.role === "player"
+            ? identity.player_slot === null
+            : identity.player_slot !== null)
+        )
+          throw new Error("Server returned an inconsistent match identity.");
+        if (this.connection !== c) return;
+        this.update({ identity });
+      }
       await this.refresh(c);
       if (this.connection !== c) return;
       this.update({ ready: true });

@@ -1758,6 +1758,48 @@
         "title": "MatchConfiguration",
         "type": "object"
       },
+      "MatchIdentityResponse": {
+        "additionalProperties": false,
+        "description": "Authenticated caller's role in one match; contains no credential material.",
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "match_id": {
+            "format": "uuid",
+            "title": "Match Id",
+            "type": "string"
+          },
+          "player_slot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlayerSlot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "role": {
+            "enum": [
+              "operator",
+              "player"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "match_id",
+          "role",
+          "player_slot"
+        ],
+        "title": "MatchIdentityResponse",
+        "type": "object"
+      },
       "MatchLifecycle": {
         "enum": [
           "setup",

@@ -29,6 +29,7 @@ from aw2_lab.api_contract import (
     IssueInvitationRequest,
     JoinSlotRequest,
     JoinSlotResponse,
+    MatchIdentityResponse,
     MatchListResponse,
     MatchSummary,
     ObservationResponse,
@@ -392,6 +393,17 @@ async def list_matches(matches: Service, caller: Caller) -> MatchListResponse:
 @router.get("/matches/{match_id}", response_model=MatchSummary)
 async def inspect_match(match_id: UUID, matches: Service, caller: Caller) -> MatchSummary:
     return await matches.inspect(caller, match_id)
+
+
+@router.get("/matches/{match_id}/identity", response_model=MatchIdentityResponse)
+async def match_identity(match_id: UUID, matches: Service, caller: Caller) -> MatchIdentityResponse:
+    """Identify the authenticated caller after checking access to this match."""
+    await matches.inspect(caller, match_id)
+    return MatchIdentityResponse(
+        match_id=match_id,
+        role=caller.kind,
+        player_slot=caller.player_slot if caller.kind == "player" else None,
+    )
 
 
 @router.get(

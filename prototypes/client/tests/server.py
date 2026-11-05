@@ -98,6 +98,12 @@ async def stats() -> dict[str, int]:
     return {"connections": connections, "watchers": len(watchers)}
 
 
+@app.get("/v1/matches/{mid}/identity")
+async def identity(mid: str, request: Request) -> dict[str, object]:
+    authorize(request, mid)
+    return {"contract_version": 1, "match_id": mid, "role": "player", "player_slot": "slot_1"}
+
+
 @app.get("/v1/matches/{mid}/state")
 async def current(mid: str, request: Request) -> dict[str, Any]:
     authorize(request, mid)

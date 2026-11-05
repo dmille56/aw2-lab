@@ -146,3 +146,93 @@ test("rejects screenshot metadata from a different boundary", async ({
   await expect(page.locator("#error")).toContainText("does not match");
   await expect(page.locator("#screenshot")).toBeHidden();
 });
+
+test("distinguishes your slot from the active player and toggles visible coordinates", async ({
+  page,
+}) => {
+  await connect(page);
+  await expect(page.locator("#perspective")).toContainText(
+    "You: Player 1 · one",
+  );
+  await expect(page.locator("#players .your-player")).toContainText("Player 1");
+  await expect(page.locator("#players")).toContainText("CO: Andy");
+  await expect(page.locator("#board .coords").first()).toBeHidden();
+  await page.getByLabel("Coordinates", { exact: true }).check();
+  await expect(page.locator("#board .coords").first()).toBeVisible();
+  const changed = structuredClone(fixture);
+  changed.observation.game_state.battle.value.active_player_slot = 2;
+  await page.route("**/state", (route) => route.fulfill({ json: changed }));
+  await page.locator("#refresh").click();
+  await expect(page.locator("#players .active-player")).toContainText(
+    "Player 2",
+  );
+  await expect(page.locator("#players .your-player")).toContainText("Player 1");
+  await expect(
+    page.locator("#board button[data-your-unit='true']"),
+  ).toHaveCount(1);
+});
+
+test("fits a full board, responds to resize, and preserves keyboard selection", async ({
+  page,
+}) => {
+  const large = structuredClone(fixture);
+  large.observation.game_state.battle.value.units[0].used_this_turn = true;
+  const map = large.observation.game_state.battle.value.map;
+  map.width = 16;
+  map.height = 15;
+  map.tiles = Array.from({ length: 240 }, (_, i) => ({
+    ...map.tiles[0],
+    x: i % 16,
+    y: Math.floor(i / 16),
+  }));
+  await upload(page, large);
+  await expect(page.locator("#board .tile")).toHaveCount(240);
+  const initial = Number(await page.locator("#zoom").inputValue());
+  expect(initial).toBeGreaterThan(36);
+  const board = await page.locator("#board").boundingBox();
+  const viewport = await page.locator("#map-scroll").boundingBox();
+  expect(board.width).toBeLessThanOrEqual(viewport.width);
+  expect(board.height).toBeLessThanOrEqual(600);
+  await page.locator("#board .tile").first().click();
+  await page.setViewportSize({ width: 900, height: 960 });
+  await expect(page.locator("#zoom")).toHaveValue("36");
+  const tileBounds = await page.locator("#board .tile").first().boundingBox();
+  const healthBounds = await page
+    .locator("#board .unit-health")
+    .first()
+    .boundingBox();
+  expect(healthBounds.x).toBeGreaterThanOrEqual(tileBounds.x);
+  expect(healthBounds.x + healthBounds.width).toBeLessThanOrEqual(
+    tileBounds.x + tileBounds.width,
+  );
+  expect(healthBounds.y + healthBounds.height).toBeLessThanOrEqual(
+    tileBounds.y + tileBounds.height,
+  );
+  await expect(page.locator("#board .tile").first()).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("#inspector")).toContainText("Tile (1, 0)");
+  await page.locator("#zoom").fill("60");
+  await expect(page.locator("#fit-map")).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  await page.locator("#fit-map").click();
+  await expect(page.locator("#zoom")).toHaveValue("36");
+  await page.setViewportSize({ width: 1280, height: 960 });
+  await expect(page.locator("#zoom")).toHaveValue(String(initial));
+});
+
+test("shows explicit unknown names and snapshot perspective", async ({
+  page,
+}) => {
+  const unknown = structuredClone(fixture);
+  unknown.summary.slots[0].display_name = null;
+  unknown.observation.game_state.battle.value.players[0].co_id = 18;
+  await upload(page, unknown);
+  await expect(page.locator("#perspective")).toContainText(
+    "no authenticated player perspective",
+  );
+  await expect(page.locator("#players")).toContainText("Unknown player");
+  await expect(page.locator("#players")).toContainText("Unknown CO (ID 18)");
+  await expect(page.locator("#players .your-player")).toHaveCount(0);
+});

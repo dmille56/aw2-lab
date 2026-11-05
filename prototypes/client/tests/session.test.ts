@@ -23,6 +23,13 @@ function server(
   vi.stubGlobal(
     "fetch",
     vi.fn((url: string, init: RequestInit) => {
+      if (url.endsWith("/identity"))
+        return response({
+          contract_version: 1,
+          match_id: fixture.summary.match_id,
+          role: "player",
+          player_slot: "slot_1",
+        });
       if (url.endsWith("/events"))
         return new Promise<Response>((_, reject) => {
           init.signal?.addEventListener(
@@ -48,6 +55,7 @@ it("ignores a late state response from a replaced connection", async () => {
   server(() => (++calls === 1 ? first.promise : response(fixture)));
   const view = session();
   const old = view.connect(fixture.summary.match_id, "old");
+  await vi.waitFor(() => expect(calls).toBe(1));
   await view.connect(fixture.summary.match_id, "new");
   const stale = structuredClone(fixture);
   stale.summary.revision = stale.observation.revision = 99;
@@ -110,4 +118,48 @@ it("discards a screenshot completed after the displayed revision changes", async
   await loading;
   expect(view.getSnapshot().snapshot?.summary.revision).toBe(2);
   expect(view.getSnapshot().image).toBeNull();
+});
+
+it("keeps inspection available when an older server lacks caller identity", async () => {
+  const fetcher = vi.fn((url: string, init: RequestInit) => {
+    if (url.endsWith("/identity"))
+      return Promise.resolve(new Response(null, { status: 404 }));
+    if (url.endsWith("/events"))
+      return new Promise<Response>((_, reject) => {
+        init.signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("Aborted", "AbortError")),
+          { once: true },
+        );
+      });
+    return Promise.resolve(response(fixture));
+  });
+  vi.stubGlobal("fetch", fetcher);
+  const view = session();
+  await view.connect(fixture.summary.match_id, "private");
+  expect(view.getSnapshot().identity).toBeNull();
+  expect(view.getSnapshot().snapshot?.summary.match_id).toBe(
+    fixture.summary.match_id,
+  );
+});
+it("rejects identity from a different match without displaying a player perspective", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      response({
+        contract_version: 1,
+        match_id: "00000000-0000-4000-8000-000000000099",
+        role: "player",
+        player_slot: "slot_1",
+      }),
+    ),
+  );
+  const view = session();
+  await view.connect(fixture.summary.match_id, "private");
+  expect(view.getSnapshot()).toMatchObject({
+    connected: false,
+    identity: null,
+    snapshot: null,
+  });
+  expect(view.getSnapshot().error).toContain("inconsistent match identity");
 });

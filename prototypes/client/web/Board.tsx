@@ -1,4 +1,5 @@
 import { Fragment, useRef, type ReactNode } from "react";
+import { terrainLabel, unitLabel } from "./presentation";
 import catalogData from "./catalog.json";
 import type { BattleState, StateResponse, UnitState } from "./state";
 
@@ -94,10 +95,14 @@ export function Board({
   battle,
   selected,
   select,
+  coordinates = false,
+  yourSlot = null,
 }: {
   battle: BattleState | null;
   selected: Position | null;
   select: (position: Position) => void;
+  coordinates?: boolean;
+  yourSlot?: number | null;
 }) {
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const occupancy = new Map(
@@ -130,8 +135,10 @@ export function Board({
                 data-x={tile.x}
                 data-y={tile.y}
                 className={`tile terrain-${tile.terrain_class} owner-${unit?.army_slot ?? tile.owner_slot}${match ? " selected" : ""}`}
+                data-your-unit={!!unit && unit.army_slot === yourSlot}
+                title={`${terrainName(tile.terrain_class)}${unit ? ` · ${unitName(unit)}` : ""}`}
                 aria-pressed={match}
-                aria-label={`(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}` : ""}`}
+                aria-label={`(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}` : ""}`}
                 onClick={() => select(tile)}
                 onKeyDown={(event) => {
                   const delta: Record<string, [number, number]> = {
@@ -163,17 +170,24 @@ export function Board({
                 }}
               >
                 <span className="owner-tag">P{tile.owner_slot || "–"}</span>
-                <span>{terrainName(tile.terrain_class)}</span>
+                <span className="terrain-label" aria-hidden="true">
+                  {terrainLabel(
+                    tile.terrain_class,
+                    terrainName(tile.terrain_class),
+                  )}
+                </span>
                 {unit && (
                   <>
-                    <span className="unit">{unitName(unit)}</span>
-                    <span>
-                      {unit.internal_health}/100
-                      {unit.used_this_turn ? " ✓" : ""}
+                    <span className="unit" aria-hidden="true">
+                      {unitLabel(unit.unit_type, unitName(unit))}
+                    </span>
+                    <span className="unit-health" aria-hidden="true">
+                      P{unit.army_slot}·{unit.internal_health}
+                      {unit.used_this_turn ? "✓" : ""}
                     </span>
                   </>
                 )}
-                <span className="coords">
+                <span className="coords" hidden={!coordinates}>
                   {tile.x},{tile.y}
                 </span>
               </button>

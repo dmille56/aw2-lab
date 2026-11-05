@@ -137,6 +137,14 @@ class InvitationReference(ContractModel):
     expires_at: AwareDatetime
 
 
+class MatchIdentityResponse(ContractModel):
+    """Authenticated caller's role in one match; contains no credential material."""
+
+    match_id: UUID
+    role: Literal["operator", "player"]
+    player_slot: PlayerSlot | None
+
+
 class OperatorPrincipal(ContractModel):
     """Trusted server-created identity; never construct from gameplay tool arguments."""
 

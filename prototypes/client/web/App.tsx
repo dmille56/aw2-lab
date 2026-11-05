@@ -1,14 +1,9 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type CSSProperties,
-} from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { MapPanel } from "./MapPanel";
+import { coName, humanSlot, perspective, playerName } from "./presentation";
 import { Health } from "./Health";
 import { MatchSession } from "./session";
 import {
-  Board,
   Details,
   UnitInspector,
   observed,
@@ -24,7 +19,6 @@ export function App() {
   const [selected, setSelected] = useState<Position | null>(null);
   const [cargo, setCargo] = useState<number | null>(null);
   const [filter, setFilter] = useState("");
-  const [zoom, setZoom] = useState(58);
   const tokenInput = useRef<HTMLInputElement>(null);
   const clearToken = () => {
     if (tokenInput.current) tokenInput.current.value = "";
@@ -66,7 +60,7 @@ export function App() {
           {view.status}
         </p>
       </header>
-      <main style={{ "--cell": `${zoom}px` } as CSSProperties}>
+      <main>
         <Health />
         <section className="card setup" aria-label="Open match">
           <form
@@ -179,15 +173,25 @@ export function App() {
               ? `Actions: ${obs.action_readiness} · ${obs.action_readiness_reasons.join("; ")}${battle ? ` · Weather: ${observed(battle.weather)} · Fog: ${observed(battle.fog_enabled)}` : ""}`
               : "No committed observation available."}
           </p>
+          <p id="perspective">
+            {snapshot && perspective(snapshot, view.identity, view.connected)} ·
+            Active: {battle ? owner(battle.active_player_slot) : "Unknown"}
+          </p>
           <div id="players">
             {battle?.players.map((player) => (
-              <div key={player.slot} className={`player player-${player.slot}`}>
+              <div
+                key={player.slot}
+                className={`player player-${player.slot}${player.slot === humanSlot(view.identity) ? " your-player" : ""}${player.slot === battle.active_player_slot ? " active-player" : ""}`}
+              >
                 <strong>
-                  {owner(player.slot)}
+                  {owner(player.slot)} ·{" "}
+                  {snapshot && playerName(snapshot, player.slot)}
+                  {player.slot === humanSlot(view.identity) ? " · You" : ""}
                   {player.slot === battle.active_player_slot ? " · Active" : ""}
                 </strong>
                 <p>
-                  Funds: {player.funds} · CO ID: {player.co_id}
+                  Funds: {player.funds} · CO: {coName(player.co_id)} · ID{" "}
+                  {player.co_id}
                 </p>
                 <p>
                   CO power:{" "}
@@ -215,45 +219,13 @@ export function App() {
           </div>
         </section>
         <div className="workspace">
-          <section className="card map-panel" aria-label="Map">
-            <div className="toolbar">
-              <h2>Board</h2>
-              <label>
-                Tile size
-                <input
-                  id="zoom"
-                  type="range"
-                  min="38"
-                  max="90"
-                  value={zoom}
-                  onChange={(event) =>
-                    setZoom(Number(event.currentTarget.value))
-                  }
-                />
-              </label>
-            </div>
-            <p id="empty" hidden={!!battle}>
-              {empty}
-            </p>
-            <div id="map-scroll">
-              <Board battle={battle} selected={selected} select={select} />
-            </div>
-            <details>
-              <summary>Legend</summary>
-              <p>
-                Owner numbers identify players. Unit labels show type and
-                observed internal health. ✓ marks used units. Select a tile for
-                details. Terrain colors are illustrative.
-              </p>
-              <div id="legend">
-                {[...new Set(battle?.map.tiles.map((t) => t.terrain_class))]
-                  .sort((a, b) => a - b)
-                  .map((id) => (
-                    <span key={id}>{terrainName(id)}</span>
-                  ))}
-              </div>
-            </details>
-          </section>
+          <MapPanel
+            battle={battle}
+            selected={selected}
+            select={select}
+            empty={empty}
+            yourSlot={humanSlot(view.identity)}
+          />
           <aside className="card">
             <h2>Inspector</h2>
             <div id="inspector">

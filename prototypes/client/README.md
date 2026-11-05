@@ -140,6 +140,21 @@ The bundled native viewer can inspect snapshots with the server stopped; the
 browser page must first be served by the helper. See
 [the client design](../../docs/HUMAN-CLIENT-DESIGN.md) for the remaining action controls.
 
+The board uses compact labels with full names in the inspector, accessible tile
+labels, tooltips, and legend. Fit to map responds to resizing; its minimum tile
+size is 36 px (44 px with coordinates), so large maps still scroll on small
+windows. Manual tile sizing turns automatic fit off. Coordinate labels are optional;
+keyboard navigation keeps the selected tile focused and scrolls it into view.
+Property ownership and unit ownership are displayed separately.
+
+Live connections read the authenticated `/v1/matches/{match}/identity` endpoint.
+Your player panel and unit labels are marked independently of the active player.
+Operators have no player slot; imported snapshots carry no authenticated perspective.
+Older servers without identity support remain inspectable with an explicit unknown
+slot label. Player names come from match metadata. The generated catalog names only
+numeric CO identities verified by the fixed-profile cold-boot checks (Andy and Max);
+other numeric IDs show an unknown-name label.
+
 The readable terrain/unit catalog is generated from shared Python rule data.
 After changing those rules, regenerate it with:
 
@@ -209,7 +224,8 @@ Review and commit the resulting PNG changes in `tests/browser/*-snapshots/`, the
 run the full gate without that flag. Coverage measures handwritten TypeScript/React
 modules, including the session layer and components; generated code and the entry
 point are excluded. Browser tests cover the integrated production viewer. The
-migration preserves the existing visual baseline.
+migration preserved the original visual baseline; board-presentation changes have
+their own reviewed baseline.
 
 ## Frontend development and generated contracts
 

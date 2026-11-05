@@ -26,6 +26,7 @@ invitation request fields, and never in URLs.
 | `GET /v1/readiness` | Operator | 200, independent server/runtime/match readiness |
 | `POST /v1/matches` | Operator | 201, summary and `Location` |
 | `GET /v1/matches` | Operator | 200, match list |
+| `GET /v1/matches/{match}/identity` | Operator or that match's player | 200, authenticated role and player slot |
 | `GET /v1/matches/{match}` | Operator or that match's player | 200, summary |
 | `POST /v1/matches/{match}/slots/{slot}/invitations` | Operator | 201, invitation reference |
 | `POST /v1/matches/{match}/slots/{slot}/join` | New player bearer plus invitation | 200, join response |

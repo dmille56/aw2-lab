@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from aw2_lab.aw2_rules_data import TERRAIN_NAMES
+from aw2_lab.aw2_rules_data import TERRAIN_NAMES, VERIFIED_CO_NAMES
 from aw2_lab.aw2_unit_profiles import UNIT_PROFILES
 
 CATALOG_PATH = Path(__file__).parent / "web" / "catalog.json"
@@ -14,6 +14,7 @@ def catalog_text() -> str:
     catalog = {
         "schema_version": 1,
         "terrain": TERRAIN_NAMES,
+        "cos": VERIFIED_CO_NAMES,
         "units": {
             key: {
                 "name": profile.name,

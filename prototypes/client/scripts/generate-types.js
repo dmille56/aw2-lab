@@ -26,6 +26,13 @@ const outputs = {
   "validate-state.d.ts":
     "export default function validate(value: unknown): boolean;\n",
 };
+const identity = ajv.compile({
+  ...schema,
+  $ref: "#/components/schemas/MatchIdentityResponse",
+});
+outputs["validate-identity.js"] = standaloneCode(ajv, identity);
+outputs["validate-identity.d.ts"] =
+  "export default function validate(value: unknown): boolean;\n";
 const check = process.argv.includes("--check");
 for (const [name, text] of Object.entries(outputs)) {
   const destination = new URL(`../web/generated/${name}`, import.meta.url);

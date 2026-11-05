@@ -34,6 +34,10 @@
     "30": "Deathray",
     "31": "Unused Blocked"
   },
+  "cos": {
+    "1": "Andy",
+    "2": "Max"
+  },
   "units": {
     "1": {
       "name": "Infantry",

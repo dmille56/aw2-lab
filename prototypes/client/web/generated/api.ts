@@ -1064,6 +1064,29 @@ export interface components {
             rules: components["schemas"]["RuleConfiguration"];
         };
         /**
+         * MatchIdentityResponse
+         * @description Authenticated caller's role in one match; contains no credential material.
+         */
+        MatchIdentityResponse: {
+            /**
+             * Contract Version
+             * @default 1
+             * @constant
+             */
+            contract_version: 1;
+            /**
+             * Match Id
+             * Format: uuid
+             */
+            match_id: string;
+            player_slot: components["schemas"]["PlayerSlot"] | null;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "operator" | "player";
+        };
+        /**
          * MatchLifecycle
          * @enum {string}
          */

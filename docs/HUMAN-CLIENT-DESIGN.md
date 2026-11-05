@@ -33,6 +33,10 @@ that its board respects player visibility.
 
 The existing [browser/Tauri prototype](../prototypes/client/README.md) now serves
 the viewer at `/client/`. No separate frontend is installed in the Python package.
+The board now uses compact labels, responsive fit sizing, and optional coordinates.
+Authenticated caller identity distinguishes your slot from the active player; player
+names come from match metadata and numeric CO names are limited to verified mappings.
+Snapshots and unavailable names remain explicit.
 The viewer now uses React and TypeScript with Vite; browser and Tauri share its
 production assets. Local gates cover strict typing, generated contracts, component
 tests, production browser scenarios, and packaged native health smoke checks.

@@ -536,3 +536,34 @@ async def test_runtime_never_labels_a_different_frame_as_boundary_screenshot(
                 await runtime.capture_screenshot(observation)
     finally:
         await public.controller.stop()
+
+
+@run_async_test
+async def test_match_identity_is_authenticated_scoped_and_revoked(memory, tmp_path, monkeypatch):
+    service, match_id, operator, _, _, _ = await prepare(memory, tmp_path)
+    app = application(service.controller, tmp_path, monkeypatch)
+    url = f"/v1/matches/{match_id}/identity"
+    try:
+        async with client_for(app) as client:
+            for letter, role, slot in (
+                ("o", "operator", None),
+                ("p", "player", "slot_1"),
+                ("q", "player", "slot_2"),
+            ):
+                response = await client.get(url, headers=headers(letter))
+                assert response.status_code == 200, response.text
+                assert response.json() == {
+                    "contract_version": 1,
+                    "match_id": str(match_id),
+                    "role": role,
+                    "player_slot": slot,
+                }
+                assert "no-store" in response.headers["cache-control"]
+            assert (await client.get(url)).status_code == 401
+            assert (
+                await client.get(f"/v1/matches/{uuid4()}/identity", headers=headers("p"))
+            ).status_code == 403
+            await service.revoke(operator, match_id, PlayerSlot.SLOT_1, uuid4())
+            assert (await client.get(url, headers=headers("p"))).status_code == 401
+    finally:
+        await service.controller.stop()

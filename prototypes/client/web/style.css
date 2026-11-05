@@ -148,7 +148,7 @@ form label {
 
 #map-scroll {
   overflow: auto;
-  max-height: 75vh;
+  max-height: min(65vh, 600px);
   margin: 16px 0;
 }
 
@@ -265,6 +265,7 @@ form label {
 }
 
 .player {
+  overflow-wrap: anywhere;
   padding: 10px;
   background: #101923;
   border-radius: 4px;
@@ -350,4 +351,51 @@ summary {
   aside {
     min-height: 160px;
   }
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.checkbox-label input {
+  width: auto;
+  margin: 0;
+}
+
+#fit-map[aria-pressed="true"] {
+  outline: 2px solid #86cbd1;
+}
+
+.terrain-label {
+  align-self: start;
+  font-size: clamp(8px, calc(var(--cell) * 0.18), 13px);
+  line-height: 1;
+  font-weight: bold;
+}
+
+.unit-health {
+  white-space: nowrap;
+  font-size: clamp(8px, calc(var(--cell) * 0.17), 12px);
+  line-height: 1.1;
+}
+
+.tile .unit {
+  font-size: clamp(10px, calc(var(--cell) * 0.23), 16px);
+  line-height: 1;
+  padding: 2px;
+}
+
+.tile[data-your-unit="true"] .unit {
+  text-decoration: underline 2px #86cbd1;
+  text-underline-offset: 2px;
+}
+
+.your-player {
+  outline: 2px solid #86cbd1;
+}
+
+.active-player strong::before {
+  content: "▶ ";
 }
