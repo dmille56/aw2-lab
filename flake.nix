@@ -33,7 +33,10 @@
           pkgs = import nixpkgs { inherit system; };
           pythonPackages = pkgs.python314Packages;
           mgba = import ./nix/mgba.nix { inherit pkgs mgbaSource; };
-          clientPrototype = import ./nix/client-prototype.nix { inherit pkgs; };
+          clientPrototype = import ./nix/client-prototype.nix {
+            inherit pkgs;
+            inherit (clientChecks) dependencies;
+          };
           runtimeDependencies = with pythonPackages; [
             fastapi
             httpx
@@ -140,6 +143,7 @@
           aw2-lab = env.application;
           inherit (env) mgba;
           client-prototype = env.clientPrototype;
+          client-web = env.clientPrototype.web;
           check-client = env.clientChecks.tool;
           default = env.defaultPackage;
         }

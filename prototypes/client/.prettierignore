@@ -10,3 +10,5 @@ Cargo.lock
 *.py
 *.rs
 *.toml
+dist/
+web/generated/

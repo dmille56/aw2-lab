@@ -1,0 +1,41 @@
+import fs from "node:fs/promises";
+import openapiTS, { astToString } from "openapi-typescript";
+import Ajv from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
+import standaloneCode from "ajv/dist/standalone/index.js";
+
+const source = new URL("../schemas/api-v1.json", import.meta.url);
+const schema = JSON.parse(await fs.readFile(source, "utf8"));
+const types = astToString(await openapiTS(schema));
+const ajv = new Ajv({
+  strict: false,
+  code: { source: true, esm: true },
+  formats: { uuid: true, "date-time": true },
+});
+addFormats(ajv, { formats: ["uuid"] });
+// Date-time semantics remain checked on the Python boundary. UUID formats use
+// an inline regex; no dynamic code generation is allowed in the webview.
+ajv.addFormat("date-time", true);
+const validate = ajv.compile({
+  ...schema,
+  $ref: "#/components/schemas/StateResponse",
+});
+const outputs = {
+  "api.ts": types,
+  "validate-state.js": standaloneCode(ajv, validate),
+  "validate-state.d.ts":
+    "export default function validate(value: unknown): boolean;\n",
+};
+const check = process.argv.includes("--check");
+for (const [name, text] of Object.entries(outputs)) {
+  const destination = new URL(`../web/generated/${name}`, import.meta.url);
+  if (check) {
+    if ((await fs.readFile(destination, "utf8")) !== text)
+      throw new Error(`Generated ${name} is stale; run npm run generate`);
+  } else {
+    await fs.mkdir(new URL("../web/generated/", import.meta.url), {
+      recursive: true,
+    });
+    await fs.writeFile(destination, text);
+  }
+}

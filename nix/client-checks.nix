@@ -11,7 +11,7 @@ let
         ../prototypes/client/package-lock.json
       ];
     };
-    npmDepsHash = "sha256-x3osgLUiwywwur6I9es0MO32Kvj7QtA1csqvQ0D8Nrc=";
+    npmDepsHash = "sha256-hut3DV+TlHDTQkRkykNPj2ikxNUcOlbV1ts7NfrRh6g=";
     npmFlags = [ "--ignore-scripts" ];
     dontNpmBuild = true;
     nativeBuildInputs = [ pkgs.autoPatchelfHook ];

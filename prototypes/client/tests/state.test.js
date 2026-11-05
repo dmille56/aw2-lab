@@ -1,11 +1,11 @@
-import { readFileSync } from "node:fs";
+import template from "./fixtures/state.json";
 import { describe, expect, it, afterEach, vi } from "vitest";
-import { validateState } from "../web/state.js";
-const fixture = () =>
-  JSON.parse(
-    readFileSync(new URL("./fixtures/state.json", import.meta.url), "utf8"),
-  );
-afterEach(() => vi.unstubAllGlobals());
+import { validateState } from "../web/state";
+const fixture = () => structuredClone(template);
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
 describe("versioned snapshot boundary", () => {
   it("accepts a coherent snapshot and preserves observed zero values", () => {
     const state = fixture();
@@ -39,6 +39,16 @@ describe("versioned snapshot boundary", () => {
       (s) => (s.observation.game_state.battle.value.map.tiles[0].x = -1),
     ],
     [
+      "missing inspector health",
+      (s) =>
+        delete s.observation.game_state.battle.value.units[0].internal_health,
+    ],
+    [
+      "invalid player funds",
+      (s) =>
+        (s.observation.game_state.battle.value.players[0].funds = "invalid"),
+    ],
+    [
       "invalid units",
       (s) => (s.observation.game_state.battle.value.units = [null]),
     ],
@@ -64,11 +74,17 @@ describe("versioned snapshot boundary", () => {
 });
 describe("shared browser/native destination", () => {
   it.each([
-    [false, ""],
-    [true, "http://127.0.0.1:43127"],
-  ])("selects destination for native=%s", async (native, expected) => {
-    vi.resetModules();
-    vi.stubGlobal("window", { __TAURI__: native });
-    expect((await import("../web/transport.js")).API_BASE).toBe(expected);
-  });
+    [false, true, ""],
+    [true, true, "http://127.0.0.1:43127"],
+    [false, false, ""],
+    [true, false, ""],
+  ])(
+    "selects destination for native=%s, production=%s",
+    async (native, production, expected) => {
+      vi.resetModules();
+      vi.stubEnv("PROD", production);
+      vi.stubGlobal("window", { __TAURI__: native });
+      expect((await import("../web/transport")).API_BASE).toBe(expected);
+    },
+  );
 });

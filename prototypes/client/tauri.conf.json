@@ -3,15 +3,26 @@
   "productName": "AW2 Client Prototype",
   "version": "0.1.0",
   "identifier": "org.aw2lab.client-prototype",
-  "build": { "frontendDist": "web" },
+  "build": {
+    "frontendDist": "dist",
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeBuildCommand": "npm run build"
+  },
   "app": {
     "withGlobalTauri": true,
     "windows": [
-      { "title": "AW2 Lab · Match viewer", "width": 1200, "height": 850 }
+      {
+        "title": "AW2 Lab \u00b7 Match viewer",
+        "width": 1200,
+        "height": 850
+      }
     ],
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:43127"
     }
   },
-  "bundle": { "active": false }
+  "bundle": {
+    "active": false
+  }
 }

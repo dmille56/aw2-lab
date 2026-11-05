@@ -13,7 +13,7 @@ from aw2_lab.api.app import create_app
 from aw2_lab.emulator import EmulatorMode, EmulatorSettings
 
 
-def configure_client(app: FastAPI) -> None:
+def configure_client(app: FastAPI, *, assets: Path | None = None) -> None:
     """Serve shared browser/native assets and permit explicit native origins."""
     app.add_middleware(
         CORSMiddleware,
@@ -22,7 +22,13 @@ def configure_client(app: FastAPI) -> None:
         allow_headers=["Authorization"],
         expose_headers=["X-AW2-Match-ID", "X-AW2-Revision", "X-AW2-Frame"],
     )
-    app.mount("/client", StaticFiles(directory=Path(__file__).parent / "web", html=True))
+    directory = assets or Path(os.environ.get("AW2_CLIENT_DIST", Path(__file__).parent / "dist"))
+    if not (directory / "index.html").is_file():
+        raise ValueError(
+            "Client assets are missing; run nix build .#client-web "
+            "--out-link prototypes/client/dist or set AW2_CLIENT_DIST to a production build"
+        )
+    app.mount("/client", StaticFiles(directory=directory, html=True))
 
 
 def main() -> None:

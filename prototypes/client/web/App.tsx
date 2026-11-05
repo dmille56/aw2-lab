@@ -1,0 +1,362 @@
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+} from "react";
+import { Health } from "./Health";
+import { MatchSession } from "./session";
+import {
+  Board,
+  Details,
+  UnitInspector,
+  observed,
+  owner,
+  terrainName,
+  unitName,
+  type Position,
+} from "./Board";
+
+export function App() {
+  const [session] = useState(() => new MatchSession());
+  const view = useSyncExternalStore(session.subscribe, session.getSnapshot);
+  const [selected, setSelected] = useState<Position | null>(null);
+  const [cargo, setCargo] = useState<number | null>(null);
+  const [filter, setFilter] = useState("");
+  const [zoom, setZoom] = useState(58);
+  const tokenInput = useRef<HTMLInputElement>(null);
+  const clearToken = () => {
+    if (tokenInput.current) tokenInput.current.value = "";
+  };
+  useEffect(() => {
+    if (!view.connected && tokenInput.current) tokenInput.current.value = "";
+  }, [view.connected]);
+  useEffect(() => () => session.disconnect(), [session]);
+  const snapshot = view.snapshot,
+    obs = snapshot?.observation;
+  const battle =
+    obs?.game_state.battle.status === "available"
+      ? obs.game_state.battle.value
+      : null;
+  const cargoUnit = battle?.units.find((item) => item.reference === cargo);
+  const tile = battle?.map.tiles.find(
+    (t) => t.x === selected?.x && t.y === selected.y,
+  );
+  const unit = battle?.units.find(
+    (u) => u.x === tile?.x && u.y === tile.y && !u.embarked,
+  );
+  const select = (position: Position) => {
+    setSelected(position);
+    setCargo(null);
+  };
+  const empty = !snapshot
+    ? "Connect or open an exported StateResponse JSON file to see the board."
+    : obs
+      ? `Battle ${observed(obs.game_state.battle)}`
+      : "No committed observation available.";
+  return (
+    <>
+      <header>
+        <div>
+          <span className="eyebrow">AW2 LAB</span>
+          <h1>Match viewer</h1>
+        </div>
+        <p id="connection" role="status">
+          {view.status}
+        </p>
+      </header>
+      <main style={{ "--cell": `${zoom}px` } as CSSProperties}>
+        <Health />
+        <section className="card setup" aria-label="Open match">
+          <form
+            id="connect"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const form = event.currentTarget,
+                data = new FormData(form);
+              const id = data.get("match-id"),
+                token = data.get("token");
+              const input = form.elements.namedItem("token");
+              if (input instanceof HTMLInputElement) input.value = "";
+              setSelected(null);
+              setCargo(null);
+              if (typeof id === "string" && typeof token === "string")
+                void session.connect(id, token);
+            }}
+          >
+            <label>
+              Match ID
+              <input
+                type="text"
+                id="match-id"
+                name="match-id"
+                required
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </label>
+            <label>
+              Player token
+              <input
+                ref={tokenInput}
+                id="token"
+                name="token"
+                type="password"
+                required
+                autoComplete="off"
+              />
+            </label>
+            <button type="submit">Connect</button>
+          </form>
+          <div className="toolbar">
+            <label className="file-label">
+              Open snapshot
+              <input
+                id="snapshot"
+                type="file"
+                accept="application/json,.json"
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  event.currentTarget.value = "";
+                  if (file) {
+                    clearToken();
+                    setSelected(null);
+                    setCargo(null);
+                    void session.openSnapshot(file);
+                  }
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              id="export"
+              disabled={!snapshot}
+              onClick={session.exportSnapshot}
+            >
+              Export snapshot
+            </button>
+            <button
+              type="button"
+              id="refresh"
+              disabled={!view.ready}
+              onClick={session.refreshCurrent}
+            >
+              Refresh
+            </button>
+            <button
+              type="button"
+              id="disconnect"
+              disabled={!view.connected}
+              onClick={() => {
+                clearToken();
+                session.disconnect();
+              }}
+            >
+              Disconnect
+            </button>
+          </div>
+          <p className="hint">
+            Inspect the full structured state. Gameplay controls are coming in
+            the next delivery step. Tokens stay in page memory.
+          </p>
+        </section>
+        <p id="error" role="alert" hidden={!view.error}>
+          {view.error}
+        </p>
+        <section id="match" className="card" hidden={!snapshot}>
+          <h2 id="match-title">
+            {battle
+              ? `Day ${battle.day} · ${owner(battle.active_player_slot)}'s turn`
+              : "Match state"}
+          </h2>
+          <p id="boundary">
+            {snapshot &&
+              `${view.connected ? "Live match" : "Snapshot · read only"} · ${snapshot.summary.lifecycle} · Revision ${snapshot.summary.revision} · Frame ${obs?.game_state.frame ?? "unavailable"} · ${snapshot.summary.match_id}`}
+          </p>
+          <p id="readiness">
+            {obs
+              ? `Actions: ${obs.action_readiness} · ${obs.action_readiness_reasons.join("; ")}${battle ? ` · Weather: ${observed(battle.weather)} · Fog: ${observed(battle.fog_enabled)}` : ""}`
+              : "No committed observation available."}
+          </p>
+          <div id="players">
+            {battle?.players.map((player) => (
+              <div key={player.slot} className={`player player-${player.slot}`}>
+                <strong>
+                  {owner(player.slot)}
+                  {player.slot === battle.active_player_slot ? " · Active" : ""}
+                </strong>
+                <p>
+                  Funds: {player.funds} · CO ID: {player.co_id}
+                </p>
+                <p>
+                  CO power:{" "}
+                  {player.active_power === 0
+                    ? "Inactive"
+                    : `Active (observed flag ${player.active_power})`}
+                </p>
+                <p>Power meter: {observed(player.power_meter)}</p>
+                <p>Charge thresholds unavailable; readiness is not inferred.</p>
+                <p>
+                  Units:{" "}
+                  {
+                    battle.units.filter((u) => u.army_slot === player.slot)
+                      .length
+                  }{" "}
+                  · Properties:{" "}
+                  {
+                    battle.properties.filter(
+                      (p) => p.owner_slot === player.slot,
+                    ).length
+                  }
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+        <div className="workspace">
+          <section className="card map-panel" aria-label="Map">
+            <div className="toolbar">
+              <h2>Board</h2>
+              <label>
+                Tile size
+                <input
+                  id="zoom"
+                  type="range"
+                  min="38"
+                  max="90"
+                  value={zoom}
+                  onChange={(event) =>
+                    setZoom(Number(event.currentTarget.value))
+                  }
+                />
+              </label>
+            </div>
+            <p id="empty" hidden={!!battle}>
+              {empty}
+            </p>
+            <div id="map-scroll">
+              <Board battle={battle} selected={selected} select={select} />
+            </div>
+            <details>
+              <summary>Legend</summary>
+              <p>
+                Owner numbers identify players. Unit labels show type and
+                observed internal health. ✓ marks used units. Select a tile for
+                details. Terrain colors are illustrative.
+              </p>
+              <div id="legend">
+                {[...new Set(battle?.map.tiles.map((t) => t.terrain_class))]
+                  .sort((a, b) => a - b)
+                  .map((id) => (
+                    <span key={id}>{terrainName(id)}</span>
+                  ))}
+              </div>
+            </details>
+          </section>
+          <aside className="card">
+            <h2>Inspector</h2>
+            <div id="inspector">
+              {snapshot && battle && cargoUnit ? (
+                <UnitInspector unit={cargoUnit} snapshot={snapshot} />
+              ) : tile && snapshot ? (
+                <>
+                  <h3>
+                    Tile ({tile.x}, {tile.y})
+                  </h3>
+                  <Details
+                    entries={[
+                      ["Terrain", terrainName(tile.terrain_class)],
+                      ["Owner", owner(tile.owner_slot)],
+                    ]}
+                  />
+                  {unit && (
+                    <>
+                      <UnitInspector unit={unit} snapshot={snapshot} />
+                      {unit.cargo_references.map((ref) => {
+                        const item = battle?.units.find(
+                          (u) => u.reference === ref,
+                        );
+                        return item ? (
+                          <UnitInspector
+                            key={ref}
+                            unit={item}
+                            snapshot={snapshot}
+                          />
+                        ) : null;
+                      })}
+                    </>
+                  )}
+                </>
+              ) : snapshot && !battle ? (
+                "No battle data to inspect."
+              ) : (
+                "Select a tile or a unit."
+              )}
+            </div>
+          </aside>
+        </div>
+        <section className="card">
+          <h2>Unit roster</h2>
+          <label>
+            Filter units
+            <input
+              type="text"
+              id="filter"
+              placeholder="Type, player, coordinates…"
+              value={filter}
+              onChange={(event) => setFilter(event.currentTarget.value)}
+            />
+          </label>
+          <div id="roster">
+            {battle?.units.map((item) => {
+              const text = `${unitName(item)} · ${owner(item.army_slot)} · (${item.x},${item.y}) · ${item.used_this_turn ? "Used" : "Ready"}${item.embarked ? " · Embarked" : ""}`;
+              return text.toLowerCase().includes(filter.toLowerCase()) ? (
+                <button
+                  type="button"
+                  key={item.reference}
+                  onClick={() => {
+                    if (item.embarked) setCargo(item.reference);
+                    else {
+                      select(item);
+                      const button = document.querySelector<HTMLButtonElement>(
+                        `#board button[data-x="${item.x}"][data-y="${item.y}"]`,
+                      );
+                      button?.focus();
+                      button?.scrollIntoView({
+                        block: "nearest",
+                        inline: "nearest",
+                      });
+                    }
+                  }}
+                >
+                  {text}
+                </button>
+              ) : null;
+            })}
+          </div>
+        </section>
+        <section className="card">
+          <div className="toolbar">
+            <h2>Emulator reference</h2>
+            <button
+              type="button"
+              id="screenshot-button"
+              disabled={!view.connected || !obs || !snapshot?.settled}
+              onClick={session.loadScreenshot}
+            >
+              Load matching screenshot
+            </button>
+          </div>
+          <p id="screenshot-label">{view.imageLabel}</p>
+          <img
+            id="screenshot"
+            src={view.image ?? undefined}
+            alt="Emulator screenshot for the displayed revision"
+            hidden={!view.image}
+          />
+        </section>
+      </main>
+    </>
+  );
+}

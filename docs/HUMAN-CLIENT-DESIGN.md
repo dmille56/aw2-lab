@@ -33,7 +33,9 @@ that its board respects player visibility.
 
 The existing [browser/Tauri prototype](../prototypes/client/README.md) now serves
 the viewer at `/client/`. No separate frontend is installed in the Python package.
-The static prototype is the starting point for the later React/TypeScript client.
+The viewer now uses React and TypeScript with Vite; browser and Tauri share its
+production assets. Local gates cover strict typing, generated contracts, component
+tests, production browser scenarios, and packaged native health smoke checks.
 
 On 2026-11-04, Chromium browser checks covered authenticated state loading,
 tile and unit inspection, keyboard selection, roster filtering, versioned snapshot
@@ -212,12 +214,12 @@ browser implementation of the game.
 
 ## Implementation shape
 
-Evolve the existing static compatibility prototype into the first read-only board
-and inspector, using accessible selectable tiles. Retain its connection check,
+The existing prototype now provides a React/TypeScript read-only board and
+inspector with accessible selectable tiles. Retain its connection check,
 native smoke reporting, and shared browser/Tauri assets. Do not create a second
-frontend in the Python package. Before adding gameplay controls, introduce the
-React/TypeScript/Vite tooling and generated contract types selected in
-[the accepted client architecture](CLIENT-ARCHITECTURE.md). Keep rendering,
+frontend in the Python package. React/TypeScript/Vite tooling and generated
+contract types follow [the accepted client architecture](CLIENT-ARCHITECTURE.md).
+Keep rendering,
 selection/action previews, and HTTP transport in separate modules as it grows.
 
 The browser calls the HTTP API directly; it does not need the Python SDK or MCP

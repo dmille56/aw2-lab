@@ -94,6 +94,7 @@ def main() -> None:
             ignore=shutil.ignore_patterns(
                 "node_modules",
                 "target",
+                "dist",
                 "gen",
                 "coverage",
                 "test-results",
@@ -109,8 +110,10 @@ def main() -> None:
         env = {
             **os.environ,
             "PYTHONPATH": str(repo / "src"),
+            "AW2_CLIENT_DIST": str(frontend / "dist"),
             "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD": "1",
         }
+        run(["python", "prototypes/client/generate_api.py", "--check"], cwd=repo, env=env)
         run(["npm", "run", "check"], cwd=frontend, env=env)
         run(["python", "prototypes/client/generate_catalog.py", "--check"], cwd=repo, env=env)
         run(["ruff", "check", "prototypes/client"], cwd=repo, env=env)

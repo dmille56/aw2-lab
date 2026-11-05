@@ -33,4 +33,5 @@ assert.deepEqual(
   pkg.devDependencies,
   "package-lock.json dependencies must match package.json",
 );
+assert.deepEqual(lock.packages[""].dependencies, pkg.dependencies);
 console.log("Tauri schema and npm lock consistency passed");

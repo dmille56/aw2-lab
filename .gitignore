@@ -14,3 +14,4 @@ prototypes/client/test-results/
 prototypes/client/playwright-report/
 prototypes/client/gen/
 tests/fixtures/save_states/*.ss*
+prototypes/client/dist

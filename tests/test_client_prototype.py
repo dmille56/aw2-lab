@@ -15,7 +15,9 @@ from aw2_lab.api_contract import StateResponse
 
 
 @pytest.fixture
-def prototype() -> ModuleType:
+def prototype(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> ModuleType:
+    (tmp_path / "index.html").write_text("<html></html>")
+    monkeypatch.setenv("AW2_CLIENT_DIST", str(tmp_path))
     path = Path(__file__).resolve().parents[1] / "prototypes" / "client" / "serve.py"
     spec = importlib.util.spec_from_file_location("client_prototype_serve", path)
     assert spec is not None and spec.loader is not None
@@ -109,18 +111,18 @@ def test_authenticated_windowed_configuration(prototype, monkeypatch, tmp_path):
 
 
 @run_async_test
-async def test_viewer_assets_and_native_authorization_preflight(prototype):
+async def test_viewer_assets_and_native_authorization_preflight(prototype, tmp_path):
     app = FastAPI()
-    prototype.configure_client(app)
+    # Exercise the production asset mount without requiring Node in Python tests.
+    (tmp_path / "index.html").write_text('<script src="./assets/client.js"></script>')
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "assets/client.js").write_text("// built client")
+    prototype.configure_client(app, assets=tmp_path)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://testserver"
     ) as client:
         assert (await client.get("/client/")).status_code == 200
-        for asset in ("client.js", "style.css", "health.js", "transport.js", "catalog.json"):
-            assert (await client.get(f"/client/{asset}")).status_code == 200
-        catalog = (await client.get("/client/catalog.json")).json()
-        assert catalog["schema_version"] == 1
-        assert catalog["units"]["1"]["name"] == "Infantry"
+        assert (await client.get("/client/assets/client.js")).text == "// built client"
         for origin in ("tauri://localhost", "http://tauri.localhost", "https://tauri.localhost"):
             response = await client.options(
                 "/v1/matches/example/state",
@@ -157,3 +159,17 @@ def test_browser_fixture_and_vendored_schema_match_shared_contracts():
     tauri = next(package for package in lock["package"] if package["name"] == "tauri")
     schema = json.loads((client / "schemas/tauri-config.schema.json").read_text())
     assert schema["$id"] == f"https://schema.tauri.app/config/{tauri['version']}"
+
+
+def test_missing_production_assets_report_build_command(prototype, tmp_path):
+    with pytest.raises(ValueError, match="nix build .#client-web"):
+        prototype.configure_client(FastAPI(), assets=tmp_path / "missing")
+
+
+def test_api_schema_is_generated_from_shared_contracts():
+    path = Path(__file__).resolve().parents[1] / "prototypes/client/generate_api.py"
+    spec = importlib.util.spec_from_file_location("client_api_generator", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.SCHEMA_PATH.read_text() == module.schema_text()

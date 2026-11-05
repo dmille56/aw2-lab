@@ -14,8 +14,8 @@ shells for Linux, macOS, Windows, Android, and iOS. React provides the gameplay
 UI components and coordinates presentation state for the map, selected units,
 menus, and command status. Vite provides development serving and asset builds.
 Keep networking, serialized models, and presentation independent of Tauri.
-The compatibility prototype uses static HTML/JavaScript to isolate the native
-runtime from frontend build tooling. It is not the playable client.
+The prototype now uses this React/TypeScript/Vite stack for its read-only viewer.
+Gameplay controls remain planned. Browser and Tauri consume the same Vite build.
 
 Python runs in the authoritative server and the separate Python SDK for scripts
 and agents. UI clients consume HTTP and do not bundle Python, mGBA, ROMs, saves,
@@ -62,7 +62,7 @@ Cross-client requirements are:
 
 - Pydantic models and FastAPI OpenAPI are the schema authority. Generate
   TypeScript types from the versioned schema; retain Python SDK types from shared
-  Python models. Check generated artifacts against the schema in CI. Do not
+  Python models. Check generated artifacts against the schema in local quality gates. Do not
   hand-maintain independent copies of gameplay models.
 - Advertise protocol/schema versions and capabilities before joining a match.
   Reject incompatible major versions; tolerate additive optional fields. Keep
@@ -143,8 +143,9 @@ version against the same endpoint, including origin policy. Test against the
 real FastAPI application; label any ROM-independent launcher stub as such.
 
 The NixOS package/runtime/browser gates have passed for this small prototype.
-React is selected for the eventual gameplay UI; its build and runtime checks
-will be added when the frontend is implemented.
+The read-only viewer now uses React/TypeScript/Vite, with strict type checking,
+generated shared contract types, component tests, and production browser/native
+checks in the local client gate. Other-platform gameplay acceptance remains pending.
 Python SDK implementation and ROM-independent checks are documented in
 [PYTHON-SDK.md](PYTHON-SDK.md). [Live client acceptance](LIVE-SDK-ACCEPTANCE.md)
 passed in both emulator modes, completing the deferred Nix SDK integration gate.

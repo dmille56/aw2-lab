@@ -7,14 +7,20 @@ and observed CO power data, snapshot import/export, HTTP SSE updates, and
 revision-matched screenshots. The existing health check and native smoke reporting
 remain available. Gameplay controls and a visual power meter with verified charge
 thresholds are pending. It does not execute gameplay commands or bundle the server. Cargo.lock pins the
-native dependencies; `package-lock.json` pins the development quality tools.
-The delivered viewer currently needs no npm runtime dependencies or frontend
-build. The small solid-color PNG is a placeholder required by Tauri.
+native dependencies; `package-lock.json` pins React, TypeScript, Vite, and the
+quality tools. React renders the viewer; Vite builds one shared production asset
+directory for the browser and native shell. The small solid-color PNG is a placeholder required by Tauri.
 
 From the repository root, build the packaged native client:
 
 ```sh
 nix build .#client-prototype
+```
+
+Build the same production assets for the browser helper (repeat after frontend changes):
+
+```sh
+nix build .#client-web --out-link prototypes/client/dist
 ```
 
 Run the prototype API with an external supported ROM (close any other server
@@ -100,11 +106,13 @@ The separate `nix develop .#client` shell provides Rust, Cargo, rustfmt, Node,
 TypeScript, pkg-config, and GTK/WebKit development libraries. For iterative native
 work run `cargo run --locked --manifest-path prototypes/client/Cargo.toml` in that
 shell. Use the wrapped Nix package for runtime acceptance. Rebuild it after any
-asset changes; the browser helper serves assets directly from the checkout.
+asset changes. The browser helper serves `prototypes/client/dist`, never raw
+TypeScript. You can also set `AW2_CLIENT_DIST` to an existing production build
+directory. The Nix desktop package embeds that same Vite build; Node is a build
+dependency, not a native runtime requirement.
 
 Only the default loopback address/port is supported by this prototype. Production
-server selection, mobile HTTPS, gameplay controls, generated TypeScript schemas, and production frontend tooling
-remain follow-up work. Native platforms other than Linux require their own
+server selection, mobile HTTPS, and gameplay controls remain follow-up work. Native platforms other than Linux require their own
 shell scaffolding, SDKs, signing and runtime evidence.
 
 ## Inspect a match or snapshot
@@ -165,12 +173,13 @@ the checkout. A changed package lock requires rebuilding/re-entering the shell.
 
 | Gate                                                                              | Fast/pre-commit | Full/local |
 | --------------------------------------------------------------------------------- | --------------- | ---------- |
-| JavaScript ESLint, Prettier, CSS Stylelint, HTML validation                       | Yes             | Yes        |
+| Typed ESLint/React Hooks, Prettier, CSS Stylelint, HTML validation                | Yes             | Yes        |
 | Tauri JSON schema and npm lock consistency                                        | Yes             | Yes        |
-| Vitest snapshot-validation/transport tests and V8 coverage report                 | Yes             | Yes        |
+| Vitest validation/session/component tests and V8 coverage report                  | Yes             | Yes        |
 | Python Ruff, strict mypy (including fixture helpers), focused pytest              | Yes             | Yes        |
+| Strict TypeScript and Vite production build                                       | Yes             | Yes        |
 | Rust `cargo fmt --check`                                                          | Yes             | Yes        |
-| Catalog drift and shared fixture/schema compatibility                             | Yes             | Yes        |
+| Catalog/API-schema/type/validator drift and fixture compatibility                 | Yes             | Yes        |
 | Playwright behavior, keyboard navigation, axe accessibility and visual regression |                 | Yes        |
 | Packaged Tauri build, Clippy with denied warnings, locked Cargo tests             |                 | Yes        |
 | Packaged X11 native health success/failure under Xvfb                             |                 | Yes        |
@@ -197,11 +206,45 @@ nix run .#check-client -- --update-snapshots
 ```
 
 Review and commit the resulting PNG changes in `tests/browser/*-snapshots/`, then
-run the full gate without that flag. Coverage currently measures the extracted
-snapshot validator and destination selection; browser tests cover the integrated
-viewer. React component tests, typed ESLint, TypeScript checking, generated API
-schema drift, and the Vite production build must be added during the frontend
-migration, before new UI features.
+run the full gate without that flag. Coverage measures handwritten TypeScript/React
+modules, including the session layer and components; generated code and the entry
+point are excluded. Browser tests cover the integrated production viewer. The
+migration preserves the existing visual baseline.
+
+## Frontend development and generated contracts
+
+For an editable npm workspace, enter `nix develop .#client`, then:
+
+```sh
+cd prototypes/client
+npm ci
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`. Vite proxies `/health` and `/v1` to the separately
+running local API on port 43127, including streaming events. The production
+browser helper continues to serve `/client/` from the same origin as the API.
+Use `npm run build` before direct `cargo run`; direct Cargo does not invoke
+Tauri CLI's `beforeBuildCommand`. The packaged Nix build handles this automatically.
+
+Python's shared v1 models are the schema authority. Both input and output schemas
+are exported without constructing an API, accessing credentials, or launching an
+emulator. After changing those contracts, regenerate and review the artifacts:
+
+```sh
+PYTHONPATH=src python prototypes/client/generate_api.py
+cd prototypes/client
+npm run generate
+```
+
+`schemas/api-v1.json` is an OpenAPI 3.1 components document, not an endpoint catalog.
+`web/generated/api.ts` supplies types for API input/output models; handwritten UI
+modules import those types. `web/generated/validate-state.js` validates incoming
+state against that schema, followed by boundary and resource-limit checks. The
+validator is generated ahead of time rather than compiling schemas in the webview,
+so Tauri needs no `unsafe-eval` CSP exception. UUID identity is checked at the
+client boundary; date-time format semantics remain server validation. Both Python
+schema drift and Node-generated type/validator drift fail the local quality gate.
 
 `package-lock.json` pins the frontend development tools. Playwright's npm version
 must equal the version in the locked nixpkgs package set; the flake rejects a
