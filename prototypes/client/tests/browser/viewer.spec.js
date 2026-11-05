@@ -147,6 +147,65 @@ test("rejects screenshot metadata from a different boundary", async ({
   await expect(page.locator("#screenshot")).toBeHidden();
 });
 
+test("switches themes, follows system appearance, and persists explicit choices", async ({
+  page,
+}) => {
+  const appearance = page.locator("#appearance");
+  const theme = page.locator("#theme");
+  await expect(theme.locator("option")).toHaveText(["Classic", "Gruvbox"]);
+  await page.emulateMedia({ colorScheme: "light" });
+  await appearance.selectOption("system");
+  await expect(page.locator("body")).toHaveCSS(
+    "background-color",
+    "rgb(244, 246, 248)",
+  );
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("body")).toHaveCSS(
+    "background-color",
+    "rgb(16, 25, 35)",
+  );
+  await theme.selectOption("gruvbox");
+  await expect(page.locator("body")).toHaveCSS(
+    "background-color",
+    "rgb(40, 40, 40)",
+  );
+  await appearance.selectOption("light");
+  await expect(page.locator("body")).toHaveCSS(
+    "background-color",
+    "rgb(251, 241, 199)",
+  );
+  await page.reload();
+  await expect(page.locator("#theme")).toHaveValue("gruvbox");
+  await expect(page.locator("#appearance")).toHaveValue("light");
+  await expect(page.locator("body")).toHaveCSS(
+    "background-color",
+    "rgb(251, 241, 199)",
+  );
+  await connect(page);
+  await page.locator("#board .tile").first().click();
+  await expect(page.locator("#board .tile.selected")).toHaveCount(1);
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa"])
+    .analyze();
+  expect(results.violations).toEqual([]);
+  await page.locator("#appearance").selectOption("dark");
+  await expect(page.locator("body")).toHaveCSS(
+    "background-color",
+    "rgb(40, 40, 40)",
+  );
+  const darkResults = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa"])
+    .analyze();
+  expect(darkResults.violations).toEqual([]);
+  await page.reload();
+  await expect(page.locator("#theme")).toHaveValue("gruvbox");
+  await expect(page.locator("#appearance")).toHaveValue("dark");
+  await expect(page.locator("body")).toHaveCSS(
+    "background-color",
+    "rgb(40, 40, 40)",
+  );
+});
+
 test("distinguishes your slot from the active player and toggles visible coordinates", async ({
   page,
 }) => {

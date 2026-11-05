@@ -147,6 +147,16 @@ windows. Manual tile sizing turns automatic fit off. Coordinate labels are optio
 keyboard navigation keeps the selected tile focused and scrolls it into view.
 Property ownership and unit ownership are displayed separately.
 
+Choose Light, Dark, or Use system default from the Appearance control. System
+mode follows the browser or operating system color preference immediately.
+Theme palettes live in `web/appearance.ts`; each registered theme defines both
+light and dark color tokens, independent of the appearance mode. Adding a theme
+there automatically adds a Theme selector alongside Appearance. The selected
+theme and mode are stored in `localStorage`, which persists in both the browser
+client and the shared Tauri webview across reloads and app restarts. Existing
+appearance-only preferences migrate to the Classic theme. The available themes
+are Classic and Gruvbox, each with light and dark variants.
+
 Live connections read the authenticated `/v1/matches/{match}/identity` endpoint.
 Your player panel and unit labels are marked independently of the active player.
 Operators have no player slot; imported snapshots carry no authenticated perspective.

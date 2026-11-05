@@ -1,10 +1,47 @@
 :root {
   font-family: system-ui, sans-serif;
-  color: #e6edf6;
-  background: #101923;
-  color-scheme: dark;
+  color: var(--text);
+  color-scheme: light dark;
 
+  --page: #101923;
+  --text: #e6edf6;
+  --muted: #afc0cf;
+  --card: #192633;
+  --border: #334657;
+  --control: #243749;
+  --control-hover: #35516b;
+  --control-border: #526779;
+  --control-text: #fff;
+  --input: #101923;
+  --accent: #86cbd1;
+  --focus-on-board: #fff;
+  --player-card: #101923;
+  --legend: #253a4b;
+  --error: #582d32;
+  --board: #14202a;
   --cell: 58px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    --page: #f4f6f8;
+    --text: #18232e;
+    --muted: #4c5b68;
+    --card: #fff;
+    --border: #c4cdd5;
+    --control: #e6edf2;
+    --control-hover: #d5e1e9;
+    --control-border: #8293a1;
+    --control-text: #18232e;
+    --input: #fff;
+    --accent: #00666f;
+    --focus-on-board: #142536;
+    --player-card: #f4f6f8;
+    --legend: #e6edf2;
+    --error: #fce8e8;
+  }
 }
 
 * {
@@ -13,6 +50,7 @@
 
 body {
   margin: 0;
+  background: var(--page);
 }
 
 header,
@@ -41,7 +79,7 @@ h2 {
 
 .eyebrow {
   letter-spacing: 0.18em;
-  color: #86cbd1;
+  color: var(--accent);
   font-size: 12px;
 }
 
@@ -57,17 +95,17 @@ input,
 
 button,
 .file-label {
-  border: 1px solid #526779;
+  border: 1px solid var(--control-border);
   border-radius: 6px;
-  background: #243749;
-  color: #fff;
+  background: var(--control);
+  color: var(--control-text);
   padding: 9px 14px;
   cursor: pointer;
 }
 
 button:where(:not(.tile)):hover,
 .file-label:hover {
-  background: #35516b;
+  background: var(--control-hover);
 }
 
 button:disabled {
@@ -77,10 +115,10 @@ button:disabled {
 
 input {
   display: block;
-  background: #101923;
-  border: 1px solid #526779;
+  background: var(--input);
+  border: 1px solid var(--control-border);
   border-radius: 5px;
-  color: #fff;
+  color: var(--text);
   padding: 8px;
   width: 100%;
   margin-top: 5px;
@@ -116,9 +154,32 @@ form label {
   margin: 0 auto 0 0;
 }
 
+.appearance-setting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+select {
+  font: inherit;
+  color: var(--text);
+  background: var(--input);
+  border: 1px solid var(--control-border);
+  border-radius: 5px;
+  padding: 8px;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+.file-label:focus-within {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .card {
-  background: #192633;
-  border: 1px solid #334657;
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 18px;
   margin-bottom: 16px;
@@ -128,7 +189,7 @@ form label {
 #boundary,
 #screenshot-label {
   font-size: 13px;
-  color: #afc0cf;
+  color: var(--muted);
 }
 
 .file-label input {
@@ -156,7 +217,7 @@ form label {
   display: grid;
   width: max-content;
   gap: 1px;
-  background: #14202a;
+  background: var(--board);
 }
 
 .tile {
@@ -182,7 +243,7 @@ form label {
 
 .tile:focus-visible,
 .tile.selected {
-  outline: 3px solid #fff;
+  outline: 3px solid var(--focus-on-board);
   outline-offset: -3px;
   z-index: 1;
 }
@@ -267,7 +328,7 @@ form label {
 .player {
   overflow-wrap: anywhere;
   padding: 10px;
-  background: #101923;
+  background: var(--player-card);
   border-radius: 4px;
   flex: 1;
   min-width: 180px;
@@ -286,7 +347,7 @@ dl {
 }
 
 dt {
-  color: #afc0cf;
+  color: var(--muted);
 }
 
 dd {
@@ -310,11 +371,11 @@ dd {
 #legend span {
   font-size: 12px;
   padding: 5px;
-  background: #253a4b;
+  background: var(--legend);
 }
 
 #error {
-  background: #582d32;
+  background: var(--error);
   padding: 14px;
   border-radius: 6px;
   white-space: pre-wrap;
@@ -365,7 +426,7 @@ summary {
 }
 
 #fit-map[aria-pressed="true"] {
-  outline: 2px solid #86cbd1;
+  outline: 2px solid var(--accent);
 }
 
 .terrain-label {
@@ -388,12 +449,12 @@ summary {
 }
 
 .tile[data-your-unit="true"] .unit {
-  text-decoration: underline 2px #86cbd1;
+  text-decoration: underline 2px var(--accent);
   text-underline-offset: 2px;
 }
 
 .your-player {
-  outline: 2px solid #86cbd1;
+  outline: 2px solid var(--accent);
 }
 
 .active-player strong::before {

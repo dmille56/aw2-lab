@@ -4,6 +4,14 @@ import { coName, humanSlot, perspective, playerName } from "./presentation";
 import { Health } from "./Health";
 import { MatchSession } from "./session";
 import {
+  applyTheme,
+  readThemePreference,
+  saveThemePreference,
+  THEMES,
+  type Appearance,
+  type ThemeId,
+} from "./appearance";
+import {
   Details,
   UnitInspector,
   observed,
@@ -19,6 +27,7 @@ export function App() {
   const [selected, setSelected] = useState<Position | null>(null);
   const [cargo, setCargo] = useState<number | null>(null);
   const [filter, setFilter] = useState("");
+  const [themePreference, setThemePreference] = useState(readThemePreference);
   const tokenInput = useRef<HTMLInputElement>(null);
   const clearToken = () => {
     if (tokenInput.current) tokenInput.current.value = "";
@@ -27,6 +36,20 @@ export function App() {
     if (!view.connected && tokenInput.current) tokenInput.current.value = "";
   }, [view.connected]);
   useEffect(() => () => session.disconnect(), [session]);
+  useEffect(() => {
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const update = () =>
+      applyTheme(
+        document.documentElement,
+        themePreference,
+        media?.matches ?? false,
+      );
+    update();
+    saveThemePreference(themePreference);
+    if (themePreference.appearance !== "system" || !media) return;
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, [themePreference]);
   const snapshot = view.snapshot,
     obs = snapshot?.observation;
   const battle =
@@ -104,6 +127,46 @@ export function App() {
             <button type="submit">Connect</button>
           </form>
           <div className="toolbar">
+            {Object.keys(THEMES).length > 1 && (
+              <label className="appearance-setting" htmlFor="theme">
+                Theme
+                <select
+                  id="theme"
+                  value={themePreference.theme}
+                  onChange={(event) => {
+                    const theme = event.currentTarget.value as ThemeId;
+                    setThemePreference((preference) => ({
+                      ...preference,
+                      theme,
+                    }));
+                  }}
+                >
+                  {Object.entries(THEMES).map(([id, definition]) => (
+                    <option key={id} value={id}>
+                      {definition.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <label className="appearance-setting" htmlFor="appearance">
+              Appearance
+              <select
+                id="appearance"
+                value={themePreference.appearance}
+                onChange={(event) => {
+                  const appearance = event.currentTarget.value as Appearance;
+                  setThemePreference((preference) => ({
+                    ...preference,
+                    appearance,
+                  }));
+                }}
+              >
+                <option value="system">Use system default</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
             <label className="file-label">
               Open snapshot
               <input
