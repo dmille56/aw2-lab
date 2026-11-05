@@ -151,5 +151,9 @@ async def screenshot(mid: str, request: Request, revision: int) -> Response:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=43979)
+    parser.add_argument("--fd", type=int, help="serve on an already-bound socket descriptor")
     args = parser.parse_args()
-    uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning")
+    if args.fd is None:
+        uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning")
+    else:
+        uvicorn.run(app, fd=args.fd, log_level="warning")

@@ -18,11 +18,24 @@ def run(command: list[str], *, cwd: Path, env: dict[str, str], timeout: int = 60
     subprocess.run(command, cwd=cwd, env=env, check=True, timeout=timeout)
 
 
+def reserve_smoke_listener() -> socket.socket:
+    """Bind an inherited localhost socket on an unused port for the smoke fixture."""
+    while True:
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            listener.bind(("127.0.0.1", 0))
+            if listener.getsockname()[1] == 43127:
+                listener.close()
+                continue
+            listener.listen(128)
+            listener.set_inheritable(True)
+            return listener
+        except OSError:
+            listener.close()
+            raise
+
+
 def native_smoke(repo: Path, frontend: Path, env: dict[str, str]) -> None:
-    # The fixture server, never an emulator, owns this port only for the smoke test.
-    with socket.socket() as probe:
-        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        probe.bind(("127.0.0.1", 43127))
     built = (
         subprocess.check_output(
             ["nix", "build", "--no-link", "--print-out-paths", f"{repo}#client-prototype"],
@@ -34,32 +47,39 @@ def native_smoke(repo: Path, frontend: Path, env: dict[str, str]) -> None:
         .splitlines()[-1]
     )
     command = ["xvfb-run", "-a", str(Path(built) / "bin/aw2-client-prototype")]
-    fixture_env = {**env, "AW2_CLIENT_FIXTURE_ID": uuid4().hex}
-    smoke_env = {**fixture_env, "AW2_CLIENT_SMOKE_TEST": "1", "GDK_BACKEND": "x11"}
-    with subprocess.Popen(
-        ["python", "tests/server.py", "--port", "43127"],
-        cwd=frontend,
-        env=fixture_env,
-    ) as server:
-        try:
-            for _ in range(100):
-                if server.poll() is not None:
-                    raise RuntimeError("Synthetic native fixture server exited")
-                try:
-                    with urlopen("http://127.0.0.1:43127/health", timeout=1) as response:
-                        if (
-                            json.load(response).get("fixture_id")
-                            == fixture_env["AW2_CLIENT_FIXTURE_ID"]
-                        ):
-                            break
-                except OSError:
-                    time.sleep(0.1)
-            else:
-                raise RuntimeError("Synthetic native fixture server did not become ready")
-            run(command, cwd=repo, env=smoke_env, timeout=30)
-        finally:
-            server.terminate()
-            server.wait(timeout=10)
+    with reserve_smoke_listener() as listener:
+        port = listener.getsockname()[1]
+        fixture_env = {
+            **env,
+            "AW2_CLIENT_API_PORT": str(port),
+            "AW2_CLIENT_FIXTURE_ID": uuid4().hex,
+        }
+        smoke_env = {**fixture_env, "AW2_CLIENT_SMOKE_TEST": "1", "GDK_BACKEND": "x11"}
+        with subprocess.Popen(
+            ["python", "tests/server.py", "--fd", str(listener.fileno())],
+            cwd=frontend,
+            env=fixture_env,
+            pass_fds=(listener.fileno(),),
+        ) as server:
+            try:
+                for _ in range(100):
+                    if server.poll() is not None:
+                        raise RuntimeError("Synthetic native fixture server exited")
+                    try:
+                        with urlopen(f"http://127.0.0.1:{port}/health", timeout=1) as response:
+                            if (
+                                json.load(response).get("fixture_id")
+                                == fixture_env["AW2_CLIENT_FIXTURE_ID"]
+                            ):
+                                break
+                    except OSError:
+                        time.sleep(0.1)
+                else:
+                    raise RuntimeError("Synthetic native fixture server did not become ready")
+                run(command, cwd=repo, env=smoke_env, timeout=30)
+            finally:
+                server.terminate()
+                server.wait(timeout=10)
     # Missing-server behavior is part of the native smoke contract too.
     failed = subprocess.run(command, cwd=repo, env=smoke_env, timeout=30, check=False)
     if failed.returncode != 1:

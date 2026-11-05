@@ -4,6 +4,11 @@ import { coName, humanSlot, perspective, playerName } from "./presentation";
 import { Health } from "./Health";
 import { MatchSession } from "./session";
 import {
+  activePowerLabel,
+  nextPowerThresholdLabel,
+  powerMeterLabel,
+} from "./co_power";
+import {
   applyTheme,
   readThemePreference,
   saveThemePreference,
@@ -335,14 +340,16 @@ export function App() {
                   Funds: {player.funds} · CO: {coName(player.co_id)} · ID{" "}
                   {player.co_id}
                 </p>
+                <p>CO power: {activePowerLabel(player.active_power)}</p>
+                <p>Power meter: {powerMeterLabel(player.power_meter)}</p>
+                <p>Power uses: {observed(player.power_use_counter)}</p>
                 <p>
-                  CO power:{" "}
-                  {player.active_power === 0
-                    ? "Inactive"
-                    : `Active (observed flag ${player.active_power})`}
+                  Charge thresholds:{" "}
+                  {nextPowerThresholdLabel(
+                    player.co_id,
+                    player.power_use_counter,
+                  )}
                 </p>
-                <p>Power meter: {observed(player.power_meter)}</p>
-                <p>Charge thresholds unavailable; readiness is not inferred.</p>
                 <p>
                   Units:{" "}
                   {

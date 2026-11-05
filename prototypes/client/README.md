@@ -5,8 +5,9 @@ It shares browser assets with Tauri 2 and includes an initial read-only match
 viewer: selectable terrain and unit tiles, an inspector and roster, player funds
 and observed CO power data, snapshot import/export, HTTP SSE updates, and
 revision-matched screenshots. The existing health check and native smoke reporting
-remain available. Gameplay controls and a visual power meter with verified charge
-thresholds are pending. It does not execute gameplay commands or bundle the server. Cargo.lock pins the
+remain available. Verified CO charge thresholds are shown as reference data where
+known; gameplay controls remain planned. It does not execute gameplay commands
+or bundle the server. Cargo.lock pins the
 native dependencies; `package-lock.json` pins React, TypeScript, Vite, and the
 quality tools. React renders the viewer; Vite builds one shared production asset
 directory for the browser and native shell. The small solid-color PNG is a placeholder required by Tauri.
@@ -111,8 +112,9 @@ TypeScript. You can also set `AW2_CLIENT_DIST` to an existing production build
 directory. The Nix desktop package embeds that same Vite build; Node is a build
 dependency, not a native runtime requirement.
 
-Only the default loopback address/port is supported by this prototype. Production
-server selection, mobile HTTPS, and gameplay controls remain follow-up work. Native platforms other than Linux require their own
+The normal native client defaults to the API at `127.0.0.1:43127`; the smoke-test
+runner can override that port for its isolated fixture. Production server
+selection, mobile HTTPS, and gameplay controls remain follow-up work. Native platforms other than Linux require their own
 shell scaffolding, SDKs, signing and runtime evidence.
 
 ## Inspect a match or snapshot
@@ -221,9 +223,10 @@ full runs also save focused coverage reports there. Ordinary gates use synthetic
 state and never start mGBA or need a ROM. Live emulator tests remain explicitly
 opt-in through the existing integration-test commands.
 
-The full gate needs ports **43979** (browser fixture) and **43127** (native health
-fixture) free; stop the real API first. The native check verifies its own fixture
-identity and never treats a connection to an existing game server as a pass.
+The full gate uses port **43979** for the browser fixture. The native health
+fixture reserves an ephemeral loopback port and passes it to the packaged app, so
+it can run alongside the normal API on port 43127. The native check verifies its
+own fixture identity and never treats a connection to an existing game server as a pass.
 Xvfb checks establish native startup and HTTP behavior, not full native rendering,
 file dialogs, Wayland, or other-platform acceptance. Those remain milestone tasks.
 

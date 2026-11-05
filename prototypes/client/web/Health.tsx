@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { API_BASE } from "./transport";
+import { API_BASE, getApiBase } from "./transport";
 import { message } from "./session";
 
 export function Health() {
@@ -13,9 +13,11 @@ export function Health() {
     setPending(true);
     setResult("Connecting…");
     let connected = false,
-      text: string;
+      text: string,
+      apiBase = API_BASE;
     try {
-      const response = await fetch(`${API_BASE}/health`, {
+      apiBase = await getApiBase();
+      const response = await fetch(`${apiBase}/health`, {
         cache: "no-store",
         signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]),
       });
@@ -33,7 +35,7 @@ export function Health() {
       text = `Connected\n${JSON.stringify(health, null, 2)}`;
       connected = true;
     } catch (error) {
-      text = `Cannot reach the AW2 Lab server at ${API_BASE || location.origin}.\nStart the local server, then choose Check connection.\nDetails: ${message(error)}`;
+      text = `Cannot reach the AW2 Lab server at ${apiBase || location.origin}.\nStart the local server, then choose Check connection.\nDetails: ${message(error)}`;
     }
     if (controller.signal.aborted) return;
     setPending(false);

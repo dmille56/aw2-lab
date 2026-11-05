@@ -26,6 +26,43 @@ def prototype(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> ModuleType:
     return module
 
 
+def test_native_smoke_reserves_an_ephemeral_port(monkeypatch: pytest.MonkeyPatch) -> None:
+    check_path = Path(__file__).resolve().parents[1] / "prototypes" / "client" / "check.py"
+    spec = importlib.util.spec_from_file_location("client_check", check_path)
+    assert spec is not None and spec.loader is not None
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+
+    class FakeListener:
+        address = None
+        listening = False
+        inheritable = False
+
+        def bind(self, address: tuple[str, int]) -> None:
+            self.address = address
+
+        def getsockname(self) -> tuple[str, int]:
+            return ("127.0.0.1", 49381)
+
+        def listen(self, backlog: int) -> None:
+            self.listening = backlog == 128
+
+        def set_inheritable(self, inheritable: bool) -> None:
+            self.inheritable = inheritable
+
+        def close(self) -> None:
+            pass
+
+    listener = FakeListener()
+    monkeypatch.setattr(checker.socket, "socket", lambda *_args: listener)
+    result = checker.reserve_smoke_listener()
+    assert result is listener
+    assert listener.address == ("127.0.0.1", 0)
+    assert listener.getsockname()[1] != 43127
+    assert listener.listening
+    assert listener.inheritable
+
+
 @pytest.mark.parametrize("use_cli", [False, True])
 def test_rom_path_configuration(
     prototype: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, use_cli: bool

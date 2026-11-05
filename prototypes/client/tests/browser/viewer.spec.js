@@ -56,6 +56,10 @@ test("inspects the board, navigates with keyboard, filters units, and passes acc
   await page.locator("#board .tile").first().click();
   await expect(page.locator("#inspector")).toContainText("Infantry");
   await expect(page.locator("#players")).toContainText("Power meter: 0");
+  await expect(page.locator("#players")).toContainText("Power uses: 0");
+  await expect(page.locator("#players")).toContainText(
+    "Charge thresholds: Power 32,400 charge units · Super 64,800 charge units (next use; reference only)",
+  );
   await expect(page.locator("#players")).toContainText("CO power: Inactive");
   await page.keyboard.press("ArrowRight");
   await expect(page.locator("#inspector")).toContainText("Tile (1, 0)");
@@ -90,9 +94,24 @@ test("imports and exports a coherent snapshot, rejects incompatible data and sho
     value: null,
     reasons: ["Not observed"],
   };
+  unknown.observation.game_state.battle.value.players[0].power_use_counter = {
+    status: "unknown",
+    value: null,
+    reasons: ["Counter not observed"],
+  };
+  unknown.observation.game_state.battle.value.players[0].active_power = 2;
   await upload(page, unknown);
   await expect(page.locator("#players")).toContainText(
     "Power meter: unknown: Not observed",
+  );
+  await expect(page.locator("#players")).toContainText(
+    "Power uses: unknown: Counter not observed",
+  );
+  await expect(page.locator("#players")).toContainText(
+    "CO power: Super Power active",
+  );
+  await expect(page.locator("#players")).toContainText(
+    "Charge thresholds: Unavailable (use count unknown: Counter not observed)",
   );
   const invalid = structuredClone(fixture);
   invalid.observation.game_state.schema_version = 999;

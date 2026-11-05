@@ -1,7 +1,7 @@
 import validateIdentity from "./generated/validate-identity.js";
 import type { components } from "./generated/api";
 export type MatchIdentity = components["schemas"]["MatchIdentityResponse"];
-import { API_BASE } from "./transport";
+import { getApiBase } from "./transport";
 import { MATCH_ID, validateState, type StateResponse } from "./state";
 
 interface Connection {
@@ -76,7 +76,8 @@ export class MatchSession {
     this.update({ snapshot });
   }
   private async request(c: Connection, suffix: string, optional = false) {
-    const response = await fetch(`${API_BASE}/v1/matches/${c.id}/${suffix}`, {
+    const apiBase = await getApiBase();
+    const response = await fetch(`${apiBase}/v1/matches/${c.id}/${suffix}`, {
       headers: { Authorization: `Bearer ${c.token}` },
       signal: c.abort.signal,
       cache: "no-store",

@@ -87,4 +87,13 @@ describe("shared browser/native destination", () => {
       expect((await import("../web/transport")).API_BASE).toBe(expected);
     },
   );
+  it("uses the packaged native API port supplied by the host", async () => {
+    vi.resetModules();
+    vi.stubEnv("PROD", true);
+    const invoke = vi.fn().mockResolvedValue("http://127.0.0.1:49381");
+    vi.stubGlobal("window", { __TAURI__: { core: { invoke } } });
+    const { getApiBase } = await import("../web/transport");
+    await expect(getApiBase()).resolves.toBe("http://127.0.0.1:49381");
+    expect(invoke).toHaveBeenCalledWith("client_api_base", {});
+  });
 });
