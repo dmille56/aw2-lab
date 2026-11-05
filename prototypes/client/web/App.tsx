@@ -278,23 +278,46 @@ export function App() {
           {view.error}
         </p>
         <section id="match" className="card" hidden={!snapshot}>
-          <h2 id="match-title">
-            {battle
-              ? `Day ${battle.day} · ${owner(battle.active_player_slot)}'s turn`
-              : "Match state"}
-          </h2>
+          <h2 id="match-title">Match overview</h2>
           <p id="boundary">
             {snapshot &&
-              `${view.connected ? "Live match" : "Snapshot · read only"} · ${snapshot.summary.lifecycle} · Revision ${snapshot.summary.revision} · Frame ${obs?.game_state.frame ?? "unavailable"} · ${snapshot.summary.match_id}`}
+              `${view.connected ? "Live match" : "Snapshot · read only"} · Revision ${snapshot.summary.revision} · Frame ${obs?.game_state.frame ?? "unavailable"} · ${snapshot.summary.match_id}`}
           </p>
-          <p id="readiness">
-            {obs
-              ? `Actions: ${obs.action_readiness} · ${obs.action_readiness_reasons.join("; ")}${battle ? ` · Weather: ${observed(battle.weather)} · Fog: ${observed(battle.fog_enabled)}` : ""}`
-              : "No committed observation available."}
-          </p>
+          <Details
+            entries={[
+              ["Lifecycle", snapshot?.summary.lifecycle ?? "Unavailable"],
+              [
+                "Day",
+                battle ? battle.day : "Unavailable (battle state not observed)",
+              ],
+              [
+                "Active player",
+                battle
+                  ? owner(battle.active_player_slot)
+                  : "Unavailable (battle state not observed)",
+              ],
+              [
+                "Weather",
+                battle
+                  ? observed(battle.weather)
+                  : observed(obs?.game_state.battle),
+              ],
+              [
+                "Fog",
+                battle
+                  ? observed(battle.fog_enabled)
+                  : observed(obs?.game_state.battle),
+              ],
+              [
+                "Action readiness",
+                obs
+                  ? `${obs.action_readiness}${obs.action_readiness_reasons.length ? ` · ${obs.action_readiness_reasons.join("; ")}` : ""}`
+                  : "Unavailable (no committed observation)",
+              ],
+            ]}
+          />
           <p id="perspective">
-            {snapshot && perspective(snapshot, view.identity, view.connected)} ·
-            Active: {battle ? owner(battle.active_player_slot) : "Unknown"}
+            {snapshot && perspective(snapshot, view.identity, view.connected)}
           </p>
           <div id="players">
             {battle?.players.map((player) => (

@@ -102,6 +102,34 @@ test("imports and exports a coherent snapshot, rejects incompatible data and sho
   );
   await expect(page.locator("#board .tile")).toHaveCount(0);
 });
+test("shows match facts together and explains unavailable observations", async ({
+  page,
+}) => {
+  await upload(page, fixture);
+  const values = page.locator("#match dl dd");
+  await expect(values).toHaveText([
+    "playable",
+    "1",
+    "Player 1",
+    "clear",
+    "false",
+    "ready · Map input is recognized; individual action legality is not predicted",
+  ]);
+  await expect(page.locator("#players")).toContainText("Funds: 0");
+
+  const withoutObservation = structuredClone(fixture);
+  withoutObservation.observation = null;
+  await upload(page, withoutObservation);
+  await expect(values).toHaveText([
+    "playable",
+    "Unavailable (battle state not observed)",
+    "Unavailable (battle state not observed)",
+    "unavailable",
+    "unavailable",
+    "Unavailable (no committed observation)",
+  ]);
+  await expect(page.locator("#players")).toBeEmpty();
+});
 test("follows SSE revisions, clears stale screenshots, and loses access on revocation", async ({
   page,
   request,
