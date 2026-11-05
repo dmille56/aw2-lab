@@ -1,0 +1,290 @@
+{
+  "contract_version": 1,
+  "summary": {
+    "contract_version": 1,
+    "match_id": "00000000-0000-4000-8000-000000000001",
+    "revision": 1,
+    "lifecycle": "playable",
+    "configuration": {
+      "contract_version": 1,
+      "map_id": "bean_island",
+      "players": [
+        {
+          "contract_version": 1,
+          "slot": "slot_1",
+          "co_id": "andy",
+          "color": "red",
+          "team_id": "a",
+          "control": "external"
+        },
+        {
+          "contract_version": 1,
+          "slot": "slot_2",
+          "co_id": "max",
+          "color": "blue",
+          "team_id": "b",
+          "control": "external"
+        }
+      ],
+      "rules": {
+        "contract_version": 1,
+        "fog": false,
+        "weather": "clear",
+        "income_per_property": 1000,
+        "day_limit": 30,
+        "capture_limit": null,
+        "co_powers": true
+      }
+    },
+    "slots": [
+      {
+        "contract_version": 1,
+        "slot": "slot_1",
+        "status": "joined",
+        "display_name": "one"
+      },
+      {
+        "contract_version": 1,
+        "slot": "slot_2",
+        "status": "joined",
+        "display_name": "two"
+      }
+    ],
+    "created_at": "2026-01-01T00:00:00Z"
+  },
+  "settled": true,
+  "observation": {
+    "match_id": "00000000-0000-4000-8000-000000000001",
+    "revision": 1,
+    "game_state": {
+      "schema_version": 4,
+      "frame": 123,
+      "context": {
+        "rom_profile": {
+          "name": "Advance Wars 2: Black Hole Rising (US) revision 0",
+          "title": "ADVANCEWARS2",
+          "game_code": "AW2E",
+          "maker_code": "01",
+          "revision": 0,
+          "sha256": "ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134",
+          "memory_layout_version": "aw2-us-v1",
+          "decoder_version": "1"
+        }
+      },
+      "validation": {
+        "frame": 123,
+        "lifecycle": {
+          "phase": "battle_player_turn",
+          "engine": "battle",
+          "battle_decode_safety": "unknown",
+          "matched_scripts": [],
+          "active_process_scripts": []
+        },
+        "geometry": {
+          "status": "valid",
+          "reasons": [],
+          "count": 4
+        },
+        "properties": {
+          "status": "valid",
+          "reasons": [],
+          "count": 2
+        },
+        "players": {
+          "status": "valid",
+          "reasons": [],
+          "count": 2
+        },
+        "units": {
+          "status": "valid",
+          "reasons": [],
+          "count": 2
+        },
+        "live_reasons": []
+      },
+      "ui": {
+        "frame": 123,
+        "map_cursor": {
+          "frame": 123,
+          "status": "available",
+          "x": 0,
+          "y": 0,
+          "reasons": []
+        },
+        "menu": {
+          "frame": 123,
+          "family": "map_input",
+          "selected_unit": null,
+          "reasons": [],
+          "selected_item": null,
+          "actionable": null,
+          "unrecognized": null,
+          "items": [],
+          "production_unit_types": [],
+          "selected_production_index": null,
+          "confirmation_kind": null
+        }
+      },
+      "battle": {
+        "status": "available",
+        "value": {
+          "day": 1,
+          "active_player_slot": 1,
+          "weather": {
+            "status": "available",
+            "value": "clear",
+            "reasons": []
+          },
+          "map": {
+            "width": 2,
+            "height": 2,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "graphical_tile_id": 3,
+                "terrain_class": 6,
+                "owner_slot": 1
+              },
+              {
+                "x": 1,
+                "y": 0,
+                "graphical_tile_id": 1,
+                "terrain_class": 1,
+                "owner_slot": 0
+              },
+              {
+                "x": 0,
+                "y": 1,
+                "graphical_tile_id": 1,
+                "terrain_class": 1,
+                "owner_slot": 0
+              },
+              {
+                "x": 1,
+                "y": 1,
+                "graphical_tile_id": 4,
+                "terrain_class": 6,
+                "owner_slot": 2
+              }
+            ]
+          },
+          "properties": [
+            {
+              "x": 0,
+              "y": 0,
+              "terrain_class": 6,
+              "owner_slot": 1
+            },
+            {
+              "x": 1,
+              "y": 1,
+              "terrain_class": 6,
+              "owner_slot": 2
+            }
+          ],
+          "players": [
+            {
+              "slot": 1,
+              "control_type": 1,
+              "team_id": 0,
+              "co_id": 1,
+              "funds": 0,
+              "active_power": 0,
+              "power_meter": {
+                "status": "available",
+                "value": 0,
+                "reasons": []
+              },
+              "power_use_counter": {
+                "status": "available",
+                "value": 0,
+                "reasons": []
+              }
+            },
+            {
+              "slot": 2,
+              "control_type": 2,
+              "team_id": 1,
+              "co_id": 2,
+              "funds": 0,
+              "active_power": 0,
+              "power_meter": {
+                "status": "available",
+                "value": 0,
+                "reasons": []
+              },
+              "power_use_counter": {
+                "status": "available",
+                "value": 0,
+                "reasons": []
+              }
+            }
+          ],
+          "units": [
+            {
+              "reference": 1,
+              "army_slot": 1,
+              "unit_slot": 1,
+              "unit_type": 1,
+              "x": 0,
+              "y": 0,
+              "internal_health": 100,
+              "ammo": 0,
+              "fuel": 99,
+              "used_this_turn": false,
+              "embarked": false,
+              "capture_points": 0,
+              "cargo_references": []
+            },
+            {
+              "reference": 65,
+              "army_slot": 2,
+              "unit_slot": 1,
+              "unit_type": 1,
+              "x": 1,
+              "y": 1,
+              "internal_health": 100,
+              "ammo": 1,
+              "fuel": 99,
+              "used_this_turn": false,
+              "embarked": false,
+              "capture_points": 0,
+              "cargo_references": []
+            }
+          ],
+          "co_effects_enabled": {
+            "status": "available",
+            "value": false,
+            "reasons": []
+          },
+          "fog_enabled": {
+            "status": "available",
+            "value": false,
+            "reasons": []
+          }
+        },
+        "reasons": []
+      }
+    },
+    "unit_identities": [
+      {
+        "reference": 1,
+        "identity_id": "1",
+        "generation": 1
+      },
+      {
+        "reference": 65,
+        "identity_id": "2",
+        "generation": 1
+      }
+    ],
+    "identity_status": "available",
+    "identity_reasons": [],
+    "action_readiness": "ready",
+    "action_readiness_reasons": [
+      "Map input is recognized; individual action legality is not predicted"
+    ],
+    "schema_version": 1
+  }
+}

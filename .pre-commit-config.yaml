@@ -52,6 +52,12 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+      - id: client-quality
+        name: Client quality gates
+        entry: aw2-client-check --fast
+        language: system
+        files: ^(prototypes/client/|nix/client-|flake\.nix$|pyproject\.toml$)
+        pass_filenames: false
       - id: pytest
         name: pytest
         entry: pytest

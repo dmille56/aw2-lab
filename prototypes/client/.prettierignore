@@ -1,0 +1,12 @@
+node_modules/
+target/
+gen/
+coverage/
+test-results/
+playwright-report/
+web/catalog.json
+schemas/
+Cargo.lock
+*.py
+*.rs
+*.toml

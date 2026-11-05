@@ -19,14 +19,16 @@
       <section class="card" aria-label="Server connection">
         <div class="toolbar">
           <h2>Server connection</h2>
-          <button id="check" type="button">Check connection</button>
+          <button type="button" id="check">Check connection</button>
         </div>
         <pre id="result" role="status" aria-live="polite">Not checked.</pre>
       </section>
       <section class="card setup" aria-label="Open match">
+        <!-- html-validate-disable autocomplete-password -- This bearer credential intentionally bypasses saved-password autofill. -->
         <form id="connect">
           <label
             >Match ID<input
+              type="text"
               id="match-id"
               required
               autocomplete="off"
@@ -37,17 +39,18 @@
               type="password"
               required
               autocomplete="off" /></label
-          ><button>Connect</button>
+          ><button type="submit">Connect</button>
         </form>
+        <!-- html-validate-enable autocomplete-password -->
         <div class="toolbar">
           <label class="file-label"
             >Open snapshot<input
               id="snapshot"
               type="file"
               accept="application/json,.json" /></label
-          ><button id="export" disabled>Export snapshot</button
-          ><button id="refresh" disabled>Refresh</button
-          ><button id="disconnect" disabled>Disconnect</button>
+          ><button type="button" id="export" disabled>Export snapshot</button
+          ><button type="button" id="refresh" disabled>Refresh</button
+          ><button type="button" id="disconnect" disabled>Disconnect</button>
         </div>
         <p class="hint">
           Inspect the full structured state. Gameplay controls are coming in the
@@ -56,7 +59,7 @@
       </section>
       <p id="error" role="alert" hidden></p>
       <section id="match" class="card" hidden>
-        <h2 id="match-title"></h2>
+        <h2 id="match-title">Match state</h2>
         <p id="boundary"></p>
         <p id="readiness"></p>
         <div id="players"></div>
@@ -100,6 +103,7 @@
         <h2>Unit roster</h2>
         <label
           >Filter units<input
+            type="text"
             id="filter"
             placeholder="Type, player, coordinates…"
         /></label>
@@ -108,18 +112,20 @@
       <section class="card">
         <div class="toolbar">
           <h2>Emulator reference</h2>
-          <button id="screenshot-button" disabled>
+          <button type="button" id="screenshot-button" disabled>
             Load matching screenshot
           </button>
         </div>
         <p id="screenshot-label">
           Optional image from the displayed committed revision.
         </p>
+        <!-- html-validate-disable element-required-attributes -- The authorized revision supplies src dynamically. -->
         <img
           id="screenshot"
           alt="Emulator screenshot for the displayed revision"
           hidden
         />
+        <!-- html-validate-enable element-required-attributes -->
       </section>
     </main>
   </body>

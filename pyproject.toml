@@ -46,6 +46,6 @@ addopts = "-q"
 
 [tool.mypy]
 python_version = "3.14"
-files = ["src/aw2_lab"]
+files = ["src/aw2_lab", "prototypes/client"]
 strict = true
 ignore_missing_imports = true

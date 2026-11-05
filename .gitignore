@@ -8,4 +8,9 @@ __pycache__/
 result*
 result-*
 prototypes/client/target/
+prototypes/client/node_modules/
+prototypes/client/coverage/
+prototypes/client/test-results/
+prototypes/client/playwright-report/
+prototypes/client/gen/
 tests/fixtures/save_states/*.ss*

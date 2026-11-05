@@ -7,8 +7,9 @@ and observed CO power data, snapshot import/export, HTTP SSE updates, and
 revision-matched screenshots. The existing health check and native smoke reporting
 remain available. Gameplay controls and a visual power meter with verified charge
 thresholds are pending. It does not execute gameplay commands or bundle the server. Cargo.lock pins the
-native dependencies; the prototype has no npm dependencies or build-time network
-assets. The small solid-color PNG is a placeholder required by Tauri.
+native dependencies; `package-lock.json` pins the development quality tools.
+The delivered viewer currently needs no npm runtime dependencies or frontend
+build. The small solid-color PNG is a placeholder required by Tauri.
 
 From the repository root, build the packaged native client:
 
@@ -140,3 +141,77 @@ PYTHONPATH="$PWD/src" python prototypes/client/generate_catalog.py
 
 The test suite checks the generated file for drift. These baseline facts are
 shown separately from observations and may differ from current CO modifiers.
+
+## Automated quality gates
+
+From the repository root, run the fast checks used by pre-commit:
+
+```sh
+nix run .#check-client -- --fast
+```
+
+Run the full client gate before completing client work:
+
+```sh
+nix run .#check-client
+```
+
+The normal Nix/lorri development environment also provides `aw2-client-check`
+with the same arguments. No local `npm install` or browser download is required
+for these commands. The tool copies the current prototype into a temporary
+workspace and links locked Nix-provided tool packages there; it checks current
+uncommitted edits without modifying source files or installing dependencies into
+the checkout. A changed package lock requires rebuilding/re-entering the shell.
+
+| Gate                                                                              | Fast/pre-commit | Full/local |
+| --------------------------------------------------------------------------------- | --------------- | ---------- |
+| JavaScript ESLint, Prettier, CSS Stylelint, HTML validation                       | Yes             | Yes        |
+| Tauri JSON schema and npm lock consistency                                        | Yes             | Yes        |
+| Vitest snapshot-validation/transport tests and V8 coverage report                 | Yes             | Yes        |
+| Python Ruff, strict mypy (including fixture helpers), focused pytest              | Yes             | Yes        |
+| Rust `cargo fmt --check`                                                          | Yes             | Yes        |
+| Catalog drift and shared fixture/schema compatibility                             | Yes             | Yes        |
+| Playwright behavior, keyboard navigation, axe accessibility and visual regression |                 | Yes        |
+| Packaged Tauri build, Clippy with denied warnings, locked Cargo tests             |                 | Yes        |
+| Packaged X11 native health success/failure under Xvfb                             |                 | Yes        |
+
+The existing repository Nix formatting/static checks and all Python/Lua hooks
+remain part of `pre-commit run --all-files`. Checks run locally through pre-commit;
+run the full client command locally for the heavier browser/native checks.
+GitHub Actions testing is deferred. Browser failures retain traces and screenshots under `prototypes/client/test-results/`;
+full runs also save focused coverage reports there. Ordinary gates use synthetic
+state and never start mGBA or need a ROM. Live emulator tests remain explicitly
+opt-in through the existing integration-test commands.
+
+The full gate needs ports **43979** (browser fixture) and **43127** (native health
+fixture) free; stop the real API first. The native check verifies its own fixture
+identity and never treats a connection to an existing game server as a pass.
+Xvfb checks establish native startup and HTTP behavior, not full native rendering,
+file dialogs, Wayland, or other-platform acceptance. Those remain milestone tasks.
+
+Visual baselines use the pinned Nix Chromium and fonts. Review changes rather than
+updating baselines automatically. To intentionally record new baselines:
+
+```sh
+nix run .#check-client -- --update-snapshots
+```
+
+Review and commit the resulting PNG changes in `tests/browser/*-snapshots/`, then
+run the full gate without that flag. Coverage currently measures the extracted
+snapshot validator and destination selection; browser tests cover the integrated
+viewer. React component tests, typed ESLint, TypeScript checking, generated API
+schema drift, and the Vite production build must be added during the frontend
+migration, before new UI features.
+
+`package-lock.json` pins the frontend development tools. Playwright's npm version
+must equal the version in the locked nixpkgs package set; the flake rejects a
+mismatch. When updating dependencies, regenerate the lock and update `npmDepsHash`
+in `nix/client-checks.nix` using `prefetch-npm-deps`. The minimatch override pins
+11.0.1 until ESLint's dependency range includes the patched release; see
+[the upstream advisory](https://github.com/advisories/GHSA-g3hv-75wg-m249).
+
+The official Tauri schema is vendored in `schemas/tauri-config.schema.json` so
+validation is offline. Its `$id` must match the Tauri version in `Cargo.lock`;
+refresh it from `https://schema.tauri.app/config/2` when updating Tauri and review
+the schema change. Generated catalog and vendored schema files are verified
+separately from source formatting/linting.

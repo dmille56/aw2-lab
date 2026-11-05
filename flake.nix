@@ -69,9 +69,14 @@
               python-lsp-server
             ])
           );
+          clientChecks = import ./nix/client-checks.nix {
+            inherit pkgs;
+            python = developmentPython;
+          };
           devTools = [
             developmentPython
             pkgs.ruff
+            clientChecks.tool
           ];
         in
         {
@@ -81,18 +86,22 @@
             devTools
             mgba
             clientPrototype
+            clientChecks
             ;
           defaultPackage = pkgs.symlinkJoin {
             name = "aw2-lab-tools";
             paths = tools ++ [
               runtimePython
               clientPrototype
+              clientChecks.tool
             ];
             meta.mainProgram = "aw2-lab";
           };
           devShell = pkgs.mkShell {
             packages = tools ++ devTools ++ [ clientPrototype ];
             shellHook = ''
+              # Restore color support when the parent environment disables it.
+              unset NO_COLOR
               # Prefer the complete environment over propagated bare Python interpreters.
               export PATH="${developmentPython}/bin:$PATH"
               export PYTHONPATH="$PWD/src''${PYTHONPATH:+:$PYTHONPATH}"
@@ -109,9 +118,14 @@
               pkgs.cargo
               pkgs.rustc
               pkgs.rustfmt
+              pkgs.clippy
+              clientChecks.tool
               pkgs.nodejs
               pkgs.typescript
             ];
+            shellHook = ''
+              unset NO_COLOR
+            '';
           };
         };
       environments = forAllSystems environmentFor;
@@ -126,6 +140,7 @@
           aw2-lab = env.application;
           inherit (env) mgba;
           client-prototype = env.clientPrototype;
+          check-client = env.clientChecks.tool;
           default = env.defaultPackage;
         }
       );
