@@ -12,6 +12,15 @@ import {
   type ThemeId,
 } from "./appearance";
 import {
+  applyUiScale,
+  readUiScale,
+  saveUiScale,
+  UI_SCALE_DEFAULT,
+  UI_SCALE_MAX,
+  UI_SCALE_MIN,
+  UI_SCALE_STEP,
+} from "./ui_scale";
+import {
   Details,
   UnitInspector,
   observed,
@@ -28,6 +37,7 @@ export function App() {
   const [cargo, setCargo] = useState<number | null>(null);
   const [filter, setFilter] = useState("");
   const [themePreference, setThemePreference] = useState(readThemePreference);
+  const [uiScale, setUiScale] = useState(readUiScale);
   const tokenInput = useRef<HTMLInputElement>(null);
   const clearToken = () => {
     if (tokenInput.current) tokenInput.current.value = "";
@@ -50,6 +60,10 @@ export function App() {
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, [themePreference]);
+  useEffect(() => {
+    applyUiScale(document.documentElement, uiScale);
+    saveUiScale(uiScale);
+  }, [uiScale]);
   const snapshot = view.snapshot,
     obs = snapshot?.observation;
   const battle =
@@ -167,6 +181,48 @@ export function App() {
                 <option value="dark">Dark</option>
               </select>
             </label>
+            <fieldset className="ui-scale-setting">
+              <legend>Interface scale (50–200%)</legend>
+              <div>
+                <button
+                  type="button"
+                  id="ui-scale-decrease"
+                  aria-label="Decrease interface scale"
+                  disabled={uiScale <= UI_SCALE_MIN}
+                  onClick={() =>
+                    setUiScale((scale) =>
+                      Math.max(UI_SCALE_MIN, scale - UI_SCALE_STEP),
+                    )
+                  }
+                >
+                  −
+                </button>
+                <output id="ui-scale-value" aria-live="polite">
+                  {uiScale}%
+                </output>
+                <button
+                  type="button"
+                  id="ui-scale-increase"
+                  aria-label="Increase interface scale"
+                  disabled={uiScale >= UI_SCALE_MAX}
+                  onClick={() =>
+                    setUiScale((scale) =>
+                      Math.min(UI_SCALE_MAX, scale + UI_SCALE_STEP),
+                    )
+                  }
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  id="ui-scale-reset"
+                  disabled={uiScale === UI_SCALE_DEFAULT}
+                  onClick={() => setUiScale(UI_SCALE_DEFAULT)}
+                >
+                  Reset
+                </button>
+              </div>
+            </fieldset>
             <label className="file-label">
               Open snapshot
               <input

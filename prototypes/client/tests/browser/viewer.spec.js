@@ -206,6 +206,73 @@ test("switches themes, follows system appearance, and persists explicit choices"
   );
 });
 
+test("scales the whole interface independently, preserves focus, and persists", async ({
+  page,
+}) => {
+  const scale = page.locator("#ui-scale-value");
+  const decrease = page.locator("#ui-scale-decrease");
+  const increase = page.locator("#ui-scale-increase");
+  const reset = page.locator("#ui-scale-reset");
+  const tileSize = page.locator("#zoom");
+
+  await expect(scale).toHaveText("100%");
+  await tileSize.fill("60");
+  for (let step = 0; step < 5; step += 1) await decrease.click();
+  await expect(scale).toHaveText("50%");
+  await expect(decrease).toBeDisabled();
+  const minimumAccessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa"])
+    .analyze();
+  expect(minimumAccessibility.violations).toEqual([]);
+
+  await increase.focus();
+  await page.keyboard.press("Enter");
+  await expect(scale).toHaveText("60%");
+  await expect(increase).toBeFocused();
+  for (let step = 0; step < 13; step += 1) await increase.click();
+  await expect(scale).toHaveText("190%");
+  await increase.focus();
+  await page.keyboard.press("Enter");
+  await expect(scale).toHaveText("200%");
+  await expect(increase).toBeDisabled();
+  await decrease.focus();
+  await page.keyboard.press("Enter");
+  await expect(scale).toHaveText("190%");
+  await expect(decrease).toBeFocused();
+  await increase.click();
+  await expect(scale).toHaveText("200%");
+  await expect(tileSize).toHaveValue("60");
+  await expect(reset).toBeVisible();
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa"])
+    .analyze();
+  expect(accessibility.violations).toEqual([]);
+  expect(
+    await page.evaluate(() =>
+      document.documentElement.style.getPropertyValue("zoom"),
+    ),
+  ).toBe("2");
+  const maximumAccessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa"])
+    .analyze();
+  expect(maximumAccessibility.violations).toEqual([]);
+
+  await reset.click();
+  await increase.click();
+  await increase.click();
+  await expect(scale).toHaveText("120%");
+  await page.reload();
+  await expect(scale).toHaveText("120%");
+  expect(
+    await page.evaluate(() =>
+      document.documentElement.style.getPropertyValue("zoom"),
+    ),
+  ).toBe("1.2");
+  await expect(tileSize).toHaveValue("58");
+  await reset.click();
+  await expect(scale).toHaveText("100%");
+});
+
 test("distinguishes your slot from the active player and toggles visible coordinates", async ({
   page,
 }) => {

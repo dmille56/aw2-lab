@@ -160,6 +160,33 @@ form label {
   gap: 8px;
 }
 
+.ui-scale-setting {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.ui-scale-setting legend {
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+.ui-scale-setting div {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.ui-scale-setting button {
+  padding: 8px 12px;
+}
+
+#ui-scale-value {
+  min-width: 4ch;
+  text-align: center;
+}
+
 select {
   font: inherit;
   color: var(--text);

@@ -1,9 +1,11 @@
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { initializeTheme } from "./appearance";
+import { initializeUiScale } from "./ui_scale";
 import "./style.css";
 
 initializeTheme();
+initializeUiScale();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Client root is missing");

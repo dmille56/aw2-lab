@@ -157,6 +157,10 @@ the browser client and the shared Tauri webview across reloads and app restarts.
 Existing appearance-only preferences migrate to the Classic theme. The
 available themes are Classic and Gruvbox, each with light and dark variants.
 
+Interface scale is adjustable from 50% to 200% in 10% steps, with a reset to
+100%. It scales the full shared UI and persists separately from map tile size
+and theme preferences.
+
 Live connections read the authenticated `/v1/matches/{match}/identity` endpoint.
 Your player panel and unit labels are marked independently of the active player.
 Operators have no player slot; imported snapshots carry no authenticated perspective.
