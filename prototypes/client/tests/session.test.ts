@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { MatchSession } from "../web/session";
+import capabilities from "./fixtures/capabilities.json";
 import fixture from "./fixtures/state.json";
 
 const sessions: MatchSession[] = [];
@@ -23,6 +24,7 @@ function server(
   vi.stubGlobal(
     "fetch",
     vi.fn((url: string, init: RequestInit) => {
+      if (url.endsWith("/capabilities")) return response(capabilities);
       if (url.endsWith("/identity"))
         return response({
           contract_version: 1,
@@ -122,6 +124,8 @@ it("discards a screenshot completed after the displayed revision changes", async
 
 it("keeps inspection available when an older server lacks caller identity", async () => {
   const fetcher = vi.fn((url: string, init: RequestInit) => {
+    if (url.endsWith("/capabilities"))
+      return Promise.resolve(response(capabilities));
     if (url.endsWith("/identity"))
       return Promise.resolve(new Response(null, { status: 404 }));
     if (url.endsWith("/events"))
@@ -145,13 +149,17 @@ it("keeps inspection available when an older server lacks caller identity", asyn
 it("rejects identity from a different match without displaying a player perspective", async () => {
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockResolvedValue(
-      response({
-        contract_version: 1,
-        match_id: "00000000-0000-4000-8000-000000000099",
-        role: "player",
-        player_slot: "slot_1",
-      }),
+    vi.fn((url: string) =>
+      response(
+        url.endsWith("/capabilities")
+          ? capabilities
+          : {
+              contract_version: 1,
+              match_id: "00000000-0000-4000-8000-000000000099",
+              role: "player",
+              player_slot: "slot_1",
+            },
+      ),
     ),
   );
   const view = session();

@@ -22,6 +22,16 @@ async function upload(page, value) {
     buffer: Buffer.from(JSON.stringify(value)),
   });
 }
+async function rejectCapabilities(page, value, reason) {
+  await page.route("**/v1/capabilities", (route) =>
+    route.fulfill({ json: value }),
+  );
+  await page.locator("#match-id").fill(fixture.summary.match_id);
+  await page.locator("#token").fill(token);
+  await page.locator("#connect button").click();
+  await expect(page.locator("#error")).toContainText(reason);
+  await page.unroute("**/v1/capabilities");
+}
 test.beforeEach(async ({ page, request }) => {
   await request.post("/__test/reset");
   const messages = { errors: [], expectedRevocation: false };
@@ -182,6 +192,65 @@ test("reconnects and resynchronizes after a lost event stream", async ({
   expect(
     (await (await request.get("/__test/stats")).json()).connections,
   ).toBeGreaterThan(1);
+});
+test("checks advertised contract and schema versions before connecting", async ({
+  page,
+  request,
+}) => {
+  const capabilities = await (await request.get("/v1/capabilities")).json();
+
+  const unsupportedContract = structuredClone(capabilities);
+  unsupportedContract.contract_version = 2;
+  await rejectCapabilities(
+    page,
+    unsupportedContract,
+    "Unsupported API contract version from capabilities: 2",
+  );
+
+  const unsupportedGameContract = structuredClone(capabilities);
+  unsupportedGameContract.supported_game_contract_versions = [2];
+  await rejectCapabilities(
+    page,
+    unsupportedGameContract,
+    "Unsupported game contract version",
+  );
+
+  const unsupportedObservation = structuredClone(capabilities);
+  unsupportedObservation.supported_match_observation_schema_versions = [2];
+  await rejectCapabilities(
+    page,
+    unsupportedObservation,
+    "Unsupported match observation schema version",
+  );
+
+  const unsupportedGameState = structuredClone(capabilities);
+  unsupportedGameState.supported_game_state_schema_versions = [5];
+  await rejectCapabilities(
+    page,
+    unsupportedGameState,
+    "Unsupported game-state schema version",
+  );
+
+  const unavailableSse = structuredClone(capabilities);
+  unavailableSse.http_sse.available = false;
+  unavailableSse.http_sse.unavailable_reason = "Temporarily disabled";
+  await rejectCapabilities(
+    page,
+    unavailableSse,
+    "The server reports HTTP SSE unavailable: Temporarily disabled",
+  );
+});
+test("validates the state schema returned by the live server", async ({
+  page,
+  request,
+}) => {
+  await request.post("/__test/corrupt-state");
+  await page.locator("#match-id").fill(fixture.summary.match_id);
+  await page.locator("#token").fill(token);
+  await page.locator("#connect button").click();
+  await expect(page.locator("#error")).toContainText(
+    "Unsupported API contract version",
+  );
 });
 test("rejects screenshot metadata from a different boundary", async ({
   page,

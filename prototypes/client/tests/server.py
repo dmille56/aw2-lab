@@ -14,7 +14,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import Response, StreamingResponse
 
-from aw2_lab.api_contract import StateResponse
+from aw2_lab.api_contract import CapabilitiesResponse, FeatureAvailability, StateResponse
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("client_serve", ROOT / "serve.py")
@@ -32,6 +32,22 @@ mismatch = False
 connections = 0
 watchers: set[asyncio.Queue[str | None]] = set()
 TOKEN = "synthetic-player-token"
+
+
+def available(name: str) -> FeatureAvailability:
+    return FeatureAvailability(
+        name=name,
+        implemented=True,
+        available=True,
+        verification="synthetic",
+    )
+
+
+capabilities = CapabilitiesResponse(
+    operations=(available("state"), available("events")),
+    http_sse=available("http_sse"),
+    mcp_subscriptions=available("mcp_subscriptions"),
+).model_dump(mode="json")
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aKd8AAAAASUVORK5CYII="
 )
@@ -53,6 +69,11 @@ async def health() -> dict[str, str | None]:
         "emulator": "synthetic",
         "fixture_id": os.environ.get("AW2_CLIENT_FIXTURE_ID"),
     }
+
+
+@app.get("/v1/capabilities")
+async def get_capabilities() -> dict[str, Any]:
+    return capabilities
 
 
 @app.post("/__test/reset")
@@ -90,6 +111,12 @@ async def revoke() -> dict[str, object]:
 async def screenshot_mismatch(enabled: bool = True) -> dict[str, object]:
     global mismatch
     mismatch = enabled
+    return {}
+
+
+@app.post("/__test/corrupt-state")
+async def corrupt_state() -> dict[str, object]:
+    state["contract_version"] = 999
     return {}
 
 

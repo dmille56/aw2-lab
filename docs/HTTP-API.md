@@ -8,6 +8,10 @@ server and match readiness to the operator. Gameplay submission and checkpoint
 operations use the shared queue and services. Debug operations require `--enable-debug-api` and the operator credential. MCP
 gameplay remains unavailable.
 
+Capabilities report the supported game-contract, match-observation, and nested
+game-state schema versions. Clients should check these before using match routes;
+each response must still validate its own contract and schema versions.
+
 Start the normal server with your local ROM and the operator file described in
 [AUTHORIZATION.md](AUTHORIZATION.md). With no operator file configured, match
 routes return `503 runtime_unavailable`. Use the default loopback address

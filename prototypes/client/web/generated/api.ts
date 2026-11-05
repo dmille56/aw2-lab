@@ -361,6 +361,20 @@ export interface components {
              */
             supported_game_contract_versions: 1[];
             /**
+             * Supported Game State Schema Versions
+             * @default [
+             *       4
+             *     ]
+             */
+            supported_game_state_schema_versions: number[];
+            /**
+             * Supported Match Observation Schema Versions
+             * @default [
+             *       1
+             *     ]
+             */
+            supported_match_observation_schema_versions: number[];
+            /**
              * Supported Player Counts
              * @default [
              *       2

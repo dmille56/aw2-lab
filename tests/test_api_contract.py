@@ -400,6 +400,8 @@ def test_capabilities_do_not_claim_runtime_actions_by_default() -> None:
     caps = CapabilitiesResponse(http_sse=unavailable, mcp_subscriptions=unavailable)
     assert caps.actions == ()
     assert caps.supported_game_contract_versions == (1,)
+    assert caps.supported_match_observation_schema_versions == (1,)
+    assert caps.supported_game_state_schema_versions == (4,)
     assert not caps.mcp_resources.implemented
     assert not caps.mcp_resources.available
     assert not caps.mcp_subscriptions.available

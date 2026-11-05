@@ -488,6 +488,26 @@
             "title": "Supported Game Contract Versions",
             "type": "array"
           },
+          "supported_game_state_schema_versions": {
+            "default": [
+              4
+            ],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Supported Game State Schema Versions",
+            "type": "array"
+          },
+          "supported_match_observation_schema_versions": {
+            "default": [
+              1
+            ],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Supported Match Observation Schema Versions",
+            "type": "array"
+          },
           "supported_player_counts": {
             "default": [
               2

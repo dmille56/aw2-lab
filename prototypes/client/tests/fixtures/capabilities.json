@@ -1,0 +1,158 @@
+{
+  "contract_version": 1,
+  "mcp_compatibility": {
+    "contract_version": 1,
+    "sdk_version": "1.29.0",
+    "supported_protocol_versions": [
+      "2024-11-05",
+      "2025-03-26",
+      "2025-06-18",
+      "2025-11-25"
+    ],
+    "preferred_protocol_version": "2025-11-25",
+    "endpoint": "/mcp",
+    "transport": "streamable_http"
+  },
+  "mcp_resources": {
+    "contract_version": 1,
+    "name": "mcp_resources",
+    "implemented": false,
+    "available": false,
+    "verification": "unverified",
+    "unavailable_reason": "MCP game resources are not implemented"
+  },
+  "supported_game_contract_versions": [1],
+  "supported_match_observation_schema_versions": [1],
+  "supported_game_state_schema_versions": [4],
+  "supported_player_counts": [2],
+  "supported_control_modes": ["external"],
+  "default_profile_id": "bean_island_v1",
+  "configuration_profiles": [
+    {
+      "contract_version": 1,
+      "profile_id": "bean_island_v1",
+      "configuration": {
+        "contract_version": 1,
+        "map_id": "bean_island",
+        "players": [
+          {
+            "contract_version": 1,
+            "slot": "slot_1",
+            "co_id": "andy",
+            "color": "red",
+            "team_id": "a",
+            "control": "external"
+          },
+          {
+            "contract_version": 1,
+            "slot": "slot_2",
+            "co_id": "max",
+            "color": "blue",
+            "team_id": "b",
+            "control": "external"
+          }
+        ],
+        "rules": {
+          "contract_version": 1,
+          "fog": false,
+          "weather": "clear",
+          "income_per_property": 1000,
+          "day_limit": 30,
+          "capture_limit": null,
+          "co_powers": true
+        }
+      }
+    }
+  ],
+  "configuration_options": {
+    "contract_version": 1,
+    "map_ids": ["bean_island"],
+    "co_ids": ["andy", "max"],
+    "players": [
+      {
+        "contract_version": 1,
+        "slot": "slot_1",
+        "co_id": "andy",
+        "color": "red",
+        "team_id": "a",
+        "control": "external"
+      },
+      {
+        "contract_version": 1,
+        "slot": "slot_2",
+        "co_id": "max",
+        "color": "blue",
+        "team_id": "b",
+        "control": "external"
+      }
+    ],
+    "rules": {
+      "contract_version": 1,
+      "fog": false,
+      "weather": "clear",
+      "income_per_property": 1000,
+      "day_limit": 30,
+      "capture_limit": null,
+      "co_powers": true
+    },
+    "combination_constraint": "verified_profiles_only"
+  },
+  "operations": [
+    {
+      "contract_version": 1,
+      "name": "state",
+      "implemented": true,
+      "available": true,
+      "verification": "synthetic",
+      "unavailable_reason": null
+    },
+    {
+      "contract_version": 1,
+      "name": "events",
+      "implemented": true,
+      "available": true,
+      "verification": "synthetic",
+      "unavailable_reason": null
+    }
+  ],
+  "actions": [],
+  "production_unit_types": [],
+  "http_sse": {
+    "contract_version": 1,
+    "name": "http_sse",
+    "implemented": true,
+    "available": true,
+    "verification": "synthetic",
+    "unavailable_reason": null
+  },
+  "mcp_subscriptions": {
+    "contract_version": 1,
+    "name": "mcp_subscriptions",
+    "implemented": true,
+    "available": true,
+    "verification": "synthetic",
+    "unavailable_reason": null
+  },
+  "debug_memory_regions": [
+    [33554432, 33816576],
+    [50331648, 50364416]
+  ],
+  "debug_enabled": false,
+  "limits": {
+    "contract_version": 1,
+    "json_bytes": 65536,
+    "checkpoint_archive_bytes": 4259840,
+    "path_coordinates": 4096,
+    "display_name_characters": 80,
+    "invitation_min_seconds": 60,
+    "invitation_max_seconds": 3600,
+    "debug_max_frames": 600,
+    "debug_read_bytes": 4096,
+    "debug_write_bytes": 256,
+    "event_replay_count": 256,
+    "event_replay_bytes": 16777216,
+    "subscriber_event_count": 128,
+    "subscriber_bytes": 8388608,
+    "heartbeat_seconds": 15
+  }
+}

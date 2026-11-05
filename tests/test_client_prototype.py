@@ -11,7 +11,7 @@ import pytest
 from fastapi import FastAPI
 from test_match_controller import run_async_test
 
-from aw2_lab.api_contract import StateResponse
+from aw2_lab.api_contract import CapabilitiesResponse, StateResponse
 
 
 @pytest.fixture
@@ -192,6 +192,9 @@ def test_bundled_catalog_is_generated_from_shared_rules():
 def test_browser_fixture_and_vendored_schema_match_shared_contracts():
     client = Path(__file__).resolve().parents[1] / "prototypes/client"
     StateResponse.model_validate_json((client / "tests/fixtures/state.json").read_text())
+    CapabilitiesResponse.model_validate_json(
+        (client / "tests/fixtures/capabilities.json").read_text()
+    )
     lock = tomllib.loads((client / "Cargo.lock").read_text())
     tauri = next(package for package in lock["package"] if package["name"] == "tauri")
     schema = json.loads((client / "schemas/tauri-config.schema.json").read_text())

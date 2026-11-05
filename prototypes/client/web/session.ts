@@ -3,6 +3,7 @@ import type { components } from "./generated/api";
 export type MatchIdentity = components["schemas"]["MatchIdentityResponse"];
 import { getApiBase } from "./transport";
 import { MATCH_ID, validateState, type StateResponse } from "./state";
+import { validateCapabilitiesResponse } from "./capabilities";
 
 interface Connection {
   id: string;
@@ -96,6 +97,20 @@ export class MatchSession {
       );
     return response;
   }
+  private async checkCapabilities(c: Connection) {
+    const apiBase = await getApiBase();
+    const response = await fetch(`${apiBase}/v1/capabilities`, {
+      signal: c.abort.signal,
+      cache: "no-store",
+      credentials: "omit",
+      redirect: "error",
+    });
+    if (!response.ok)
+      throw new Error(
+        `Capabilities request failed (${response.status}). Check server status and API compatibility.`,
+      );
+    return validateCapabilitiesResponse(await response.json());
+  }
   private async refresh(c: Connection) {
     c.again = true;
     if (c.refreshing) return c.refreshing;
@@ -186,6 +201,8 @@ export class MatchSession {
     this.connection = c;
     this.update({ connected: true });
     try {
+      await this.checkCapabilities(c);
+      if (this.connection !== c) return;
       const response = await this.request(c, "identity", true);
       if (this.connection !== c) return;
       if (response.ok) {

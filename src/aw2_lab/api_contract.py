@@ -29,7 +29,8 @@ from aw2_lab.match_contract import (
 from aw2_lab.match_contract import (
     MatchSummary as ControllerMatchSummary,
 )
-from aw2_lab.match_observation import MatchObservation
+from aw2_lab.match_observation import MATCH_OBSERVATION_SCHEMA_VERSION, MatchObservation
+from aw2_lab.state_model import GAME_STATE_SCHEMA_VERSION
 
 MAX_JSON_BYTES: Literal[65536] = 65536
 MAX_PATH_COORDINATES: Literal[4096] = 4096
@@ -319,6 +320,10 @@ class CapabilitiesResponse(ContractModel):
         unavailable_reason="MCP game resources are not implemented",
     )
     supported_game_contract_versions: tuple[Literal[1], ...] = (1,)
+    supported_match_observation_schema_versions: tuple[int, ...] = (
+        MATCH_OBSERVATION_SCHEMA_VERSION,
+    )
+    supported_game_state_schema_versions: tuple[int, ...] = (GAME_STATE_SCHEMA_VERSION,)
     supported_player_counts: tuple[Literal[2]] = (2,)
     supported_control_modes: tuple[Literal["external"]] = ("external",)
     default_profile_id: Literal["bean_island_v1"] = "bean_island_v1"
