@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
 import { Board, UnitInspector } from "../web/Board";
+import { MapPanel } from "../web/MapPanel";
 import { Health } from "../web/Health";
 import { App } from "../web/App";
 import { validateState } from "../web/state";
@@ -40,6 +41,63 @@ describe("React viewer", () => {
     expect(select).toHaveBeenLastCalledWith({ x: 1, y: 0 });
     expect(screen.getAllByRole("button")[1]).toHaveFocus();
     expect(first).toHaveAttribute("aria-pressed", "true");
+  });
+  it("renders accessible movement, attack, and enemy threat overlays", async () => {
+    const view = render(
+      <MapPanel
+        battle={battle}
+        selected={{ x: 0, y: 0 }}
+        select={vi.fn()}
+        empty=""
+        yourSlot={1}
+        selectedUnit={battle.units[0]}
+        selectedUnitKey="unit-1"
+      />,
+    );
+    const movementTile = screen.getByRole("button", {
+      name: /Reachable movement tile.*\(1, 0\)/,
+    });
+    expect(movementTile).toHaveClass("reachable");
+    expect(movementTile).not.toHaveClass("attackable");
+    const attackToggle = screen.getByRole("button", {
+      name: "Show attack range",
+    });
+    expect(attackToggle).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(attackToggle);
+    const tile = screen.getByRole("button", {
+      name: /Potential attack range.*\(1, 0\)/,
+    });
+    expect(tile).toHaveClass("attackable");
+    expect(tile).toHaveClass("reachable");
+    expect(
+      screen.getByRole("button", { name: "Hide attack range" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    view.rerender(
+      <MapPanel
+        battle={battle}
+        selected={{ x: 0, y: 0 }}
+        select={vi.fn()}
+        empty=""
+        yourSlot={1}
+        selectedUnit={battle.units[1]}
+        selectedUnitKey="unit-2"
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Show attack range" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(
+      screen.queryByRole("button", { name: /Potential attack range/ }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText("Show enemy threat area"));
+    expect(
+      screen.getByText(/future enemy choices are not shown/),
+    ).toBeVisible();
+    expect(
+      screen.getAllByRole("button", {
+        name: /Potentially threatened by observed enemies/,
+      }).length,
+    ).toBeGreaterThan(0);
   });
   it("shows observed unit data separately from baseline rules", () => {
     render(<UnitInspector unit={battle.units[0]} snapshot={snapshot} />);

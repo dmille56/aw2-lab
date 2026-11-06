@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateMovement } from "../web/movement";
+import { movementReach, validateMovement } from "../web/movement";
 import { validateState } from "../web/state";
 import fixture from "./fixtures/state.json";
 
@@ -45,6 +45,41 @@ describe("observed movement validation", () => {
       cost: 2,
       allowance: 2,
       error: null,
+    });
+  });
+  it("marks reachable destinations and allied transit without marking enemy blockers", () => {
+    const { battle, unit } = scenario();
+    battle.map.width = 4;
+    battle.map.height = 2;
+    battle.map.tiles = Array.from({ length: 8 }, (_, index) => ({
+      x: index % 4,
+      y: Math.floor(index / 4),
+      terrain_class: 1,
+      graphical_tile_id: 1,
+      owner_slot: 0,
+    }));
+    const ally = { ...unit, reference: 2, unit_slot: 2, x: 1, y: 0 };
+    const enemy = {
+      ...unit,
+      reference: 3,
+      army_slot: 2,
+      unit_slot: 1,
+      x: 3,
+      y: 0,
+    };
+    battle.units.push(ally, enemy);
+    const reach = movementReach(battle, unit);
+    expect(reach.alliedTransit).toContain("1,0");
+    expect(reach.destinations).toContain("2,0");
+    expect(reach.destinations).not.toContain("3,0");
+    expect(reach.destinations).not.toContain("1,0");
+  });
+  it("does not infer movement coverage from full unit coordinates under fog", () => {
+    const { battle, unit } = scenario();
+    battle.fog_enabled = { status: "available", value: true, reasons: [] };
+    expect(movementReach(battle, unit)).toEqual({
+      destinations: new Set(),
+      alliedTransit: new Set(),
     });
   });
   it("rejects sea for land units and land for ships, while aircraft can cross sea", () => {

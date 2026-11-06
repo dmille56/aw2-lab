@@ -2701,7 +2701,23 @@
       "maximum_range": 1,
       "fuel_capacity": 99,
       "ammo_capacity": 0,
-      "cost": 1000
+      "cost": 1000,
+      "primary_targets": [],
+      "secondary_targets": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        14,
+        15,
+        19,
+        20
+      ]
     },
     "2": {
       "name": "Mech",
@@ -2711,7 +2727,33 @@
       "maximum_range": 1,
       "fuel_capacity": 70,
       "ammo_capacity": 3,
-      "cost": 3000
+      "cost": 3000,
+      "primary_targets": [
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        14,
+        15
+      ],
+      "secondary_targets": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        14,
+        15,
+        19,
+        20
+      ]
     },
     "3": {
       "name": "Medium Tank",
@@ -2721,7 +2763,39 @@
       "maximum_range": 1,
       "fuel_capacity": 50,
       "ammo_capacity": 8,
-      "cost": 16000
+      "cost": 16000,
+      "primary_targets": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        14,
+        15,
+        21,
+        22,
+        23,
+        24
+      ],
+      "secondary_targets": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        14,
+        15,
+        19,
+        20
+      ]
     },
     "5": {
       "name": "Tank",
@@ -2731,7 +2805,39 @@
       "maximum_range": 1,
       "fuel_capacity": 70,
       "ammo_capacity": 9,
-      "cost": 7000
+      "cost": 7000,
+      "primary_targets": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        14,
+        15,
+        21,
+        22,
+        23,
+        24
+      ],
+      "secondary_targets": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        14,
+        15,
+        19,
+        20
+      ]
     },
     "6": {
       "name": "Recon",
@@ -2741,7 +2847,23 @@
       "maximum_range": 1,
       "fuel_capacity": 80,
       "ammo_capacity": 0,
-      "cost": 4000
+      "cost": 4000,
+      "primary_targets": [],
+      "secondary_targets": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        14,
+        15,
+        19,
+        20
+      ]
     },
     "7": {
       "name": "APC",
@@ -2751,7 +2873,9 @@
       "maximum_range": 0,
       "fuel_capacity": 70,
       "ammo_capacity": 0,
-      "cost": 5000
+      "cost": 5000,
+      "primary_targets": [],
+      "secondary_targets": []
     },
     "8": {
       "name": "Neotank",
@@ -2761,7 +2885,39 @@
       "maximum_range": 1,
       "fuel_capacity": 99,
       "ammo_capacity": 9,
-      "cost": 22000
+      "cost": 22000,
+      "primary_targets": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        14,
+        15,
+        21,
+        22,
+        23,
+        24
+      ],
+      "secondary_targets": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        14,
+        15,
+        19,
+        20
+      ]
     },
     "10": {
       "name": "Artillery",
@@ -2771,7 +2927,25 @@
       "maximum_range": 3,
       "fuel_capacity": 50,
       "ammo_capacity": 9,
-      "cost": 6000
+      "cost": 6000,
+      "primary_targets": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        14,
+        15,
+        21,
+        22,
+        23,
+        24
+      ],
+      "secondary_targets": []
     },
     "11": {
       "name": "Rockets",
@@ -2781,7 +2955,25 @@
       "maximum_range": 5,
       "fuel_capacity": 50,
       "ammo_capacity": 6,
-      "cost": 15000
+      "cost": 15000,
+      "primary_targets": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        14,
+        15,
+        21,
+        22,
+        23,
+        24
+      ],
+      "secondary_targets": []
     },
     "14": {
       "name": "Anti-Air",
@@ -2791,7 +2983,25 @@
       "maximum_range": 1,
       "fuel_capacity": 60,
       "ammo_capacity": 9,
-      "cost": 8000
+      "cost": 8000,
+      "primary_targets": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        14,
+        15,
+        16,
+        17,
+        19,
+        20
+      ],
+      "secondary_targets": []
     },
     "15": {
       "name": "Missiles",
@@ -2801,7 +3011,14 @@
       "maximum_range": 5,
       "fuel_capacity": 50,
       "ammo_capacity": 6,
-      "cost": 12000
+      "cost": 12000,
+      "primary_targets": [
+        16,
+        17,
+        19,
+        20
+      ],
+      "secondary_targets": []
     },
     "16": {
       "name": "Fighter",
@@ -2811,7 +3028,14 @@
       "maximum_range": 1,
       "fuel_capacity": 99,
       "ammo_capacity": 9,
-      "cost": 20000
+      "cost": 20000,
+      "primary_targets": [
+        16,
+        17,
+        19,
+        20
+      ],
+      "secondary_targets": []
     },
     "17": {
       "name": "Bomber",
@@ -2821,7 +3045,25 @@
       "maximum_range": 1,
       "fuel_capacity": 99,
       "ammo_capacity": 9,
-      "cost": 22000
+      "cost": 22000,
+      "primary_targets": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        14,
+        15,
+        21,
+        22,
+        23,
+        24
+      ],
+      "secondary_targets": []
     },
     "19": {
       "name": "Battle Copter",
@@ -2831,7 +3073,39 @@
       "maximum_range": 1,
       "fuel_capacity": 99,
       "ammo_capacity": 6,
-      "cost": 9000
+      "cost": 9000,
+      "primary_targets": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        14,
+        15,
+        21,
+        22,
+        23,
+        24
+      ],
+      "secondary_targets": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        14,
+        15,
+        19,
+        20
+      ]
     },
     "20": {
       "name": "Transport Copter",
@@ -2841,7 +3115,9 @@
       "maximum_range": 0,
       "fuel_capacity": 99,
       "ammo_capacity": 0,
-      "cost": 5000
+      "cost": 5000,
+      "primary_targets": [],
+      "secondary_targets": []
     },
     "21": {
       "name": "Battleship",
@@ -2851,7 +3127,25 @@
       "maximum_range": 6,
       "fuel_capacity": 99,
       "ammo_capacity": 9,
-      "cost": 28000
+      "cost": 28000,
+      "primary_targets": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        14,
+        15,
+        21,
+        22,
+        23,
+        24
+      ],
+      "secondary_targets": []
     },
     "22": {
       "name": "Cruiser",
@@ -2861,7 +3155,17 @@
       "maximum_range": 1,
       "fuel_capacity": 99,
       "ammo_capacity": 9,
-      "cost": 18000
+      "cost": 18000,
+      "primary_targets": [
+        24,
+        25
+      ],
+      "secondary_targets": [
+        16,
+        17,
+        19,
+        20
+      ]
     },
     "23": {
       "name": "Lander",
@@ -2871,7 +3175,9 @@
       "maximum_range": 0,
       "fuel_capacity": 99,
       "ammo_capacity": 0,
-      "cost": 12000
+      "cost": 12000,
+      "primary_targets": [],
+      "secondary_targets": []
     },
     "24": {
       "name": "Submarine",
@@ -2881,7 +3187,15 @@
       "maximum_range": 1,
       "fuel_capacity": 60,
       "ammo_capacity": 6,
-      "cost": 20000
+      "cost": 20000,
+      "primary_targets": [
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "secondary_targets": []
     }
   }
 }

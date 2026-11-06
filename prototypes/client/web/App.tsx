@@ -388,6 +388,23 @@ export function App() {
                 ? gameplay.draft.target
                 : null
             }
+            selectedUnit={
+              gameplay.draft.boundary === gameplay.boundary
+                ? gameplay.selectedUnit
+                : null
+            }
+            selectedUnitKey={
+              gameplay.draft.boundary === gameplay.boundary &&
+              gameplay.selectedUnit
+                ? gameplay.draft.unitId
+                : null
+            }
+            plannedRoute={
+              gameplay.draft.boundary === gameplay.boundary &&
+              gameplay.draft.phase !== "unit"
+                ? gameplay.draft.path
+                : []
+            }
             empty={empty}
             yourSlot={humanSlot(view.identity)}
           />

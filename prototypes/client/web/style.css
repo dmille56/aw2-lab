@@ -283,6 +283,36 @@ textarea:focus-visible,
   filter: brightness(1.15);
 }
 
+.tile.reachable {
+  border: 2px dotted #075b9d;
+  z-index: 2;
+}
+
+.tile.allied-transit {
+  border: 2px dashed #075b9d;
+}
+
+.tile.attackable {
+  box-shadow: inset 0 0 0 4px #e87512;
+}
+
+.tile.threatened {
+  background-image: repeating-linear-gradient(
+    135deg,
+    #c8202055 0,
+    #c8202055 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  background-blend-mode: multiply;
+}
+
+.tile.reachable.attackable {
+  box-shadow:
+    inset 0 0 0 4px #e87512,
+    inset 0 0 0 7px #f4f0e8;
+}
+
 .tile:focus-visible,
 .tile.selected {
   outline: 3px solid var(--focus-on-board);
@@ -469,6 +499,11 @@ summary {
 
 #fit-map[aria-pressed="true"] {
   outline: 2px solid var(--accent);
+}
+
+.toggle-button[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+  background: var(--control-hover);
 }
 
 .terrain-label {

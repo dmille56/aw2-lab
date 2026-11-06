@@ -8,6 +8,7 @@ from aw2_lab.aw2_rules_data import (
     CO_MOVEMENT_VARIANTS,
     TERRAIN_COSTS,
     TERRAIN_NAMES,
+    UNIT_DATA,
     VERIFIED_CO_NAMES,
 )
 from aw2_lab.aw2_unit_profiles import UNIT_PROFILES, MovementType, RuleContext
@@ -54,6 +55,8 @@ def catalog_text() -> str:
                 "fuel_capacity": profile.fuel_capacity,
                 "ammo_capacity": profile.ammo_capacity,
                 "cost": profile.cost,
+                "primary_targets": list(UNIT_DATA[key][9]),
+                "secondary_targets": list(UNIT_DATA[key][10]),
             }
             for key, profile in UNIT_PROFILES.items()
         },

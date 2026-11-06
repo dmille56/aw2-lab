@@ -21,6 +21,104 @@ export interface MovementReport {
   endpointError: string | null;
 }
 
+export interface MovementReach {
+  destinations: Set<string>;
+  alliedTransit: Set<string>;
+}
+
+/** Calculate observed reachable tiles with Dijkstra, allowing allies as transit only. */
+export function movementReach(
+  battle: BattleState,
+  unit: UnitState,
+): MovementReach {
+  const result: MovementReach = {
+    destinations: new Set(),
+    alliedTransit: new Set(),
+  };
+  const profile = units[unit.unit_type];
+  if (
+    !profile ||
+    battle.co_effects_enabled.status !== "available" ||
+    battle.fog_enabled.status !== "available" ||
+    battle.fog_enabled.value
+  )
+    return result;
+  const player = battle.players.find((item) => item.slot === unit.army_slot);
+  const effects = battle.co_effects_enabled.value;
+  const context =
+    contexts[
+      effects === false
+        ? "baseline"
+        : `${player?.co_id}:${player?.active_power}`
+    ];
+  if (
+    !context ||
+    battle.weather.status !== "available" ||
+    battle.weather.value === null
+  )
+    return result;
+  const table = costs[context.weather_variants[battle.weather.value]];
+  if (!table) return result;
+  const allowance =
+    profile.movement + (context.movement_bonuses[unit.unit_type] ?? 0);
+  const terrain = new Map(
+    battle.map.tiles.map((tile) => [`${tile.x},${tile.y}`, tile]),
+  );
+  const alliedSlots = new Set(
+    battle.players
+      .filter((other) => player && other.team_id === player.team_id)
+      .map((other) => other.slot),
+  );
+  alliedSlots.add(unit.army_slot);
+  const occupants = new Map(
+    battle.units
+      .filter((other) => !other.embarked && other.reference !== unit.reference)
+      .map((other) => [`${other.x},${other.y}`, other]),
+  );
+  const distances = new Map<string, number>([[`${unit.x},${unit.y}`, 0]]);
+  const maxCost = Math.min(allowance, unit.fuel);
+  const buckets: { x: number; y: number }[][] = Array.from(
+    { length: maxCost + 1 },
+    () => [],
+  );
+  buckets[0].push({ x: unit.x, y: unit.y });
+  for (let currentCost = 0; currentCost <= maxCost; currentCost++) {
+    while (buckets[currentCost].length) {
+      const current = buckets[currentCost].pop()!;
+      const currentKey = `${current.x},${current.y}`;
+      if (distances.get(currentKey) !== currentCost) continue;
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        const x = current.x + dx;
+        const y = current.y + dy;
+        const key = `${x},${y}`;
+        const tile = terrain.get(key);
+        if (!tile) continue;
+        const occupant = occupants.get(key);
+        if (occupant && !alliedSlots.has(occupant.army_slot)) continue;
+        const cost = table[tile.terrain_class]?.[types[profile.movement_type]];
+        if (cost === undefined || cost === null) continue;
+        const total = currentCost + cost;
+        if (total > allowance || total > unit.fuel) continue;
+        if (total >= (distances.get(key) ?? Infinity)) continue;
+        distances.set(key, total);
+        buckets[total].push({ x, y });
+      }
+    }
+  }
+  for (const [key] of distances) {
+    if (key === `${unit.x},${unit.y}`) continue;
+    const occupant = occupants.get(key);
+    if (occupant) result.alliedTransit.add(key);
+    else result.destinations.add(key);
+  }
+  return result;
+}
+
 /** Validate observed rules only; hidden blockers remain the executor's responsibility. */
 export function validateMovement(
   battle: BattleState,
