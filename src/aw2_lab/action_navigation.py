@@ -575,6 +575,30 @@ class ActionNavigator:
                 description="the settled player-turn boundary after Wait",
             )
 
+    async def choose_load(self) -> GameState:
+        """Choose Load and wait for the settled boundary after boarding."""
+        async with self._bounded_operation():
+            self._begin("choose_load")
+            state = await self._observe()
+            menu = state.ui.menu
+            if (
+                menu.family is not MenuFamily.UNIT_ACTION_CHOICES
+                or menu.selected_item is None
+                or MenuItem.LOAD not in menu.items
+                or not menu.actionable
+            ):
+                raise await self._fail("Load requires a recognized transport action choice", state)
+            state = await self._navigate_unit_action(MenuItem.LOAD, state)
+            await self._tap("confirm-load", _KEY_A)
+            return await self._wait_for(
+                lambda value: (
+                    value.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN
+                    and value.ui.menu.family is MenuFamily.MAP_INPUT
+                    and value.battle.status is ValueStatus.AVAILABLE
+                ),
+                description="the settled player-turn boundary after Load",
+            )
+
     async def choose_capture(self) -> GameState:
         """Choose Capture and wait for the settled turn or a recognized battle result."""
         async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):

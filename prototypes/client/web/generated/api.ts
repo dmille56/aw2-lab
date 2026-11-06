@@ -384,6 +384,18 @@ export interface components {
                 2
             ];
         };
+        /** CargoDrop */
+        CargoDrop: {
+            /**
+             * Contract Version
+             * @default 1
+             * @constant
+             */
+            contract_version: 1;
+            destination: components["schemas"]["Coordinate"];
+            /** Unit Id */
+            unit_id: string;
+        };
         /**
          * CheckpointCompatibility
          * @description Safe metadata; excludes manifests' credential hashes and local paths.
@@ -912,7 +924,7 @@ export interface components {
          */
         GameplayCommandRequest: {
             /** Action */
-            action: components["schemas"]["MoveWaitAction"] | components["schemas"]["MoveAttackAction"] | components["schemas"]["MoveCaptureAction"] | components["schemas"]["PurchaseAction"] | components["schemas"]["EndTurnAction"] | components["schemas"]["SurrenderAction"];
+            action: components["schemas"]["MoveWaitAction"] | components["schemas"]["MoveAttackAction"] | components["schemas"]["MoveCaptureAction"] | components["schemas"]["LoadAction"] | components["schemas"]["UnloadAction"] | components["schemas"]["PurchaseAction"] | components["schemas"]["EndTurnAction"] | components["schemas"]["SurrenderAction"];
             /**
              * Contract Version
              * @default 1
@@ -1083,6 +1095,29 @@ export interface components {
          * @enum {string}
          */
         LifecyclePhase: "unknown" | "startup" | "title" | "mode_select" | "versus_map_select" | "versus_setup" | "battle_transition" | "battle_combat" | "battle_power" | "battle_computer_turn" | "battle_player_turn" | "battle_engine_unresolved" | "result_sequence" | "victory_presentation" | "defeat_presentation" | "result_summary" | "save_progress_prompt";
+        /**
+         * LoadAction
+         * @description Move one unit onto an allied transport's tile and load it.
+         */
+        LoadAction: {
+            /**
+             * Contract Version
+             * @default 1
+             * @constant
+             */
+            contract_version: 1;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "load";
+            /** Path */
+            path: components["schemas"]["Coordinate"][];
+            /** Transport Id */
+            transport_id: string;
+            /** Unit Id */
+            unit_id: string;
+        };
         /**
          * MCPCompatibility
          * @description SDK transport support, independent of implemented AW2 MCP features.
@@ -1276,7 +1311,7 @@ export interface components {
          * @description Choices resolved from the verified general battle selectors.
          * @enum {string}
          */
-        MenuItem: "co" | "intel" | "options" | "save" | "end" | "status" | "unit" | "rules" | "delete" | "yield" | "music" | "visual_mode" | "exit_map" | "fire" | "capture" | "wait" | "other_unit_action" | "yes" | "no";
+        MenuItem: "co" | "intel" | "options" | "save" | "end" | "status" | "unit" | "rules" | "delete" | "yield" | "music" | "visual_mode" | "exit_map" | "fire" | "capture" | "load" | "unload" | "wait" | "other_unit_action" | "yes" | "no";
         /**
          * MenuObservation
          * @description Recognized menu context and its current typed selection, when known.
@@ -1912,6 +1947,29 @@ export interface components {
             x: number;
             /** Y */
             y: number;
+        };
+        /**
+         * UnloadAction
+         * @description Move a carrier, then unload one or more named cargo units.
+         */
+        UnloadAction: {
+            /**
+             * Contract Version
+             * @default 1
+             * @constant
+             */
+            contract_version: 1;
+            /** Drops */
+            drops: components["schemas"]["CargoDrop"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "unload";
+            /** Path */
+            path: components["schemas"]["Coordinate"][];
+            /** Transport Id */
+            transport_id: string;
         };
         /**
          * UnrecognizedUIState

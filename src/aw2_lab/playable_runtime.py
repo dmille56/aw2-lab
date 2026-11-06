@@ -31,6 +31,7 @@ from aw2_lab.purchase_executor import PurchaseActionExecutor
 from aw2_lab.state_decoder import capture_game_state
 from aw2_lab.state_model import GameState
 from aw2_lab.surrender_executor import SurrenderActionExecutor
+from aw2_lab.transport_executor import LoadActionExecutor, UnloadActionExecutor
 
 BootMatch = Callable[..., Awaitable[ColdBootResult]]
 
@@ -136,6 +137,8 @@ class PlayableRuntime:
             "move_wait": MoveWaitActionExecutor,
             "move_attack": MoveAttackActionExecutor,
             "move_capture": MoveCaptureActionExecutor,
+            "load": LoadActionExecutor,
+            "unload": UnloadActionExecutor,
             "purchase": PurchaseActionExecutor,
             "end_turn": EndTurnActionExecutor,
             "surrender": SurrenderActionExecutor,

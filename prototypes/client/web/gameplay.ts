@@ -233,8 +233,41 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     battle && selectedUnit
       ? validateMovement(battle, selectedUnit, draft.path)
       : null;
+  const transportAtDestination =
+    battle && destination
+      ? battle.units.find(
+          (unit) =>
+            [7, 20, 23].includes(unit.unit_type) &&
+            !unit.embarked &&
+            sameTile(unit, destination),
+        )
+      : undefined;
+  const transportCompatible =
+    !!selectedUnit &&
+    !!transportAtDestination &&
+    (transportAtDestination.unit_type === 7 ||
+    transportAtDestination.unit_type === 20
+      ? [1, 2].includes(selectedUnit.unit_type)
+      : [1, 2, 3, 7, 8, 10, 11, 14, 15, 16, 17, 19].includes(
+          selectedUnit.unit_type,
+        ));
+  const transportHasCapacity =
+    !!transportAtDestination &&
+    transportAtDestination.cargo_references.length <
+      (transportAtDestination.unit_type === 23 ? 2 : 1);
+  const loadTransport =
+    transportAtDestination?.army_slot === slot &&
+    transportCompatible &&
+    transportHasCapacity
+      ? transportAtDestination
+      : undefined;
   const movementReady =
-    (!draft.path.length || !movement?.error) && !movement?.endpointError;
+    (!draft.path.length || !movement?.error) &&
+    (!movement?.endpointError || (!!loadTransport && draft.kind === "load"));
+  const loadTransportId = observation?.unit_identities.find(
+    (item) => item.reference === transportAtDestination?.reference,
+  )?.identity_id;
+  const canLoad = !!loadTransport && !!loadTransportId && !movement?.error;
   const occupiedBase =
     !!draft.base &&
     !!battle?.units.some(
@@ -264,6 +297,22 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     view.capabilities?.actions.find((item) => item.name === kind);
   const available = (kind: ActionKind) =>
     !!feature(kind)?.implemented && !!feature(kind)?.available;
+  const loadUnavailableReason = !transportAtDestination
+    ? "End the route on a friendly carrier tile to load."
+    : transportAtDestination.army_slot !== slot
+      ? "Only a friendly transport can load this unit."
+      : !transportCompatible
+        ? "This carrier cannot carry the selected unit type."
+        : !transportHasCapacity
+          ? "This carrier has no free cargo space."
+          : !loadTransportId
+            ? "The carrier identity is unavailable in this observation."
+            : movement?.error
+              ? movement.error
+              : !available("load")
+                ? (feature("load")?.unavailable_reason ??
+                  "The connected server does not currently enable loading.")
+                : "";
   const reset = () =>
     dispatch({ type: "reset", boundary, notice: "Action cancelled." });
   const cancel = () => {
@@ -350,6 +399,22 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     x: p.x,
     y: p.y,
   });
+  const loadAction: GameplayAction | null =
+    editable &&
+    draft.phase === "route" &&
+    selectedUnit &&
+    loadTransport &&
+    loadTransportId &&
+    canLoad &&
+    available("load")
+      ? {
+          contract_version: 1,
+          kind: "load",
+          unit_id: draft.unitId,
+          transport_id: loadTransportId,
+          path: draft.path.map(coordinate),
+        }
+      : null;
   let action: GameplayAction | null = null;
   if (
     editable &&
@@ -371,6 +436,21 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
         kind,
         property: coordinate(draft.base),
         unit_type: draft.unitType,
+      };
+    else if (
+      selectedUnit &&
+      movementReady &&
+      kind === "load" &&
+      loadTransport &&
+      loadTransportId &&
+      available("load")
+    )
+      action = {
+        contract_version: 1,
+        kind,
+        unit_id: draft.unitId,
+        transport_id: loadTransportId,
+        path: draft.path.map(coordinate),
       };
     else if (
       selectedUnit &&
@@ -431,6 +511,10 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     occupiedBase,
     canAttack,
     canCapture,
+    canLoad,
+    loadAction,
+    loadTransport: transportAtDestination,
+    loadUnavailableReason,
     available,
     feature,
     action,

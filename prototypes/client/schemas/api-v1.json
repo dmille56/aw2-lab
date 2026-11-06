@@ -531,6 +531,31 @@
         "title": "CapabilitiesResponse",
         "type": "object"
       },
+      "CargoDrop": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "destination": {
+            "$ref": "#/components/schemas/Coordinate"
+          },
+          "unit_id": {
+            "minLength": 1,
+            "title": "Unit Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit_id",
+          "destination"
+        ],
+        "title": "CargoDrop",
+        "type": "object"
+      },
       "CheckpointCompatibility": {
         "additionalProperties": false,
         "description": "Safe metadata; excludes manifests' credential hashes and local paths.",
@@ -1513,11 +1538,13 @@
             "discriminator": {
               "mapping": {
                 "end_turn": "#/components/schemas/EndTurnAction",
+                "load": "#/components/schemas/LoadAction",
                 "move_attack": "#/components/schemas/MoveAttackAction",
                 "move_capture": "#/components/schemas/MoveCaptureAction",
                 "move_wait": "#/components/schemas/MoveWaitAction",
                 "purchase": "#/components/schemas/PurchaseAction",
-                "surrender": "#/components/schemas/SurrenderAction"
+                "surrender": "#/components/schemas/SurrenderAction",
+                "unload": "#/components/schemas/UnloadAction"
               },
               "propertyName": "kind"
             },
@@ -1530,6 +1557,12 @@
               },
               {
                 "$ref": "#/components/schemas/MoveCaptureAction"
+              },
+              {
+                "$ref": "#/components/schemas/LoadAction"
+              },
+              {
+                "$ref": "#/components/schemas/UnloadAction"
               },
               {
                 "$ref": "#/components/schemas/PurchaseAction"
@@ -1838,6 +1871,49 @@
         ],
         "title": "LifecyclePhase",
         "type": "string"
+      },
+      "LoadAction": {
+        "additionalProperties": false,
+        "description": "Move one unit onto an allied transport's tile and load it.",
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "load",
+            "default": "load",
+            "title": "Kind",
+            "type": "string"
+          },
+          "path": {
+            "items": {
+              "$ref": "#/components/schemas/Coordinate"
+            },
+            "maxItems": 4096,
+            "title": "Path",
+            "type": "array"
+          },
+          "transport_id": {
+            "minLength": 1,
+            "title": "Transport Id",
+            "type": "string"
+          },
+          "unit_id": {
+            "minLength": 1,
+            "title": "Unit Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit_id",
+          "transport_id",
+          "path"
+        ],
+        "title": "LoadAction",
+        "type": "object"
       },
       "MCPCompatibility": {
         "additionalProperties": false,
@@ -2223,6 +2299,8 @@
           "exit_map",
           "fire",
           "capture",
+          "load",
+          "unload",
           "wait",
           "other_unit_action",
           "yes",
@@ -3559,6 +3637,53 @@
           "cargo_references"
         ],
         "title": "UnitState",
+        "type": "object"
+      },
+      "UnloadAction": {
+        "additionalProperties": false,
+        "description": "Move a carrier, then unload one or more named cargo units.",
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "drops": {
+            "items": {
+              "$ref": "#/components/schemas/CargoDrop"
+            },
+            "maxItems": 2,
+            "minItems": 1,
+            "title": "Drops",
+            "type": "array"
+          },
+          "kind": {
+            "const": "unload",
+            "default": "unload",
+            "title": "Kind",
+            "type": "string"
+          },
+          "path": {
+            "items": {
+              "$ref": "#/components/schemas/Coordinate"
+            },
+            "maxItems": 4096,
+            "title": "Path",
+            "type": "array"
+          },
+          "transport_id": {
+            "minLength": 1,
+            "title": "Transport Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "transport_id",
+          "path",
+          "drops"
+        ],
+        "title": "UnloadAction",
         "type": "object"
       },
       "UnrecognizedUIState": {

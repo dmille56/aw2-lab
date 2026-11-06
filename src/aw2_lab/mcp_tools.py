@@ -37,6 +37,7 @@ from aw2_lab.match_contract import (
     Coordinate,
     EndTurnAction,
     ErrorCode,
+    LoadAction,
     MoveAttackAction,
     MoveCaptureAction,
     MoveWaitAction,
@@ -294,6 +295,25 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
                 match_id,
                 expected_revision,
                 MoveCaptureAction(unit_id=unit_id, path=path),
+                request_id=request_id,
+            )
+
+    @server.tool()
+    async def load(
+        match_id: UUID,
+        expected_revision: Revision,
+        request_id: UUID,
+        unit_id: UnitID,
+        transport_id: UnitID,
+        path: Path,
+        contract_version: int = 1,
+    ) -> CommandReceipt:
+        """Move a compatible unit to an allied transport and load it."""
+        async with client(Permission.PLAY, match_id) as sdk:
+            return await sdk.submit(
+                match_id,
+                expected_revision,
+                LoadAction(unit_id=unit_id, transport_id=transport_id, path=path),
                 request_id=request_id,
             )
 

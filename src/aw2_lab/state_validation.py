@@ -365,11 +365,11 @@ def _units(snapshot: BattleMemorySnapshot, geometry: StructureValidation) -> Str
             if record[5] >> 3 >= 20:
                 errors.append(f"Unit {index} has unsettled or invalid capture progress")
             refs = tuple(ref for ref in record[7:9] if ref)
-            if refs and record[0] not in (7, 23):
+            if refs and record[0] not in (7, 20, 23):
                 unknown.append(f"Unit {index} uses unverified transport/link fields")
                 continue
-            if record[0] == 7 and record[8]:
-                errors.append(f"APC {index} has a second passenger reference")
+            if record[0] in (7, 20) and record[8]:
+                errors.append(f"Single-capacity transport {index} has a second passenger ref")
             cargo[index] = refs
             for ref in refs:
                 if ref // 64 != army or not 1 <= ref % 64 <= UNITS_PER_ARMY or ref == index:

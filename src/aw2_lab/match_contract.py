@@ -102,6 +102,7 @@ class Capabilities(ContractModel):
         "move_wait",
         "move_attack",
         "move_capture",
+        "load",
         "purchase",
         "end_turn",
         "surrender",
@@ -152,6 +153,29 @@ class MoveCaptureAction(ContractModel):
     path: tuple[Coordinate, ...] = Field(max_length=4096)
 
 
+class LoadAction(ContractModel):
+    """Move one unit onto an allied transport's tile and load it."""
+
+    kind: Literal["load"] = "load"
+    unit_id: str = Field(min_length=1)
+    transport_id: str = Field(min_length=1)
+    path: tuple[Coordinate, ...] = Field(max_length=4096)
+
+
+class CargoDrop(ContractModel):
+    unit_id: str = Field(min_length=1)
+    destination: Coordinate
+
+
+class UnloadAction(ContractModel):
+    """Move a carrier, then unload one or more named cargo units."""
+
+    kind: Literal["unload"] = "unload"
+    transport_id: str = Field(min_length=1)
+    path: tuple[Coordinate, ...] = Field(max_length=4096)
+    drops: tuple[CargoDrop, ...] = Field(min_length=1, max_length=2)
+
+
 class PurchaseAction(ContractModel):
     kind: Literal["purchase"] = "purchase"
     property: Coordinate
@@ -170,6 +194,8 @@ GameplayAction = Annotated[
     MoveWaitAction
     | MoveAttackAction
     | MoveCaptureAction
+    | LoadAction
+    | UnloadAction
     | PurchaseAction
     | EndTurnAction
     | SurrenderAction,

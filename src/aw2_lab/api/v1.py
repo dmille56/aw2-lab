@@ -319,6 +319,7 @@ async def capabilities(request: Request) -> CapabilitiesResponse:
                 "move_wait",
                 "move_attack",
                 "move_capture",
+                "load",
                 "purchase",
                 "end_turn",
                 "surrender",

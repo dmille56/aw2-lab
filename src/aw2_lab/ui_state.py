@@ -121,6 +121,8 @@ class MenuItem(StrEnum):
     EXIT_MAP = "exit_map"
     FIRE = "fire"
     CAPTURE = "capture"
+    LOAD = "load"
+    UNLOAD = "unload"
     WAIT = "wait"
     OTHER_UNIT_ACTION = "other_unit_action"
     YES = "yes"
@@ -507,16 +509,29 @@ def _observe_unit_action_choices(
     if (
         selected is None
         or len(ids) != count
-        or ids.count(0x0A) != 1
-        or any(item_id not in (0, 2, 3, 4, 0x0A, 0x0B) for item_id in ids)
+        or (ids.count(0x0A) != 1 and ids != (5,))
+        or any(item_id not in (0, 2, 3, 4, 5, 6, 7, 0x0A, 0x0B) for item_id in ids)
         or row >= count
     ):
         return None
     if not _menu_rules_allow_dispatch(snapshot):
         return None
     capture_eligible = _selected_unit_can_capture(snapshot, selected)
-    # Verified live when an Infantry can both fire and capture its destination.
-    if count == 3 and (ids != (0, 2, 0x0A) or not capture_eligible):
+    load_eligible = _selected_unit_can_load_at_cursor(snapshot, selected)
+    has_cargo = any(snapshot.read(selected.record_address + offset, 1)[0] for offset in (7, 8))
+    cargo_menu = (
+        selected.unit_type in (7, 20, 23)
+        and ids
+        in (
+            (6, 0x0A),
+            (6, 7, 0x0A),
+        )
+        and has_cargo
+    )
+    if 0x0A not in ids and not (ids == (5,) and load_eligible):
+        return None
+    # Three-row menus are accepted only for verified capture or cargo cases.
+    if count == 3 and not (ids == (0, 2, 0x0A) and capture_eligible) and not cargo_menu:
         return None
     items = tuple(
         MenuItem.WAIT
@@ -525,6 +540,10 @@ def _observe_unit_action_choices(
         if item_id == 0
         else MenuItem.CAPTURE
         if item_id in (2, 3) and capture_eligible
+        else MenuItem.LOAD
+        if item_id == 5 and load_eligible
+        else MenuItem.UNLOAD
+        if item_id == 6 and selected.unit_type in (7, 20, 23) and has_cargo
         else MenuItem.OTHER_UNIT_ACTION
         for item_id in ids
     )
@@ -536,6 +555,49 @@ def _observe_unit_action_choices(
         actionable=True,
         items=items,
     )
+
+
+def _selected_unit_can_load_at_cursor(
+    snapshot: BattleMemorySnapshot, selected: SelectedUnitObservation
+) -> bool:
+    """Require a compatible allied carrier on the reached cursor tile."""
+    if selected.unit_type in (7, 20, 23):
+        return False
+    x, y = snapshot.u16(CURSOR_SOURCE), snapshot.u16(CURSOR_SOURCE + 2)
+    width, height = snapshot.u16(MAP_BASE), snapshot.u16(MAP_BASE + 2)
+    if not (0 <= x < width and 0 <= y < height):
+        return False
+    for army in range(4):
+        if army + 1 != selected.army_slot:
+            continue
+        for slot in range(1, UNITS_PER_ARMY + 1):
+            index = army * 64 + slot
+            address = UNIT_BASE + index * UNIT_STRIDE
+            record = snapshot.read(address, UNIT_STRIDE)
+            if record[0] not in (7, 20, 23) or record[1] & 8 or (record[2], record[3]) != (x, y):
+                continue
+            capacity = 2 if record[0] == 23 else 1
+            if sum(bool(value) for value in record[7:9]) >= capacity:
+                continue
+            if record[0] in (7, 20) and selected.unit_type not in (1, 2):
+                continue
+            if record[0] == 23 and selected.unit_type not in (
+                1,
+                2,
+                3,
+                7,
+                8,
+                10,
+                11,
+                14,
+                15,
+                16,
+                17,
+                19,
+            ):
+                continue
+            return True
+    return False
 
 
 def _selected_unit_can_capture(

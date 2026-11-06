@@ -304,6 +304,42 @@ def test_movement_path_bound_and_stationary_action() -> None:
         GameplayCommandRequest.model_validate(body)
 
 
+def test_transport_load_and_unload_action_contracts_are_bounded() -> None:
+    load = GameplayCommandRequest.model_validate(
+        {
+            "request_id": uuid4(),
+            "expected_revision": 0,
+            "action": {
+                "kind": "load",
+                "unit_id": "cargo-1",
+                "transport_id": "transport-1",
+                "path": [],
+            },
+        }
+    )
+    assert load.action.kind == "load"
+    unload = GameplayCommandRequest.model_validate(
+        {
+            "request_id": uuid4(),
+            "expected_revision": 0,
+            "action": {
+                "kind": "unload",
+                "transport_id": "transport-1",
+                "path": [],
+                "drops": [
+                    {"unit_id": "cargo-1", "destination": {"x": 1, "y": 0}},
+                    {"unit_id": "cargo-2", "destination": {"x": 0, "y": 1}},
+                ],
+            },
+        }
+    )
+    assert unload.action.kind == "unload"
+    body = unload.model_dump(mode="json")
+    body["action"]["drops"].append({"unit_id": "cargo-3", "destination": {"x": 2, "y": 0}})
+    with pytest.raises(ValidationError):
+        GameplayCommandRequest.model_validate(body)
+
+
 def test_close_has_no_expected_revision() -> None:
     assert CloseMatchRequest(request_id=uuid4())
     with pytest.raises(ValidationError):

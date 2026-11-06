@@ -269,6 +269,9 @@ def test_unit_movement_overlay_exposes_verified_source_cursor(memory) -> None:
         ((2, 0x0A), MenuItem.CAPTURE),
         ((0, 2, 0x0A), MenuItem.FIRE),
         ((4, 0x0A), MenuItem.OTHER_UNIT_ACTION),
+        ((5, 0x0A), MenuItem.LOAD),
+        ((5,), MenuItem.LOAD),
+        ((6, 0x0A), MenuItem.UNLOAD),
         ((0x0A, 0x0B), MenuItem.WAIT),
         ((0x0A,), MenuItem.WAIT),
     ],
@@ -290,6 +293,12 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
     ewram[0x22690:0x2269C] = bytes((1, 6, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
     iwram[0x3140:0x3142] = bytes((1, 1))
     ewram[0x1E450 + 0x51A + 3] = 1
+    if 5 in action_ids:
+        pack_into("<HH", iwram, 0x33E4, 1, 1)
+        ewram[0x226A8:0x226B4] = bytes((7, 0, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
+    if 6 in action_ids:
+        ewram[0x22690] = 7
+        ewram[0x22697] = 2
 
     current = snapshot(memory)
     menu = observe_menu(current, validate_battle_snapshot(current))
@@ -301,6 +310,10 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
         if item_id == 0
         else MenuItem.CAPTURE
         if item_id == 2
+        else MenuItem.LOAD
+        if item_id == 5
+        else MenuItem.UNLOAD
+        if item_id == 6
         else MenuItem.OTHER_UNIT_ACTION
         for item_id in action_ids
     )
@@ -339,6 +352,14 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
     menu = observe_menu(current, validate_battle_snapshot(current))
     assert menu.family is MenuFamily.UNIT_ACTION_CHOICES
     assert menu.selected_item is selected_item
+
+    if action_ids == (5,):
+        ewram[0x226A8] = 0  # No compatible carrier occupies the reached tile.
+        current = snapshot(memory)
+        assert (
+            observe_menu(current, validate_battle_snapshot(current)).family
+            is not MenuFamily.UNIT_ACTION_CHOICES
+        )
 
     layout, _, _ = memory
     rules = list(layout.menu_rules_by_map)

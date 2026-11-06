@@ -9,6 +9,8 @@ const labels: Record<ActionKind, string> = {
   move_wait: "Wait",
   move_attack: "Attack",
   move_capture: "Capture",
+  load: "Load",
+  unload: "Unload",
   purchase: "Purchase unit",
   end_turn: "End turn",
   surrender: "Surrender",
@@ -274,7 +276,29 @@ export function CommandPanel({
                 >
                   Capture here
                 </button>
+                {model.loadTransport && (
+                  <button
+                    type="button"
+                    disabled={
+                      !editable || !model.canLoad || !model.available("load")
+                    }
+                    onClick={() => {
+                      if (model.loadAction && view.snapshot)
+                        onSubmit(
+                          model.loadAction,
+                          view.snapshot.summary.revision,
+                        );
+                    }}
+                  >
+                    Load into {unitName(model.loadTransport)}
+                  </button>
+                )}
               </div>
+              {!model.loadTransport ||
+              !model.canLoad ||
+              !model.available("load") ? (
+                <p className="hint">{model.loadUnavailableReason}</p>
+              ) : null}
               {!model.canAttack && (
                 <p>
                   Attack requires an attacking unit; indirect units must remain

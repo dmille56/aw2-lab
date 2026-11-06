@@ -80,6 +80,7 @@ it("builds a command only for the current ready boundary and locks uncertain sub
     "move_wait",
     "move_attack",
     "move_capture",
+    "load",
     "purchase",
     "end_turn",
     "surrender",
@@ -147,5 +148,63 @@ it("builds a command only for the current ready boundary and locks uncertain sub
   act(() => result.current.selectUnit("1"));
   rerender({ view: { ...initial, connected: false, identity: null } });
   expect(result.current.draft.unitId).toBe("");
+  unmount();
+});
+
+it("offers Load only on a compatible friendly carrier tile and builds its payload", () => {
+  const capabilities = validateCapabilitiesResponse(capabilityFixture);
+  capabilities.actions = ["load"].map((name) => ({
+    contract_version: 1,
+    name,
+    implemented: true,
+    available: true,
+    verification: "synthetic",
+    unavailable_reason: null,
+  }));
+  const state = structuredClone(stateFixture);
+  const observation = state.observation;
+  const battle = observation.game_state.battle;
+  if (battle.status !== "available" || !battle.value)
+    throw new Error("fixture is not playable");
+  battle.value.units.push({
+    ...battle.value.units[0],
+    reference: 2,
+    unit_slot: 2,
+    unit_type: 7,
+    x: 1,
+    y: 0,
+    used_this_turn: true,
+  });
+  observation.unit_identities.push({
+    reference: 2,
+    identity_id: "3",
+    generation: 1,
+  });
+  const view: ViewState = {
+    ...new MatchSession().getSnapshot(),
+    snapshot: validateState(state),
+    connected: true,
+    ready: true,
+    identity: {
+      contract_version: 1,
+      match_id: state.summary.match_id,
+      role: "player",
+      player_slot: "slot_1",
+    },
+    capabilities,
+  };
+  const { result, unmount } = renderHook(() => useGameplay(view, vi.fn()));
+  act(() => result.current.selectUnit("1"));
+  act(() => result.current.dispatch({ type: "plan" }));
+  act(() => result.current.activate({ x: 1, y: 0 }));
+  expect(result.current.canLoad).toBe(true);
+  expect(result.current.loadAction).toEqual({
+    contract_version: 1,
+    kind: "load",
+    unit_id: "1",
+    transport_id: "3",
+    path: [{ contract_version: 1, x: 1, y: 0 }],
+  });
+  expect(result.current.action).toBeNull();
   unmount();
 });
