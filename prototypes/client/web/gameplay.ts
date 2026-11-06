@@ -4,7 +4,7 @@ import type { Position } from "./Board";
 import type { GameplayAction } from "./command_input";
 import { supportedProductionProperties } from "./command_input";
 import catalog from "./catalog.json";
-import { validateMovement } from "./movement";
+import { unloadDropTiles, validateMovement } from "./movement";
 
 export type ActionKind = GameplayAction["kind"];
 export interface Draft {
@@ -18,10 +18,25 @@ export interface Draft {
   kind: ActionKind | null;
   phase: "select" | "unit" | "route" | "target" | "review";
   notice: string;
+  dropDestinations: Record<string, Position>;
 }
 export const sameTile = (a: Position, b: Position) =>
   a.x === b.x && a.y === b.y;
 export const positionLabel = (p: Position) => `(${p.x},${p.y})`;
+const FOOT_CARRIER_CARGO = new Set([1, 2]);
+const LANDER_GROUND_MOVEMENT = new Set(["FOOT", "MECH", "TREADS", "WHEELS"]);
+export function transportCanCarry(
+  transportType: number,
+  cargoType: number,
+): boolean {
+  if (transportType === 7 || transportType === 20)
+    return FOOT_CARRIER_CARGO.has(cargoType);
+  if (transportType !== 23) return false;
+  const profile = (catalog.units as Record<number, { movement_type: string }>)[
+    cargoType
+  ];
+  return !!profile && LANDER_GROUND_MOVEMENT.has(profile.movement_type);
+}
 export const emptyDraft = (boundary: string, notice = ""): Draft => ({
   boundary,
   unitId: "",
@@ -33,6 +48,7 @@ export const emptyDraft = (boundary: string, notice = ""): Draft => ({
   kind: null,
   phase: "select",
   notice,
+  dropDestinations: {},
 });
 export type DraftEvent =
   | { type: "reset"; boundary: string; notice: string }
@@ -42,6 +58,7 @@ export type DraftEvent =
   | { type: "undo" | "clear" | "edit" | "plan" | "cancel_route" }
   | { type: "choose"; kind: ActionKind }
   | { type: "target"; point: Position }
+  | { type: "drop_destination"; unitId: string; point: Position | null }
   | { type: "purchase"; unitType: string }
   | { type: "notice"; notice: string };
 
@@ -74,6 +91,7 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
         return {
           ...draft,
           path: draft.path.slice(0, index),
+          dropDestinations: {},
           notice: `Route shortened to ${positionLabel(event.point)}.`,
         };
       const last = route[route.length - 1];
@@ -90,6 +108,7 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
       return {
         ...draft,
         path: [...draft.path, event.point],
+        dropDestinations: {},
         notice: `Step ${draft.path.length + 1}: ${positionLabel(event.point)}.`,
       };
     }
@@ -97,12 +116,14 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
       return {
         ...draft,
         path: draft.path.slice(0, -1),
+        dropDestinations: {},
         notice: "Last step removed.",
       };
     case "clear":
       return {
         ...draft,
         path: [],
+        dropDestinations: {},
         notice: "Route cleared. The unit will act in place.",
       };
     case "cancel_route":
@@ -120,6 +141,7 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
         phase: "route",
         kind: null,
         target: null,
+        dropDestinations: {},
         notice: "Movement planning. Activate adjacent tiles to build a route.",
       };
     case "choose":
@@ -142,6 +164,12 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
         phase: "review",
         notice: `Target ${positionLabel(event.point)} selected. Review and confirm the attack.`,
       };
+    case "drop_destination": {
+      const dropDestinations = { ...draft.dropDestinations };
+      if (event.point) dropDestinations[event.unitId] = event.point;
+      else delete dropDestinations[event.unitId];
+      return { ...draft, dropDestinations };
+    }
     case "purchase":
       return {
         ...draft,
@@ -233,6 +261,27 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     battle && selectedUnit
       ? validateMovement(battle, selectedUnit, draft.path)
       : null;
+  const selectedTransportCargo =
+    selectedUnit && [7, 20, 23].includes(selectedUnit.unit_type)
+      ? selectedUnit.cargo_references.flatMap((reference) => {
+          const unit = battle?.units.find(
+            (candidate) =>
+              candidate.reference === reference && candidate.embarked,
+          );
+          const id = observation?.unit_identities.find(
+            (identity) => identity.reference === reference,
+          )?.identity_id;
+          return unit && id ? [{ unit, id }] : [];
+        })
+      : [];
+  const unloadDropOptions = selectedTransportCargo.map(({ unit, id }) => ({
+    unit,
+    id,
+    destinations:
+      battle && destination && selectedUnit
+        ? unloadDropTiles(battle, selectedUnit, unit, destination)
+        : [],
+  }));
   const transportAtDestination =
     battle && destination
       ? battle.units.find(
@@ -245,12 +294,7 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
   const transportCompatible =
     !!selectedUnit &&
     !!transportAtDestination &&
-    (transportAtDestination.unit_type === 7 ||
-    transportAtDestination.unit_type === 20
-      ? [1, 2].includes(selectedUnit.unit_type)
-      : [1, 2, 3, 7, 8, 10, 11, 14, 15, 16, 17, 19].includes(
-          selectedUnit.unit_type,
-        ));
+    transportCanCarry(transportAtDestination.unit_type, selectedUnit.unit_type);
   const transportHasCapacity =
     !!transportAtDestination &&
     transportAtDestination.cargo_references.length <
@@ -267,7 +311,50 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
   const loadTransportId = observation?.unit_identities.find(
     (item) => item.reference === transportAtDestination?.reference,
   )?.identity_id;
+  const feature = (kind: ActionKind) =>
+    view.capabilities?.actions.find((item) => item.name === kind);
+  const available = (kind: ActionKind) =>
+    !!feature(kind)?.implemented && !!feature(kind)?.available;
   const canLoad = !!loadTransport && !!loadTransportId && !movement?.error;
+  const selectedDrops = unloadDropOptions.flatMap(
+    ({ unit, id, destinations }) => {
+      const point = draft.dropDestinations[id];
+      return point &&
+        destinations.some((candidate) => sameTile(candidate, point))
+        ? [{ unit, id, point }]
+        : [];
+    },
+  );
+  const duplicateDrop =
+    new Set(selectedDrops.map(({ point }) => `${point.x},${point.y}`)).size !==
+    selectedDrops.length;
+  const unloadError =
+    !selectedUnit || ![7, 20, 23].includes(selectedUnit.unit_type)
+      ? "Select a ready transport with cargo to unload."
+      : !selectedTransportCargo.length
+        ? "This transport has no identified cargo to unload."
+        : !selectedDrops.length
+          ? "Choose at least one cargo unit and an adjacent legal drop tile."
+          : duplicateDrop
+            ? "Each cargo unit needs a different drop tile."
+            : selectedDrops.length > (selectedUnit.unit_type === 23 ? 2 : 1)
+              ? "This transport cannot unload more cargo than it carries."
+              : movement?.error
+                ? movement.error
+                : movement?.endpointError
+                  ? movement.endpointError
+                  : "";
+  const unloadFeature = feature("unload");
+  const unloadUnavailableReason = !selectedTransportCargo.length
+    ? "Select a ready carrier with identified cargo."
+    : !destination
+      ? "Choose the carrier's final tile before selecting drop tiles."
+      : unloadDropOptions.every((item) => item.destinations.length === 0)
+        ? "No adjacent empty tiles have verified legal terrain for this cargo."
+        : !unloadFeature?.implemented || !unloadFeature.available
+          ? (unloadFeature?.unavailable_reason ??
+            "The connected server does not currently enable unloading.")
+          : unloadError;
   const occupiedBase =
     !!draft.base &&
     !!battle?.units.some(
@@ -293,10 +380,6 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
         p.owner_slot !== slot &&
         [6, 8, 10, 11, 14, 20].includes(p.terrain_class),
     );
-  const feature = (kind: ActionKind) =>
-    view.capabilities?.actions.find((item) => item.name === kind);
-  const available = (kind: ActionKind) =>
-    !!feature(kind)?.implemented && !!feature(kind)?.available;
   const loadUnavailableReason = !transportAtDestination
     ? "End the route on a friendly carrier tile to load."
     : transportAtDestination.army_slot !== slot
@@ -455,6 +538,26 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     else if (
       selectedUnit &&
       movementReady &&
+      kind === "unload" &&
+      selectedTransportCargo.length > 0 &&
+      selectedDrops.length > 0 &&
+      !unloadError &&
+      available("unload")
+    )
+      action = {
+        contract_version: 1,
+        kind,
+        transport_id: draft.unitId,
+        path: draft.path.map(coordinate),
+        drops: selectedDrops.map(({ id, point }) => ({
+          contract_version: 1,
+          unit_id: id,
+          destination: coordinate(point),
+        })),
+      };
+    else if (
+      selectedUnit &&
+      movementReady &&
       (kind === "move_wait" || (kind === "move_capture" && canCapture))
     )
       action = {
@@ -515,6 +618,11 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     loadAction,
     loadTransport: transportAtDestination,
     loadUnavailableReason,
+    selectedTransportCargo,
+    unloadDropOptions,
+    unloadError,
+    unloadUnavailableReason,
+    canUnload: !unloadError,
     available,
     feature,
     action,

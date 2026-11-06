@@ -293,6 +293,15 @@ export function CommandPanel({
                     Load into {unitName(model.loadTransport)}
                   </button>
                 )}
+                {!!model.selectedTransportCargo.length && (
+                  <button
+                    type="button"
+                    disabled={!editable || !model.destination}
+                    onClick={() => choose("unload")}
+                  >
+                    Plan cargo unload
+                  </button>
+                )}
               </div>
               {!model.loadTransport ||
               !model.canLoad ||
@@ -424,6 +433,73 @@ export function CommandPanel({
               Buy {draft.unitType} at base {positionLabel(draft.base)}. Baseline
               cost: {profileByName(draft.unitType)?.cost ?? "unknown"}.
             </p>
+          )}
+          {draft.kind === "unload" && selectedUnit && (
+            <>
+              <p>
+                Move {unitName(selectedUnit)} to{" "}
+                {destination && positionLabel(destination)} and drop selected
+                cargo on adjacent legal tiles. The server checks the final route
+                and drop positions before execution.
+              </p>
+              <fieldset className="unload-drops">
+                <legend>Choose cargo and drop tiles</legend>
+                {model.unloadDropOptions.map(
+                  ({ unit, id, destinations: dropTiles }) => (
+                    <label key={id}>
+                      Drop {unitName(unit)} ({unit.internal_health}/100 HP)
+                      <select
+                        aria-label={`Drop ${unitName(unit)} at`}
+                        value={
+                          draft.dropDestinations[id]
+                            ? `${draft.dropDestinations[id].x},${draft.dropDestinations[id].y}`
+                            : ""
+                        }
+                        disabled={!editable || !dropTiles.length}
+                        onChange={(event) => {
+                          const tile = dropTiles.find(
+                            (point) =>
+                              `${point.x},${point.y}` ===
+                              event.currentTarget.value,
+                          );
+                          dispatch({
+                            type: "drop_destination",
+                            unitId: id,
+                            point: tile ?? null,
+                          });
+                        }}
+                      >
+                        <option value="">Keep aboard</option>
+                        {dropTiles.map((point) => (
+                          <option
+                            key={`${point.x},${point.y}`}
+                            value={`${point.x},${point.y}`}
+                          >
+                            {positionLabel(point)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ),
+                )}
+              </fieldset>
+              {model.unloadError && (
+                <p role="alert" className="hint">
+                  {model.unloadError}
+                </p>
+              )}
+              {!model.available("unload") && (
+                <p role="status" className="hint">
+                  {model.unloadUnavailableReason}
+                </p>
+              )}
+              {model.canUnload && model.available("unload") && (
+                <p className="hint">
+                  Drop tiles are unique, unoccupied, adjacent to the carrier,
+                  and legal for each cargo unit's movement class.
+                </p>
+              )}
+            </>
           )}
           {draft.kind === "end_turn" && (
             <p>

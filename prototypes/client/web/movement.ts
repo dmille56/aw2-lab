@@ -26,6 +26,55 @@ export interface MovementReach {
   alliedTransit: Set<string>;
 }
 
+/** Return observed legal drop tiles adjacent to a carrier's planned destination. */
+export function unloadDropTiles(
+  battle: BattleState,
+  carrier: UnitState,
+  cargo: UnitState,
+  carrierDestination: Position,
+): Position[] {
+  const profile = units[cargo.unit_type];
+  const player = battle.players.find((item) => item.slot === cargo.army_slot);
+  if (
+    !profile ||
+    battle.co_effects_enabled.status !== "available" ||
+    battle.weather.status !== "available" ||
+    battle.weather.value === null
+  )
+    return [];
+  const context =
+    contexts[
+      battle.co_effects_enabled.value === false
+        ? "baseline"
+        : `${player?.co_id}:${player?.active_power}`
+    ];
+  if (!context) return [];
+  const table = costs[context.weather_variants[battle.weather.value]];
+  const movementType = types[profile.movement_type];
+  if (!table || movementType === undefined) return [];
+  const occupied = new Set(
+    battle.units
+      .filter((unit) => !unit.embarked && unit.reference !== carrier.reference)
+      .map((unit) => `${unit.x},${unit.y}`),
+  );
+  return battle.map.tiles
+    .filter((tile) => {
+      const adjacent =
+        Math.abs(tile.x - carrierDestination.x) +
+          Math.abs(tile.y - carrierDestination.y) ===
+        1;
+      const terrainCost = table[tile.terrain_class]?.[movementType];
+      return (
+        adjacent &&
+        !occupied.has(`${tile.x},${tile.y}`) &&
+        terrainCost !== undefined &&
+        terrainCost !== null
+      );
+    })
+    .map(({ x, y }) => ({ x, y }))
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+}
+
 /** Calculate observed reachable tiles with Dijkstra, allowing allies as transit only. */
 export function movementReach(
   battle: BattleState,
