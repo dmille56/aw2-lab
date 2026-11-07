@@ -339,7 +339,10 @@ class UnloadActionExecutor:
             zip(linked_cargo, action.drops, strict=False)
         ):
             after_drop = await self.navigator.choose_unload(
-                (drop.destination.x, drop.destination.y), unit=expected
+                (drop.destination.x, drop.destination.y),
+                unit=expected,
+                width=battle.map.width,
+                height=battle.map.height,
             )
             final_battle = after_drop.battle.value
             dropped = (

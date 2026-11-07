@@ -240,7 +240,8 @@ def test_unload_drops_named_cargo_and_commits_identity_stable_state(
             self.calls.append(("move", tuple(path)))
             return _game_state_at(initial.game_state, 124, battle, action_menu)
 
-        async def choose_unload(self, point, *, unit):
+        async def choose_unload(self, point, *, unit, width, height):
+            assert (width, height) == (battle.map.width, battle.map.height)
             self.calls.append(("drop", point))
             return after_drop_states[len([call for call in self.calls if call[0] == "drop"]) - 1]
 

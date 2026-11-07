@@ -72,8 +72,12 @@ class EndTurnActionExecutor:
             or not any(player.slot == expected_player for player in next_battle.players)
         ):
             raise RuntimeError("End Turn did not reach the expected next player/day boundary")
+        # AW2 retains the used flag on embarked passengers across upkeep. They
+        # cannot act until unloaded, which marks them used as part of that action.
         if any(
-            unit.used_this_turn for unit in next_battle.units if unit.army_slot == expected_player
+            unit.used_this_turn
+            for unit in next_battle.units
+            if unit.army_slot == expected_player and not unit.embarked
         ):
             raise RuntimeError("Next player's units were not reset at turn start")
 

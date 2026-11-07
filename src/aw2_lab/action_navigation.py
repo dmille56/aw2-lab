@@ -600,7 +600,12 @@ class ActionNavigator:
             )
 
     async def choose_unload(
-        self, destination: tuple[int, int], *, unit: tuple[int, int, int, int]
+        self,
+        destination: tuple[int, int],
+        *,
+        unit: tuple[int, int, int, int],
+        width: int,
+        height: int,
     ) -> GameState:
         """Choose Drop, move the observed drop cursor, and verify the action menu returns."""
         async with self._bounded_operation():
@@ -624,7 +629,9 @@ class ActionNavigator:
             ):
                 raise await self._fail("Unload requires the requested carrier's Drop action", state)
             state = await self._navigate_unit_action(MenuItem.UNLOAD, state)
-            await self._tap("begin-unload", _KEY_A)
+            # Drop can be the first already-selected row, so no directional
+            # input gives the selector time to finish its opening animation.
+            await self._tap("begin-unload", _KEY_A, minimum_gap=30)
             state = await self._wait_for(
                 lambda value: (
                     value.ui.menu.family is MenuFamily.UNIT_DROP_TARGETING
@@ -640,13 +647,10 @@ class ActionNavigator:
                 ),
                 description="the carrier's observed Drop cursor",
             )
-            battle = state.battle.value
-            if state.battle.status is not ValueStatus.AVAILABLE or battle is None:
-                raise await self._fail("Validated map dimensions are unavailable", state)
             x, y = destination
-            if not (0 <= x < battle.map.width and 0 <= y < battle.map.height):
+            if not (0 <= x < width and 0 <= y < height):
                 raise await self._fail("Drop destination is outside the validated map", state)
-            state = await self._move_drop_cursor(x, y, unit=unit)
+            state = await self._move_drop_cursor(x, y, unit=unit, width=width, height=height)
             await self._tap("confirm-unload-drop", _KEY_A)
             return await self._wait_for(
                 lambda value: (
@@ -665,7 +669,13 @@ class ActionNavigator:
             )
 
     async def _move_drop_cursor(
-        self, x: int, y: int, *, unit: tuple[int, int, int, int]
+        self,
+        x: int,
+        y: int,
+        *,
+        unit: tuple[int, int, int, int],
+        width: int,
+        height: int,
     ) -> GameState:
         state = await self._observe()
         cursor = state.ui.map_cursor
@@ -676,10 +686,7 @@ class ActionNavigator:
             or cursor.y is None
         ):
             raise await self._fail("Drop cursor movement requires verified targeting mode", state)
-        battle = state.battle.value
-        if state.battle.status is not ValueStatus.AVAILABLE or battle is None:
-            raise await self._fail("Validated map dimensions are unavailable", state)
-        if not (0 <= x < battle.map.width and 0 <= y < battle.map.height):
+        if not (0 <= x < width and 0 <= y < height):
             raise await self._fail("Drop destination is outside the validated map", state)
         while (cursor.x, cursor.y) != (x, y):
             dx, dy = x - cursor.x, y - cursor.y

@@ -246,7 +246,9 @@ def test_choose_unload_tracks_drop_target_cursor_before_confirmation(memory) -> 
             NavigationLimits(frame_budget=100, poll_frames=1, wall_timeout=3),
         )
 
-        result = await navigator.choose_unload((1, 1), unit=(1, 1, 23, 0x02022690))
+        result = await navigator.choose_unload(
+            (1, 1), unit=(1, 1, 23, 0x02022690), width=4, height=4
+        )
         assert result.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
         assert (result.ui.map_cursor.x, result.ui.map_cursor.y) == (1, 1)
         assert bridge.keys == [64, 1, 16, 128, 1]

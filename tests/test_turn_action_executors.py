@@ -7,6 +7,7 @@ from dataclasses import replace
 from typing import cast
 from uuid import uuid4
 
+import pytest
 from pydantic import SecretStr
 from test_state_validation import memory as memory  # noqa: PLC0414 -- re-export pytest fixture
 from test_state_validation import snapshot
@@ -54,19 +55,31 @@ def _map_boundary(state, frame: int, battle):
     )
 
 
-def test_end_turn_verifies_next_player_and_new_day(memory) -> None:
+@pytest.mark.parametrize("embarked_passenger_stays_used", [False, True])
+def test_end_turn_verifies_next_player_and_new_day(
+    memory, embarked_passenger_stays_used: bool
+) -> None:
     tracker = MatchObservationTracker(uuid4())
     initial = tracker.commit_boundary(decode_snapshot(snapshot(memory)))
     battle = initial.game_state.battle.value
     assert battle is not None
     next_slot = 2 if battle.active_player_slot == 1 else 1
     next_day = battle.day + (1 if battle.active_player_slot == 2 else 0)
+    next_slot_units = [unit for unit in battle.units if unit.army_slot == next_slot]
+    assert next_slot_units
+    embarked_reference = next_slot_units[0].reference if embarked_passenger_stays_used else None
     next_battle = replace(
         battle,
         active_player_slot=next_slot,
         day=next_day,
         units=tuple(
-            replace(unit, used_this_turn=False) if unit.army_slot == next_slot else unit
+            (
+                replace(unit, embarked=True, used_this_turn=True)
+                if unit.reference == embarked_reference
+                else replace(unit, used_this_turn=False)
+            )
+            if unit.army_slot == next_slot
+            else unit
             for unit in battle.units
         ),
     )

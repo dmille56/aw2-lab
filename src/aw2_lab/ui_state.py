@@ -665,30 +665,35 @@ def _is_unload_targeting(
         index * SELECTOR_STRIDE
         for index in range(SELECTOR_COUNT)
         if snapshot.u32(SELECTOR_OBJECT + index * SELECTOR_STRIDE) == UNLOAD_TARGETING_SELECTOR
-        and snapshot.u32(SELECTOR_TABLE + index * SELECTOR_STRIDE) == 1
     )
     if (
         validation.lifecycle.phase is not LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
         or validation.lifecycle.engine is not LifecycleEngine.BATTLE
         or snapshot.u16(CONTROLLER_STATE) != 13
         or snapshot.read(CONTROLLER_LOCK, 1)[0] != 1
-        or snapshot.u16(0x03003334) != 5
         or len(offsets) != 1
     ):
         return False
     offset = offsets[0]
-    if (
-        snapshot.read(SELECTOR_ROW_COUNT + offset, 1)[0] != 3
-        or snapshot.read(SELECTOR_SELECTED_ROW + offset, 1)[0] >= 3
-        or UNIT_ACTION_MENU_SCRIPT not in validation.lifecycle.active_process_scripts
-    ):
+    if UNIT_ACTION_MENU_SCRIPT not in validation.lifecycle.active_process_scripts:
         return False
     selected = _observe_selected_unit(snapshot)
     if selected is None or selected.unit_type not in (7, 20, 23):
         return False
-    return any(
+    has_cargo = any(
         snapshot.read(selected.record_address + cargo_offset, 1)[0] for cargo_offset in (7, 8)
     )
+    if not has_cargo:
+        return False
+
+    table = snapshot.u32(SELECTOR_TABLE + offset)
+    row_count = snapshot.read(SELECTOR_ROW_COUNT + offset, 1)[0]
+    row = snapshot.read(SELECTOR_SELECTED_ROW + offset, 1)[0]
+    lander_drop_list = table == 1 and row_count == 3 and row < 3 and snapshot.u16(0x03003334) == 5
+    apc_drop_cursor = (
+        selected.unit_type == 7 and table == 0 and row_count == 0 and snapshot.u16(0x03003334) == 4
+    )
+    return lander_drop_list or apc_drop_cursor
 
 
 def _observe_selected_unit(snapshot: BattleMemorySnapshot) -> SelectedUnitObservation | None:
