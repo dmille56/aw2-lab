@@ -193,12 +193,17 @@ def test_unload_drops_named_cargo_and_commits_identity_stable_state(
                 units.append(unit)
         intermediate_battle = replace(battle, units=tuple(units))
         rows = (MenuItem.UNLOAD, MenuItem.WAIT) if remaining else (MenuItem.WAIT,)
+        menu_after_drop = (
+            MenuObservation(125 + index, MenuFamily.MAP_INPUT)
+            if carrier_type == 7 and not remaining
+            else replace(action_menu, items=rows, selected_item=rows[0])
+        )
         after_drop_states.append(
             _game_state_at(
                 initial.game_state,
                 125 + index,
                 intermediate_battle,
-                replace(action_menu, items=rows, selected_item=rows[0]),
+                menu_after_drop,
             )
         )
     final_battle = after_drop_states[-1].battle.value
@@ -272,12 +277,14 @@ def test_unload_drops_named_cargo_and_commits_identity_stable_state(
         UnloadActionExecutor(cast(ActionNavigator, navigator), tracker).execute(request, initial)
     )
 
-    assert navigator.calls == [
+    expected_calls = [
         ("select", carrier_id),
         ("move", ()),
         *(("drop", destination) for destination in destinations),
-        ("wait",),
     ]
+    if carrier_type != 7:
+        expected_calls.append(("wait",))
+    assert navigator.calls == expected_calls
     assert outcome.observation is not None and outcome.observation.revision == 2
     committed = outcome.observation.game_state.battle.value
     assert committed is not None

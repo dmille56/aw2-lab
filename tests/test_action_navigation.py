@@ -162,11 +162,13 @@ def test_choose_unload_tracks_drop_target_cursor_before_confirmation(memory) -> 
         def __init__(self, state: GameState) -> None:
             self.state = state
             self.keys: list[int] = []
+            self.gaps: list[int] = []
 
         async def observe(self) -> GameState:
             return self.state
 
         async def advance_frames(self, frames: int) -> int:
+            self.gaps.append(frames)
             self._update(frames)
             return self.state.frame
 
@@ -252,6 +254,7 @@ def test_choose_unload_tracks_drop_target_cursor_before_confirmation(memory) -> 
         assert result.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
         assert (result.ui.map_cursor.x, result.ui.map_cursor.y) == (1, 1)
         assert bridge.keys == [64, 1, 16, 128, 1]
+        assert bridge.gaps[-1] == 20
         assert [event.name for event in navigator.inputs] == [
             "unload-menu-up",
             "begin-unload",

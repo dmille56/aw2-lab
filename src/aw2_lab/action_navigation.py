@@ -651,21 +651,34 @@ class ActionNavigator:
             if not (0 <= x < width and 0 <= y < height):
                 raise await self._fail("Drop destination is outside the validated map", state)
             state = await self._move_drop_cursor(x, y, unit=unit, width=width, height=height)
-            await self._tap("confirm-unload-drop", _KEY_A)
-            return await self._wait_for(
-                lambda value: (
+            # Live Lander traces require two A taps separated by 20 neutral
+            # frames before the game commits a Drop. Keep the same cadence for
+            # the APC's single-cargo target confirmation.
+            await self._tap("confirm-unload-drop", _KEY_A, minimum_gap=20)
+
+            def drop_completed(value: GameState) -> bool:
+                if value.ui.menu.family is MenuFamily.MAP_INPUT:
+                    return (
+                        value.battle.status is ValueStatus.AVAILABLE
+                        and value.battle.value is not None
+                    )
+                selected = value.ui.menu.selected_unit
+                return (
                     value.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
-                    and value.ui.menu.selected_unit is not None
+                    and selected is not None
                     and (
-                        value.ui.menu.selected_unit.army_slot,
-                        value.ui.menu.selected_unit.unit_slot,
-                        value.ui.menu.selected_unit.unit_type,
-                        value.ui.menu.selected_unit.record_address,
+                        selected.army_slot,
+                        selected.unit_slot,
+                        selected.unit_type,
+                        selected.record_address,
                     )
                     == unit
                     and value.ui.menu.actionable is True
-                ),
-                description="the carrier action choices after Drop",
+                )
+
+            return await self._wait_for(
+                drop_completed,
+                description="the carrier action choices or settled map after Drop",
             )
 
     async def _move_drop_cursor(

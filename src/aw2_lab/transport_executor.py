@@ -360,6 +360,23 @@ class UnloadActionExecutor:
                 if final_battle is not None
                 else None
             )
+            remaining_cargo = carrier.cargo_references[drop_index + 1 :]
+            menu_is_carrier = (
+                after_drop.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
+                and after_drop.ui.menu.selected_unit is not None
+                and (
+                    after_drop.ui.menu.selected_unit.army_slot,
+                    after_drop.ui.menu.selected_unit.unit_slot,
+                    after_drop.ui.menu.selected_unit.unit_type,
+                    after_drop.ui.menu.selected_unit.record_address,
+                )
+                == expected
+            )
+            menu_closed_after_final_drop = (
+                after_drop.ui.menu.family is MenuFamily.MAP_INPUT
+                and drop_index == len(action.drops) - 1
+                and not remaining_cargo
+            )
             if (
                 after_drop.battle.status is not ValueStatus.AVAILABLE
                 or final_battle is None
@@ -368,22 +385,18 @@ class UnloadActionExecutor:
                 or dropped.embarked
                 or not dropped.used_this_turn
                 or (dropped.x, dropped.y) != (drop.destination.x, drop.destination.y)
-                or live_carrier.cargo_references != carrier.cargo_references[drop_index + 1 :]
-                or after_drop.ui.menu.family is not MenuFamily.UNIT_ACTION_CHOICES
-                or after_drop.ui.menu.selected_unit is None
-                or (
-                    after_drop.ui.menu.selected_unit.army_slot,
-                    after_drop.ui.menu.selected_unit.unit_slot,
-                    after_drop.ui.menu.selected_unit.unit_type,
-                    after_drop.ui.menu.selected_unit.record_address,
-                )
-                != expected
+                or live_carrier.cargo_references != remaining_cargo
+                or not (menu_is_carrier or menu_closed_after_final_drop)
             ):
                 raise RuntimeError(
                     f"Drop did not produce the expected cargo state for {identity_id}"
                 )
 
-        final_state = await self.navigator.choose_wait()
+        final_state = (
+            after_drop
+            if after_drop.ui.menu.family is MenuFamily.MAP_INPUT
+            else await self.navigator.choose_wait()
+        )
         final_battle = final_state.battle.value
         final_carrier = (
             next((item for item in final_battle.units if item.reference == carrier.reference), None)

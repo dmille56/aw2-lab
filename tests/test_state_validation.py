@@ -408,7 +408,8 @@ def test_unload_cursor_uses_observed_source_during_drop_targeting(memory) -> Non
     assert (cursor.x, cursor.y) == (1, 1)
 
 
-def test_apc_drop_cursor_uses_live_source_during_cursor_mode(memory) -> None:
+@pytest.mark.parametrize("selector_table", [0, 3])
+def test_apc_drop_cursor_uses_live_source_during_cursor_mode(memory, selector_table) -> None:
     _, ewram, iwram = memory
     pack_into("<I", ewram, 0xD610, UNIT_ACTION_MENU_SCRIPT)
     pack_into("<I", iwram, 0x40D8, 0x02022690)
@@ -418,7 +419,7 @@ def test_apc_drop_cursor_uses_live_source_during_cursor_mode(memory) -> None:
     ewram[0x22690:0x2269C] = bytes((7, 0x16, 1, 1, 100, 0, 99, 2, 0, 0, 0, 4))
     offset = 2 * 0x60
     pack_into("<I", iwram, 0x1470 + offset, UNLOAD_TARGETING_SELECTOR)
-    pack_into("<I", iwram, 0x1490 + offset, 0)
+    pack_into("<I", iwram, 0x1490 + offset, selector_table)
     iwram[0x14B1 + offset] = 0
     iwram[0x30F0] = 1
     pack_into("<H", iwram, 0x32D8, 13)

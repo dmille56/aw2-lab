@@ -691,7 +691,12 @@ def _is_unload_targeting(
     row = snapshot.read(SELECTOR_SELECTED_ROW + offset, 1)[0]
     lander_drop_list = table == 1 and row_count == 3 and row < 3 and snapshot.u16(0x03003334) == 5
     apc_drop_cursor = (
-        selected.unit_type == 7 and table == 0 and row_count == 0 and snapshot.u16(0x03003334) == 4
+        selected.unit_type == 7
+        # The APC uses a null table immediately after Drop opens, then switches
+        # this field to 3 when the first map-cursor input initializes the target.
+        and table in (0, 3)
+        and row_count == 0
+        and snapshot.u16(0x03003334) == 4
     )
     return lander_drop_list or apc_drop_cursor
 
