@@ -576,6 +576,8 @@ def _selected_unit_can_load_at_cursor(
     snapshot: BattleMemorySnapshot, selected: SelectedUnitObservation
 ) -> bool:
     """Require a compatible allied carrier on the reached cursor tile."""
+    from aw2_lab.transport_rules import can_carry
+
     if selected.unit_type in (7, 20, 23):
         return False
     x, y = snapshot.u16(CURSOR_SOURCE), snapshot.u16(CURSOR_SOURCE + 2)
@@ -594,22 +596,7 @@ def _selected_unit_can_load_at_cursor(
             capacity = 2 if record[0] == 23 else 1
             if sum(bool(value) for value in record[7:9]) >= capacity:
                 continue
-            if record[0] in (7, 20) and selected.unit_type not in (1, 2):
-                continue
-            if record[0] == 23 and selected.unit_type not in (
-                1,
-                2,
-                3,
-                7,
-                8,
-                10,
-                11,
-                14,
-                15,
-                16,
-                17,
-                19,
-            ):
+            if not can_carry(record[0], selected.unit_type):
                 continue
             return True
     return False
@@ -691,10 +678,11 @@ def _is_unload_targeting(
     row = snapshot.read(SELECTOR_SELECTED_ROW + offset, 1)[0]
     lander_drop_list = table == 1 and row_count == 3 and row < 3 and snapshot.u16(0x03003334) == 5
     single_tile_drop_cursor = (
-        selected.unit_type in (7, 20)
-        # APC and T-Copter use a map cursor rather than the Lander's drop list.
-        # The APC table field can switch from 0 to 3 after cursor input.
-        and table in (0, 3)
+        selected.unit_type in (7, 20, 23)
+        and table in (0, 1, 3)
+        # Carriers use a map cursor while Drop targeting is active. The table
+        # field can change after cursor input; the Lander also has a separate
+        # three-row cargo selector recognized above.
         and row_count == 0
         and snapshot.u16(0x03003334) == 4
     )

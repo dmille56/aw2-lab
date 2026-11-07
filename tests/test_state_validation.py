@@ -380,6 +380,31 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
     )
 
 
+def test_lander_load_choice_accepts_recon_on_carrier_tile(memory) -> None:
+    _, ewram, iwram = memory
+    pack_into("<I", ewram, 0xD610, UNIT_ACTION_MENU_SCRIPT)
+    pack_into("<I", iwram, 0x40D8, 0x02022690)
+    pack_into("<H", iwram, 0x3334, 4)
+    pack_into("<HH", iwram, 0x33E4, 1, 1)
+    pack_into("<I", iwram, 0x1470, 0x0848A42C)
+    pack_into("<I", iwram, 0x1490, 0x0849AE28)
+    iwram[0x14B1] = 1
+    iwram[0x14B2] = 0
+    iwram[0x14A1] = 5
+    iwram[0x30F0] = 1
+    iwram[0x3140:0x3142] = bytes((1, 1))
+    ewram[0x22690:0x2269C] = bytes((5, 6, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
+    ewram[0x226A8:0x226B4] = bytes((23, 0, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
+    ewram[0x1E450 + 0x51A + 3] = 1
+
+    current = snapshot(memory)
+    menu = observe_menu(current, validate_battle_snapshot(current))
+
+    assert menu.family is MenuFamily.UNIT_ACTION_CHOICES
+    assert menu.items == (MenuItem.LOAD,)
+    assert menu.selected_unit is not None and menu.selected_unit.unit_type == 5
+
+
 def test_unload_cursor_uses_observed_source_during_drop_targeting(memory) -> None:
     _, ewram, iwram = memory
     pack_into("<I", ewram, 0xD610, UNIT_ACTION_MENU_SCRIPT)
@@ -408,7 +433,10 @@ def test_unload_cursor_uses_observed_source_during_drop_targeting(memory) -> Non
     assert (cursor.x, cursor.y) == (1, 1)
 
 
-@pytest.mark.parametrize(("carrier_type", "selector_table"), [(7, 0), (7, 3), (20, 0)])
+@pytest.mark.parametrize(
+    ("carrier_type", "selector_table"),
+    [(7, 0), (7, 3), (20, 0), (20, 1), (23, 0), (23, 1)],
+)
 def test_single_tile_drop_cursor_uses_live_source_during_cursor_mode(
     memory, carrier_type, selector_table
 ) -> None:
