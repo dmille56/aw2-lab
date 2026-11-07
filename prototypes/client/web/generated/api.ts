@@ -1305,7 +1305,7 @@ export interface components {
          * @description Menu contexts supported by the current UI research subset.
          * @enum {string}
          */
-        MenuFamily: "map_input" | "command" | "intel" | "options" | "unit_action" | "unit_movement" | "unit_action_choices" | "production_choices" | "confirmation" | "unit_targeting" | "unresolved";
+        MenuFamily: "map_input" | "command" | "intel" | "options" | "unit_action" | "unit_movement" | "unit_action_choices" | "production_choices" | "confirmation" | "unit_targeting" | "unit_drop_targeting" | "unresolved";
         /**
          * MenuItem
          * @description Choices resolved from the verified general battle selectors.

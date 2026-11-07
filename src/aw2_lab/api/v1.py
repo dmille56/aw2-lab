@@ -320,6 +320,7 @@ async def capabilities(request: Request) -> CapabilitiesResponse:
                 "move_attack",
                 "move_capture",
                 "load",
+                "unload",
                 "purchase",
                 "end_turn",
                 "surrender",

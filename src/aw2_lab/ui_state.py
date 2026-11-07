@@ -53,6 +53,9 @@ PRODUCTION_CHOICES = (1, 2, 6, 5, 3, 8, 7, 10, 11, 14, 15)
 SELECTOR_STRIDE = 0x60
 SELECTOR_COUNT = 3
 FIRE_TARGETING_SCRIPT = 0x0849A9F8
+# Observed while AW2 is choosing a tile for a transport Drop action. The
+# selector is a cursor helper, not one of the action-menu selector tables.
+UNLOAD_TARGETING_SELECTOR = 0x0849A080
 
 # Original-ROM table signatures for the three selectors verified in the
 # supplied Versus battle checkpoints. Each item ID has a non-null A callback.
@@ -100,6 +103,7 @@ class MenuFamily(StrEnum):
     PRODUCTION_CHOICES = "production_choices"
     CONFIRMATION = "confirmation"
     UNIT_TARGETING = "unit_targeting"
+    UNIT_DROP_TARGETING = "unit_drop_targeting"
     UNRESOLVED = "unresolved"
 
 
@@ -214,10 +218,12 @@ def observe_map_cursor(
         and _observe_selected_unit(snapshot) is not None
     )
     targeting_cursor = _is_fire_targeting(snapshot, validation)
+    unload_cursor = _is_unload_targeting(snapshot, validation)
     if (
         validation.lifecycle.phase is not LifecyclePhase.BATTLE_PLAYER_TURN
         and not movement_cursor
         and not targeting_cursor
+        and not unload_cursor
     ):
         return MapCursorObservation(
             snapshot.frame,
@@ -232,7 +238,7 @@ def observe_map_cursor(
         )
 
     width, height = snapshot.u16(MAP_BASE), snapshot.u16(MAP_BASE + 2)
-    if movement_cursor or targeting_cursor:
+    if movement_cursor or targeting_cursor or unload_cursor:
         x, y = snapshot.u16(CURSOR_SOURCE), snapshot.u16(CURSOR_SOURCE + 2)
         if 0 <= x < width and 0 <= y < height:
             return MapCursorObservation(snapshot.frame, CursorStatus.AVAILABLE, x, y)
@@ -279,6 +285,15 @@ def observe_menu(
     confirmation = _observe_confirmation(snapshot, validation)
     if confirmation is not None:
         return confirmation
+
+    if _is_unload_targeting(snapshot, validation):
+        selected = _observe_selected_unit(snapshot)
+        return MenuObservation(
+            snapshot.frame,
+            MenuFamily.UNIT_DROP_TARGETING,
+            selected_unit=selected,
+            actionable=selected is not None,
+        )
 
     production_menu = _observe_production_choices(snapshot, validation)
     if production_menu is not None:
@@ -639,6 +654,40 @@ def _is_fire_targeting(snapshot: BattleMemorySnapshot, validation: BattleValidat
         and snapshot.u16(CONTROLLER_STATE) == 13
         and snapshot.read(CONTROLLER_LOCK, 1)[0] == 1
         and snapshot.u16(0x03003334) == 4
+    )
+
+
+def _is_unload_targeting(
+    snapshot: BattleMemorySnapshot, validation: BattleValidationReport
+) -> bool:
+    """Recognize the observed map-cursor phase opened by the unit's Drop row."""
+    offsets = tuple(
+        index * SELECTOR_STRIDE
+        for index in range(SELECTOR_COUNT)
+        if snapshot.u32(SELECTOR_OBJECT + index * SELECTOR_STRIDE) == UNLOAD_TARGETING_SELECTOR
+        and snapshot.u32(SELECTOR_TABLE + index * SELECTOR_STRIDE) == 1
+    )
+    if (
+        validation.lifecycle.phase is not LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+        or validation.lifecycle.engine is not LifecycleEngine.BATTLE
+        or snapshot.u16(CONTROLLER_STATE) != 13
+        or snapshot.read(CONTROLLER_LOCK, 1)[0] != 1
+        or snapshot.u16(0x03003334) != 5
+        or len(offsets) != 1
+    ):
+        return False
+    offset = offsets[0]
+    if (
+        snapshot.read(SELECTOR_ROW_COUNT + offset, 1)[0] != 3
+        or snapshot.read(SELECTOR_SELECTED_ROW + offset, 1)[0] >= 3
+        or UNIT_ACTION_MENU_SCRIPT not in validation.lifecycle.active_process_scripts
+    ):
+        return False
+    selected = _observe_selected_unit(snapshot)
+    if selected is None or selected.unit_type not in (7, 20, 23):
+        return False
+    return any(
+        snapshot.read(selected.record_address + cargo_offset, 1)[0] for cargo_offset in (7, 8)
     )
 
 

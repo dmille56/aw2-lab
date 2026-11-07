@@ -103,6 +103,7 @@ class Capabilities(ContractModel):
         "move_attack",
         "move_capture",
         "load",
+        "unload",
         "purchase",
         "end_turn",
         "surrender",
@@ -115,13 +116,13 @@ class Capabilities(ContractModel):
         "screenshots",
         "command_status_polling",
         "checkpoints",
+        "transport_loading_and_unloading",
     )
     unsupported_features: tuple[str, ...] = (
         "multiple_active_matches",
         "configurable_maps_cos_rules_weather_or_teams",
         "fog_of_war",
         "co_power_activation",
-        "transport_loading_or_unloading",
         "resupply",
         "campaign_or_multiplayer_modes_other_than_versus",
         "competitive_player_visibility_isolation",

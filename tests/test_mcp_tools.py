@@ -102,6 +102,15 @@ def payload(response):
         ),
         ("move_capture", "MoveCaptureActionExecutor", {"unit_id": "1", "path": []}),
         (
+            "unload",
+            "UnloadActionExecutor",
+            {
+                "transport_id": "3",
+                "path": [],
+                "drops": [{"unit_id": "4", "destination": {"x": 1, "y": 0}}],
+            },
+        ),
+        (
             "purchase",
             "PurchaseActionExecutor",
             {"property": {"x": 1, "y": 1}, "unit_type": "Infantry"},
@@ -156,6 +165,15 @@ async def test_gameplay_receipts_retries_conflicts_and_permissions(
             for field in ("target", "property"):
                 if field in expected:
                     expected[field] = {"contract_version": 1, **expected[field]}
+            if "drops" in expected:
+                expected["drops"] = [
+                    {
+                        "contract_version": 1,
+                        **drop,
+                        "destination": {"contract_version": 1, **drop["destination"]},
+                    }
+                    for drop in expected["drops"]
+                ]
             assert executed == [expected]
             conflict = await call(kind, {**args, "expected_revision": 2})
             assert conflict["structuredContent"]["error"]["code"] == "request_id_conflict"

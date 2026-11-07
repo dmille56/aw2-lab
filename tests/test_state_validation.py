@@ -23,7 +23,15 @@ from aw2_lab.state_validation import (
     load_battle_layout,
     validate_battle_snapshot,
 )
-from aw2_lab.ui_state import CursorStatus, MenuFamily, MenuItem, observe_map_cursor, observe_menu
+from aw2_lab.ui_state import (
+    UNIT_ACTION_MENU_SCRIPT,
+    UNLOAD_TARGETING_SELECTOR,
+    CursorStatus,
+    MenuFamily,
+    MenuItem,
+    observe_map_cursor,
+    observe_menu,
+)
 
 
 @pytest.fixture
@@ -333,6 +341,7 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
     current = snapshot(memory)
     assert not observe_menu(current, validate_battle_snapshot(current)).actionable
     pack_into("<I", iwram, 0x1470 + inactive, 0)
+
     current = snapshot(memory)
     assert observe_menu(current, validate_battle_snapshot(current)).actionable
 
@@ -369,6 +378,34 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
         observe_menu(current, validate_battle_snapshot(current)).family
         is not MenuFamily.UNIT_ACTION_CHOICES
     )
+
+
+def test_unload_cursor_uses_observed_source_during_drop_targeting(memory) -> None:
+    _, ewram, iwram = memory
+    pack_into("<I", ewram, 0xD610, UNIT_ACTION_MENU_SCRIPT)
+    pack_into("<I", iwram, 0x40D8, 0x02022690)
+    pack_into("<H", iwram, 0x3334, 5)
+    pack_into("<HH", iwram, 0x33E4, 1, 1)
+    iwram[0x3140:0x3142] = bytes((0, 0))  # The map cursor cache is stale in this mode.
+    ewram[0x22690:0x2269C] = bytes((23, 0x16, 1, 1, 100, 0, 99, 2, 0, 0, 0, 4))
+    offset = 0x60
+    pack_into("<I", iwram, 0x1470 + offset, UNLOAD_TARGETING_SELECTOR)
+    pack_into("<I", iwram, 0x1490 + offset, 1)
+    iwram[0x14B1 + offset] = 3
+    iwram[0x14B2 + offset] = 0
+    iwram[0x30F0] = 1
+    pack_into("<H", iwram, 0x32D8, 13)
+    pack_into("<H", iwram, 0x33EC, 1)
+    ewram[0x1E450 + 0x51A + 3] = 1
+
+    current = snapshot(memory)
+    report = validate_battle_snapshot(current)
+    menu = observe_menu(current, report)
+    cursor = observe_map_cursor(current, report)
+    assert menu.family is MenuFamily.UNIT_DROP_TARGETING
+    assert menu.selected_unit is not None and menu.selected_unit.unit_type == 23
+    assert cursor.status is CursorStatus.AVAILABLE
+    assert (cursor.x, cursor.y) == (1, 1)
 
 
 @pytest.mark.parametrize("progress", range(9))

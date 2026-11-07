@@ -36,6 +36,8 @@ checkpoints, and these gameplay actions:
 - `move_attack`: move along an explicit path, then attack a target coordinate.
 - `move_capture`: move along an explicit path, then capture.
 - `purchase`: buy a unit at an owned production property.
+- `load` and `unload`: move a compatible unit into a carrier or move a carrier
+  and drop its named cargo units onto legal, unoccupied map tiles.
 - `end_turn` and `surrender`.
 
 Coordinates are zero-based `(x, y)` pairs. Every movement action carries a path;
@@ -46,7 +48,7 @@ requests may be rejected earlier when their shape or known state is invalid.
 
 The following are explicitly unsupported in version 1: multiple active matches;
 selectable map, CO, rules, weather, or teams; fog; activating CO Powers; transport
-loading/unloading; resupply; campaign or other non-Versus modes; player-specific
+resupply; campaign or other non-Versus modes; player-specific
 visibility isolation; and arbitrary memory writes as gameplay. Unsupported
 features are distinct from actions that AW2 rejects as illegal.
 

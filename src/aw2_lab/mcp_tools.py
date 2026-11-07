@@ -30,6 +30,7 @@ from aw2_lab.api_contract import (
 from aw2_lab.authorization import AuthorizationError, Permission
 from aw2_lab.checkpoint_store import MAX_ARCHIVE_BYTES
 from aw2_lab.match_contract import (
+    CargoDrop,
     CheckpointReference,
     CommandReceipt,
     CommandResult,
@@ -45,6 +46,7 @@ from aw2_lab.match_contract import (
     PurchaseAction,
     Revision,
     SurrenderAction,
+    UnloadAction,
 )
 from aw2_lab.match_contract import (
     Revision as MatchRevision,
@@ -59,6 +61,7 @@ from aw2_lab.sdk import TERMINAL, AsyncAW2Client, WaitTimeout
 MAX_ARCHIVE_BASE64 = 4 * ((MAX_ARCHIVE_BYTES + 2) // 3)
 MCP_BODY_BYTES = MAX_ARCHIVE_BASE64 + 65536
 Path = Annotated[tuple[Coordinate, ...], Field(max_length=4096)]
+Drops = Annotated[tuple[CargoDrop, ...], Field(min_length=1, max_length=2)]
 UnitID = Annotated[str, Field(min_length=1)]
 WaitSeconds = Annotated[float, Field(strict=True, gt=0, le=60, allow_inf_nan=False)]
 DebugFrames = Annotated[int, Field(strict=True, ge=1, le=600)]
@@ -314,6 +317,25 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
                 match_id,
                 expected_revision,
                 LoadAction(unit_id=unit_id, transport_id=transport_id, path=path),
+                request_id=request_id,
+            )
+
+    @server.tool()
+    async def unload(
+        match_id: UUID,
+        expected_revision: Revision,
+        request_id: UUID,
+        transport_id: UnitID,
+        path: Path,
+        drops: Drops,
+        contract_version: int = 1,
+    ) -> CommandReceipt:
+        """Move an allied transport, then drop its named cargo units at map coordinates."""
+        async with client(Permission.PLAY, match_id) as sdk:
+            return await sdk.submit(
+                match_id,
+                expected_revision,
+                UnloadAction(transport_id=transport_id, path=path, drops=drops),
                 request_id=request_id,
             )
 

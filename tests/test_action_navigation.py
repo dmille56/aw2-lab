@@ -157,6 +157,110 @@ def test_navigate_menu_tracks_each_verified_command_row(memory) -> None:
     asyncio.run(run())
 
 
+def test_choose_unload_tracks_drop_target_cursor_before_confirmation(memory) -> None:
+    class FakeBridge:
+        def __init__(self, state: GameState) -> None:
+            self.state = state
+            self.keys: list[int] = []
+
+        async def observe(self) -> GameState:
+            return self.state
+
+        async def advance_frames(self, frames: int) -> int:
+            self._update(frames)
+            return self.state.frame
+
+        async def press_keys(self, keys: int, frames: int) -> int:
+            self.keys.append(keys)
+            menu = self.state.ui.menu
+            if menu.family is MenuFamily.UNIT_ACTION_CHOICES and keys == 64:
+                menu = replace(menu, selected_item=MenuItem.UNLOAD)
+            elif menu.family is MenuFamily.UNIT_ACTION_CHOICES and keys == 1:
+                menu = MenuObservation(
+                    menu.frame,
+                    MenuFamily.UNIT_DROP_TARGETING,
+                    selected_unit=menu.selected_unit,
+                    actionable=True,
+                )
+            elif menu.family is MenuFamily.UNIT_DROP_TARGETING and keys == 1:
+                menu = MenuObservation(
+                    menu.frame,
+                    MenuFamily.UNIT_ACTION_CHOICES,
+                    selected_unit=menu.selected_unit,
+                    selected_item=MenuItem.WAIT,
+                    actionable=True,
+                    items=(MenuItem.WAIT,),
+                )
+            cursor = self.state.ui.map_cursor
+            x, y = cursor.x, cursor.y
+            if menu.family is MenuFamily.UNIT_DROP_TARGETING:
+                dx, dy = {16: (1, 0), 32: (-1, 0), 128: (0, 1), 64: (0, -1)}.get(keys, (0, 0))
+                x, y = x + dx, y + dy
+            self._update(frames, menu=menu, cursor_position=(x, y))
+            return self.state.frame
+
+        def _update(self, frames: int, *, menu=None, cursor_position=None) -> None:
+            frame = self.state.frame + frames
+            next_menu = replace(menu or self.state.ui.menu, frame=frame)
+            cursor = replace(
+                self.state.ui.map_cursor,
+                frame=frame,
+                x=cursor_position[0] if cursor_position is not None else self.state.ui.map_cursor.x,
+                y=cursor_position[1] if cursor_position is not None else self.state.ui.map_cursor.y,
+                status=CursorStatus.AVAILABLE,
+            )
+            self.state = replace(
+                self.state,
+                frame=frame,
+                validation=replace(self.state.validation, frame=frame),
+                ui=replace(
+                    self.state.ui,
+                    frame=frame,
+                    menu=next_menu,
+                    map_cursor=cursor,
+                ),
+            )
+
+    async def run() -> None:
+        initial = decode_snapshot(snapshot(memory))
+        selected = SelectedUnitObservation(0x02022690, 1, 1, 23, 1, 1)
+        menu = MenuObservation(
+            initial.frame,
+            MenuFamily.UNIT_ACTION_CHOICES,
+            selected_unit=selected,
+            selected_item=MenuItem.WAIT,
+            actionable=True,
+            items=(MenuItem.UNLOAD, MenuItem.WAIT),
+        )
+        cursor = replace(
+            initial.ui.map_cursor,
+            status=CursorStatus.AVAILABLE,
+            x=0,
+            y=0,
+        )
+        initial = replace(initial, ui=replace(initial.ui, menu=menu, map_cursor=cursor))
+        bridge = FakeBridge(initial)
+        navigator = ActionNavigator(
+            bridge,
+            bridge.observe,
+            NavigationLimits(frame_budget=100, poll_frames=1, wall_timeout=3),
+        )
+
+        result = await navigator.choose_unload((1, 1), unit=(1, 1, 23, 0x02022690))
+        assert result.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
+        assert (result.ui.map_cursor.x, result.ui.map_cursor.y) == (1, 1)
+        assert bridge.keys == [64, 1, 16, 128, 1]
+        assert [event.name for event in navigator.inputs] == [
+            "unload-menu-up",
+            "begin-unload",
+            "drop-cursor-right",
+            "drop-cursor-down",
+            "confirm-unload-drop",
+        ]
+
+    asyncio.run(run())
+
+
 def test_confirm_yield_moves_left_from_no_to_yes(memory) -> None:
     class FakeBridge:
         def __init__(self, state: GameState) -> None:

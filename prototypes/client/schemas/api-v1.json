@@ -2276,6 +2276,7 @@
           "production_choices",
           "confirmation",
           "unit_targeting",
+          "unit_drop_targeting",
           "unresolved"
         ],
         "title": "MenuFamily",

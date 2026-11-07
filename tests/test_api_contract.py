@@ -44,6 +44,7 @@ from aw2_lab.api_validation import (
     validation_error,
 )
 from aw2_lab.match_contract import (
+    Capabilities,
     ErrorBody,
     ErrorCode,
     FixedMatchConfiguration,
@@ -334,6 +335,7 @@ def test_transport_load_and_unload_action_contracts_are_bounded() -> None:
         }
     )
     assert unload.action.kind == "unload"
+    assert "unload" in Capabilities().supported_actions
     body = unload.model_dump(mode="json")
     body["action"]["drops"].append({"unit_id": "cargo-3", "destination": {"x": 2, "y": 0}})
     with pytest.raises(ValidationError):

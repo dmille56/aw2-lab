@@ -599,6 +599,124 @@ class ActionNavigator:
                 description="the settled player-turn boundary after Load",
             )
 
+    async def choose_unload(
+        self, destination: tuple[int, int], *, unit: tuple[int, int, int, int]
+    ) -> GameState:
+        """Choose Drop, move the observed drop cursor, and verify the action menu returns."""
+        async with self._bounded_operation():
+            self._begin("choose_unload")
+            state = await self._observe()
+            menu = state.ui.menu
+            selected = menu.selected_unit
+            if (
+                menu.family is not MenuFamily.UNIT_ACTION_CHOICES
+                or selected is None
+                or (
+                    selected.army_slot,
+                    selected.unit_slot,
+                    selected.unit_type,
+                    selected.record_address,
+                )
+                != unit
+                or menu.selected_item is None
+                or MenuItem.UNLOAD not in menu.items
+                or not menu.actionable
+            ):
+                raise await self._fail("Unload requires the requested carrier's Drop action", state)
+            state = await self._navigate_unit_action(MenuItem.UNLOAD, state)
+            await self._tap("begin-unload", _KEY_A)
+            state = await self._wait_for(
+                lambda value: (
+                    value.ui.menu.family is MenuFamily.UNIT_DROP_TARGETING
+                    and value.ui.menu.selected_unit is not None
+                    and (
+                        value.ui.menu.selected_unit.army_slot,
+                        value.ui.menu.selected_unit.unit_slot,
+                        value.ui.menu.selected_unit.unit_type,
+                        value.ui.menu.selected_unit.record_address,
+                    )
+                    == unit
+                    and value.ui.map_cursor.status is CursorStatus.AVAILABLE
+                ),
+                description="the carrier's observed Drop cursor",
+            )
+            battle = state.battle.value
+            if state.battle.status is not ValueStatus.AVAILABLE or battle is None:
+                raise await self._fail("Validated map dimensions are unavailable", state)
+            x, y = destination
+            if not (0 <= x < battle.map.width and 0 <= y < battle.map.height):
+                raise await self._fail("Drop destination is outside the validated map", state)
+            state = await self._move_drop_cursor(x, y, unit=unit)
+            await self._tap("confirm-unload-drop", _KEY_A)
+            return await self._wait_for(
+                lambda value: (
+                    value.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
+                    and value.ui.menu.selected_unit is not None
+                    and (
+                        value.ui.menu.selected_unit.army_slot,
+                        value.ui.menu.selected_unit.unit_slot,
+                        value.ui.menu.selected_unit.unit_type,
+                        value.ui.menu.selected_unit.record_address,
+                    )
+                    == unit
+                    and value.ui.menu.actionable is True
+                ),
+                description="the carrier action choices after Drop",
+            )
+
+    async def _move_drop_cursor(
+        self, x: int, y: int, *, unit: tuple[int, int, int, int]
+    ) -> GameState:
+        state = await self._observe()
+        cursor = state.ui.map_cursor
+        if (
+            state.ui.menu.family is not MenuFamily.UNIT_DROP_TARGETING
+            or cursor.status is not CursorStatus.AVAILABLE
+            or cursor.x is None
+            or cursor.y is None
+        ):
+            raise await self._fail("Drop cursor movement requires verified targeting mode", state)
+        battle = state.battle.value
+        if state.battle.status is not ValueStatus.AVAILABLE or battle is None:
+            raise await self._fail("Validated map dimensions are unavailable", state)
+        if not (0 <= x < battle.map.width and 0 <= y < battle.map.height):
+            raise await self._fail("Drop destination is outside the validated map", state)
+        while (cursor.x, cursor.y) != (x, y):
+            dx, dy = x - cursor.x, y - cursor.y
+            if dx:
+                name, sx, sy, key = (
+                    ("right", 1, 0, _KEY_RIGHT) if dx > 0 else ("left", -1, 0, _KEY_LEFT)
+                )
+            else:
+                name, sx, sy, key = ("down", 0, 1, _KEY_DOWN) if dy > 0 else ("up", 0, -1, _KEY_UP)
+            expected = (cursor.x + sx, cursor.y + sy)
+            await self._tap(f"drop-cursor-{name}", key, minimum_gap=8)
+
+            def cursor_reached(
+                value: GameState, expected_position: tuple[int, int] = expected
+            ) -> bool:
+                selected = value.ui.menu.selected_unit
+                return (
+                    value.ui.menu.family is MenuFamily.UNIT_DROP_TARGETING
+                    and selected is not None
+                    and (
+                        selected.army_slot,
+                        selected.unit_slot,
+                        selected.unit_type,
+                        selected.record_address,
+                    )
+                    == unit
+                    and value.ui.map_cursor.status is CursorStatus.AVAILABLE
+                    and (value.ui.map_cursor.x, value.ui.map_cursor.y) == expected_position
+                )
+
+            state = await self._wait_for(
+                cursor_reached,
+                description=f"Drop cursor to reach {expected}",
+            )
+            cursor = state.ui.map_cursor
+        return state
+
     async def choose_capture(self) -> GameState:
         """Choose Capture and wait for the settled turn or a recognized battle result."""
         async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
