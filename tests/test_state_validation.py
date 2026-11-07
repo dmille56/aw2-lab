@@ -408,15 +408,17 @@ def test_unload_cursor_uses_observed_source_during_drop_targeting(memory) -> Non
     assert (cursor.x, cursor.y) == (1, 1)
 
 
-@pytest.mark.parametrize("selector_table", [0, 3])
-def test_apc_drop_cursor_uses_live_source_during_cursor_mode(memory, selector_table) -> None:
+@pytest.mark.parametrize(("carrier_type", "selector_table"), [(7, 0), (7, 3), (20, 0)])
+def test_single_tile_drop_cursor_uses_live_source_during_cursor_mode(
+    memory, carrier_type, selector_table
+) -> None:
     _, ewram, iwram = memory
     pack_into("<I", ewram, 0xD610, UNIT_ACTION_MENU_SCRIPT)
     pack_into("<I", iwram, 0x40D8, 0x02022690)
     pack_into("<H", iwram, 0x3334, 4)
     pack_into("<HH", iwram, 0x33E4, 1, 1)
     iwram[0x3140:0x3142] = bytes((0, 0))  # The cached cursor is stale here too.
-    ewram[0x22690:0x2269C] = bytes((7, 0x16, 1, 1, 100, 0, 99, 2, 0, 0, 0, 4))
+    ewram[0x22690:0x2269C] = bytes((carrier_type, 0x16, 1, 1, 100, 0, 99, 2, 0, 0, 0, 4))
     offset = 2 * 0x60
     pack_into("<I", iwram, 0x1470 + offset, UNLOAD_TARGETING_SELECTOR)
     pack_into("<I", iwram, 0x1490 + offset, selector_table)
@@ -431,7 +433,7 @@ def test_apc_drop_cursor_uses_live_source_during_cursor_mode(memory, selector_ta
     menu = observe_menu(current, report)
     cursor = observe_map_cursor(current, report)
     assert menu.family is MenuFamily.UNIT_DROP_TARGETING
-    assert menu.selected_unit is not None and menu.selected_unit.unit_type == 7
+    assert menu.selected_unit is not None and menu.selected_unit.unit_type == carrier_type
     assert cursor.status is CursorStatus.AVAILABLE
     assert (cursor.x, cursor.y) == (1, 1)
 

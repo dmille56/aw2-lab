@@ -690,15 +690,15 @@ def _is_unload_targeting(
     row_count = snapshot.read(SELECTOR_ROW_COUNT + offset, 1)[0]
     row = snapshot.read(SELECTOR_SELECTED_ROW + offset, 1)[0]
     lander_drop_list = table == 1 and row_count == 3 and row < 3 and snapshot.u16(0x03003334) == 5
-    apc_drop_cursor = (
-        selected.unit_type == 7
-        # The APC uses a null table immediately after Drop opens, then switches
-        # this field to 3 when the first map-cursor input initializes the target.
+    single_tile_drop_cursor = (
+        selected.unit_type in (7, 20)
+        # APC and T-Copter use a map cursor rather than the Lander's drop list.
+        # The APC table field can switch from 0 to 3 after cursor input.
         and table in (0, 3)
         and row_count == 0
         and snapshot.u16(0x03003334) == 4
     )
-    return lander_drop_list or apc_drop_cursor
+    return lander_drop_list or single_tile_drop_cursor
 
 
 def _observe_selected_unit(snapshot: BattleMemorySnapshot) -> SelectedUnitObservation | None:
