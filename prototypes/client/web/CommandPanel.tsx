@@ -74,7 +74,7 @@ export function CommandPanel({
       </h2>
       {draft.phase === "select" && !draft.base && (
         <p className="hint">
-          Select your ready unit or production base on the board.
+          Select your ready unit or production facility on the board.
         </p>
       )}
       <details className="selection-lists">
@@ -93,7 +93,7 @@ export function CommandPanel({
             </option>
           ))}
         </select>
-        <label htmlFor="purchase-property">Owned production base</label>
+        <label htmlFor="purchase-property">Owned production facility</label>
         <select
           id="purchase-property"
           value={draft.base ? `${draft.base.x},${draft.base.y}` : ""}
@@ -105,7 +105,7 @@ export function CommandPanel({
             if (base) model.selectBase(base);
           }}
         >
-          <option value="">Choose a production base</option>
+          <option value="">Choose a production facility</option>
           {model.productionBases.map((p) => (
             <option key={`${p.x},${p.y}`} value={`${p.x},${p.y}`}>
               {positionLabel(p)}
@@ -114,7 +114,7 @@ export function CommandPanel({
         </select>
         {!model.productionBases.length && (
           <p>
-            No unoccupied owned production base is available in this
+            No unoccupied owned production facility is available in this
             observation.
           </p>
         )}
@@ -361,7 +361,7 @@ export function CommandPanel({
       )}
       {draft.base && (
         <>
-          <h3>Production base {positionLabel(draft.base)}</h3>
+          <h3>Production facility {positionLabel(draft.base)}</h3>
           <p>
             Observed funds: {funds ?? "Unavailable"}. Costs below are baseline
             reference values.
@@ -371,7 +371,7 @@ export function CommandPanel({
               This base is occupied. Move its unit before purchasing.
             </p>
           )}
-          <label htmlFor="purchase-unit-type">Production unit type</label>
+          <label htmlFor="purchase-unit-type">Unit type</label>
           <select
             id="purchase-unit-type"
             value={draft.unitType}
@@ -386,7 +386,7 @@ export function CommandPanel({
             }
           >
             <option value="">Choose a unit to purchase</option>
-            {view.capabilities?.production_unit_types.map((name) => (
+            {model.purchaseUnitTypes.map((name) => (
               <option key={name} value={name}>
                 {name} · baseline cost {profileByName(name)?.cost ?? "unknown"}
               </option>

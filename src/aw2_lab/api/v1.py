@@ -34,6 +34,7 @@ from aw2_lab.api_contract import (
     MatchSummary,
     ObservationResponse,
     Principal,
+    ProductionFacilityCapabilities,
     ReadinessResponse,
     ReadinessState,
     RestoreCheckpointRequest,
@@ -66,7 +67,7 @@ from aw2_lab.match_contract import (
 )
 from aw2_lab.match_controller import CommandRejected, MatchControllerError
 from aw2_lab.match_events import MatchEvent
-from aw2_lab.ui_state import PRODUCTION_CHOICES
+from aw2_lab.production_rules import PRODUCTION_FACILITIES, PRODUCTION_UNIT_TYPES
 
 
 def error_response(error: HttpError) -> JSONResponse:
@@ -326,7 +327,15 @@ async def capabilities(request: Request) -> CapabilitiesResponse:
                 "surrender",
             )
         ),
-        production_unit_types=tuple(UNIT_PROFILES[kind].name for kind in PRODUCTION_CHOICES),
+        production_unit_types=tuple(UNIT_PROFILES[kind].name for kind in PRODUCTION_UNIT_TYPES),
+        production_facilities=tuple(
+            ProductionFacilityCapabilities(
+                terrain_class=facility.terrain_class,
+                name=facility.name,
+                unit_types=tuple(UNIT_PROFILES[kind].name for kind in facility.unit_types),
+            )
+            for facility in PRODUCTION_FACILITIES
+        ),
         mcp_resources=feature(
             "mcp_resources", True, configured, "Operator provisioning is required"
         ),

@@ -79,7 +79,7 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
       return {
         ...emptyDraft(event.boundary),
         base: event.base,
-        notice: "Production base selected. Choose a unit to purchase.",
+        notice: "Production facility selected. Choose a unit to purchase.",
       };
     case "notice":
       return { ...draft, notice: event.notice };
@@ -234,11 +234,19 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
   const bases = supportedProductionProperties(
     battle?.properties ?? [],
     slot ?? 0,
+    view.capabilities?.production_facilities ?? [],
   );
   const productionBases = bases.filter(
     (base) =>
       !battle?.units.some((unit) => !unit.embarked && sameTile(unit, base)),
   );
+  const selectedBase = productionBases.find((base) =>
+    sameTile(base, draft.base ?? { x: -1, y: -1 }),
+  );
+  const purchaseUnitTypes =
+    view.capabilities?.production_facilities?.find(
+      (facility) => facility.terrain_class === selectedBase?.terrain_class,
+    )?.unit_types ?? [];
   const targets = (battle?.units ?? []).filter(
     (unit) => unit.army_slot !== slot && !unit.embarked,
   );
@@ -434,7 +442,8 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
       dispatch({
         type: "reset",
         boundary,
-        notice: "Selection cleared. Select a ready unit or production base.",
+        notice:
+          "Selection cleared. Select a ready unit or production facility.",
       });
   };
   const activate = (point: Position) => {
@@ -474,7 +483,7 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     else
       dispatch({
         type: "notice",
-        notice: "Select one of your ready units or production bases.",
+        notice: "Select one of your ready units or production facilities.",
       });
   };
   const coordinate = (p: Position) => ({
@@ -512,7 +521,7 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
       kind === "purchase" &&
       draft.base &&
       !occupiedBase &&
-      view.capabilities?.production_unit_types.includes(draft.unitType)
+      purchaseUnitTypes.includes(draft.unitType)
     )
       action = {
         contract_version: 1,
@@ -608,6 +617,7 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     units,
     bases,
     productionBases,
+    purchaseUnitTypes,
     targets,
     selectedUnit,
     destination,

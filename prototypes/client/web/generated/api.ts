@@ -340,6 +340,11 @@ export interface components {
              */
             operations: components["schemas"]["FeatureAvailability"][];
             /**
+             * Production Facilities
+             * @default []
+             */
+            production_facilities: components["schemas"]["ProductionFacilityCapabilities"][];
+            /**
              * Production Unit Types
              * @default []
              */
@@ -1587,6 +1592,24 @@ export interface components {
             slot: number;
             /** Team Id */
             team_id: number;
+        };
+        /**
+         * ProductionFacilityCapabilities
+         * @description Production choices available at one observed facility terrain type.
+         */
+        ProductionFacilityCapabilities: {
+            /**
+             * Contract Version
+             * @default 1
+             * @constant
+             */
+            contract_version: 1;
+            /** Name */
+            name: string;
+            /** Terrain Class */
+            terrain_class: number;
+            /** Unit Types */
+            unit_types: string[];
         };
         /**
          * PropertyState

@@ -23,9 +23,25 @@ describe("React viewer", () => {
       { owner_slot: 1, terrain_class: 6, x: 0, y: 0 },
       { owner_slot: 1, terrain_class: 14, x: 1, y: 0 },
       { owner_slot: 2, terrain_class: 14, x: 0, y: 1 },
+      { owner_slot: 1, terrain_class: 11, x: 2, y: 0 },
     ];
-    expect(supportedProductionProperties(properties, 1)).toEqual([
+    const facilities = [
+      {
+        contract_version: 1 as const,
+        terrain_class: 14,
+        name: "base",
+        unit_types: ["Infantry"],
+      },
+      {
+        contract_version: 1 as const,
+        terrain_class: 11,
+        name: "seaport",
+        unit_types: ["Battleship"],
+      },
+    ];
+    expect(supportedProductionProperties(properties, 1, facilities)).toEqual([
       properties[1],
+      properties[3],
     ]);
   });
   it("selects tiles with mouse and arrow keys while preserving focus", async () => {

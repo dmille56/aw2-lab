@@ -152,18 +152,18 @@ class ActionNavigator:
             return await self._move_cursor(x, y)
 
     async def open_production_menu(self, x: int, y: int) -> GameState:
-        """Open the researched base production list at a map coordinate."""
+        """Open the production list at a supported facility coordinate."""
         async with self._bounded_operation():
             self._begin("open_production_menu")
             await self._move_cursor(x, y)
             await self._tap("open-production-menu", _KEY_A)
             return await self._wait_for(
                 lambda value: value.ui.menu.family is MenuFamily.PRODUCTION_CHOICES,
-                description="the recognized base production list",
+                description="the recognized production list",
             )
 
     async def choose_purchase_unit(self, unit_type: int) -> GameState:
-        """Select a verified base production row and await the settled map turn."""
+        """Select a verified facility production row and await the settled map turn."""
         async with self._bounded_operation():
             self._begin("purchase_unit")
             state = await self._observe()

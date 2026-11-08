@@ -327,6 +327,23 @@ async def test_capabilities_are_public_and_match_access_requires_provisioning(
         caps = await client.get("/v1/capabilities")
         assert caps.status_code == 200
         document = caps.json()
+        assert [item["terrain_class"] for item in document["production_facilities"]] == [
+            14,
+            11,
+            10,
+        ]
+        assert document["production_facilities"][1]["unit_types"] == [
+            "Battleship",
+            "Cruiser",
+            "Lander",
+            "Submarine",
+        ]
+        assert document["production_facilities"][2]["unit_types"] == [
+            "Fighter",
+            "Bomber",
+            "Battle Copter",
+            "Transport Copter",
+        ]
         assert document["supported_game_contract_versions"] == [1]
         assert document["supported_match_observation_schema_versions"] == [1]
         assert document["supported_game_state_schema_versions"] == [4]

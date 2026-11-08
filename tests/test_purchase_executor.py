@@ -13,6 +13,7 @@ from test_state_validation import memory as memory  # noqa: PLC0414 -- re-export
 from test_state_validation import snapshot
 
 from aw2_lab.action_navigation import ActionNavigator
+from aw2_lab.aw2_unit_profiles import UNIT_PROFILES
 from aw2_lab.match_contract import CommandRequest, Coordinate, PlayerSlot, PurchaseAction
 from aw2_lab.match_controller import CommandRejected
 from aw2_lab.match_observation import MatchObservationTracker
@@ -36,7 +37,7 @@ def _request(match_id: UUID, unit_type: str = "Infantry") -> CommandRequest:
     )
 
 
-def _base_observation(memory):
+def _base_observation(memory, terrain_class: int = 14, funds: int = 50_000):
     tracker = MatchObservationTracker(uuid4())
     state = decode_snapshot(snapshot(memory))
     battle = state.battle.value
@@ -49,18 +50,26 @@ def _base_observation(memory):
             value=replace(
                 battle,
                 players=tuple(
-                    replace(item, funds=10_000) if item.slot == player.slot else item
+                    replace(item, funds=funds) if item.slot == player.slot else item
                     for item in battle.players
                 ),
-                properties=(PropertyState(1, 0, terrain_class=14, owner_slot=player.slot),),
+                properties=(
+                    PropertyState(1, 0, terrain_class=terrain_class, owner_slot=player.slot),
+                ),
             ),
         ),
     )
     return tracker, tracker.commit_boundary(state)
 
 
-def test_purchase_executes_and_verifies_new_unit(memory) -> None:
-    tracker, initial = _base_observation(memory)
+@pytest.mark.parametrize(
+    ("unit_name", "terrain_class", "unit_type"),
+    [("Infantry", 14, 1), ("Lander", 11, 23), ("Fighter", 10, 16)],
+)
+def test_purchase_executes_and_verifies_new_unit(
+    memory, unit_name, terrain_class, unit_type
+) -> None:
+    tracker, initial = _base_observation(memory, terrain_class)
     battle = initial.game_state.battle.value
     assert battle is not None
     player = next(item for item in battle.players if item.slot == battle.active_player_slot)
@@ -69,7 +78,7 @@ def test_purchase_executes_and_verifies_new_unit(memory) -> None:
         template,
         reference=max(item.reference for item in battle.units) + 1,
         unit_slot=3,
-        unit_type=1,
+        unit_type=unit_type,
         x=1,
         y=0,
         used_this_turn=True,
@@ -79,7 +88,7 @@ def test_purchase_executes_and_verifies_new_unit(memory) -> None:
         battle,
         units=battle.units + (new_unit,),
         players=tuple(
-            replace(item, funds=player.funds - 1000)
+            replace(item, funds=player.funds - UNIT_PROFILES[unit_type].cost)
             if item.slot == battle.active_player_slot
             else item
             for item in battle.players
@@ -115,11 +124,11 @@ def test_purchase_executes_and_verifies_new_unit(memory) -> None:
     navigator = FakeNavigator()
     outcome = asyncio.run(
         PurchaseActionExecutor(cast(ActionNavigator, navigator), tracker).execute(
-            _request(tracker.match_id), initial
+            _request(tracker.match_id, unit_name), initial
         )
     )
 
-    assert navigator.calls == [("open", 1, 0), ("choose", 1)]
+    assert navigator.calls == [("open", 1, 0), ("choose", unit_type)]
     assert outcome.observation is not None
     assert outcome.observation.revision == 2
     assert len(outcome.observation.unit_identities) == len(battle.units) + 1
@@ -128,11 +137,13 @@ def test_purchase_executes_and_verifies_new_unit(memory) -> None:
 @pytest.mark.parametrize(
     ("unit_type", "property_state", "funds", "occupied", "message"),
     [
-        ("Fighter", "base", 10_000, False, "not available"),
+        ("Fighter", "base", 10_000, False, "not available from this facility"),
         ("Infantry", "unowned", 10_000, False, "not owned"),
         ("Infantry", "base", 500, False, "Insufficient funds"),
         ("Infantry", "base", 10_000, True, "occupied"),
-        ("Infantry", "city", 10_000, False, "supports researched base"),
+        ("Infantry", "city", 10_000, False, "supported production facility"),
+        ("Infantry", "seaport", 10_000, False, "not available from this facility"),
+        ("Battleship", "airport", 10_000, False, "not available from this facility"),
     ],
 )
 def test_purchase_rejects_before_input(
@@ -146,6 +157,8 @@ def test_purchase_rejects_before_input(
         "base": (14, player.slot),
         "unowned": (14, 0),
         "city": (6, player.slot),
+        "seaport": (11, player.slot),
+        "airport": (10, player.slot),
     }[property_state]
     units = battle.units
     if occupied:

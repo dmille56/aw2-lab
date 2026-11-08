@@ -454,6 +454,14 @@
             "title": "Operations",
             "type": "array"
           },
+          "production_facilities": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ProductionFacilityCapabilities"
+            },
+            "title": "Production Facilities",
+            "type": "array"
+          },
           "production_unit_types": {
             "default": [],
             "items": {
@@ -2898,6 +2906,40 @@
           "power_use_counter"
         ],
         "title": "PlayerState",
+        "type": "object"
+      },
+      "ProductionFacilityCapabilities": {
+        "additionalProperties": false,
+        "description": "Production choices available at one observed facility terrain type.",
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "terrain_class": {
+            "title": "Terrain Class",
+            "type": "integer"
+          },
+          "unit_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unit Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "terrain_class",
+          "name",
+          "unit_types"
+        ],
+        "title": "ProductionFacilityCapabilities",
         "type": "object"
       },
       "PropertyState": {

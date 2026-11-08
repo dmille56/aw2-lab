@@ -21,11 +21,13 @@ from aw2_lab.match_observation import (
     MatchObservation,
     MatchObservationTracker,
 )
+from aw2_lab.production_rules import PRODUCTION_BY_TERRAIN, PRODUCTION_FACILITIES
 from aw2_lab.state_model import ValueStatus
-from aw2_lab.ui_state import PRODUCTION_CHOICES, MenuFamily
+from aw2_lab.ui_state import MenuFamily
 
-_BASE_TERRAIN = 14
-_PURCHASABLE_BASE_TYPES = frozenset(PRODUCTION_CHOICES)
+_PURCHASABLE_UNIT_TYPES = frozenset(
+    unit_type for facility in PRODUCTION_FACILITIES for unit_type in facility.unit_types
+)
 
 
 def _normalize_unit_name(value: str) -> str:
@@ -35,7 +37,7 @@ def _normalize_unit_name(value: str) -> str:
 _UNIT_TYPE_BY_NAME = {
     _normalize_unit_name(profile.name): unit_type
     for unit_type, profile in UNIT_PROFILES.items()
-    if unit_type in _PURCHASABLE_BASE_TYPES
+    if unit_type in _PURCHASABLE_UNIT_TYPES
 }
 _UNIT_TYPE_BY_NAME["mdtank"] = 3
 
@@ -68,7 +70,7 @@ class PurchaseActionExecutor:
         if unit_type is None:
             raise CommandRejected(
                 ErrorCode.INVALID_REQUEST,
-                "Unit type is not available from the researched base production menu",
+                "Unit type is not available from a supported production facility",
             )
         x, y = action.property.x, action.property.y
         if not (0 <= x < battle.map.width and 0 <= y < battle.map.height):
@@ -76,15 +78,23 @@ class PurchaseActionExecutor:
                 ErrorCode.INVALID_REQUEST, "Production property is outside the map"
             )
         prop = next((item for item in battle.properties if (item.x, item.y) == (x, y)), None)
-        if prop is None or prop.terrain_class != _BASE_TERRAIN:
+        facility = PRODUCTION_BY_TERRAIN.get(prop.terrain_class) if prop else None
+        if prop is None or facility is None:
             raise CommandRejected(
                 ErrorCode.INVALID_REQUEST,
-                "Purchase currently supports researched base production only",
+                "Purchase requires a supported production facility",
+            )
+        if unit_type not in facility.unit_types:
+            raise CommandRejected(
+                ErrorCode.INVALID_REQUEST,
+                f"{UNIT_PROFILES[unit_type].name} is not available from this facility",
             )
         if prop.owner_slot != battle.active_player_slot:
-            raise CommandRejected(ErrorCode.INVALID_REQUEST, "Production base is not owned by you")
+            raise CommandRejected(
+                ErrorCode.INVALID_REQUEST, "Production facility is not owned by you"
+            )
         if any(not unit.embarked and (unit.x, unit.y) == (x, y) for unit in battle.units):
-            raise CommandRejected(ErrorCode.INVALID_REQUEST, "Production base is occupied")
+            raise CommandRejected(ErrorCode.INVALID_REQUEST, "Production facility is occupied")
         player = next(
             (item for item in battle.players if item.slot == battle.active_player_slot), None
         )

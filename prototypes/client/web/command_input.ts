@@ -4,17 +4,20 @@ export type GameplayAction =
   components["schemas"]["GameplayCommandRequest"]["action"];
 export type Coordinate = components["schemas"]["Coordinate"];
 export type PropertyState = components["schemas"]["PropertyState"];
-
-// The current purchase executor accepts production bases only (terrain class 14).
-export const PRODUCTION_BASE_TERRAIN_CLASS = 14;
+export type ProductionFacility =
+  components["schemas"]["ProductionFacilityCapabilities"];
 
 export function supportedProductionProperties(
   properties: PropertyState[],
   playerSlot: number,
+  facilities: ProductionFacility[],
 ): PropertyState[] {
+  const terrainClasses = new Set(
+    facilities.map((facility) => facility.terrain_class),
+  );
   return properties.filter(
     (property) =>
       property.owner_slot === playerSlot &&
-      property.terrain_class === PRODUCTION_BASE_TERRAIN_CLASS,
+      terrainClasses.has(property.terrain_class),
   );
 }

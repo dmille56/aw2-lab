@@ -14,6 +14,7 @@ from aw2_lab.lifecycle import (
     LifecyclePhase,
 )
 from aw2_lab.rom_profile import AW2_US_REVISION_0, UnsupportedRomError
+from aw2_lab.state_model import PropertyState
 from aw2_lab.state_validation import (
     BattleLayout,
     BattleMemorySnapshot,
@@ -184,6 +185,8 @@ def test_unit_action_menu_resolves_selected_unit_against_table_and_map(memory) -
 @pytest.mark.parametrize("row", range(11))
 def test_base_production_menu_recognizes_verified_rows(memory, row: int) -> None:
     _, _, iwram = memory
+    pack_into("<HH", iwram, 0x33E4, 0, 0)
+    iwram[0x3140:0x3142] = bytes((0, 0))
     pack_into("<I", iwram, 0x1470, 0x0849AFE8)
     pack_into("<I", iwram, 0x1474, 0x0849B000)
     pack_into("<H", iwram, 0x1490, row)
@@ -192,10 +195,44 @@ def test_base_production_menu_recognizes_verified_rows(memory, row: int) -> None
     pack_into("<H", iwram, 0x3334, 0)
 
     current = snapshot(memory)
-    menu = observe_menu(current, validate_battle_snapshot(current))
+    menu = observe_menu(
+        current,
+        validate_battle_snapshot(current),
+        (PropertyState(0, 0, 14, 1),),
+    )
 
     assert menu.family is MenuFamily.PRODUCTION_CHOICES
     assert menu.production_unit_types == (1, 2, 6, 5, 3, 8, 7, 10, 11, 14, 15)
+    assert menu.selected_production_index == row
+
+
+@pytest.mark.parametrize(
+    ("terrain_class", "choices"),
+    [(11, (21, 22, 23, 24)), (10, (16, 17, 19, 20))],
+)
+@pytest.mark.parametrize("row", range(4))
+def test_other_production_facilities_use_their_own_rows(
+    memory, terrain_class: int, choices: tuple[int, ...], row: int
+) -> None:
+    _, _, iwram = memory
+    pack_into("<HH", iwram, 0x33E4, 0, 0)
+    iwram[0x3140:0x3142] = bytes((0, 0))
+    pack_into("<I", iwram, 0x1470, 0x0849AFE8)
+    pack_into("<I", iwram, 0x1474, 0x0849B000)
+    pack_into("<H", iwram, 0x1490, row)
+    pack_into("<H", iwram, 0x32D8, 13)
+    iwram[0x30F0] = 1
+    pack_into("<H", iwram, 0x3334, 0)
+    current = snapshot(memory)
+
+    menu = observe_menu(
+        current,
+        validate_battle_snapshot(current),
+        (PropertyState(0, 0, terrain_class, 1),),
+    )
+
+    assert menu.family is MenuFamily.PRODUCTION_CHOICES
+    assert menu.production_unit_types == choices
     assert menu.selected_production_index == row
 
 

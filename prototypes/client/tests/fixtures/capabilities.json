@@ -116,7 +116,27 @@
     }
   ],
   "actions": [],
-  "production_unit_types": [],
+  "production_unit_types": [
+    "Infantry",
+    "Mech",
+    "Recon",
+    "Tank",
+    "Medium Tank",
+    "Neotank",
+    "APC",
+    "Artillery",
+    "Rockets",
+    "Anti-Air",
+    "Missiles",
+    "Battleship",
+    "Cruiser",
+    "Lander",
+    "Submarine",
+    "Fighter",
+    "Bomber",
+    "Battle Copter",
+    "Transport Copter"
+  ],
   "http_sse": {
     "contract_version": 1,
     "name": "http_sse",
@@ -154,5 +174,37 @@
     "subscriber_event_count": 128,
     "subscriber_bytes": 8388608,
     "heartbeat_seconds": 15
-  }
+  },
+  "production_facilities": [
+    {
+      "contract_version": 1,
+      "terrain_class": 14,
+      "name": "base",
+      "unit_types": [
+        "Infantry",
+        "Mech",
+        "Recon",
+        "Tank",
+        "Medium Tank",
+        "Neotank",
+        "APC",
+        "Artillery",
+        "Rockets",
+        "Anti-Air",
+        "Missiles"
+      ]
+    },
+    {
+      "contract_version": 1,
+      "terrain_class": 11,
+      "name": "seaport",
+      "unit_types": ["Battleship", "Cruiser", "Lander", "Submarine"]
+    },
+    {
+      "contract_version": 1,
+      "terrain_class": 10,
+      "name": "airport",
+      "unit_types": ["Fighter", "Bomber", "Battle Copter", "Transport Copter"]
+    }
+  ]
 }

@@ -310,6 +310,14 @@ class MCPCompatibility(ContractModel):
     transport: Literal["streamable_http"] = "streamable_http"
 
 
+class ProductionFacilityCapabilities(ContractModel):
+    """Production choices available at one observed facility terrain type."""
+
+    terrain_class: int
+    name: str
+    unit_types: tuple[str, ...]
+
+
 class CapabilitiesResponse(ContractModel):
     mcp_compatibility: MCPCompatibility = Field(default_factory=MCPCompatibility)
     mcp_resources: FeatureAvailability = FeatureAvailability(
@@ -333,6 +341,7 @@ class CapabilitiesResponse(ContractModel):
     operations: tuple[FeatureAvailability, ...] = ()
     actions: tuple[FeatureAvailability, ...] = ()
     production_unit_types: tuple[str, ...] = ()
+    production_facilities: tuple[ProductionFacilityCapabilities, ...] = ()
     http_sse: FeatureAvailability
     mcp_subscriptions: FeatureAvailability
     debug_memory_regions: tuple[tuple[int, int], ...] = (

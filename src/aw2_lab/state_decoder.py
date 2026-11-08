@@ -58,7 +58,13 @@ def decode_snapshot(snapshot: BattleMemorySnapshot) -> GameState:
         ui=UIStateObservation(
             snapshot.frame,
             observe_map_cursor(snapshot, report),
-            observe_menu(snapshot, report),
+            observe_menu(
+                snapshot,
+                report,
+                _decode_properties(snapshot)
+                if report.properties.status is ValidationStatus.VALID
+                else (),
+            ),
         ),
         battle=battle,
     )
@@ -108,13 +114,7 @@ def _decode_battle(snapshot: BattleMemorySnapshot) -> BattleState:
                 )
             )
 
-    properties = []
-    for index in range(PROPERTY_SLOTS):
-        encoded, x, y, _ = snapshot.read(PROPERTY_BASE + index * 4, 4)
-        if encoded == 0xFF:
-            break
-        if encoded:
-            properties.append(PropertyState(x, y, encoded & 31, encoded >> 5))
+    properties = _decode_properties(snapshot)
 
     players = []
     for slot in range(1, 5):
@@ -202,6 +202,18 @@ def _decode_battle(snapshot: BattleMemorySnapshot) -> BattleState:
         co_effects_enabled=_decode_rule_toggle(snapshot, 0x03003FC8),
         fog_enabled=_decode_rule_toggle(snapshot, 0x03003FCD),
     )
+
+
+def _decode_properties(snapshot: BattleMemorySnapshot) -> tuple[PropertyState, ...]:
+    """Decode the property table after its independent structural validation."""
+    properties = []
+    for index in range(PROPERTY_SLOTS):
+        encoded, x, y, _ = snapshot.read(PROPERTY_BASE + index * 4, 4)
+        if encoded == 0xFF:
+            break
+        if encoded:
+            properties.append(PropertyState(x, y, encoded & 31, encoded >> 5))
+    return tuple(properties)
 
 
 def _decode_rule_toggle(snapshot: BattleMemorySnapshot, address: int) -> ObservedValue[bool]:

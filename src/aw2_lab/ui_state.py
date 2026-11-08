@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from aw2_lab.lifecycle import (
     BattleControlObservation,
@@ -11,6 +12,7 @@ from aw2_lab.lifecycle import (
     LifecycleEngine,
     LifecyclePhase,
 )
+from aw2_lab.production_rules import PRODUCTION_BY_TERRAIN
 from aw2_lab.state_validation import (
     ARMY_STRIDE,
     MAP_BASE,
@@ -22,6 +24,9 @@ from aw2_lab.state_validation import (
     BattleValidationReport,
     ValidationStatus,
 )
+
+if TYPE_CHECKING:
+    from aw2_lab.state_model import PropertyState
 
 CURSOR_SOURCE = 0x030033E4
 CURSOR_CACHE = 0x03003140
@@ -49,7 +54,7 @@ UNIT_ACTION_TABLE = 0x0849AE28
 PRODUCTION_SELECTOR_OBJECT = 0x0849AFE8
 PRODUCTION_SELECTOR_TABLE = 0x03001474
 PRODUCTION_SELECTED_ROW = 0x03001490
-PRODUCTION_CHOICES = (1, 2, 6, 5, 3, 8, 7, 10, 11, 14, 15)
+PRODUCTION_CHOICES = PRODUCTION_BY_TERRAIN[14].unit_types
 SELECTOR_STRIDE = 0x60
 SELECTOR_COUNT = 3
 FIRE_TARGETING_SCRIPT = 0x0849A9F8
@@ -265,7 +270,9 @@ def observe_map_cursor(
 
 
 def observe_menu(
-    snapshot: BattleMemorySnapshot, validation: BattleValidationReport
+    snapshot: BattleMemorySnapshot,
+    validation: BattleValidationReport,
+    properties: tuple[PropertyState, ...] = (),
 ) -> MenuObservation:
     """Recognize verified command selectors, map input, or a unit-action menu.
 
@@ -295,7 +302,7 @@ def observe_menu(
             actionable=selected is not None,
         )
 
-    production_menu = _observe_production_choices(snapshot, validation)
+    production_menu = _observe_production_choices(snapshot, validation, properties)
     if production_menu is not None:
         return production_menu
 
@@ -405,9 +412,11 @@ def observe_menu(
 
 
 def _observe_production_choices(
-    snapshot: BattleMemorySnapshot, validation: BattleValidationReport
+    snapshot: BattleMemorySnapshot,
+    validation: BattleValidationReport,
+    properties: tuple[PropertyState, ...] = (),
 ) -> MenuObservation | None:
-    """Recognize the researched 11-row base production selector."""
+    """Recognize production selectors only at a supported production property."""
     if (
         validation.lifecycle.phase is not LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
         or validation.lifecycle.engine is not LifecycleEngine.BATTLE
@@ -418,13 +427,24 @@ def _observe_production_choices(
         or snapshot.u16(0x03003334) != 0
     ):
         return None
+    x, y = snapshot.u16(CURSOR_SOURCE), snapshot.u16(CURSOR_SOURCE + 2)
+    facility = next(
+        (
+            PRODUCTION_BY_TERRAIN.get(prop.terrain_class)
+            for prop in properties
+            if prop.x == x and prop.y == y
+        ),
+        None,
+    )
+    if facility is None:
+        return None
     row = snapshot.u16(PRODUCTION_SELECTED_ROW)
-    if row >= len(PRODUCTION_CHOICES):
+    if row >= len(facility.unit_types):
         return None
     return MenuObservation(
         snapshot.frame,
         MenuFamily.PRODUCTION_CHOICES,
-        production_unit_types=PRODUCTION_CHOICES,
+        production_unit_types=facility.unit_types,
         selected_production_index=row,
     )
 
