@@ -54,11 +54,36 @@ The run artifacts are under `/tmp/aw2-mcp-live-headless/` and
 operator storage, command journals, and server logs; treat them as private test
 data.
 
+## Checkpoint, restart, notifications, and bounded turn wait (2026-11-08)
+
+`test_live_mcp_checkpoint_restart_notifications_and_wait` passed in headless and
+windowed mode with the supported ROM and MCP SDK 1.29.0. It creates a checkpoint
+through MCP, exports and reimports its archive, changes the match, restores via
+MCP, and confirms the state and unit identities match the saved boundary. An
+existing HTTP client observes the same restored state. A clean API/emulator
+restart recovers that boundary; retrying the original MCP purchase request ID
+returns the original command receipt without changing the resumed state.
+
+An independent MCP host received real `notifications/resources/updated` events
+for the subscribed state resource during restore. A fresh session reconnected,
+resubscribed, and read the committed resource. The bounded `wait_for_turn`
+timeout returned `timed_out` in both modes. The tests use deterministic host
+drivers, not a model host.
+
+| Mode | mGBA build | Restored revision | Restart revision | Evidence |
+| --- | --- | ---: | ---: | --- |
+| Headless | `sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22` | 3 | 4 | `/tmp/aw2-mcp-checkpoint-live16/test_live_mcp_checkpoint_resta0/evidence.json` (SHA-256 `ecc199729f21afb4b11c015f1f52a49ea4f938bc60c014edbb82fd1fcbb94ef8`) |
+| Windowed | `sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810` | 3 | 4 | `/tmp/aw2-mcp-checkpoint-live-windowed2/test_live_mcp_checkpoint_resta0/evidence.json` (SHA-256 `f8fbd3e4f02e50f55b2597026ba7d34df2f71eb842b1d307bf12b8738896d156`) |
+
+These artifacts are outside Git. Each evidence file contains a full serialized
+state resource; sibling temporary storage contains generated credentials and
+server logs and should be treated as private test data.
+
 ## Limits and failures
 
-These runs use a deterministic driver, not a third-party or model-based host.
-The MCP-specific flow does not yet cover `move_attack`, checkpoint export/import
-and restore, server restart/resume, or live resource subscription/reconnect.
+These runs use deterministic drivers, not a third-party or model-based host.
+The MCP-specific gameplay flow does not yet cover `move_attack`; checkpoint,
+restart, and resource acceptance is documented above.
 Separately, the SDK-vs-SDK live scenario passed in both modes, including attack,
 full capture, checkpoint restore/restart, natural HQ victory, and the
 revision-matched victory screenshot. Its evidence is under
@@ -72,6 +97,8 @@ scenario passed.
 An attempted longer MCP tank route rolled back with `recovery_required` after
 the navigation wall-clock watchdog expired while selecting the unit. The passing
 MCP scenario stops after the verified capture instead of claiming that route
-passed. A direct live `wait_for_command` MCP call also remained open after the
-underlying command completed, so this acceptance driver polls `get_command`;
-bounded host waiting still needs live verification.
+passed. A live `wait_for_command` MCP call still remained open after its
+gameplay command completed, so the gameplay driver polls `get_command`.
+`wait_for_turn`'s bounded timeout passed, but live `wait_for_command` recovery
+remains unresolved. Resource notifications and reconnect were verified with
+deterministic clients; real model-host behavior remains unverified.

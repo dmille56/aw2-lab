@@ -53,6 +53,11 @@ async def server(root, mode, rom):
         port = probe.getsockname()[1]
     url = f"http://127.0.0.1:{port}"
     log = (root / "server.log").open("ab")
+    environment = os.environ.copy()
+    source = str(Path(__file__).parents[1] / "src")
+    environment["PYTHONPATH"] = os.pathsep.join(
+        part for part in (source, environment.get("PYTHONPATH")) if part
+    )
     process = await asyncio.create_subprocess_exec(
         sys.executable,
         "-m",
@@ -70,6 +75,7 @@ async def server(root, mode, rom):
         "--operator-secret-file",
         str(root / "operator-token"),
         "--enable-debug-api",
+        env=environment,
         stdout=log,
         stderr=log,
     )
