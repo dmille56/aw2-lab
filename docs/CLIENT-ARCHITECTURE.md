@@ -133,9 +133,9 @@ response proves HTTP transport only; it does not prove gameplay or SDK support.
 | NixOS browser to local API | Passed headless Chromium health request | Every client transport/API change |
 | Browser scenario suite | Chromium passed the local client gate; pinned Firefox 32/32 and WebKit 32/32 passed on 2026-11-08 against the synthetic fixture. The Chromium-specific pixel baseline assertion was omitted for Firefox/WebKit; accessibility assertions remained enabled. | Every client behavior change; repeat on supported browser versions |
 | Python SDK and two-client examples in Nix | Passed typed SDK, ROM-independent HTTP/streaming checks, and example CLI startup with Nix-provided Python; live CLI/TCP/SSE two-player acceptance passed headless/windowed on 2026-11-03 | Every SDK/API change |
-| Linux aarch64 runtime | Attempted 2026-11-08 with `nix build .#packages.aarch64-linux.client-prototype` on x86_64. Evaluation succeeds; build stops at `atk-0.18.2` with a platform mismatch (`aarch64-linux` required, `x86_64-linux` current). No remote builder or QEMU aarch64 runner is configured, and no runtime evidence exists. | Native aarch64 builder before claiming support and on release candidates |
-| macOS / Windows native | Unverified | Before claiming support and on release candidates |
-| Android / iOS | Unverified | Before claiming support and on release candidates |
+| Linux aarch64 runtime | Deferred by project decision (2026-11-08). The attempted build evaluates but stops at `atk-0.18.2` with a platform mismatch (`aarch64-linux` required, `x86_64-linux` current); no remote builder or QEMU aarch64 runner is configured, and no runtime evidence exists. | Resume with a native aarch64 builder before claiming support |
+| macOS / Windows native | Deferred by project decision (2026-11-08); unverified | Resume on native macOS and Windows runners before claiming support |
+| Android / iOS | Deferred by project decision (2026-11-08); unverified | Resume on representative Android/iOS devices or emulators/simulators before claiming support |
 
 The first native prototype should embed a small page and read the existing
 `GET /health` through the shared HTTP transport, using an explicitly configured
