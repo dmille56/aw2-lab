@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
+from uuid import uuid4
 
 from aw2_lab.bridge import LuaBridgeClient
 from aw2_lab.lifecycle import LifecyclePhase
@@ -84,6 +85,9 @@ class NavigationFailureContext:
     frame: int
     input_sequence: tuple[InputEvent, ...]
     screenshot: str | None = None
+    menu_family: str | None = None
+    cursor_x: int | None = None
+    cursor_y: int | None = None
 
 
 class NavigationError(RuntimeError):
@@ -441,7 +445,7 @@ class ActionNavigator:
         height: int,
     ) -> GameState:
         """Move a selected unit along an explicit adjacent route and open action choices."""
-        async with self._bounded_operation():
+        async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
             self._begin("move_unit")
             state = await self._observe()
             selected = state.ui.menu.selected_unit
@@ -525,6 +529,8 @@ class ActionNavigator:
                     and value.ui.menu.actionable is True
                 ),
                 description="the selected unit's recognized action choices",
+                frame_budget=self.limits.resolution_frame_budget,
+                poll_frames=self.limits.resolution_poll_frames,
             )
 
     async def _navigate_unit_action(self, item: MenuItem, state: GameState) -> GameState:
@@ -701,19 +707,29 @@ class ActionNavigator:
             raise await self._fail("Drop cursor movement requires verified targeting mode", state)
         if not (0 <= x < width and 0 <= y < height):
             raise await self._fail("Drop destination is outside the validated map", state)
+        # Drop is a cyclic selector over legal adjacent tiles, not a free map
+        # cursor. Its source coordinate updates after the selector first opens.
+        opening_frame = state.frame
+        state = await self._wait_for(
+            lambda value: (
+                value.frame >= opening_frame + 8
+                and value.ui.menu.family is MenuFamily.UNIT_DROP_TARGETING
+                and value.ui.map_cursor.status is CursorStatus.AVAILABLE
+            ),
+            description="the settled Drop target cursor",
+        )
+        cursor = state.ui.map_cursor
+        visited: set[tuple[int | None, int | None]] = set()
         while (cursor.x, cursor.y) != (x, y):
-            dx, dy = x - cursor.x, y - cursor.y
-            if dx:
-                name, sx, sy, key = (
-                    ("right", 1, 0, _KEY_RIGHT) if dx > 0 else ("left", -1, 0, _KEY_LEFT)
-                )
-            else:
-                name, sx, sy, key = ("down", 0, 1, _KEY_DOWN) if dy > 0 else ("up", 0, -1, _KEY_UP)
-            expected = (cursor.x + sx, cursor.y + sy)
-            await self._tap(f"drop-cursor-{name}", key, minimum_gap=8)
+            previous = (cursor.x, cursor.y)
+            if previous in visited or len(visited) >= 4:
+                raise await self._fail("Requested tile is not in the observed Drop targets", state)
+            visited.add(previous)
+            await self._tap("drop-next-target", _KEY_RIGHT, minimum_gap=8)
 
-            def cursor_reached(
-                value: GameState, expected_position: tuple[int, int] = expected
+            def target_changed(
+                value: GameState,
+                previous_position: tuple[int | None, int | None] = previous,
             ) -> bool:
                 selected = value.ui.menu.selected_unit
                 return (
@@ -727,12 +743,12 @@ class ActionNavigator:
                     )
                     == unit
                     and value.ui.map_cursor.status is CursorStatus.AVAILABLE
-                    and (value.ui.map_cursor.x, value.ui.map_cursor.y) == expected_position
+                    and (value.ui.map_cursor.x, value.ui.map_cursor.y) != previous_position
                 )
 
             state = await self._wait_for(
-                cursor_reached,
-                description=f"Drop cursor to reach {expected}",
+                target_changed,
+                description="the next legal Drop target",
             )
             cursor = state.ui.map_cursor
         return state
@@ -1063,7 +1079,9 @@ class ActionNavigator:
         if self.screenshot_writer is not None and self.screenshot_directory is not None:
             try:
                 self.screenshot_directory.mkdir(parents=True, exist_ok=True)
-                path = self.screenshot_directory / f"{self._operation}-frame-{state.frame}.png"
+                path = self.screenshot_directory / (
+                    f"{self._operation}-frame-{state.frame}-{uuid4().hex}.png"
+                )
                 screenshot = str(await self.screenshot_writer(path))
             except OSError, RuntimeError, TimeoutError, ValueError:
                 screenshot = None
@@ -1075,5 +1093,8 @@ class ActionNavigator:
                 state.frame,
                 tuple(self.inputs),
                 screenshot,
+                state.ui.menu.family.value,
+                state.ui.map_cursor.x,
+                state.ui.map_cursor.y,
             ),
         )

@@ -1004,3 +1004,52 @@ test("shows explicit unknown names and snapshot perspective", async ({
   await expect(page.locator("#players")).toContainText("Unknown CO (ID 18)");
   await expect(page.locator("#players .your-player")).toHaveCount(0);
 });
+
+test("refreshes the restored board and explains rollback after a failed action", async ({
+  page,
+}) => {
+  await connect(page);
+  await page.route("**/v1/matches/*/state", async (route) => {
+    const response = await route.fetch();
+    const state = await response.json();
+    // Rollback advances the revision while restoring the original board/turn.
+    state.observation.game_state.battle = structuredClone(
+      fixture.observation.game_state.battle,
+    );
+    await route.fulfill({ response, json: state });
+  });
+  await page.route("**/commands/*", async (route) => {
+    const response = await route.fetch();
+    const result = await response.json();
+    await route.fulfill({
+      response,
+      json: {
+        ...result,
+        status: "rolled_back",
+        error: {
+          contract_version: 1,
+          code: "recovery_required",
+          message: "Navigation failed; restored the recovery checkpoint",
+          retryable: false,
+          details: { navigation_message: "Timed out waiting for Drop cursor" },
+        },
+      },
+    });
+  });
+  await page.getByRole("button", { name: "End turn", exact: true }).click();
+  await page.locator("#submit-action").click();
+  await expect(page.locator(".command-result")).toContainText(
+    "Command status: rolled_back",
+  );
+  await expect(page.locator(".activity-message")).toContainText(
+    "changes were undone",
+  );
+  await expect(page.locator("#boundary")).toContainText("Revision 2 ·");
+  await expect(page.locator("#players")).toContainText(
+    "Player 1 · one · You · Active",
+  );
+  await expect(page.locator('#board [data-x="0"][data-y="0"]')).toHaveAttribute(
+    "aria-label",
+    /Infantry.*ready/,
+  );
+});

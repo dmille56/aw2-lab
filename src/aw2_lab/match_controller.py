@@ -8,13 +8,14 @@ import hmac
 import json
 import secrets
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, SecretStr
 
+from aw2_lab.action_navigation import NavigationError
 from aw2_lab.api_contract import (
     CreateMatchRequest,
     InvitationReference,
@@ -1122,7 +1123,15 @@ class MatchController:
                                 "Mutation failed after execution began; restoring its recovery "
                                 f"checkpoint ({type(error).__name__})"
                             ),
-                            details={"cause": type(error).__name__},
+                            details=(
+                                {
+                                    "cause": "NavigationError",
+                                    "navigation_message": str(error),
+                                    "navigation_context": json.dumps(asdict(error.context)),
+                                }
+                                if isinstance(error, NavigationError)
+                                else {"cause": type(error).__name__}
+                            ),
                         ),
                     )
                 finally:

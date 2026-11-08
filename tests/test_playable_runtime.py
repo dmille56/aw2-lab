@@ -1,6 +1,8 @@
 """Runtime composition, queue ownership, persistence, and tracker replacement."""
 
 import asyncio
+import json
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -9,6 +11,7 @@ from test_match_checkpoint import MemoryBridge
 from test_match_controller import run_async_test
 from test_state_validation import memory as memory  # noqa: PLC0414
 
+from aw2_lab.action_navigation import InputEvent
 from aw2_lab.api_contract import (
     CreateMatchRequest,
     GameplayCommandRequest,
@@ -278,17 +281,30 @@ async def test_rollback_replaces_shared_tracker_and_next_command_uses_it(
 
     runtime, public, match_id, operator, bridge = await setup(memory, tmp_path)
 
+    async def save_screenshot(path):
+        path.write_bytes(b"synthetic failure screenshot")
+        return path
+
+    bridge.save_screenshot = save_screenshot
+
     class Executor:
         attempts = 0
 
         def __init__(self, navigator, tracker):
             self.tracker = tracker
+            self.navigator = navigator
 
         async def execute(self, request, observation):
             Executor.attempts += 1
             bridge.frame += 1
             if Executor.attempts == 1:
-                raise RuntimeError("failed after input")
+                self.navigator._begin("choose_unload")
+                self.navigator.inputs.append(
+                    InputEvent("begin-unload", 1, 1, bridge.frame - 1, bridge.frame)
+                )
+                raise await self.navigator._fail(
+                    "Timed out waiting for Drop cursor", await bridge.decoded()
+                )
             assert self.tracker is runtime.checkpoints.session.tracker
             return MutationOutcome(
                 observation=self.tracker.commit_boundary(await bridge.decoded()),
@@ -310,6 +326,22 @@ async def test_rollback_replaces_shared_tracker_and_next_command_uses_it(
             )
             result = await public.wait_for_command(player, match_id, command.command_id, timeout=2)
             assert result.status is expected
+            if expected is CommandStatus.ROLLED_BACK:
+                assert result.error is not None
+                assert (
+                    result.error.details["navigation_message"]
+                    == "Timed out waiting for Drop cursor"
+                )
+                context = json.loads(str(result.error.details["navigation_context"]))
+                assert context["operation"] == "choose_unload"
+                assert context["menu_family"] == "map_input"
+                screenshot = Path(context["screenshot"])
+                assert screenshot.parent == runtime.store.root / "navigation-failures"
+                assert screenshot.read_bytes() == b"synthetic failure screenshot"
+                assert context["input_sequence"][0]["name"] == "begin-unload"
+                # The terminal receipt survives restart with its diagnostic context.
+                entries = (await runtime.journal.read_entries()).entries
+                assert entries[-1].error == result.error
         assert bridge.loads == 1
     finally:
         await public.controller.stop()

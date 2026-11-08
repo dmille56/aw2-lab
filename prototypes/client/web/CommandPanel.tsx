@@ -623,7 +623,9 @@ export function CommandPanel({
                     ? "Accepted by the server; waiting for the emulator to finish."
                     : command.phase === "completed"
                       ? "Completed and committed to the match."
-                      : "The action did not complete. Review the result details."}
+                      : command.phase === "rolled_back"
+                        ? "The action was rolled back. Its movement and other changes were undone; the board refreshes to the restored game state."
+                        : "The action did not complete. Review the result details."}
             </p>
             <p>
               Request {command.request.request_id} · expected revision{" "}

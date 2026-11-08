@@ -157,7 +157,8 @@ def test_navigate_menu_tracks_each_verified_command_row(memory) -> None:
     asyncio.run(run())
 
 
-def test_choose_unload_tracks_drop_target_cursor_before_confirmation(memory) -> None:
+@pytest.mark.parametrize("available", [True, False])
+def test_choose_unload_tracks_drop_target_cursor_before_confirmation(memory, available) -> None:
     class FakeBridge:
         def __init__(self, state: GameState) -> None:
             self.state = state
@@ -196,8 +197,11 @@ def test_choose_unload_tracks_drop_target_cursor_before_confirmation(memory) -> 
             cursor = self.state.ui.map_cursor
             x, y = cursor.x, cursor.y
             if menu.family is MenuFamily.UNIT_DROP_TARGETING:
-                dx, dy = {16: (1, 0), 32: (-1, 0), 128: (0, 1), 64: (0, -1)}.get(keys, (0, 0))
-                x, y = x + dx, y + dy
+                targets = ((1, 0), (2, 1), (1, 2), (0, 1))
+                if keys == 1:
+                    x, y = targets[0]
+                elif keys == 16:
+                    x, y = targets[(targets.index((x, y)) + 1) % len(targets)]
             self._update(frames, menu=menu, cursor_position=(x, y))
             return self.state.frame
 
@@ -248,18 +252,26 @@ def test_choose_unload_tracks_drop_target_cursor_before_confirmation(memory) -> 
             NavigationLimits(frame_budget=100, poll_frames=1, wall_timeout=3),
         )
 
+        if not available:
+            with pytest.raises(NavigationError, match="not in the observed Drop targets"):
+                await navigator.choose_unload(
+                    (3, 3), unit=(1, 1, 23, 0x02022690), width=4, height=4
+                )
+            assert bridge.keys.count(1) == 1  # Never confirm an unavailable tile.
+            return
         result = await navigator.choose_unload(
-            (1, 1), unit=(1, 1, 23, 0x02022690), width=4, height=4
+            (0, 1), unit=(1, 1, 23, 0x02022690), width=4, height=4
         )
         assert result.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
-        assert (result.ui.map_cursor.x, result.ui.map_cursor.y) == (1, 1)
-        assert bridge.keys == [64, 1, 16, 128, 1]
+        assert (result.ui.map_cursor.x, result.ui.map_cursor.y) == (0, 1)
+        assert bridge.keys == [64, 1, 16, 16, 16, 1]
         assert bridge.gaps[-1] == 20
         assert [event.name for event in navigator.inputs] == [
             "unload-menu-up",
             "begin-unload",
-            "drop-cursor-right",
-            "drop-cursor-down",
+            "drop-next-target",
+            "drop-next-target",
+            "drop-next-target",
             "confirm-unload-drop",
         ]
 
@@ -609,6 +621,7 @@ def test_movement_overlay_checks_route_tiles_before_confirming(
                 self.state = initial
                 self.keys: list[int] = []
                 self.neutral_since_input = 8
+                self.animation_remaining = None
 
             async def observe(self) -> GameState:
                 return self.state
@@ -620,7 +633,11 @@ def test_movement_overlay_checks_route_tiles_before_confirming(
                 elif keys == 128 and movement_tile_allowed and self.neutral_since_input >= 8:
                     self._update(frames, cursor=(1, 1))
                 elif keys == 1:
-                    self._update(frames, menu=MenuFamily.UNIT_ACTION_CHOICES)
+                    # The accepted route animates beyond both ordinary input
+                    # limits; it must use the separate resolution allowance.
+                    await asyncio.sleep(0.02)
+                    self.animation_remaining = 50
+                    self._update(frames, menu=MenuFamily.UNIT_ACTION)
                 else:
                     self._update(frames)
                 self.neutral_since_input = 0
@@ -628,7 +645,12 @@ def test_movement_overlay_checks_route_tiles_before_confirming(
 
             async def advance_frames(self, frames: int) -> int:
                 self.neutral_since_input += frames
-                self._update(frames)
+                menu = None
+                if self.animation_remaining is not None:
+                    self.animation_remaining -= frames
+                    if self.animation_remaining <= 0:
+                        menu = MenuFamily.UNIT_ACTION_CHOICES
+                self._update(frames, menu=menu)
                 return self.state.frame
 
             def _update(self, frames: int, *, cursor=None, menu=None) -> None:
@@ -662,7 +684,14 @@ def test_movement_overlay_checks_route_tiles_before_confirming(
         navigator = ActionNavigator(
             bridge,
             bridge.observe,
-            NavigationLimits(frame_budget=32, poll_frames=1, wall_timeout=1),
+            NavigationLimits(
+                frame_budget=32,
+                poll_frames=1,
+                wall_timeout=0.01,
+                resolution_frame_budget=128,
+                resolution_poll_frames=1,
+                resolution_wall_timeout=1,
+            ),
         )
         unit_identity = (1, 1, 1, selected.record_address)
         if movement_tile_allowed:

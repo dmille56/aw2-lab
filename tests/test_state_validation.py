@@ -474,10 +474,11 @@ def test_unload_cursor_uses_observed_source_during_drop_targeting(memory) -> Non
 
 @pytest.mark.parametrize(
     ("carrier_type", "selector_table"),
-    [(7, 0), (7, 3), (20, 0), (20, 1), (23, 0), (23, 1)],
+    [(carrier, target) for carrier in (7, 20, 23) for target in range(4)],
 )
+@pytest.mark.parametrize("cargo_rows", [0, 1])
 def test_single_tile_drop_cursor_uses_live_source_during_cursor_mode(
-    memory, carrier_type, selector_table
+    memory, carrier_type, selector_table, cargo_rows
 ) -> None:
     _, ewram, iwram = memory
     pack_into("<I", ewram, 0xD610, UNIT_ACTION_MENU_SCRIPT)
@@ -489,7 +490,7 @@ def test_single_tile_drop_cursor_uses_live_source_during_cursor_mode(
     offset = 2 * 0x60
     pack_into("<I", iwram, 0x1470 + offset, UNLOAD_TARGETING_SELECTOR)
     pack_into("<I", iwram, 0x1490 + offset, selector_table)
-    iwram[0x14B1 + offset] = 0
+    iwram[0x14B1 + offset] = cargo_rows
     iwram[0x30F0] = 1
     pack_into("<H", iwram, 0x32D8, 13)
     pack_into("<H", iwram, 0x33EC, 1)
@@ -499,6 +500,9 @@ def test_single_tile_drop_cursor_uses_live_source_during_cursor_mode(
     report = validate_battle_snapshot(current)
     menu = observe_menu(current, report)
     cursor = observe_map_cursor(current, report)
+    if cargo_rows and carrier_type != 7:
+        assert menu.family is not MenuFamily.UNIT_DROP_TARGETING
+        return
     assert menu.family is MenuFamily.UNIT_DROP_TARGETING
     assert menu.selected_unit is not None and menu.selected_unit.unit_type == carrier_type
     assert cursor.status is CursorStatus.AVAILABLE

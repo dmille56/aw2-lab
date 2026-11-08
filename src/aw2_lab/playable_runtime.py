@@ -65,7 +65,12 @@ class PlayableRuntime:
         self._session_changed = session_changed
         self._boot_match = boot_match
         self._observe = observe or self._capture
-        self.navigator = ActionNavigator(bridge, self._observe)
+        self.navigator = ActionNavigator(
+            bridge,
+            self._observe,
+            screenshot_writer=self._save_navigation_screenshot,
+            screenshot_directory=store.root / "navigation-failures",
+        )
         controller.configure_runtime(self, self.start)
         controller.set_screenshot_provider(self.capture_screenshot)
         # These delegates remain installed as match/session ownership changes.
@@ -75,6 +80,9 @@ class PlayableRuntime:
 
     async def _capture(self) -> GameState:
         return await capture_game_state(self.bridge, rom_path=self.rom_path)
+
+    async def _save_navigation_screenshot(self, path: Path) -> Path:
+        return await self.bridge.save_screenshot(path)
 
     async def capture_screenshot(self, observation: MatchObservation) -> bytes:
         """Capture only while the bridge remains on the committed observation frame."""

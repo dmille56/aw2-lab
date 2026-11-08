@@ -701,11 +701,14 @@ def _is_unload_targeting(
     lander_drop_list = table == 1 and row_count == 3 and row < 3 and snapshot.u16(0x03003334) == 5
     single_tile_drop_cursor = (
         selected.unit_type in (7, 20, 23)
-        and table in (0, 1, 3)
+        and table in (0, 1, 2, 3)
         # Carriers use a map cursor while Drop targeting is active. The table
-        # field can change after cursor input; the Lander also has a separate
+        # field is the target index (up/right/down/left), not a menu table.
+        # The Lander also has a separate
         # three-row cargo selector recognized above.
-        and row_count == 0
+        # A moved APC keeps its one cargo row while showing the map target;
+        # the stationary carrier traces expose zero rows in this same mode.
+        and (row_count == 0 or (selected.unit_type == 7 and row_count == 1 and row == 0))
         and snapshot.u16(0x03003334) == 4
     )
     return lander_drop_list or single_tile_drop_cursor
