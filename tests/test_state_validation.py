@@ -185,7 +185,9 @@ def test_unit_action_menu_resolves_selected_unit_against_table_and_map(memory) -
 @pytest.mark.parametrize("row", range(11))
 def test_base_production_menu_recognizes_verified_rows(memory, row: int) -> None:
     _, _, iwram = memory
-    pack_into("<HH", iwram, 0x33E4, 0, 0)
+    # A production menu moves the source cursor to local menu coordinates;
+    # the cached coordinates continue to identify the map property.
+    pack_into("<HH", iwram, 0x33E4, 1, 2)
     iwram[0x3140:0x3142] = bytes((0, 0))
     pack_into("<I", iwram, 0x1470, 0x0849AFE8)
     pack_into("<I", iwram, 0x1474, 0x0849B000)
@@ -215,7 +217,7 @@ def test_other_production_facilities_use_their_own_rows(
     memory, terrain_class: int, choices: tuple[int, ...], row: int
 ) -> None:
     _, _, iwram = memory
-    pack_into("<HH", iwram, 0x33E4, 0, 0)
+    pack_into("<HH", iwram, 0x33E4, 1, 2)
     iwram[0x3140:0x3142] = bytes((0, 0))
     pack_into("<I", iwram, 0x1470, 0x0849AFE8)
     pack_into("<I", iwram, 0x1474, 0x0849B000)

@@ -427,7 +427,9 @@ def _observe_production_choices(
         or snapshot.u16(0x03003334) != 0
     ):
         return None
-    x, y = snapshot.u16(CURSOR_SOURCE), snapshot.u16(CURSOR_SOURCE + 2)
+    # The source cursor switches to the menu's local cursor while the modal is
+    # open; the cache continues to hold the selected map coordinate.
+    x, y = snapshot.read(CURSOR_CACHE, 2)
     facility = next(
         (
             PRODUCTION_BY_TERRAIN.get(prop.terrain_class)
