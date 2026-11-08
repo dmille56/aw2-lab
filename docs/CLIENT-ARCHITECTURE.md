@@ -133,7 +133,7 @@ response proves HTTP transport only; it does not prove gameplay or SDK support.
 | NixOS browser to local API | Passed headless Chromium health request | Every client transport/API change |
 | Browser scenario suite | Chromium passed the local client gate; pinned Firefox 32/32 and WebKit 32/32 passed on 2026-11-08 against the synthetic fixture. The Chromium-specific pixel baseline assertion was omitted for Firefox/WebKit; accessibility assertions remained enabled. | Every client behavior change; repeat on supported browser versions |
 | Python SDK and two-client examples in Nix | Passed typed SDK, ROM-independent HTTP/streaming checks, and example CLI startup with Nix-provided Python; live CLI/TCP/SSE two-player acceptance passed headless/windowed on 2026-11-03 | Every SDK/API change |
-| Linux aarch64 runtime | Flake derivation evaluates on x86_64; build cannot proceed here because an aarch64 GTK dependency requires an aarch64 builder. No aarch64 runtime evidence. | Native aarch64 builder before claiming support and on release candidates |
+| Linux aarch64 runtime | Attempted 2026-11-08 with `nix build .#packages.aarch64-linux.client-prototype` on x86_64. Evaluation succeeds; build stops at `atk-0.18.2` with a platform mismatch (`aarch64-linux` required, `x86_64-linux` current). No remote builder or QEMU aarch64 runner is configured, and no runtime evidence exists. | Native aarch64 builder before claiming support and on release candidates |
 | macOS / Windows native | Unverified | Before claiming support and on release candidates |
 | Android / iOS | Unverified | Before claiming support and on release candidates |
 
@@ -150,9 +150,10 @@ checks in the local client gate. Other-platform gameplay acceptance remains pend
 The pinned Playwright Firefox and WebKit engines each passed all 32 scenarios on
 2026-11-08 against the local synthetic server fixture. These runs exercise the
 web client and do not establish native WebView behavior or live mGBA gameplay.
-The aarch64 flake output evaluates, but building from this x86_64 host stops at
-the GTK dependency because Nix requires an aarch64 builder; schedule a native
-aarch64 runner for package and runtime acceptance.
+The aarch64 flake output evaluates, but the 2026-11-08 package build stops at
+the GTK dependency `atk-0.18.2`: Nix requires an aarch64 builder, and this host
+has no remote builder or QEMU aarch64 runner configured. Package and runtime
+acceptance still need a native aarch64 runner.
 Python SDK implementation and ROM-independent checks are documented in
 [PYTHON-SDK.md](PYTHON-SDK.md). [Live client acceptance](LIVE-SDK-ACCEPTANCE.md)
 passed in both emulator modes, completing the deferred Nix SDK integration gate.
