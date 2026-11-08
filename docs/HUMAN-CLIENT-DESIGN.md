@@ -1,7 +1,8 @@
 # Human game client proposal
 
-Status: initial read-only viewer implemented in `prototypes/client/`; gameplay
-controls and the rest of the proposed client remain pending.
+Status: the React/TypeScript viewer and supported gameplay controls are
+implemented in `prototypes/client/`. Remaining acceptance and follow-up features
+are tracked in [Milestone 4](MILESTONE-4.org).
 
 ## Purpose
 
@@ -218,13 +219,13 @@ browser implementation of the game.
 
 ## Implementation shape
 
-The existing prototype now provides a React/TypeScript read-only board and
-inspector with accessible selectable tiles. Retain its connection check,
-native smoke reporting, and shared browser/Tauri assets. Do not create a second
-frontend in the Python package. React/TypeScript/Vite tooling and generated
-contract types follow [the accepted client architecture](CLIENT-ARCHITECTURE.md).
-Keep rendering,
-selection/action previews, and HTTP transport in separate modules as it grows.
+The existing prototype provides a React/TypeScript board, inspector, and
+supported gameplay actions with accessible selectable tiles. Retain its
+connection check, native smoke reporting, and shared browser/Tauri assets. Do
+not create a second frontend in the Python package. React/TypeScript/Vite tooling
+and generated contract types follow [the accepted client architecture](CLIENT-ARCHITECTURE.md).
+Keep rendering, selection/action previews, activity, and HTTP transport in
+separate modules as it grows.
 
 The browser calls the HTTP API directly; it does not need the Python SDK or MCP
 for ordinary play. MCP agents and the browser share the existing controller,

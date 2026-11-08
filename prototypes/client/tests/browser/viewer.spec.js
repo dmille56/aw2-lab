@@ -14,6 +14,7 @@ async function connect(page) {
     "Live · observing committed match updates",
   );
   await expect(page.locator("#board .tile")).toHaveCount(4);
+  await expect(page.locator("#action-unit")).toBeEnabled();
 }
 async function upload(page, value) {
   await page.locator("#snapshot").setInputFiles({
@@ -280,7 +281,13 @@ test("submits gameplay actions with a revision and follows the command receipt",
   await connect(page);
   await page.getByRole("button", { name: "End turn", exact: true }).click();
   await expect(page.locator(".command-preview")).toContainText(
-    "ready units remaining",
+    "ready unit unused",
+  );
+  await expect(page.locator('[aria-label="Unused units"]')).toContainText(
+    "Infantry · (0,0)",
+  );
+  await expect(page.locator(".preview-summary")).toContainText(
+    "End your turn and pass control",
   );
   await page.locator("#submit-action").click();
   await expect(page.locator(".command-result")).toContainText(
@@ -297,6 +304,94 @@ test("submits gameplay actions with a revision and follows the command receipt",
     "Player 2 · two · Active",
   );
   expect((await (await request.get("/__test/stats")).json()).commands).toBe(1);
+});
+
+test("confirms surrender explicitly and shows the finished command activity", async ({
+  page,
+}) => {
+  await connect(page);
+  await page.getByRole("button", { name: "Surrender", exact: true }).click();
+  await expect(page.locator(".command-preview")).toContainText(
+    "immediately forfeit this match",
+  );
+  await expect(page.locator(".command-preview [role=alert]")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Surrender match", exact: true }),
+  ).toBeEnabled();
+  await page.locator("#submit-action").click();
+  await expect(page.locator(".command-result")).toContainText(
+    "Command status: completed",
+  );
+  await expect(page.locator('[aria-label="Command activity"]')).toContainText(
+    "Completed and committed to the match.",
+  );
+});
+
+test("retains recent command activity and distinguishes terminal results", async ({
+  page,
+  request,
+}) => {
+  await connect(page);
+  const tile = (x, y) => page.locator(`#board [data-x="${x}"][data-y="${y}"]`);
+  await tile(0, 0).click();
+  await page
+    .getByRole("button", { name: "Plan movement", exact: true })
+    .click();
+  await tile(1, 0).click();
+  await page.getByRole("button", { name: "Wait here" }).click();
+  await page.locator("#submit-action").click();
+  await expect(page.locator(".command-result")).toContainText(
+    "Completed and committed to the match.",
+  );
+
+  await page.getByRole("button", { name: "End turn", exact: true }).click();
+  await page.locator("#submit-action").click();
+  await expect(page.locator(".command-result")).toContainText(
+    "Command status: completed",
+  );
+  const history = page.locator(".command-history");
+  await expect(history).toContainText("Previous actions (1)");
+  await history.locator("summary").click();
+  await expect(history).toContainText("Wait");
+  await expect(history).toContainText("Resulting revision 2");
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(2);
+});
+
+test("keeps server error details expandable in command activity", async ({
+  page,
+}) => {
+  await connect(page);
+  await page.route("**/commands/*", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const result = await response.json();
+    await route.fulfill({
+      response,
+      json: {
+        ...result,
+        status: "rejected",
+        error: {
+          contract_version: 1,
+          code: "action_rejected",
+          message: "Synthetic server rejection",
+          retryable: false,
+          details: { reason: "Observed target is out of range", range: 4 },
+        },
+      },
+    });
+  });
+  await page.getByRole("button", { name: "End turn", exact: true }).click();
+  await page.locator("#submit-action").click();
+  const details = page.locator(".command-result .command-error-details");
+  await expect(details.locator("summary")).toContainText(
+    "action_rejected: Synthetic server rejection",
+  );
+  await expect(details.locator("pre")).toBeHidden();
+  await details.locator("summary").click();
+  await expect(details.locator("pre")).toContainText(
+    "Observed target is out of range",
+  );
+  await expect(details.locator("pre")).toContainText('"range": 4');
 });
 
 test("resets action drafts when the committed revision changes", async ({
@@ -442,7 +537,7 @@ test("lists only unoccupied supported bases for purchases", async ({
   battle.units[0].y = 1;
   await page.locator("#refresh").click();
   await expect(page.locator("#purchase-property option")).toHaveText([
-    "Choose a production base",
+    "Choose a production facility",
     "(0,0)",
   ]);
 });

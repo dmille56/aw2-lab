@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import type { ViewState } from "./session";
+import { useEffect, useRef, useState } from "react";
+import type { CommandProgress, ViewState } from "./session";
 import type { GameplayAction } from "./command_input";
 import { positionLabel, type GameplayModel, type ActionKind } from "./gameplay";
 import { unitName } from "./Board";
@@ -33,6 +33,26 @@ export function CommandPanel({
   const command = view.command;
   const panel = useRef<HTMLElement>(null);
   const previousPhase = useRef(draft.phase);
+  const activityMatch = useRef(view.snapshot?.summary.match_id ?? null);
+  const [activity, setActivity] = useState<CommandProgress[]>([]);
+  useEffect(() => {
+    const matchId = view.snapshot?.summary.match_id ?? null;
+    if (activityMatch.current === matchId) return;
+    activityMatch.current = matchId;
+    setActivity([]);
+  }, [view.snapshot?.summary.match_id]);
+  useEffect(() => {
+    if (!command) return;
+    setActivity((previous) => {
+      const existing = previous.findIndex(
+        (item) => item.request.request_id === command.request.request_id,
+      );
+      const updated = [...previous];
+      if (existing >= 0) updated[existing] = command;
+      else updated.push(command);
+      return updated.slice(-8);
+    });
+  }, [command]);
   useEffect(() => {
     if (previousPhase.current === draft.phase) return;
     previousPhase.current = draft.phase;
@@ -60,6 +80,39 @@ export function CommandPanel({
   const funds = model.battle?.players.find(
     (player) => player.slot === model.slot,
   )?.funds;
+  const preview = (() => {
+    if (!draft.kind) return "";
+    if (draft.kind === "purchase")
+      return `Buy ${draft.unitType} at ${draft.base ? positionLabel(draft.base) : "the selected facility"}. Baseline cost: ${profileByName(draft.unitType)?.cost ?? "unknown"}.`;
+    if (draft.kind === "end_turn")
+      return "End your turn and pass control to the other player.";
+    if (draft.kind === "surrender") return "Surrender this match.";
+    if (draft.kind === "load")
+      return `Move ${selectedUnit ? unitName(selectedUnit) : "the selected unit"} into the friendly carrier at ${destination ? positionLabel(destination) : "the route destination"}.`;
+    if (draft.kind === "unload")
+      return `Move the carrier to ${destination ? positionLabel(destination) : "its current tile"} and unload the selected cargo.`;
+    const from = draft.origin
+      ? positionLabel(draft.origin)
+      : "its current tile";
+    const to = destination ? positionLabel(destination) : from;
+    const movement =
+      draft.path.length > 0
+        ? `Move ${selectedUnit ? unitName(selectedUnit) : "the unit"} from ${from} to ${to} via ${draft.path.map(positionLabel).join(" → ")}`
+        : `Keep ${selectedUnit ? unitName(selectedUnit) : "the unit"} at ${from} (stay in place)`;
+    if (draft.kind === "move_attack")
+      return `${movement}, then attack at ${draft.target ? positionLabel(draft.target) : "the selected target"}.`;
+    if (draft.kind === "move_capture")
+      return `${movement}, then capture the property.`;
+    return `${movement}, then wait.`;
+  })();
+  const activityEntries = command
+    ? [
+        ...activity.filter(
+          (item) => item.request.request_id !== command.request.request_id,
+        ),
+        command,
+      ].slice(-8)
+    : activity;
   return (
     <section
       ref={panel}
@@ -416,24 +469,7 @@ export function CommandPanel({
       {draft.phase === "review" && draft.kind && (
         <div className="command-preview" aria-label="Action preview">
           <h3>Confirm {labels[draft.kind]}</h3>
-          {draft.kind.startsWith("move_") && selectedUnit && (
-            <p>
-              {unitName(selectedUnit)} from{" "}
-              {draft.origin && positionLabel(draft.origin)} to{" "}
-              {destination && positionLabel(destination)}. Route:{" "}
-              {draft.path.length
-                ? draft.path.map(positionLabel).join(" → ")
-                : "stay in place"}
-              .{" "}
-              {draft.target && `Attack target: ${positionLabel(draft.target)}.`}
-            </p>
-          )}
-          {draft.kind === "purchase" && draft.base && (
-            <p>
-              Buy {draft.unitType} at base {positionLabel(draft.base)}. Baseline
-              cost: {profileByName(draft.unitType)?.cost ?? "unknown"}.
-            </p>
-          )}
+          <p className="preview-summary">{preview}</p>
           {draft.kind === "unload" && selectedUnit && (
             <>
               <p>
@@ -502,14 +538,37 @@ export function CommandPanel({
             </>
           )}
           {draft.kind === "end_turn" && (
-            <p>
-              End your turn with {model.units.length} ready units remaining?
-            </p>
+            <div className="turn-confirmation">
+              {model.units.length ? (
+                <>
+                  <p>
+                    End your turn with {model.units.length} ready unit
+                    {model.units.length === 1 ? "" : "s"} unused?
+                  </p>
+                  <ul aria-label="Unused units" className="unused-unit-list">
+                    {model.units.map(({ unit, id }) => (
+                      <li key={id}>
+                        {unitName(unit)} · {positionLabel(unit)}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p>No ready units remain unused.</p>
+              )}
+            </div>
           )}
           {draft.kind === "surrender" && (
-            <p>Surrender this match? This action cannot be undone.</p>
+            <p role="alert" className="surrender-warning">
+              Surrender will immediately forfeit this match. This action cannot
+              be undone.
+            </p>
           )}
-          <p>Committed revision {view.snapshot?.summary.revision}</p>
+          <p>
+            This preview uses committed revision{" "}
+            {view.snapshot?.summary.revision}. If the match changes, review it
+            again before submitting.
+          </p>
           <button
             id="submit-action"
             type="button"
@@ -519,7 +578,11 @@ export function CommandPanel({
                 onSubmit(model.action, view.snapshot.summary.revision);
             }}
           >
-            Confirm {labels[draft.kind]}
+            {draft.kind === "surrender"
+              ? "Surrender match"
+              : draft.kind === "end_turn"
+                ? "Confirm end turn"
+                : `Confirm ${labels[draft.kind]}`}
           </button>
         </div>
       )}
@@ -540,45 +603,121 @@ export function CommandPanel({
         </p>
       )}
       {command && (
-        <div className="command-result" aria-live="polite">
-          <h3>Command status: {command.phase}</h3>
-          <p>
-            Request {command.request.request_id} · expected revision{" "}
-            {command.request.expected_revision}
-          </p>
-          {command.receipt && (
-            <p>
-              Accepted as {command.receipt.command_id} · accepted revision{" "}
-              {command.receipt.accepted_revision}
+        <section className="command-activity" aria-label="Command activity">
+          <h3>Command activity</h3>
+          <div
+            className="command-result"
+            aria-live="polite"
+            data-status={command.phase}
+          >
+            <p className="activity-action">
+              {labels[command.request.action.kind]}
             </p>
-          )}
-          {command.result?.resulting_revision !== null &&
-            command.result?.resulting_revision !== undefined && (
-              <p>Resulting revision {command.result.resulting_revision}</p>
+            <h4>Command status: {command.phase}</h4>
+            <p className="activity-message" role="status">
+              {command.phase === "submitting"
+                ? "Sending this action to the match."
+                : command.phase === "uncertain"
+                  ? "The server may have accepted this action. Check its status or retry safely with the same request."
+                  : command.phase === "queued" || command.phase === "running"
+                    ? "Accepted by the server; waiting for the emulator to finish."
+                    : command.phase === "completed"
+                      ? "Completed and committed to the match."
+                      : "The action did not complete. Review the result details."}
+            </p>
+            <p>
+              Request {command.request.request_id} · expected revision{" "}
+              {command.request.expected_revision}
+            </p>
+            {command.receipt && (
+              <p>
+                Accepted as {command.receipt.command_id} · accepted revision{" "}
+                {command.receipt.accepted_revision}
+              </p>
             )}
-          {command.result?.error && (
-            <details>
-              <summary>
-                {command.result.error.code}: {command.result.error.message}
-              </summary>
-              <pre>{JSON.stringify(command.result.error.details, null, 2)}</pre>
+            {command.result?.resulting_revision !== null &&
+              command.result?.resulting_revision !== undefined && (
+                <p>Resulting revision {command.result.resulting_revision}</p>
+              )}
+            {command.result?.error && (
+              <details className="command-error-details">
+                <summary>
+                  {command.result.error.code}: {command.result.error.message}
+                </summary>
+                <pre>
+                  {JSON.stringify(command.result.error.details, null, 2)}
+                </pre>
+              </details>
+            )}
+            {command.phase === "uncertain" && (
+              <button
+                type="button"
+                onClick={onRetry}
+                disabled={!view.connected}
+              >
+                Retry safely with the same request ID
+              </button>
+            )}
+            {command.receipt &&
+              ["queued", "running"].includes(command.phase) && (
+                <button
+                  type="button"
+                  onClick={onCheckStatus}
+                  disabled={!view.connected}
+                >
+                  Check command status
+                </button>
+              )}
+          </div>
+          {activityEntries.length > 1 && (
+            <details className="command-history">
+              <summary>Previous actions ({activityEntries.length - 1})</summary>
+              <ol>
+                {activityEntries
+                  .filter(
+                    (item) =>
+                      item.request.request_id !== command.request.request_id,
+                  )
+                  .reverse()
+                  .map((item) => (
+                    <li key={item.request.request_id}>
+                      <span className="activity-action">
+                        {labels[item.request.action.kind]}
+                      </span>
+                      <strong>Command status: {item.phase}</strong>
+                      <p>
+                        Request {item.request.request_id} · expected revision{" "}
+                        {item.request.expected_revision}
+                      </p>
+                      {item.receipt && (
+                        <p>
+                          Accepted as {item.receipt.command_id} · accepted
+                          revision {item.receipt.accepted_revision}
+                        </p>
+                      )}
+                      {item.result?.resulting_revision !== null &&
+                        item.result?.resulting_revision !== undefined && (
+                          <p>
+                            Resulting revision {item.result.resulting_revision}
+                          </p>
+                        )}
+                      {item.result?.error && (
+                        <details className="command-error-details">
+                          <summary>
+                            {item.result.error.code}:{" "}
+                            {item.result.error.message}
+                          </summary>
+                          <pre>
+                            {JSON.stringify(item.result.error.details, null, 2)}
+                          </pre>
+                        </details>
+                      )}
+                    </li>
+                  ))}
+              </ol>
             </details>
           )}
-          {command.phase === "uncertain" && (
-            <button type="button" onClick={onRetry} disabled={!view.connected}>
-              Retry safely with the same request ID
-            </button>
-          )}
-          {command.receipt && ["queued", "running"].includes(command.phase) && (
-            <button
-              type="button"
-              onClick={onCheckStatus}
-              disabled={!view.connected}
-            >
-              Check command status
-            </button>
-          )}
-        </div>
+        </section>
       )}
     </section>
   );

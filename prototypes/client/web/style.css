@@ -546,23 +546,110 @@ summary {
   padding: 10px;
 }
 
+.route-editor,
+.command-panel p {
+  overflow-wrap: anywhere;
+}
+
 .command-preview code {
   display: block;
   margin-top: 5px;
 }
 
-.command-result {
-  margin-top: 14px;
+.command-preview .preview-summary {
+  font-size: 1.1em;
+  font-weight: 650;
 }
 
-.command-result h3 {
+.turn-confirmation {
+  border-left: 4px solid var(--accent);
+  padding-left: 12px;
+}
+
+.turn-confirmation p {
+  margin-block: 8px;
+}
+
+.unused-unit-list {
+  max-height: 9rem;
+  overflow: auto;
+  margin-block: 6px 12px;
+  padding-left: 24px;
+}
+
+.surrender-warning {
+  border-left: 4px solid #a43434;
+  background: var(--error);
+  padding: 10px 12px;
+  font-weight: 650;
+}
+
+.command-activity {
+  margin-top: 16px;
+}
+
+.command-activity > h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.command-result {
+  margin-top: 8px;
+}
+
+.command-result[data-status="completed"] {
+  border-color: var(--accent);
+}
+
+.command-result[data-status="uncertain"],
+.command-result[data-status="rejected"],
+.command-result[data-status="rolled_back"],
+.command-result[data-status="recovery_required"] {
+  border-color: #a43434;
+}
+
+.command-result h4 {
   margin: 0;
   text-transform: capitalize;
 }
 
-.command-result pre {
+.activity-action {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 0.85em;
+  font-weight: 650;
+}
+
+.activity-message {
+  margin-block: 6px;
+}
+
+.command-result pre,
+.command-error-details pre {
   overflow: auto;
   white-space: pre-wrap;
+}
+
+.command-history {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.command-history ol {
+  display: grid;
+  gap: 10px;
+  padding-left: 24px;
+}
+
+.command-history li {
+  padding-left: 4px;
+}
+
+.command-history li p {
+  margin-block: 4px;
 }
 
 .gameplay-sidebar {
@@ -575,11 +662,6 @@ summary {
 .command-panel select {
   width: 100%;
   margin-block: 0.4rem 0.8rem;
-}
-
-.route-editor,
-.command-panel p {
-  overflow-wrap: anywhere;
 }
 
 .tile[data-route-step] {

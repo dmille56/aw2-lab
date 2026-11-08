@@ -19,6 +19,7 @@ from aw2_lab.api_contract import (
     CapabilitiesResponse,
     FeatureAvailability,
     GameplayCommandRequest,
+    ProductionFacilityCapabilities,
     StateResponse,
 )
 from aw2_lab.match_contract import (
@@ -71,6 +72,13 @@ capabilities = CapabilitiesResponse(
         )
     ),
     production_unit_types=("Infantry", "Mech"),
+    production_facilities=(
+        ProductionFacilityCapabilities(
+            terrain_class=14,
+            name="base",
+            unit_types=("Infantry", "Mech"),
+        ),
+    ),
     http_sse=available("http_sse"),
     mcp_subscriptions=available("mcp_subscriptions"),
 ).model_dump(mode="json")
