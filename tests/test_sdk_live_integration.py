@@ -384,8 +384,12 @@ def test_two_sdk_clients_play_save_restart_and_finish(mode, tmp_path):
                 victory = await record(blue, "hq-victory")
                 assert victory.summary.lifecycle.value == "finished"
                 png = await blue.screenshot(match_id, revision=victory.summary.revision)
-                (tmp_path / "victory.png").write_bytes(png)
-                evidence["victory_png_sha256"] = sha(png)
+                (tmp_path / "victory.png").write_bytes(png.png)
+                evidence["victory_png_sha256"] = sha(png.png)
+                evidence["victory_screenshot_boundary"] = {
+                    "revision": png.revision,
+                    "frame": png.frame,
+                }
                 if source_save_hash is not None:
                     assert sha(source_save.read_bytes()) == source_save_hash
                 evidence["source_save_unchanged_sha256"] = source_save_hash
