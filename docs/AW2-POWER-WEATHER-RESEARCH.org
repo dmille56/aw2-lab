@@ -10,8 +10,10 @@ and Max's retained activation traces, a newly executed Sami regular Power, and
 separate Clear/Rain Rules branches. Follow-ups trace Olaf's Blizzard and
 Drake's Typhoon through their next-turn weather resets. All four supported
 structures validate in every sample. Command menus and power presentations
-remain unavailable for live decoding; settled player turns pass the existing
-lifecycle gate.
+were previously unavailable for live decoding; a supplied Power-menu
+checkpoint pair now supports decoding the command-menu Power row. Power
+presentations remain unavailable for live decoding; settled player turns pass
+the existing lifecycle gate.
 
 The study verifies meter storage, spending, and low activation-counter values,
 plus current Clear/Rain/Snow weather and the Olaf Blizzard and Drake Typhoon
@@ -30,6 +32,27 @@ by user request. The structured state decoder now publishes the verified
 subset: active Power, nonnegative raw meter charge, use counter values through
 10, and current weather. Negative meter readings and counters above 10 remain
 unclassified. The state API remains a separate task.
+
+* Live command-menu Power choice
+
+On 2026-11-09, the supplied save states were restored with the supported US
+revision-0 ROM and pinned headless mGBA build above. Full RAM was captured at
+one paused frame for each observation. Both checkpoints expose selector table
+=0x0849AAC0= with six item IDs =(0, 1, 2, 4, 5, 6)=. At frame =11921=,
+=aw2.ss2= (SHA-256
+=459f7e76024ddd1c0bd01fc3f9ad7af254afa42c92c12e318022fbc33b14d404=) has row
+0 selected and renders the CO cursor. At frame =12034=, =aw2.ss3= (SHA-256
+=b3dd9cdd78babbf9b38c1e157fe80b7c63eeda5db6847074dccdf9e89e67b07f=) has row
+2 selected and renders the Power cursor. This confirms the command-menu row
+order as CO, Intel, Power, Options, Save, End. The observer now maps the third
+row to =MenuItem.POWER= and publishes the full row list. The screenshots and
+save states remain external under =/home/dono/Downloads/aw2/=; no binary user
+data was copied into the repository.
+
+The supplied pair does not contain the separate normal Power and Super Power
+menu entries. The user confirms both entries exist; their live selector table,
+item IDs, selection state, and unavailable cases still need a frame-coherent
+capture before the observer can decode them.
 
 * Verified fields and raw observations
 

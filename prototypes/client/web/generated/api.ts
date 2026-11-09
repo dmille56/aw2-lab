@@ -1336,7 +1336,7 @@ export interface components {
          * @description Choices resolved from the verified general battle selectors.
          * @enum {string}
          */
-        MenuItem: "co" | "intel" | "options" | "save" | "end" | "status" | "unit" | "rules" | "delete" | "yield" | "music" | "visual_mode" | "exit_map" | "fire" | "capture" | "load" | "unload" | "wait" | "other_unit_action" | "yes" | "no";
+        MenuItem: "co" | "intel" | "power" | "options" | "save" | "end" | "status" | "unit" | "rules" | "delete" | "yield" | "music" | "visual_mode" | "exit_map" | "fire" | "capture" | "load" | "unload" | "wait" | "other_unit_action" | "yes" | "no";
         /**
          * MenuObservation
          * @description Recognized menu context and its current typed selection, when known.

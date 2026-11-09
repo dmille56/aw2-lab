@@ -49,9 +49,10 @@ actions must remain distinguishable at the public boundary.
    already-active SUPER snapshot; it does not establish Super Power activation.
 
 *** TODO Add verified CO-power menu observations
-    - [ ] Decode the Power choice and any normal/Super choice from the command UI with frame-coherent state.
-    - [ ] Identify and test unavailable/unknown menu cases; keep them unresolved instead of guessing.
-    - [ ] Add ROM-independent observer regressions for each recognized menu and malformed/ambiguous state.
+    - [X] Decode the Power row in the command menu with frame-coherent state.
+    - [ ] Capture and decode the separate normal Power and Super Power menu entries with frame-coherent state.
+    - [X] Identify and test unavailable/unknown menu cases; keep them unresolved instead of guessing.
+    - [X] Add ROM-independent regressions for recognized Power rows and malformed/ambiguous selectors.
 
 *** TODO Implement normal CO Power activation
     - [ ] Replay the documented normal Power input sequence from a known ready checkpoint and verify readiness, selection, activation animation, and the settled active-power byte.

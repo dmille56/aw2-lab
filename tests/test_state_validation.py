@@ -575,9 +575,9 @@ def test_command_menu_dispatch_uses_rom_rules_for_the_current_map(
     layout, ewram, iwram = memory
     pack_into("<I", iwram, 0x1470, 0x0848A42C)
     pack_into("<I", iwram, 0x1490, 0x0849AAC0)
-    iwram[0x14B1] = 5
+    iwram[0x14B1] = 6
     iwram[0x14B2] = 0
-    iwram[0x14A1:0x14A6] = bytes((0, 1, 4, 5, 6))
+    iwram[0x14A1:0x14A7] = bytes((0, 1, 2, 4, 5, 6))
     iwram[0x30F0] = 1
     iwram[0x3FC2] = map_id
     rules = list(layout.menu_rules_by_map)
@@ -586,6 +586,15 @@ def test_command_menu_dispatch_uses_rom_rules_for_the_current_map(
     menu = observe_menu(current, validate_battle_snapshot(current))
     assert menu.actionable is (True if rule_pointer == 0 else None)
     assert menu.family is (MenuFamily.COMMAND if rule_pointer == 0 else MenuFamily.UNRESOLVED)
+    if rule_pointer == 0:
+        assert menu.items == (
+            MenuItem.CO,
+            MenuItem.INTEL,
+            MenuItem.POWER,
+            MenuItem.OPTIONS,
+            MenuItem.SAVE,
+            MenuItem.END,
+        )
 
 
 @pytest.mark.parametrize("visual_item_id", [4, 7])
@@ -611,9 +620,9 @@ def test_command_menu_is_found_in_nonfirst_ui_selector_slot(memory) -> None:
     offset = 0x60
     pack_into("<I", iwram, 0x1470 + offset, 0x0848A42C)
     pack_into("<I", iwram, 0x1490 + offset, 0x0849AAC0)
-    iwram[0x14B1 + offset] = 5
+    iwram[0x14B1 + offset] = 6
     iwram[0x14B2 + offset] = 0
-    iwram[0x14A1 + offset : 0x14A6 + offset] = bytes((0, 1, 4, 5, 6))
+    iwram[0x14A1 + offset : 0x14A7 + offset] = bytes((0, 1, 2, 4, 5, 6))
     iwram[0x30F0] = 1
     current = snapshot(memory)
 
@@ -622,6 +631,68 @@ def test_command_menu_is_found_in_nonfirst_ui_selector_slot(memory) -> None:
     assert menu.family is MenuFamily.COMMAND
     assert menu.selected_item is MenuItem.CO
     assert menu.actionable is True
+
+
+@pytest.mark.parametrize(("row", "selected"), [(0, MenuItem.CO), (2, MenuItem.POWER)])
+def test_live_command_menu_decodes_power_row(memory, row: int, selected: MenuItem) -> None:
+    _, _, iwram = memory
+    pack_into("<I", iwram, 0x1470, 0x0848A42C)
+    pack_into("<I", iwram, 0x1490, 0x0849AAC0)
+    iwram[0x14B1] = 6
+    iwram[0x14B2] = row
+    iwram[0x14A1:0x14A7] = bytes((0, 1, 2, 4, 5, 6))
+    iwram[0x30F0] = 1
+    current = snapshot(memory)
+
+    menu = observe_menu(current, validate_battle_snapshot(current))
+
+    assert menu.family is MenuFamily.COMMAND
+    assert menu.selected_item is selected
+    assert menu.items[2] is MenuItem.POWER
+    assert menu.actionable is True
+
+
+@pytest.mark.parametrize(
+    ("count", "row", "ids"),
+    [
+        (5, 2, (0, 1, 2, 4, 5)),
+        (6, 6, (0, 1, 2, 4, 5, 6)),
+        (6, 2, (0, 1, 4, 2, 5, 6)),
+    ],
+)
+def test_power_menu_rejects_unverified_selector_signatures(memory, count, row, ids) -> None:
+    _, _, iwram = memory
+    pack_into("<I", iwram, 0x1470, 0x0848A42C)
+    pack_into("<I", iwram, 0x1490, 0x0849AAC0)
+    iwram[0x14B1] = count
+    iwram[0x14B2] = row
+    iwram[0x14A1 : 0x14A1 + len(ids)] = bytes(ids)
+    iwram[0x30F0] = 1
+    current = snapshot(memory)
+
+    menu = observe_menu(current, validate_battle_snapshot(current))
+
+    assert menu.family is MenuFamily.UNRESOLVED
+    assert menu.selected_item is None
+    assert menu.actionable is None
+
+
+def test_power_menu_rejects_ambiguous_active_selector_objects(memory) -> None:
+    _, _, iwram = memory
+    for offset in (0, 0x60):
+        pack_into("<I", iwram, 0x1470 + offset, 0x0848A42C)
+        pack_into("<I", iwram, 0x1490 + offset, 0x0849AAC0)
+        iwram[0x14B1 + offset] = 6
+        iwram[0x14B2 + offset] = 2
+        iwram[0x14A1 + offset : 0x14A7 + offset] = bytes((0, 1, 2, 4, 5, 6))
+    iwram[0x30F0] = 1
+    current = snapshot(memory)
+
+    menu = observe_menu(current, validate_battle_snapshot(current))
+
+    assert menu.family is MenuFamily.UNRESOLVED
+    assert menu.selected_item is None
+    assert menu.actionable is None
 
 
 def test_map_input_menu_does_not_treat_current_pointer_as_selection(memory) -> None:

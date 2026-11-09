@@ -66,7 +66,7 @@ UNLOAD_TARGETING_SELECTOR = 0x0849A080
 # supplied Versus battle checkpoints. Each item ID has a non-null A callback.
 # Eligibility is checked against the current map's original-ROM header.
 _MENU_TABLES = {
-    0x0849AAC0: ("command", 5, (0, 1, 4, 5, 6)),
+    0x0849AAC0: ("command", 6, (0, 1, 2, 4, 5, 6)),
     0x0849ABC0: ("intel", 3, (0, 2, 3)),
     0x0849AC60: ("options", 5, (0, 1, 2, 4, 8)),
 }
@@ -117,6 +117,7 @@ class MenuItem(StrEnum):
 
     CO = "co"
     INTEL = "intel"
+    POWER = "power"
     OPTIONS = "options"
     SAVE = "save"
     END = "end"
@@ -139,7 +140,14 @@ class MenuItem(StrEnum):
 
 
 _MENU_ITEMS = {
-    "command": (MenuItem.CO, MenuItem.INTEL, MenuItem.OPTIONS, MenuItem.SAVE, MenuItem.END),
+    "command": (
+        MenuItem.CO,
+        MenuItem.INTEL,
+        MenuItem.POWER,
+        MenuItem.OPTIONS,
+        MenuItem.SAVE,
+        MenuItem.END,
+    ),
     "intel": (MenuItem.STATUS, MenuItem.UNIT, MenuItem.RULES),
     "options": (
         MenuItem.DELETE,
@@ -769,7 +777,7 @@ def _observe_command_menu(
     family_name, expected_count, expected_items = table_spec
     count = snapshot.read(SELECTOR_ROW_COUNT + offset, 1)[0]
     selected_row = snapshot.read(SELECTOR_SELECTED_ROW + offset, 1)[0]
-    item_ids = tuple(snapshot.read(SELECTOR_ITEM_IDS + offset, count)) if count <= 5 else ()
+    item_ids = tuple(snapshot.read(SELECTOR_ITEM_IDS + offset, count)) if count <= 6 else ()
     valid_item_signatures = {expected_items} | _MENU_ITEM_ID_VARIANTS.get(table, frozenset())
     if count != expected_count or item_ids not in valid_item_signatures or selected_row >= count:
         return _unrecognized_menu(
@@ -790,6 +798,7 @@ def _observe_command_menu(
         MenuFamily(family_name),
         selected_item=_MENU_ITEMS[family_name][selected_row],
         actionable=True,
+        items=_MENU_ITEMS[family_name],
     )
 
 

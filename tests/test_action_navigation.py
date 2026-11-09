@@ -165,6 +165,7 @@ def test_navigate_menu_tracks_each_verified_command_row(memory) -> None:
                     MenuFamily.COMMAND: (
                         MenuItem.CO,
                         MenuItem.INTEL,
+                        MenuItem.POWER,
                         MenuItem.OPTIONS,
                         MenuItem.SAVE,
                         MenuItem.END,
@@ -228,9 +229,10 @@ def test_navigate_menu_tracks_each_verified_command_row(memory) -> None:
 
         assert result.ui.menu.family is MenuFamily.OPTIONS
         assert result.ui.menu.selected_item is MenuItem.VISUAL_MODE
-        assert bridge.keys == [128, 1, 128, 128, 2, 128, 1, 128, 128, 128]
+        assert bridge.keys == [128, 1, 128, 128, 2, 128, 128, 1, 128, 128, 128]
         assert [event.name for event in navigator.inputs] == [
             "menu-back-to-command",
+            "menu-down",
             "menu-down",
             "open-options-submenu",
             "menu-down",

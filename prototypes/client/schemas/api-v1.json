@@ -2331,6 +2331,7 @@
         "enum": [
           "co",
           "intel",
+          "power",
           "options",
           "save",
           "end",
