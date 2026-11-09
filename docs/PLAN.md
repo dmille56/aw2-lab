@@ -199,6 +199,30 @@ The implementation checklist is tracked in [MILESTONE-4.org](MILESTONE-4.org).
 
 **Acceptance criteria:** human-versus-agent and agent-versus-agent clients can inspect a match and complete turns in both modes through the same server. Agents need no emulator-specific knowledge to use high-level actions.
 
+#### Milestone 4 acceptance audit (2026-11-08)
+
+The MCP implementation and documentation deliverables are present. The recorded
+live runs establish interoperability with deterministic Python MCP SDK clients
+in both emulator modes. Actual model-host play remains unverified, so the
+human-versus-agent and agent-versus-agent acceptance criterion remains open.
+
+| Deliverable or criterion | Implementation and checks | Recorded evidence and result |
+| --- | --- | --- |
+| Authenticated MCP in the existing API process | [Application lifespan and mount](../src/aw2_lab/api/app.py), [adapter runtime](../src/aw2_lab/mcp_runtime.py); [runtime tests](../tests/test_mcp_runtime.py), [authorization tests](../tests/test_mcp_authorization.py) | [Lifespan](MCP-LIFESPAN.md) and [authorization](MCP-AUTHORIZATION.md): shared controller, queue, journal, credentials, and bounded cleanup; implemented |
+| Typed tools and coherent observations | [Tools and resources](../src/aw2_lab/mcp_tools.py), [tool tests](../tests/test_mcp_tools.py) | [Tool contract](MCP-TOOLS.md), [observations](MCP-OBSERVATIONS.md), and [live MCP report](LIVE-MCP-ACCEPTANCE.md): receipts, screenshots, checkpoints, and shared HTTP state; implemented within advertised capabilities |
+| Authorized notifications and bounded waits | [Notifications](../src/aw2_lab/mcp_notifications.py), [turn waits](../src/aw2_lab/mcp_turn_wait.py); [notification tests](../tests/test_mcp_notifications.py), [wait tests](../tests/test_mcp_turn_wait.py) | [Live MCP report](LIVE-MCP-ACCEPTANCE.md): resource invalidations, reconnect/resubscribe, in-flight command completion, and bounded turn timeout passed headless/windowed with MCP SDK 1.29.0 |
+| Coordinates, turn handling, failures, debug, and connection examples | [Host integration guide](MCP-INTEGRATION.md), [debug and tool checks](../tests/test_mcp_tools.py) | Instructions cover roles, high-level actions, revision/request IDs, retries, recovery, transport timeouts, and debug opt-in; live MCP debug execution remains unverified |
+| Authorization, retry, recovery, restart, and HTTP/MCP parity | [Shared-service acceptance](../tests/test_coordination_acceptance.py), [HTTP checkpoint checks](../tests/test_http_gameplay_checkpoints.py), MCP authorization/runtime/tool checks above | [Live MCP report](LIVE-MCP-ACCEPTANCE.md) and [live SDK report](LIVE-SDK-ACCEPTANCE.md): durable retries, checkpoint restoration, restart, committed-state agreement, and gameplay evidence; synthetic fault checks are distinguished from live execution |
+| Versioning, client compatibility, and host responsibilities | [Compatibility checks](../tests/test_mcp_compatibility.py), [compatibility audit](MCP-COMPATIBILITY.md), [host guide](MCP-INTEGRATION.md) | MCP protocol negotiation and AW2 contract v1 are distinct; Python MCP SDK 1.29.0 is verified. Model scheduling and strategy belong to the host; other model-host compatibility remains unverified |
+| Human/agent and agent/agent play in both modes | [Live scenarios](../tests/test_mcp_live_acceptance.py) exercise SDK-versus-MCP and independent MCP sessions | [Live MCP report](LIVE-MCP-ACCEPTANCE.md): all four mode/client combinations passed using deterministic drivers. Actual human/model-host and model-host/model-host sessions still need acceptance evidence |
+
+The current Linux human client has [recorded acceptance](MILESTONE-4.org).
+By project decision, aarch64, macOS, Windows, Android, and iOS acceptance resumes
+only after Milestone 5 is complete; those targets remain unverified and
+unsupported in the [platform matrix](CLIENT-ARCHITECTURE.md).
+The [later UI usability pass](MILESTONE-4.org) and broader gameplay coverage also
+remain open. No support claim extends beyond the linked checks and live evidence.
+
 ### 5. Expand local Versus coverage
 
 **Dependencies:** stable playable slice and MCP adapter.
@@ -211,7 +235,7 @@ Add features in this order:
 
 **Acceptance criteria:** each feature has verified decoding, action execution, error/recovery scenarios, and capability advertisement. Clients can distinguish unsupported features from illegal actions.
 
-Defer frontend client development, public hosting/accounts, simultaneous matches, competitive visibility filtering, custom maps, campaign modes, link-cable emulation, built-in strategy, legal-move enumeration, and forked rollouts.
+Defer further frontend expansion, public hosting/accounts, simultaneous matches, competitive visibility filtering, custom maps, campaign modes, link-cable emulation, built-in strategy, legal-move enumeration, and forked rollouts. Cross-platform client acceptance is scheduled after Milestone 5 as recorded above.
 
 ## Validation and research uncertainties
 

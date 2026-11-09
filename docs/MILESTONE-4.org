@@ -7,11 +7,13 @@ Implement the MCP milestone in [[file:PLAN.md][PLAN.md]] on top of the accepted
 [[file:MILESTONE-3.org][Milestone 3 playable slice]]. Host Streamable HTTP MCP at =/mcp= in the
 existing API process. Humans and agents use the same authoritative match,
 authorization, revisions, mutation queue, executors, checkpoints, and journal.
-Keep the verified fixed Bean Island profile and six existing gameplay actions.
+Keep the verified fixed Bean Island profile and advertised gameplay capabilities.
 
 [[file:../src/aw2_lab/mcp.py][The current MCP module]] exposes authenticated SDK-backed lifecycle,
 gameplay, command, checkpoint, observation, and debug tools. Resource
-notifications and bounded turn waiting are implemented. Host integration examples remain subsequent work.
+notifications, bounded waits, and host integration examples are implemented.
+The [[file:PLAN.md::Milestone 4 acceptance audit][acceptance audit]] maps the implementation
+and evidence; actual model-host play remains unverified.
 The [[file:HTTP-API-DESIGN.md][HTTP/MCP design]] records the agreed application versioning, shared-event
 integration, and division of responsibilities between server and agent host.
 
@@ -205,14 +207,16 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    - [X] Verify live resource notifications/reconnect with the supported MCP SDK client and bounded waits; label deterministic host drivers separately from actual model-host runs. Headless and windowed live runs received MCP state-resource invalidations during restore, reconnected a fresh session, resubscribed, and read the committed resource. The bounded =wait_for_turn= timeout returned =timed_out=, and an independent MCP host's =wait_for_command= returned the completed result of an in-flight gameplay action in both modes. The test host's 90-second HTTP read timeout exceeds the 60-second tool wait limit. Drivers are deterministic; real model-host behavior remains unverified. See [[file:LIVE-MCP-ACCEPTANCE.md][the updated MCP evidence]].
    - [X] Record ROM/build identities, tested host/SDK/protocol versions, commands, results, evidence fingerprints, and remaining host-specific limitations; do not infer host subscription behavior from server delivery alone. The acceptance report records ROM and screenshot fingerprints, MCP SDK 1.29.0, emulator builds (headless =sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22=; windowed =sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810=), commands, mode combinations, and limitations.
    - [X] Run =pre-commit run --all-files=, retrying with =nix develop -c pre-commit run --all-files= if required tools are missing, and require every hook to pass. The full Nix pre-commit suite passed on 2026-11-08.
+   - [ ] Record actual human-versus-model-host and model-host-versus-model-host sessions in both emulator modes. The existing deterministic SDK/MCP drivers establish protocol interoperability but do not establish model-host play or host-specific subscription/scheduling behavior. Record the host/model version and evidence without credentials before closing this task.
 
-** TODO Confirm all Milestone 4 deliverables and acceptance criteria in [[file:PLAN.md][PLAN.md]]
-   - [ ] The API process hosts an authenticated Streamable HTTP MCP endpoint using the existing SDK/services, with no duplicate emulator or gameplay logic.
-   - [ ] Typed tools, coherent observations/resources, authorized notifications, bounded turn waits, checkpoint/debug behavior, and connection examples are implemented and documented within advertised capabilities.
-   - [ ] Human-versus-agent and agent-versus-agent clients inspect the same match and complete turns in both emulator modes through high-level actions.
-   - [ ] Authorization/revocation, retries, stale revisions, failure/recovery, restart, and HTTP/MCP parity have linked regression and live evidence.
-   - [ ] MCP protocol/application versioning and tested host compatibility are explicit; agent decision loops remain host responsibilities.
-   - [ ] Link each acceptance claim to implementation, checks, and recorded evidence; retain unsupported features and host limitations explicitly.
+** DONE Audit all Milestone 4 deliverables and acceptance criteria in [[file:PLAN.md][PLAN.md]]
+   Audit completed 2026-11-08; see [[file:PLAN.md::Milestone 4 acceptance audit][the evidence mapping]]. This completes the audit, while the actual model-host acceptance item above remains open.
+   - [X] The API process hosts an authenticated Streamable HTTP MCP endpoint using the existing SDK/services, with no duplicate emulator or gameplay logic.
+   - [X] Typed tools, coherent observations/resources, authorized notifications, bounded turn waits, checkpoint/debug behavior, and connection examples are implemented and documented within advertised capabilities. Live MCP debug execution remains unverified.
+   - [-] Human-versus-agent and agent-versus-agent clients inspect the same match and complete turns in both emulator modes through high-level actions. Deterministic SDK/MCP clients passed; actual model-host sessions remain unverified.
+   - [X] Authorization/revocation, retries, stale revisions, failure/recovery, restart, and HTTP/MCP parity have linked regression and live evidence, with synthetic fault injection identified separately.
+   - [X] MCP protocol/application versioning and tested host compatibility are explicit; agent decision loops remain host responsibilities.
+   - [X] Link each acceptance claim to implementation, checks, and recorded evidence; retain unsupported features and host limitations explicitly. Cross-platform acceptance remains deferred until after Milestone 5.
 
 * Deferred scope
 
@@ -220,7 +224,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
 - Internal AW2 CPU players, additional maps/COs/rules/weather/teams, fog-enabled
   matches, and additional gameplay actions remain future work as tracked in
   [[file:MILESTONE-3.org][the deferred gameplay checklist]] and Milestone 5 of [[file:PLAN.md][PLAN.md]].
-- Full frontend clients, public hosting/accounts, multiple simultaneous matches,
+- Further client expansion, public hosting/accounts, multiple simultaneous matches,
   competitive visibility filtering, strategy, authoritative server-side legal-move enumeration, and
   speculative rollouts remain outside this milestone.
 
