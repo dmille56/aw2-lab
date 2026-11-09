@@ -237,6 +237,12 @@ remain open. No support claim extends beyond the linked checks and live evidence
 
 ### 5. Expand local Versus coverage
 
+**Status (2026-11-09): incomplete.** The [Milestone 5 audit and checklist](MILESTONE-5.org)
+records accepted stationary attacks and transport actions, and the remaining
+feature groups below. Completing the earlier three-item gameplay checklist
+does not complete this milestone. The next implementation task is CO power
+and super power activation.
+
 **Dependencies:** stable playable slice and MCP adapter.
 
 Add features in this order:

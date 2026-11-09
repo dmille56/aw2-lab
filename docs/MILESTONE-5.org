@@ -1,0 +1,72 @@
+#+TITLE: Milestone 5: Expand Local Versus Coverage
+#+TODO: TODO IN-PROGRESS BLOCKED | DONE DEFERRED
+
+* Completion audit (2026-11-09)
+
+Status: INCOMPLETE. The three completed entries in
+[[file:MILESTONE-3.org::*Expand gameplay command coverage in Milestone 5][the earlier gameplay checklist]]
+cover stationary attacks, transports, and a production navigation fix. They
+do not cover all of Milestone 5 in [[file:PLAN.md][PLAN.md]].
+
+The current [[file:../src/aw2_lab/match_contract.py][gameplay contract]] advertises
+=attack=, =load=, and =unload= alongside the accepted playable-slice actions.
+Its action union contains no CO power, join, resupply, dive/surface, or silo
+action. Match creation still fixes fog off, clear weather, and two slots.
+Capabilities explicitly exclude CO power activation, resupply, configurable
+maps/COs/rules/weather/teams, and fog. Observing power/weather fields does not
+establish support for activating powers or configuring matches.
+
+| Planned coverage | Audit result | Evidence or remaining work |
+|------------------+--------------+----------------------------|
+| Stationary attack | Implemented and verified | [[file:LIVE-SDK-ACCEPTANCE.md::#milestone-5-stationary-attack-action-2026-11-09][Direct Tank in both modes; indirect Rockets headless]] |
+| Transport loading/unloading | Implemented and verified | [[file:MILESTONE-4.org::*Add human-client support for loading eligible units into and unloading cargo from APCs, Landers, and Transport Copters][APC API/runtime, Lander and Transport Copter executors, both modes; recovery evidence]] |
+| Production cursor regression | Fixed and verified | [[file:MILESTONE-3.org::*Expand gameplay command coverage in Milestone 5][Windowed replay and headless SDK acceptance]] |
+| CO power/super power | Open | No gameplay activation action/executor |
+| Joining units | Open | No join action/executor |
+| Resupplying | Open | Explicitly unsupported; no action/executor |
+| Diving/surfacing | Open | No dive/surface action/executor |
+| Missile silos | Open | No silo action/executor |
+| Map/CO/rules/weather selection | Open | Fixed match profile; explicitly unsupported |
+| Two to four players/teams | Open | Two fixed external player slots |
+| Fog-enabled matches | Open | Fog off contract; explicitly unsupported |
+
+Existing live evidence retains its stated limits: Lander/Transport Copter
+acceptance uses standalone restored checkpoints, and the new stationary
+action's windowed case covers a direct Tank. This audit reviews existing
+implementation and evidence; it does not add new live runs.
+
+* Remaining implementation order
+
+Follow the feature groups in PLAN.md. For each feature, verify decoding,
+action execution, error/recovery behavior, and capability advertisement before
+marking it complete. Record ROM/build identities and the headless/windowed
+acceptance results, including any limits. Unsupported features and illegal
+actions must remain distinguishable at the public boundary.
+
+** TODO Implement CO power and super power activation
+   - [ ] Research and verify readiness, power selection, activation, and settled turn boundaries against the supported ROM.
+   - [ ] Add typed actions, capability advertisement, executor, HTTP/SDK/MCP access, and human-client controls.
+   - [ ] Cover unavailable powers, wrong-turn requests, stale state, navigation failure/recovery, and resulting power state.
+   - [ ] Verify both activation variants live in headless and windowed mGBA and record evidence.
+
+** TODO Implement joining units
+** TODO Implement resupplying
+** TODO Implement diving and surfacing
+** TODO Implement missile silo use
+** TODO Add map and CO selection and configurable match rules/weather
+** TODO Expand match setup and authorization to two through four players and teams
+** TODO Add fog-enabled matches with explicitly omniscient trusted-client observations
+
+** TODO Complete the final Milestone 5 acceptance audit
+   - [ ] Map each planned feature to implementation and checks, including error/recovery and public capability behavior.
+   - [ ] Ensure unsupported feature declarations explicitly cover remaining unavailable gameplay actions, including joining, diving/surfacing, and silos.
+   - [ ] Record supported ROM/build identities and live evidence with limits for every implemented feature.
+   - [ ] Run =pre-commit run --all-files= and require every hook to pass.
+   - [ ] Mark the milestone complete only when all planned coverage above is accepted.
+
+* Work deferred until milestone completion
+
+Keep aarch64, macOS, Windows, Android, and iOS acceptance deferred until
+Milestone 5 is complete, as requested. Keep the Pi bubblewrap investigation
+deferred until the same point. Both are tracked in
+[[file:MILESTONE-4.org][the Milestone 4 deferred work]].
