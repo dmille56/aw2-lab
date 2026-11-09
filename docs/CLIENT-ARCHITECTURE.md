@@ -128,14 +128,14 @@ response proves HTTP transport only; it does not prove gameplay or SDK support.
 
 | Check | Current status | Required frequency |
 | --- | --- | --- |
-| NixOS packaged native prototype | Passed on x86_64; see evidence below | Every client/runtime dependency change |
-| NixOS X11 and Wayland launch | Passed X11 and headless Weston Wayland; graphics/input caveats below | Every native runtime change; both before support acceptance |
+| NixOS packaged native prototype | Passed on x86_64; the 2026-11-08 `nix run .#check-client` rerun passed packaged X11 success/failure smoke checks; see evidence below | Every client/runtime dependency change |
+| NixOS X11 and Wayland launch | Passed X11 and headless Weston Wayland; the current 2026-11-08 gate reran X11 only. Graphics/input caveats below | Every native runtime change; both before support acceptance |
 | NixOS browser to local API | Passed headless Chromium health request | Every client transport/API change |
 | Browser scenario suite | Chromium passed the local client gate; pinned Firefox 32/32 and WebKit 32/32 passed on 2026-11-08 against the synthetic fixture. The Chromium-specific pixel baseline assertion was omitted for Firefox/WebKit; accessibility assertions remained enabled. | Every client behavior change; repeat on supported browser versions |
 | Python SDK and two-client examples in Nix | Passed typed SDK, ROM-independent HTTP/streaming checks, and example CLI startup with Nix-provided Python; live CLI/TCP/SSE two-player acceptance passed headless/windowed on 2026-11-03 | Every SDK/API change |
-| Linux aarch64 runtime | Deferred by project decision (2026-11-08). The attempted build evaluates but stops at `atk-0.18.2` with a platform mismatch (`aarch64-linux` required, `x86_64-linux` current); no remote builder or QEMU aarch64 runner is configured, and no runtime evidence exists. | Resume with a native aarch64 builder before claiming support |
-| macOS / Windows native | Deferred by project decision (2026-11-08); unverified | Resume on native macOS and Windows runners before claiming support |
-| Android / iOS | Deferred by project decision (2026-11-08); unverified | Resume on representative Android/iOS devices or emulators/simulators before claiming support |
+| Linux aarch64 runtime | Unverified. The attempted build evaluates but stops at `atk-0.18.2` with a platform mismatch (`aarch64-linux` required, `x86_64-linux` current). The 2026-11-08 Nix configuration reports no remote builders; no QEMU aarch64 runner or runtime evidence is available. | Resume with a native aarch64 builder before claiming support |
+| macOS / Windows native | Unverified. Current runner is NixOS Linux x86_64; native Apple/Xcode and Windows/MSVC runners are unavailable here. | Resume on native macOS and Windows runners before claiming support |
+| Android / iOS | Unverified. `adb devices -l` found no attached devices; no Android SDK/emulator environment or Apple/Xcode toolchain is configured on this runner. | Resume on representative Android/iOS devices or emulators/simulators before claiming support |
 
 The first native prototype should embed a small page and read the existing
 `GET /health` through the shared HTTP transport, using an explicitly configured
