@@ -237,6 +237,11 @@ Add features in this order:
 
 Defer further frontend expansion, public hosting/accounts, simultaneous matches, competitive visibility filtering, custom maps, campaign modes, link-cable emulation, built-in strategy, legal-move enumeration, and forked rollouts. Cross-platform client acceptance is scheduled after Milestone 5 as recorded above.
 
+After Milestone 5 is complete, investigate bubblewrap sandboxing for the local Pi
+game host, including filesystem/process isolation, restricted network relays,
+and credential handling. Track this deferred investigation in
+[MILESTONE-4.org](MILESTONE-4.org); the current launcher does not provide OS-level isolation.
+
 ## Validation and research uncertainties
 
 | Area | Scenarios |

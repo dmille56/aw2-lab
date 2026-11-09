@@ -5,6 +5,7 @@ __pycache__/
 .pytest_cache/
 .playwright-mcp/
 .envrc-local
+.local/aw2-pi/
 result*
 result-*
 prototypes/client/target/

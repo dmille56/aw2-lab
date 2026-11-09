@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "aw2": {
+      "url": "http://127.0.0.1:43127/mcp/",
+      "headers": { "Authorization": "Bearer ${AW2_PLAYER_TOKEN}" },
+      "exposure": "direct",
+      "description": "Observe and play your assigned AW2 match through high-level game tools."
+    }
+  }
+}

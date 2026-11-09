@@ -83,6 +83,10 @@ images or subscribe to resources.
 
 ## Human versus agent
 
+For Pi 1.5.0, use the [local Pi host launcher](../examples/pi-host/README.md),
+which isolates each player's MCP configuration and session history and exposes
+only the AW2 tools. It supports connection checks without a model request.
+
 An operator first provisions the match and gives a human player a private slot
 credential through a trusted channel. The human UI connects to `/mcp` with that
 player credential (or uses the existing HTTP/SDK client). A separate agent host
