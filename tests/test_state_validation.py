@@ -575,9 +575,9 @@ def test_command_menu_dispatch_uses_rom_rules_for_the_current_map(
     layout, ewram, iwram = memory
     pack_into("<I", iwram, 0x1470, 0x0848A42C)
     pack_into("<I", iwram, 0x1490, 0x0849AAC0)
-    iwram[0x14B1] = 6
+    iwram[0x14B1] = 7
     iwram[0x14B2] = 0
-    iwram[0x14A1:0x14A7] = bytes((0, 1, 2, 4, 5, 6))
+    iwram[0x14A1:0x14A8] = bytes((0, 1, 2, 3, 4, 5, 6))
     iwram[0x30F0] = 1
     iwram[0x3FC2] = map_id
     rules = list(layout.menu_rules_by_map)
@@ -591,6 +591,7 @@ def test_command_menu_dispatch_uses_rom_rules_for_the_current_map(
             MenuItem.CO,
             MenuItem.INTEL,
             MenuItem.POWER,
+            MenuItem.SUPER_POWER,
             MenuItem.OPTIONS,
             MenuItem.SAVE,
             MenuItem.END,
@@ -620,9 +621,9 @@ def test_command_menu_is_found_in_nonfirst_ui_selector_slot(memory) -> None:
     offset = 0x60
     pack_into("<I", iwram, 0x1470 + offset, 0x0848A42C)
     pack_into("<I", iwram, 0x1490 + offset, 0x0849AAC0)
-    iwram[0x14B1 + offset] = 6
+    iwram[0x14B1 + offset] = 7
     iwram[0x14B2 + offset] = 0
-    iwram[0x14A1 + offset : 0x14A7 + offset] = bytes((0, 1, 2, 4, 5, 6))
+    iwram[0x14A1 + offset : 0x14A8 + offset] = bytes((0, 1, 2, 3, 4, 5, 6))
     iwram[0x30F0] = 1
     current = snapshot(memory)
 
@@ -633,14 +634,67 @@ def test_command_menu_is_found_in_nonfirst_ui_selector_slot(memory) -> None:
     assert menu.actionable is True
 
 
-@pytest.mark.parametrize(("row", "selected"), [(0, MenuItem.CO), (2, MenuItem.POWER)])
-def test_live_command_menu_decodes_power_row(memory, row: int, selected: MenuItem) -> None:
+@pytest.mark.parametrize(
+    ("ids", "row", "selected", "expected_items"),
+    [
+        (
+            (0, 1, 4, 5, 6),
+            2,
+            MenuItem.OPTIONS,
+            (MenuItem.CO, MenuItem.INTEL, MenuItem.OPTIONS, MenuItem.SAVE, MenuItem.END),
+        ),
+        (
+            (0, 1, 2, 4, 5, 6),
+            2,
+            MenuItem.POWER,
+            (
+                MenuItem.CO,
+                MenuItem.INTEL,
+                MenuItem.POWER,
+                MenuItem.OPTIONS,
+                MenuItem.SAVE,
+                MenuItem.END,
+            ),
+        ),
+        (
+            (0, 1, 2, 3, 4, 5, 6),
+            2,
+            MenuItem.POWER,
+            (
+                MenuItem.CO,
+                MenuItem.INTEL,
+                MenuItem.POWER,
+                MenuItem.SUPER_POWER,
+                MenuItem.OPTIONS,
+                MenuItem.SAVE,
+                MenuItem.END,
+            ),
+        ),
+        (
+            (0, 1, 2, 3, 4, 5, 6),
+            3,
+            MenuItem.SUPER_POWER,
+            (
+                MenuItem.CO,
+                MenuItem.INTEL,
+                MenuItem.POWER,
+                MenuItem.SUPER_POWER,
+                MenuItem.OPTIONS,
+                MenuItem.SAVE,
+                MenuItem.END,
+            ),
+        ),
+    ],
+)
+def test_live_command_menu_decodes_available_power_rows(
+    memory, ids, row, selected, expected_items
+) -> None:
     _, _, iwram = memory
     pack_into("<I", iwram, 0x1470, 0x0848A42C)
     pack_into("<I", iwram, 0x1490, 0x0849AAC0)
-    iwram[0x14B1] = 6
+    iwram[0x14B1] = len(ids)
     iwram[0x14B2] = row
-    iwram[0x14A1:0x14A7] = bytes((0, 1, 2, 4, 5, 6))
+    iwram[0x14A1 : 0x14A1 + len(ids)] = bytes(ids)
     iwram[0x30F0] = 1
     current = snapshot(memory)
 
@@ -648,16 +702,16 @@ def test_live_command_menu_decodes_power_row(memory, row: int, selected: MenuIte
 
     assert menu.family is MenuFamily.COMMAND
     assert menu.selected_item is selected
-    assert menu.items[2] is MenuItem.POWER
+    assert menu.items == expected_items
     assert menu.actionable is True
 
 
 @pytest.mark.parametrize(
     ("count", "row", "ids"),
     [
-        (5, 2, (0, 1, 2, 4, 5)),
-        (6, 6, (0, 1, 2, 4, 5, 6)),
-        (6, 2, (0, 1, 4, 2, 5, 6)),
+        (6, 2, (0, 1, 2, 3, 4, 5)),
+        (7, 7, (0, 1, 2, 3, 4, 5, 6)),
+        (7, 2, (0, 1, 3, 2, 4, 5, 6)),
     ],
 )
 def test_power_menu_rejects_unverified_selector_signatures(memory, count, row, ids) -> None:
@@ -682,9 +736,9 @@ def test_power_menu_rejects_ambiguous_active_selector_objects(memory) -> None:
     for offset in (0, 0x60):
         pack_into("<I", iwram, 0x1470 + offset, 0x0848A42C)
         pack_into("<I", iwram, 0x1490 + offset, 0x0849AAC0)
-        iwram[0x14B1 + offset] = 6
+        iwram[0x14B1 + offset] = 7
         iwram[0x14B2 + offset] = 2
-        iwram[0x14A1 + offset : 0x14A7 + offset] = bytes((0, 1, 2, 4, 5, 6))
+        iwram[0x14A1 + offset : 0x14A8 + offset] = bytes((0, 1, 2, 3, 4, 5, 6))
     iwram[0x30F0] = 1
     current = snapshot(memory)
 

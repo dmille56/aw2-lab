@@ -62,18 +62,14 @@ FIRE_TARGETING_SCRIPT = 0x0849A9F8
 # selector is a cursor helper, not one of the action-menu selector tables.
 UNLOAD_TARGETING_SELECTOR = 0x0849A080
 
-# Original-ROM table signatures for the three selectors verified in the
-# supplied Versus battle checkpoints. Each item ID has a non-null A callback.
-# Eligibility is checked against the current map's original-ROM header.
-_MENU_TABLES = {
-    0x0849AAC0: ("command", 6, (0, 1, 2, 4, 5, 6)),
-    0x0849ABC0: ("intel", 3, (0, 2, 3)),
-    0x0849AC60: ("options", 5, (0, 1, 2, 4, 8)),
-}
-# The pinned frontends expose different Visual row IDs in this otherwise
-# identical Options table; both signatures were read from live matches.
-_MENU_ITEM_ID_VARIANTS = {
-    0x0849AC60: frozenset({(0, 1, 2, 7, 8)}),
+# Original-ROM selector tables verified in supplied Versus battle checkpoints.
+# Command rows vary with the CO-power choices available in that state. Each
+# accepted signature has a non-null A callback; map eligibility is checked
+# against the current map's original-ROM header.
+_MENU_TABLES: dict[int, str] = {
+    0x0849AAC0: "command",
+    0x0849ABC0: "intel",
+    0x0849AC60: "options",
 }
 
 
@@ -118,6 +114,7 @@ class MenuItem(StrEnum):
     CO = "co"
     INTEL = "intel"
     POWER = "power"
+    SUPER_POWER = "super_power"
     OPTIONS = "options"
     SAVE = "save"
     END = "end"
@@ -144,6 +141,7 @@ _MENU_ITEMS = {
         MenuItem.CO,
         MenuItem.INTEL,
         MenuItem.POWER,
+        MenuItem.SUPER_POWER,
         MenuItem.OPTIONS,
         MenuItem.SAVE,
         MenuItem.END,
@@ -156,6 +154,43 @@ _MENU_ITEMS = {
         MenuItem.VISUAL_MODE,
         MenuItem.EXIT_MAP,
     ),
+}
+
+# Item callback signatures verified from live states. Command menus omit
+# Power rows when the corresponding activation is unavailable. The pinned
+# frontends expose both observed Visual IDs in the Options table.
+_MENU_LAYOUTS: dict[int, dict[tuple[int, ...], tuple[MenuItem, ...]]] = {
+    0x0849AAC0: {
+        (0, 1, 4, 5, 6): (
+            MenuItem.CO,
+            MenuItem.INTEL,
+            MenuItem.OPTIONS,
+            MenuItem.SAVE,
+            MenuItem.END,
+        ),
+        (0, 1, 2, 4, 5, 6): (
+            MenuItem.CO,
+            MenuItem.INTEL,
+            MenuItem.POWER,
+            MenuItem.OPTIONS,
+            MenuItem.SAVE,
+            MenuItem.END,
+        ),
+        (0, 1, 2, 3, 4, 5, 6): (
+            MenuItem.CO,
+            MenuItem.INTEL,
+            MenuItem.POWER,
+            MenuItem.SUPER_POWER,
+            MenuItem.OPTIONS,
+            MenuItem.SAVE,
+            MenuItem.END,
+        ),
+    },
+    0x0849ABC0: {(0, 2, 3): _MENU_ITEMS["intel"]},
+    0x0849AC60: {
+        (0, 1, 2, 4, 8): _MENU_ITEMS["options"],
+        (0, 1, 2, 7, 8): _MENU_ITEMS["options"],
+    },
 }
 
 
@@ -774,12 +809,12 @@ def _observe_command_menu(
     table_spec = _MENU_TABLES.get(table)
     if table_spec is None:
         return None
-    family_name, expected_count, expected_items = table_spec
+    family_name = table_spec
     count = snapshot.read(SELECTOR_ROW_COUNT + offset, 1)[0]
     selected_row = snapshot.read(SELECTOR_SELECTED_ROW + offset, 1)[0]
-    item_ids = tuple(snapshot.read(SELECTOR_ITEM_IDS + offset, count)) if count <= 6 else ()
-    valid_item_signatures = {expected_items} | _MENU_ITEM_ID_VARIANTS.get(table, frozenset())
-    if count != expected_count or item_ids not in valid_item_signatures or selected_row >= count:
+    item_ids = tuple(snapshot.read(SELECTOR_ITEM_IDS + offset, count)) if count <= 7 else ()
+    items = _MENU_LAYOUTS[table].get(item_ids)
+    if items is None or selected_row >= count:
         return _unrecognized_menu(
             snapshot,
             validation,
@@ -796,9 +831,9 @@ def _observe_command_menu(
     return MenuObservation(
         snapshot.frame,
         MenuFamily(family_name),
-        selected_item=_MENU_ITEMS[family_name][selected_row],
+        selected_item=items[selected_row],
         actionable=True,
-        items=_MENU_ITEMS[family_name],
+        items=items,
     )
 
 

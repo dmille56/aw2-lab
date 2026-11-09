@@ -9,11 +9,10 @@ The baseline study uses eleven coherent full-RAM snapshots to compare Andy
 and Max's retained activation traces, a newly executed Sami regular Power, and
 separate Clear/Rain Rules branches. Follow-ups trace Olaf's Blizzard and
 Drake's Typhoon through their next-turn weather resets. All four supported
-structures validate in every sample. Command menus and power presentations
-were previously unavailable for live decoding; a supplied Power-menu
-checkpoint pair now supports decoding the command-menu Power row. Power
-presentations remain unavailable for live decoding; settled player turns pass
-the existing lifecycle gate.
+structures validate in every sample. Supplied checkpoints now support live
+decoding of the command menu's separate normal Power and Super Power entries.
+Power presentations remain unavailable for live decoding; settled player turns
+pass the existing lifecycle gate.
 
 The study verifies meter storage, spending, and low activation-counter values,
 plus current Clear/Rain/Snow weather and the Olaf Blizzard and Drake Typhoon
@@ -33,26 +32,53 @@ subset: active Power, nonnegative raw meter charge, use counter values through
 10, and current weather. Negative meter readings and counters above 10 remain
 unclassified. The state API remains a separate task.
 
-* Live command-menu Power choice
+* Live command-menu Power choices
 
 On 2026-11-09, the supplied save states were restored with the supported US
 revision-0 ROM and pinned headless mGBA build above. Full RAM was captured at
-one paused frame for each observation. Both checkpoints expose selector table
-=0x0849AAC0= with six item IDs =(0, 1, 2, 4, 5, 6)=. At frame =11921=,
+one paused frame for each observation. The command selector table is
+=0x0849AAC0= with seven item IDs =(0, 1, 2, 3, 4, 5, 6)=. At frame =13104=,
 =aw2.ss2= (SHA-256
-=459f7e76024ddd1c0bd01fc3f9ad7af254afa42c92c12e318022fbc33b14d404=) has row
-0 selected and renders the CO cursor. At frame =12034=, =aw2.ss3= (SHA-256
-=b3dd9cdd78babbf9b38c1e157fe80b7c63eeda5db6847074dccdf9e89e67b07f=) has row
-2 selected and renders the Power cursor. This confirms the command-menu row
-order as CO, Intel, Power, Options, Save, End. The observer now maps the third
-row to =MenuItem.POWER= and publishes the full row list. The screenshots and
-save states remain external under =/home/dono/Downloads/aw2/=; no binary user
-data was copied into the repository.
+=8fe1480340c34cfe848ad81b6883c45769a7e9c8fe179a292b3a5f16c3321eae=) has row
+0 selected and renders CO. At frame =13242=, =aw2.ss3= (SHA-256
+=558078226bc01a35832d61a0d54a4cdb3165628d512af665711272ccdf63ce1d=) has row
+2 selected and renders Power. At frame =13382=, =aw2.ss4= (SHA-256
+=0af962a3bf5988a7b6562703272b868812093d582f2cd9ec327c83c0ce82a15c=) has row
+3 selected and renders Super. The seven rows are CO, Intel, Power, Super,
+Options, Save, End. The observer maps rows 2 and 3 to =MenuItem.POWER= and
+=MenuItem.SUPER_POWER= respectively and publishes the full row list. The
+screenshots and save states remain external under =/home/dono/Downloads/aw2/=;
+no binary user data was copied into the repository.
 
-The supplied pair does not contain the separate normal Power and Super Power
-menu entries. The user confirms both entries exist; their live selector table,
-item IDs, selection state, and unavailable cases still need a frame-coherent
-capture before the observer can decode them.
+An earlier supplied checkpoint pair, since replaced in that folder, exposed a
+six-row variant =(0, 1, 2, 4, 5, 6)= with Power at row 2 and no Super row.
+Its observed state hashes were =459f7e76024ddd1c0bd01fc3f9ad7af254afa42c92c12e318022fbc33b14d404=
+and =b3dd9cdd78babbf9b38c1e157fe80b7c63eeda5db6847074dccdf9e89e67b07f=.
+Together with the five-row no-power signature documented in the lifecycle
+research log, these show that the row mapping varies among observed states.
+The decoder accepts the five-, six-, and seven-row signatures separately.
+
+* Supplied Super Power activation checkpoints
+
+The same save-state set records player slot 1 (CO ID 1) before, during, and
+after a Super Power. At frame =12924=, =aw2.ss1= (SHA-256
+=19eec5b8576e77ea1ec38ec071413383f8226a1e9747419b880c46427e33a0a1=) has
+54,000 meter units, ready value 2, use counter 0, active-Power byte 0, and
+selected power kind 0. The
+menu checkpoints above show normal Power and Super as separate selectable
+rows. At frame =13760=, =aw2.ss5= (SHA-256
+=af509973ef5bc3d7a378053019633e83e2c19b8f0c92b0fcdc4b6e694e266748=) is in
+the power presentation: meter 0, use counter 1, ready value 0, active-Power
+byte 0. At frame =13895=, =aw2.ss6= (SHA-256
+=7b29bd325607003646f72c4e1d9f26cc19f3bd610fb5c79cae2505be821dd09e=) remains
+in the presentation with the same power fields. At frame =14552=, =aw2.ss8=
+(SHA-256
+=dc8243f7fa3751027758449f1868de3b16401c7338b421fe6d4a124a47fecf48=) is a
+settled player turn with meter 0, use counter 1, ready value 0, active-Power
+byte 2, and selected power kind 2. These samples show a 54,000-unit Super
+debit and the delayed active-power update. The transition timing and full
+Super-specific effects still need controlled replay and independent
+confirmation.
 
 * Verified fields and raw observations
 

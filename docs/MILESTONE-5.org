@@ -45,12 +45,12 @@ actions must remain distinguishable at the public boundary.
 
 ** TODO Implement CO power and super power activation
    Keep normal Power and Super Power as separate tracked paths. The lifecycle
-   research log documents a controlled normal Power activation, but only an
-   already-active SUPER snapshot; it does not establish Super Power activation.
+   research log now includes supplied before/during/settled Super Power
+   checkpoints; separate guarded gameplay actions remain to implement.
 
-*** TODO Add verified CO-power menu observations
+*** DONE Add verified CO-power menu observations
     - [X] Decode the Power row in the command menu with frame-coherent state.
-    - [ ] Capture and decode the separate normal Power and Super Power menu entries with frame-coherent state.
+    - [X] Capture and decode the separate normal Power and Super Power menu entries with frame-coherent state.
     - [X] Identify and test unavailable/unknown menu cases; keep them unresolved instead of guessing.
     - [X] Add ROM-independent regressions for recognized Power rows and malformed/ambiguous selectors.
 
@@ -63,8 +63,8 @@ actions must remain distinguishable at the public boundary.
     - [ ] Verify normal Power live in headless and windowed mGBA; record ROM/build/checkpoint identities, effects, final boundary, and evidence hashes.
 
 *** TODO Research Super Power activation
-    - [ ] Find or prepare a supported-ROM checkpoint with a ready Super Power meter without editing game RAM.
-    - [ ] Record the observed menu choice, activation input sequence, animation/process phases, meter debit, active-power byte, effects, and settled turn boundary.
+    - [X] Find a supported-ROM checkpoint with a ready Super Power meter without editing game RAM.
+    - [ ] Independently replay and record the menu choice, activation inputs, presentation phases, meter debit, active-power byte, effects, and settled turn boundary.
     - [ ] Repeat or independently confirm the sequence, then document the limits and evidence in the lifecycle research log.
 
 *** TODO Implement Super Power activation

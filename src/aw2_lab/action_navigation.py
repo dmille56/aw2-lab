@@ -953,7 +953,7 @@ class ActionNavigator:
         """Move within one currently observed selector without changing menus."""
         from aw2_lab.ui_state import _MENU_ITEMS
 
-        rows = _MENU_ITEMS.get(family.value)
+        rows = state.ui.menu.items or _MENU_ITEMS.get(family.value)
         selected = state.ui.menu.selected_item
         if rows is None or selected not in rows or item not in rows:
             raise await self._fail("Requested item is not in the current selector", state)
