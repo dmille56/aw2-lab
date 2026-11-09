@@ -56,6 +56,90 @@ def test_navigation_limits_reject_unbounded_or_invalid_values() -> None:
         NavigationLimits(wall_timeout=0)
 
 
+def test_map_cursor_waits_for_directional_input_to_rearm(memory) -> None:
+    class RearmingBridge:
+        def __init__(self, state: GameState) -> None:
+            self.state = state
+            self.released_frames = 0
+            self.release_gaps: list[int] = []
+
+        async def observe(self) -> GameState:
+            return self.state
+
+        async def advance_frames(self, frames: int) -> int:
+            self.released_frames += frames
+            self._update(frames)
+            return self.state.frame
+
+        async def press_keys(self, keys: int, frames: int) -> int:
+            cursor = self.state.ui.map_cursor
+            x, y = cursor.x, cursor.y
+            if keys in {16, 32, 64, 128}:
+                self.release_gaps.append(self.released_frames)
+                if self.released_frames >= 8:
+                    x += 1 if keys == 16 else -1 if keys == 32 else 0
+                    y += 1 if keys == 128 else -1 if keys == 64 else 0
+                self.released_frames = 0
+            self._update(frames, cursor_position=(x, y))
+            return self.state.frame
+
+        def _update(self, frames: int, *, cursor_position=None) -> None:
+            frame = self.state.frame + frames
+            cursor = replace(
+                self.state.ui.map_cursor,
+                frame=frame,
+                x=(
+                    cursor_position[0]
+                    if cursor_position is not None
+                    else self.state.ui.map_cursor.x
+                ),
+                y=(
+                    cursor_position[1]
+                    if cursor_position is not None
+                    else self.state.ui.map_cursor.y
+                ),
+            )
+            self.state = replace(
+                self.state,
+                frame=frame,
+                validation=replace(self.state.validation, frame=frame),
+                ui=replace(
+                    self.state.ui,
+                    frame=frame,
+                    map_cursor=cursor,
+                    menu=replace(self.state.ui.menu, frame=frame),
+                ),
+            )
+
+    async def run() -> None:
+        initial = decode_snapshot(snapshot(memory))
+        battle = initial.battle.value
+        assert battle is not None
+        target = (battle.map.width - 1, battle.map.height - 1)
+        initial = replace(
+            initial,
+            ui=replace(
+                initial.ui,
+                menu=MenuObservation(initial.frame, MenuFamily.MAP_INPUT),
+                map_cursor=replace(
+                    initial.ui.map_cursor,
+                    x=0,
+                    y=0,
+                    status=CursorStatus.AVAILABLE,
+                ),
+            ),
+        )
+        bridge = RearmingBridge(initial)
+        navigator = ActionNavigator(bridge, bridge.observe)
+
+        result = await navigator.move_cursor_to(*target)
+
+        assert (result.ui.map_cursor.x, result.ui.map_cursor.y) == target
+        assert bridge.release_gaps == [8] * sum(target)
+
+    asyncio.run(run())
+
+
 def test_navigate_menu_tracks_each_verified_command_row(memory) -> None:
     class FakeBridge:
         def __init__(self, state: GameState) -> None:

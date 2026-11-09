@@ -39,7 +39,8 @@ _TERMINAL_PHASES = frozenset(
 class NavigationLimits:
     """Hard limits for one navigation operation, including input release frames.
 
-    Movement route steps use at least eight release frames to rearm the overlay.
+    Map-cursor and movement-overlay steps use at least eight release frames to
+    rearm directional input.
     """
 
     frame_budget: int = 180
@@ -354,7 +355,7 @@ class ActionNavigator:
             else:
                 name, sx, sy, key = ("down", 0, 1, _KEY_DOWN) if dy > 0 else ("up", 0, -1, _KEY_UP)
             expected = (cursor.x + sx, cursor.y + sy)
-            await self._tap(name, key)
+            await self._tap(name, key, minimum_gap=8)
 
             def cursor_matches(
                 value: GameState,
