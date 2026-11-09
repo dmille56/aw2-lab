@@ -150,6 +150,11 @@ never generate a new request ID until the original outcome is known. A changed
 payload under an existing ID conflicts. Cancellation or timeout does not undo
 accepted work.
 
+Configure the MCP HTTP client's response/read timeout to exceed the requested
+`wait_for_command` or `wait_for_turn` timeout. Both MCP waits are capped at 60
+seconds; a shorter transport timeout can close the response stream before the
+tool's bounded wait returns.
+
 ## Recovery, images, and debug
 
 Checkpoint creation is available to an authorized match participant or

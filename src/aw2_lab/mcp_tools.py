@@ -51,12 +51,13 @@ from aw2_lab.match_contract import (
 from aw2_lab.match_contract import (
     Revision as MatchRevision,
 )
+from aw2_lab.match_events import CommandUpdatedEvent
 from aw2_lab.mcp_auth import caller_from_request
 from aw2_lab.mcp_contract import MCPFailure
 from aw2_lab.mcp_runtime import MCPAdapterRuntime
 from aw2_lab.mcp_turn_wait import TurnWaitResult
 from aw2_lab.mcp_turn_wait import wait_for_turn as await_turn
-from aw2_lab.sdk import TERMINAL, AsyncAW2Client, WaitTimeout
+from aw2_lab.sdk import TERMINAL, AsyncAW2Client
 
 MAX_ARCHIVE_BASE64 = 4 * ((MAX_ARCHIVE_BYTES + 2) // 3)
 MCP_BODY_BYTES = MAX_ARCHIVE_BASE64 + 65536
@@ -216,15 +217,53 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
         contract_version: int = 1,
     ) -> CommandWaitResult:
         """Wait at most 60 seconds for completion; timeout or cancellation never cancels accepted work."""
-        async with client(Permission.READ, match_id) as sdk:
-            async with asyncio.timeout(timeout_seconds):
-                try:
-                    command = await sdk.wait_for_command(
-                        match_id, command_id, timeout=timeout_seconds * 0.9
-                    )
-                except WaitTimeout:
-                    command = await sdk.command_status(match_id, command_id)
-                return CommandWaitResult(timed_out=command.status not in TERMINAL, command=command)
+        request = server.get_context().request_context.request
+        if not isinstance(request, Request):
+            raise AuthorizationError(ErrorCode.INVALID_CREDENTIAL, "Authentication required")
+        caller = caller_from_request(request)
+        caller.check(Permission.READ, match_id)
+        if adapter is None:
+            raise AuthorizationError(ErrorCode.RUNTIME_UNAVAILABLE, "MCP adapter is unavailable")
+        matches = adapter.matches
+        if matches is None:
+            raise AuthorizationError(ErrorCode.RUNTIME_UNAVAILABLE, "MCP adapter is unavailable")
+        source = None
+        try:
+            async with adapter.sdk(caller) as sdk:
+                async with asyncio.timeout(timeout_seconds):
+                    try:
+                        async with asyncio.timeout(timeout_seconds * 0.9):
+                            source = await matches.subscribe_events(caller.principal, match_id)
+                            while True:
+                                command = await sdk.command_status(match_id, command_id)
+                                if command.status in TERMINAL:
+                                    return CommandWaitResult(timed_out=False, command=command)
+                                try:
+                                    message = await source.next(timeout=timeout_seconds)
+                                except TimeoutError:
+                                    continue
+                                except StopAsyncIteration:
+                                    source.close()
+                                    source = await matches.subscribe_events(
+                                        caller.principal, match_id
+                                    )
+                                    continue
+                                event = message.event
+                                if (
+                                    isinstance(event, CommandUpdatedEvent)
+                                    and event.payload.command_id == command_id
+                                    and event.payload.status in TERMINAL
+                                ):
+                                    return CommandWaitResult(timed_out=False, command=event.payload)
+                    except TimeoutError:
+                        command = await sdk.command_status(match_id, command_id)
+                        caller.check(Permission.READ, match_id)
+                        return CommandWaitResult(
+                            timed_out=command.status not in TERMINAL, command=command
+                        )
+        finally:
+            if source is not None:
+                source.close()
 
     @server.tool()
     async def wait_for_turn(

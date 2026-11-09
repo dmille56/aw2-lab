@@ -39,7 +39,8 @@ pytestmark = pytest.mark.skipif(
 async def mcp_host(url: str, credential: SecretStr, *, message_handler=None):
     async with (
         httpx.AsyncClient(
-            headers={"Authorization": f"Bearer {credential.get_secret_value()}"}
+            headers={"Authorization": f"Bearer {credential.get_secret_value()}"},
+            timeout=httpx.Timeout(90),
         ) as http,
         streamable_http_client(url + "/mcp/", http_client=http) as (read, write, _),
         ClientSession(read, write, message_handler=message_handler) as session,
@@ -446,18 +447,19 @@ def test_live_mcp_checkpoint_restart_notifications_and_wait(mode, tmp_path):
                 },
             )
             purchase_command_id = receipt["command_id"]
-            purchase_status = None
-            for _ in range(300):
-                purchase_status = await tool(
-                    red,
-                    "get_command",
-                    {"match_id": str(match_id), "command_id": purchase_command_id},
+            async with mcp_host(url, players[0]) as waiter:
+                wait_result = await tool(
+                    waiter,
+                    "wait_for_command",
+                    {
+                        "match_id": str(match_id),
+                        "command_id": purchase_command_id,
+                        "timeout_seconds": 15,
+                    },
                 )
-                if purchase_status["status"] in {status.value for status in TERMINAL}:
-                    break
-                await asyncio.sleep(0.2)
-            assert purchase_status is not None
-            assert purchase_status["status"] == CommandStatus.COMPLETED.value
+            assert not wait_result["timed_out"]
+            assert wait_result["command"]["status"] == CommandStatus.COMPLETED.value
+            evidence["wait_for_command"] = wait_result["command"]["status"]
 
             changed_state = await connected["red_sdk"].state(match_id)
             assert changed_state.summary.revision > saved_state.summary.revision

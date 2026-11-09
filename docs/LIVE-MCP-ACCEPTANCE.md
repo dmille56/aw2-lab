@@ -13,7 +13,8 @@ host run.
 Provide the supported ROM and, for windowed mode, a working display. The test
 creates fresh credentials with mode 0600 and isolated server storage under
 pytest's temporary directory. Keep the selected evidence directory outside Git
-and the Nix store.
+and the Nix store. The host transport read timeout is 90 seconds so it can receive
+responses from bounded MCP waits, which may last up to 60 seconds.
 
 ```sh
 AW2_RUN_MCP_LIVE_TESTS=1 AW2_ROM_PATH=/absolute/path/to/aw2.gba \
@@ -68,12 +69,16 @@ An independent MCP host received real `notifications/resources/updated` events
 for the subscribed state resource during restore. A fresh session reconnected,
 resubscribed, and read the committed resource. The bounded `wait_for_turn`
 timeout returned `timed_out` in both modes. The tests use deterministic host
-drivers, not a model host.
+drivers, not a model host. An independent MCP host also waited on an in-flight
+gameplay command; `wait_for_command` returned its completed result in both modes.
+The wait subscribes to the shared command event publisher before checking status,
+then makes a bounded final status read on timeout. The transport timeout stays
+above the MCP wait limit so the HTTP stream remains open for the result.
 
 | Mode | mGBA build | Restored revision | Restart revision | Evidence |
 | --- | --- | ---: | ---: | --- |
-| Headless | `sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22` | 3 | 4 | `/tmp/aw2-mcp-checkpoint-live16/test_live_mcp_checkpoint_resta0/evidence.json` (SHA-256 `ecc199729f21afb4b11c015f1f52a49ea4f938bc60c014edbb82fd1fcbb94ef8`) |
-| Windowed | `sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810` | 3 | 4 | `/tmp/aw2-mcp-checkpoint-live-windowed2/test_live_mcp_checkpoint_resta0/evidence.json` (SHA-256 `f8fbd3e4f02e50f55b2597026ba7d34df2f71eb842b1d307bf12b8738896d156`) |
+| Headless | `sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22` | 3 | 4 | `/tmp/aw2-mcp-wait-final-headless/test_live_mcp_checkpoint_resta0/evidence.json` (`wait_for_command: completed`; SHA-256 `37edb7ac15dad8f40ee1b1ce99a01cfcac31a478436128d533d662da88a3c534`) |
+| Windowed | `sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810` | 3 | 4 | `/tmp/aw2-mcp-wait-final-windowed/test_live_mcp_checkpoint_resta0/evidence.json` (`wait_for_command: completed`; SHA-256 `12ee32a4d3aa1c94dac866ca11c778cff8d9623bc69e026dd37bf9c29e873a29`) |
 
 These artifacts are outside Git. Each evidence file contains a full serialized
 state resource; sibling temporary storage contains generated credentials and
@@ -97,8 +102,7 @@ scenario passed.
 An attempted longer MCP tank route rolled back with `recovery_required` after
 the navigation wall-clock watchdog expired while selecting the unit. The passing
 MCP scenario stops after the verified capture instead of claiming that route
-passed. A live `wait_for_command` MCP call still remained open after its
-gameplay command completed, so the gameplay driver polls `get_command`.
-`wait_for_turn`'s bounded timeout passed, but live `wait_for_command` recovery
-remains unresolved. Resource notifications and reconnect were verified with
-deterministic clients; real model-host behavior remains unverified.
+passed. Resource notifications, reconnect, and both bounded wait tools were
+verified with the supported Python MCP SDK client and deterministic drivers;
+real model-host behavior remains unverified. The host transport must allow a
+read timeout longer than the requested MCP wait duration.
