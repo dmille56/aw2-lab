@@ -151,9 +151,12 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
           : draft),
         kind: event.kind,
         target: null,
-        phase: event.kind === "move_attack" ? "target" : "review",
+        phase:
+          event.kind === "move_attack" || event.kind === "attack"
+            ? "target"
+            : "review",
         notice:
-          event.kind === "move_attack"
+          event.kind === "move_attack" || event.kind === "attack"
             ? "Choose an observed enemy unit on the board or from the target list."
             : "Review the action, then confirm to send it.",
       };
@@ -574,6 +577,21 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
         kind,
         unit_id: draft.unitId,
         path: draft.path.map(coordinate),
+      };
+    else if (
+      selectedUnit &&
+      movementReady &&
+      kind === "attack" &&
+      draft.path.length === 0 &&
+      canAttack &&
+      draft.target &&
+      targets.some((u) => sameTile(u, draft.target!))
+    )
+      action = {
+        contract_version: 1,
+        kind,
+        unit_id: draft.unitId,
+        target: coordinate(draft.target),
       };
     else if (
       selectedUnit &&

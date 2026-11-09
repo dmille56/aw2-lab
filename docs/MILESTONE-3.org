@@ -319,8 +319,8 @@ screenshots, and machine-specific paths outside Git and the Nix store.
      tests; the live scenario uses an orderly process restart.
    - [X] Link each acceptance claim to implementation, checks, and recorded live evidence; retain remaining limitations explicitly.
      Accepted on 2026-11-03 for the fixed Bean Island/two-external-player,
-     fog-Off profile only. Stationary attacks use =move_attack= with an empty
-     path; indirect units cannot move then attack. Base production remains
+     fog-Off profile only. Stationary attacks use =attack= or the empty-path
+     =move_attack= form; indirect units cannot move then attack. Base production remains
      limited to researched selectors, with live Infantry/Tank evidence.
      Native checkpoint compatibility still requires the recorded ROM/build/mode;
      the shared-native-state parity diagnostic does not promise cross-mode
@@ -350,5 +350,6 @@ screenshots, and machine-specific paths outside Git and the Nix store.
    - [X] Apply the existing shared authorization service to gameplay tools, resources, replay/live delivery, and active subscriptions. Cover operator/player roles, revocation wakeups, cached results, and reconnects; do not expose gameplay through the greeting scaffold before these checks pass.
 
 ** TODO Expand gameplay command coverage in Milestone 5
-   - [ ] Add a distinct typed =attack= command for attacking without movement, including indirect units. Reuse the existing stationary =move_attack= behavior (=path: []=); preserve the rule that indirect units cannot move and attack in the same turn. Cover shared models, capabilities, executors, HTTP/SDK/MCP adapters as available, error/recovery tests, and live verification.
+   - [X] Add a distinct typed =attack= command for attacking without movement, including indirect units. Reuse the stationary executor path; preserve the rule that indirect units cannot move and attack in one turn. Shared models, capabilities, executor, HTTP/SDK/MCP adapters, and prototype client are covered by contract/dispatch/executor checks. Headless live verification passed for a direct Tank and indirect Rockets; see [[file:LIVE-SDK-ACCEPTANCE.md::#milestone-5-stationary-attack-action-2026-11-09][recorded live evidence]]. Windowed verification remains open.
    - [ ] Add typed Load/Unload actions for APCs, Landers, and Transport Copters. Verify cargo eligibility/capacity, loading and unloading navigation, legal destination terrain and occupancy, cargo identities/positions, and turn-used state. Expose verified actions through shared models, capabilities, and available client adapters, with error/recovery tests and live verification. Keep implementation outside the current gameplay/checkpoint HTTP changes.
+   - [ ] Investigate and fix the windowed production-menu navigation failure observed in the live human-client demo. On slot 2's turn, an Infantry purchase at the owned base (14,8) was accepted at revision 22, then rolled back at revision 23. =open_production_menu= timed out waiting for the cursor to reach (14,6); the last observation was cursor (13,6) at frame 7233 after two Right inputs. Reproduce with the windowed API/client and verify a successful Infantry purchase, funds debit, spawned unit, and recovery behavior in both emulator modes. Diagnostic screenshot and journal are in the temporary demo storage under =/tmp/aw2-live-attack-demo.fQowQK/=.

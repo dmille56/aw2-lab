@@ -100,6 +100,7 @@ class MatchSummary(ContractModel):
 class Capabilities(ContractModel):
     supported_actions: tuple[str, ...] = (
         "move_wait",
+        "attack",
         "move_attack",
         "move_capture",
         "load",
@@ -145,6 +146,14 @@ class MoveAttackAction(ContractModel):
     kind: Literal["move_attack"] = "move_attack"
     unit_id: str = Field(min_length=1)
     path: tuple[Coordinate, ...] = Field(max_length=4096)
+    target: Coordinate
+
+
+class AttackAction(ContractModel):
+    """Attack a target from the unit's current position."""
+
+    kind: Literal["attack"] = "attack"
+    unit_id: str = Field(min_length=1)
     target: Coordinate
 
 
@@ -194,6 +203,7 @@ class SurrenderAction(ContractModel):
 GameplayAction = Annotated[
     MoveWaitAction
     | MoveAttackAction
+    | AttackAction
     | MoveCaptureAction
     | LoadAction
     | UnloadAction

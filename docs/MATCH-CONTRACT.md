@@ -34,6 +34,7 @@ checkpoints, and these gameplay actions:
 
 - `move_wait`: move a unit along an explicit path, then choose Wait.
 - `move_attack`: move along an explicit path, then attack a target coordinate.
+- `attack`: attack a target from the current tile, including with indirect units.
 - `move_capture`: move along an explicit path, then capture.
 - `purchase`: buy a unit at an owned production property.
 - `load` and `unload`: move a compatible unit into a carrier or move a carrier

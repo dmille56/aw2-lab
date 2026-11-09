@@ -16,9 +16,9 @@ from aw2_lab.action_navigation import ActionNavigator, NavigationLimits
 from aw2_lab.aw2_unit_profiles import RuleContext, route_cost
 from aw2_lab.emulator import EmulatorLauncher, EmulatorMode, EmulatorSettings
 from aw2_lab.match_contract import (
+    AttackAction,
     CommandRequest,
     Coordinate,
-    MoveAttackAction,
     MoveWaitAction,
     PlayerSlot,
 )
@@ -194,9 +194,7 @@ def test_rockets_movement_fire_and_ammunition(
                     credential=SecretStr("x" * 32),
                     request_id=uuid4(),
                     expected_revision=observation.revision,
-                    action=MoveAttackAction(
-                        unit_id=identity, path=(), target=Coordinate(x=13, y=6)
-                    ),
+                    action=AttackAction(unit_id=identity, target=Coordinate(x=13, y=6)),
                 ),
                 observation,
             )

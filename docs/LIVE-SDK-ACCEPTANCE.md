@@ -192,3 +192,19 @@ restored at 20, and restarted at 21. Emulator frames were 7208 for the
 headless midgame/restore/resume and 6640 for windowed. Public state equality
 and lifetime identities were checked within each restore/restart sequence;
 these independent cold boots do not establish identical native-state parity.
+
+## Milestone 5 stationary attack action (2026-11-09)
+
+The distinct pathless `attack` action passed live headless execution against
+both a direct-fire unit and indirect Rockets, using the production executor and
+real mGBA bridge. The direct Tank attack at revision 1 returned a verified
+playable boundary at revision 2 (frames 19421–19979); target health changed
+from 44 to destroyed. On the Rockets checkpoint, the indirect unit attacked
+without movement and returned to the playable turn (frames 129662–129794);
+ammo changed from 6 to 5 and the target was destroyed. Both cases verified the
+acting unit's post-attack turn state. The direct run used checkpoint SHA-256
+`e34dddc4216fef3a84390796a0b188f76ff51f123983f0dc4da423fe970b36d0`; the
+indirect run used `ca10e6e6b5293a7986f9fceb9e8925c3288d45cca93fbefc3c1155c5d57e3539`.
+The ROM SHA-256 and headless build identity matched the recorded acceptance
+environment above. This verifies the command and executor on the headless
+frontend; windowed verification of the new action remains open.

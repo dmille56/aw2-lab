@@ -432,7 +432,7 @@ Content-Type: application/json
 }
 ```
 
-The action union contains `move_wait`, `move_attack`, `move_capture`, `purchase`,
+The action union contains `move_wait`, `attack`, `move_attack`, `move_capture`, `purchase`,
 `end_turn`, and `surrender`. Paths are explicit and may be empty. The HTTP layer
 does not predict legal moves, damage, or randomness.
 

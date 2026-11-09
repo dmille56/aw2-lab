@@ -15,6 +15,7 @@ from pydantic import SecretStr
 from aw2_lab.action_navigation import ActionNavigator
 from aw2_lab.emulator import EmulatorLauncher, EmulatorMode, EmulatorSettings
 from aw2_lab.match_contract import (
+    AttackAction,
     CommandRequest,
     Coordinate,
     MatchLifecycle,
@@ -40,13 +41,14 @@ def _emulator_mode() -> EmulatorMode:
 
 
 @pytest.mark.parametrize(
-    ("start", "path", "target_position", "expected_outcome"),
+    ("start", "path", "target_position", "expected_outcome", "action_kind"),
     [
-        ((1, 5), (), (1, 4), "survives"),
-        ((1, 5), (), (2, 5), "survives"),
-        ((0, 6), ((0, 5), (0, 4)), (1, 4), "survives"),
-        ((4, 4), (), (3, 4), "destroyed"),
-        ((10, 5), (), (10, 6), "terminal"),
+        ((1, 5), (), (1, 4), "survives", "move_attack"),
+        ((1, 5), (), (2, 5), "survives", "move_attack"),
+        ((0, 6), ((0, 5), (0, 4)), (1, 4), "survives", "move_attack"),
+        ((4, 4), (), (3, 4), "destroyed", "move_attack"),
+        ((10, 5), (), (10, 6), "terminal", "move_attack"),
+        ((1, 5), (), (1, 4), "survives", "attack"),
     ],
     ids=(
         "default-target",
@@ -54,6 +56,7 @@ def _emulator_mode() -> EmulatorMode:
         "move-before-attack",
         "attacker-destroyed",
         "final-enemy",
+        "stationary-attack-action",
     ),
 )
 def test_move_attack_against_playable_units(
@@ -61,6 +64,7 @@ def test_move_attack_against_playable_units(
     path: tuple[tuple[int, int], ...],
     target_position: tuple[int, int],
     expected_outcome: str,
+    action_kind: str,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -133,10 +137,14 @@ def test_move_attack_against_playable_units(
                 credential=SecretStr("x" * 32),
                 request_id=uuid4(),
                 expected_revision=observation.revision,
-                action=MoveAttackAction(
-                    unit_id=unit_id,
-                    path=tuple(Coordinate(x=x, y=y) for x, y in path),
-                    target=Coordinate(x=target.x, y=target.y),
+                action=(
+                    AttackAction(unit_id=unit_id, target=Coordinate(x=target.x, y=target.y))
+                    if action_kind == "attack"
+                    else MoveAttackAction(
+                        unit_id=unit_id,
+                        path=tuple(Coordinate(x=x, y=y) for x, y in path),
+                        target=Coordinate(x=target.x, y=target.y),
+                    )
                 ),
             )
             # Use production defaults: overly frequent combat polling used to

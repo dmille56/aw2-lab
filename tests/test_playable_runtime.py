@@ -211,6 +211,7 @@ async def test_failed_boot_is_recovery_required_without_playable_publication(mem
             "MoveAttackActionExecutor",
             {"unit_id": "1", "path": [], "target": {"x": 1, "y": 1}},
         ),
+        ("attack", "MoveAttackActionExecutor", {"unit_id": "1", "target": {"x": 1, "y": 1}}),
         ("move_capture", "MoveCaptureActionExecutor", {"unit_id": "1", "path": []}),
         (
             "purchase",

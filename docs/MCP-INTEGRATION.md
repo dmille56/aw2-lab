@@ -108,8 +108,9 @@ operator's token. The host loop is:
 For example, `move_wait` takes `match_id`, `expected_revision`, `request_id`,
 `unit_id`, and `path`. Coordinates are zero-based; `path` lists each successive
 destination and omits the starting tile. A successful move ends with Wait.
-`move_attack` can move then attack only for direct units; stationary attack
-uses an empty path. Indirect units cannot move then attack. `move_capture` moves
+`attack` attacks from the current tile and supports indirect units.
+`move_attack` can move then attack for direct units; its empty-path form remains
+available, while indirect units cannot move then attack. `move_capture` moves
 and captures; purchase and turn-end actions use their own typed tools. Follow
 capabilities and current observation data; the server does not enumerate legal
 moves or infer the host's strategy.

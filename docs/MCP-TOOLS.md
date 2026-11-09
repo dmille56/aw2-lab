@@ -1,6 +1,6 @@
 # MCP v1 lifecycle, gameplay, observation, and debug tools
 
-The authenticated `/mcp` endpoint exposes 31 typed tools through the existing
+The authenticated `/mcp` endpoint exposes 32 typed tools through the existing
 Python SDK and HTTP v1 services. Use the pinned Python MCP SDK 1.29.0 and local
 bearer setup in [MCP-AUTHORIZATION.md](MCP-AUTHORIZATION.md). Discover schemas
 through `tools/list`; each schema includes `contract_version: 1` and rejects
@@ -12,7 +12,7 @@ unknown arguments. Mutations require an explicit UUID `request_id`.
 | Matches | `create_match`, `list_matches`, `inspect_match`, `revoke_slot`, `start_match`, `close_match` | Operator administration; joined player may inspect own match |
 | Observations | `get_state`, `get_observation`, `get_screenshot`; state and command resources | Operator or joined player in own match |
 | Commands | `get_command`, `wait_for_command`, `wait_for_turn` | Operator or joined player in own match |
-| Gameplay | `move_wait`, `move_attack`, `move_capture`, `purchase`, `end_turn`, `surrender` | Player credential, own active slot |
+| Gameplay | `move_wait`, `attack`, `move_attack`, `move_capture`, `purchase`, `end_turn`, `surrender` | Player credential, own active slot |
 | Checkpoints | `create_checkpoint`, `list_checkpoints`, `inspect_checkpoint` | Operator or joined player in own match |
 | Transfers/recovery | `export_checkpoint`, `import_checkpoint`, `restore_checkpoint` | Operator only |
 | Debug | `debug_press_buttons`, `debug_advance_frames`, `debug_read_memory`, `debug_write_memory`, `debug_reset` | Operator only; requires server startup opt-in |
@@ -33,8 +33,9 @@ negotiation remains independent.
 
 Gameplay coordinates are zero-based. Paths explicitly list successive destination
 tiles, excluding the starting tile. `unit_id` is an opaque tracked lifetime ID.
-Stationary attacks use `move_attack` with an empty path; indirect units cannot
-move then attack. Consult capabilities for available actions, unit types, and
+`attack` attacks from the current tile and supports indirect units. `move_attack`
+can move then attack for direct units; indirect units cannot move then attack.
+Consult capabilities for available actions, unit types, and
 runtime limitations. Schema validity does not imply a legal game action.
 
 Start, Close, gameplay, checkpoint creation, and restore return `CommandReceipt`.

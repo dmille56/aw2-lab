@@ -8,6 +8,7 @@ from aw2_lab.action_navigation import ActionNavigator, validate_path
 from aw2_lab.aw2_unit_profiles import RuleContext, preflight_move_attack
 from aw2_lab.lifecycle import LifecyclePhase
 from aw2_lab.match_contract import (
+    AttackAction,
     CommandRequest,
     ErrorCode,
     MatchLifecycle,
@@ -45,8 +46,10 @@ class MoveAttackActionExecutor:
         self, request: CommandRequest, observation: MatchObservation
     ) -> MutationOutcome:
         action = request.action
-        if not isinstance(action, MoveAttackAction):
-            raise CommandRejected(ErrorCode.UNSUPPORTED_FEATURE, "Only move_attack is supported")
+        if not isinstance(action, (AttackAction, MoveAttackAction)):
+            raise CommandRejected(
+                ErrorCode.UNSUPPORTED_FEATURE, "Only attack and move_attack are supported"
+            )
         battle = observation.game_state.battle.value
         if (
             observation.action_readiness is not ActionReadiness.READY
@@ -79,7 +82,9 @@ class MoveAttackActionExecutor:
             raise CommandRejected(ErrorCode.INVALID_REQUEST, "Attacking unit is unavailable")
         try:
             path = validate_path(
-                tuple((point.x, point.y) for point in action.path),
+                tuple((point.x, point.y) for point in action.path)
+                if isinstance(action, MoveAttackAction)
+                else (),
                 start=(attacker.x, attacker.y),
                 width=battle.map.width,
                 height=battle.map.height,

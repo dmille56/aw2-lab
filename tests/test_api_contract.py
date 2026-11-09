@@ -305,6 +305,18 @@ def test_movement_path_bound_and_stationary_action() -> None:
         GameplayCommandRequest.model_validate(body)
 
 
+def test_stationary_attack_action_contract() -> None:
+    request = GameplayCommandRequest.model_validate(
+        {
+            "request_id": uuid4(),
+            "expected_revision": 0,
+            "action": {"kind": "attack", "unit_id": "1", "target": {"x": 1, "y": 2}},
+        }
+    )
+    assert request.action.kind == "attack"
+    assert "attack" in Capabilities().supported_actions
+
+
 def test_transport_load_and_unload_action_contracts_are_bounded() -> None:
     load = GameplayCommandRequest.model_validate(
         {

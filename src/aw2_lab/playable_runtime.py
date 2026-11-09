@@ -144,6 +144,7 @@ class PlayableRuntime:
         ] = {
             "move_wait": MoveWaitActionExecutor,
             "move_attack": MoveAttackActionExecutor,
+            "attack": MoveAttackActionExecutor,
             "move_capture": MoveCaptureActionExecutor,
             "load": LoadActionExecutor,
             "unload": UnloadActionExecutor,

@@ -319,6 +319,7 @@ async def capabilities(request: Request) -> CapabilitiesResponse:
             for name in (
                 "move_wait",
                 "move_attack",
+                "attack",
                 "move_capture",
                 "load",
                 "unload",

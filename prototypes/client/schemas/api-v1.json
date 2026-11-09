@@ -108,6 +108,38 @@
         "title": "ApiLimits",
         "type": "object"
       },
+      "AttackAction": {
+        "additionalProperties": false,
+        "description": "Attack a target from the unit's current position.",
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "attack",
+            "default": "attack",
+            "title": "Kind",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/Coordinate"
+          },
+          "unit_id": {
+            "minLength": 1,
+            "title": "Unit Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit_id",
+          "target"
+        ],
+        "title": "AttackAction",
+        "type": "object"
+      },
       "BattleControlObservation": {
         "description": "Battle controller fields from the same frame as the lifecycle signals.\n\nAddresses for the supported ROM: mode is u32 at 0x03003F3C, state is\nu16 at 0x030032D8, lock_count is u8 at 0x030030F0, input_gate is i16\nat 0x030040E4, and input_state is u16 at 0x03003334 (little endian).\nThese fields persist in menus and must not be used without engine checks.",
         "properties": {
@@ -1545,6 +1577,7 @@
           "action": {
             "discriminator": {
               "mapping": {
+                "attack": "#/components/schemas/AttackAction",
                 "end_turn": "#/components/schemas/EndTurnAction",
                 "load": "#/components/schemas/LoadAction",
                 "move_attack": "#/components/schemas/MoveAttackAction",
@@ -1562,6 +1595,9 @@
               },
               {
                 "$ref": "#/components/schemas/MoveAttackAction"
+              },
+              {
+                "$ref": "#/components/schemas/AttackAction"
               },
               {
                 "$ref": "#/components/schemas/MoveCaptureAction"

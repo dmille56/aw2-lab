@@ -184,8 +184,8 @@ Automate cold-boot menu navigation into the fixed two-player Versus configuratio
 base-production subset. The [Milestone 3 acceptance audit](MILESTONE-3.org#milestone-3-acceptance-audit)
 maps each deliverable and criterion to implementation, ROM-independent checks,
 and [recorded live evidence](LIVE-SDK-ACCEPTANCE.md) in both emulator modes.
-Stationary attacks use `move_attack` with an empty path; indirect units cannot
-move then attack. MCP gameplay and authorization remain Milestone 4 work;
+Stationary attacks use `attack` or the empty-path `move_attack` form; indirect
+units cannot move then attack. MCP gameplay and authorization remain Milestone 4 work;
 additional production menus, gameplay/configuration coverage, and full frontend
 implementation retain their documented scope limits.
 

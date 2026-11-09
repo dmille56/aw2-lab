@@ -7,6 +7,7 @@ import catalog from "./catalog.json";
 
 const labels: Record<ActionKind, string> = {
   move_wait: "Wait",
+  attack: "Attack in place",
   move_attack: "Attack",
   move_capture: "Capture",
   load: "Load",
@@ -99,6 +100,8 @@ export function CommandPanel({
       draft.path.length > 0
         ? `Move ${selectedUnit ? unitName(selectedUnit) : "the unit"} from ${from} to ${to} via ${draft.path.map(positionLabel).join(" → ")}`
         : `Keep ${selectedUnit ? unitName(selectedUnit) : "the unit"} at ${from} (stay in place)`;
+    if (draft.kind === "attack")
+      return `Keep ${selectedUnit ? unitName(selectedUnit) : "the unit"} at ${from} and attack at ${draft.target ? positionLabel(draft.target) : "the selected target"}.`;
     if (draft.kind === "move_attack")
       return `${movement}, then attack at ${draft.target ? positionLabel(draft.target) : "the selected target"}.`;
     if (draft.kind === "move_capture")
@@ -316,6 +319,19 @@ export function CommandPanel({
                   onClick={() => choose("move_attack")}
                 >
                   Choose attack target
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    !editable ||
+                    !model.movementReady ||
+                    draft.path.length > 0 ||
+                    !model.available("attack") ||
+                    !model.canAttack
+                  }
+                  onClick={() => choose("attack")}
+                >
+                  Attack without moving
                 </button>
                 <button
                   type="button"

@@ -69,6 +69,18 @@ describe("board action draft", () => {
     expect(draft.target).toBeNull();
     expect(draft.path).toEqual([{ x: 1, y: 0 }]);
   });
+  it("offers stationary attack target selection without adding a route", () => {
+    let draft = draftReducer(selected(), { type: "choose", kind: "attack" });
+    expect(draft.phase).toBe("target");
+    expect(draft.path).toEqual([]);
+    draft = draftReducer(draft, { type: "target", point: { x: 1, y: 1 } });
+    expect(draft).toMatchObject({
+      kind: "attack",
+      phase: "review",
+      path: [],
+      target: { x: 1, y: 1 },
+    });
+  });
   it("cancels movement back to unit selection with no path or action", () => {
     let draft = draftReducer(selected(), {
       type: "step",
@@ -98,6 +110,7 @@ it("builds a command only for the current ready boundary and locks uncertain sub
   const capabilities = validateCapabilitiesResponse(capabilityFixture);
   capabilities.actions = [
     "move_wait",
+    "attack",
     "move_attack",
     "move_capture",
     "load",

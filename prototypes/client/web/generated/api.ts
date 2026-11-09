@@ -102,6 +102,26 @@ export interface components {
             subscriber_event_count: 128;
         };
         /**
+         * AttackAction
+         * @description Attack a target from the unit's current position.
+         */
+        AttackAction: {
+            /**
+             * Contract Version
+             * @default 1
+             * @constant
+             */
+            contract_version: 1;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "attack";
+            target: components["schemas"]["Coordinate"];
+            /** Unit Id */
+            unit_id: string;
+        };
+        /**
          * BattleControlObservation
          * @description Battle controller fields from the same frame as the lifecycle signals.
          *
@@ -929,7 +949,7 @@ export interface components {
          */
         GameplayCommandRequest: {
             /** Action */
-            action: components["schemas"]["MoveWaitAction"] | components["schemas"]["MoveAttackAction"] | components["schemas"]["MoveCaptureAction"] | components["schemas"]["LoadAction"] | components["schemas"]["UnloadAction"] | components["schemas"]["PurchaseAction"] | components["schemas"]["EndTurnAction"] | components["schemas"]["SurrenderAction"];
+            action: components["schemas"]["MoveWaitAction"] | components["schemas"]["MoveAttackAction"] | components["schemas"]["AttackAction"] | components["schemas"]["MoveCaptureAction"] | components["schemas"]["LoadAction"] | components["schemas"]["UnloadAction"] | components["schemas"]["PurchaseAction"] | components["schemas"]["EndTurnAction"] | components["schemas"]["SurrenderAction"];
             /**
              * Contract Version
              * @default 1

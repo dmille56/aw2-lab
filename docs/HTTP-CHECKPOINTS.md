@@ -18,15 +18,15 @@ Submit an action as the joined player for that match:
 ```
 
 Send this to `POST /v1/matches/{match}/commands`. The action union supports
-`move_wait`, `move_attack`, `move_capture`, `purchase`, `end_turn`, and `surrender`;
+`move_wait`, `attack`, `move_attack`, `move_capture`, `purchase`, `end_turn`, and `surrender`;
 OpenAPI describes their typed fields. Slot and identity come from the bearer
 credential and cannot be supplied in the request. The operator must claim a
 separate player identity to play.
 
-Stationary attacks currently use `move_attack` with `path: []`; indirect units
-cannot move and attack in the same turn. A separately named `attack` command and
-Load/Unload actions for APCs, Landers, and Transport Copters are explicit
-[Milestone 5 gameplay TODOs](MILESTONE-3.org), outside this batch of HTTP changes.
+`attack` performs a stationary attack and supports indirect units. `move_attack`
+also retains its empty-path form; indirect units cannot move and attack in one
+turn. Load/Unload actions for APCs, Landers, and Transport Copters remain
+[Milestone 5 gameplay TODOs](MILESTONE-3.org).
 
 `202` returns a command receipt, not a claim of success. Subscribe to SSE
 `command.updated` or inspect `GET .../commands/{command}` for the outcome. Turn,

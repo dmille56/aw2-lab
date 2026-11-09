@@ -96,6 +96,7 @@ the named shared models unless a representation is explicitly defined below.
 | `wait_for_command` | match_id, command_id, timeout_seconds | bounded `wait_for_command` / wait result |
 | `move_wait` | match_id, expected_revision, request_id, unit_id, path | `submit(MoveWaitAction)` / `CommandReceipt` |
 | `move_attack` | preceding move arguments plus target | `submit(MoveAttackAction)` / `CommandReceipt` |
+| `attack` | match, revision, request, unit, target | `submit(AttackAction)` / `CommandReceipt` |
 | `move_capture` | match_id, expected_revision, request_id, unit_id, path | `submit(MoveCaptureAction)` / `CommandReceipt` |
 | `purchase` | match_id, expected_revision, request_id, property, unit_type | `submit(PurchaseAction)` / `CommandReceipt` |
 | `end_turn` | match_id, expected_revision, request_id | `submit(EndTurnAction)` / `CommandReceipt` |

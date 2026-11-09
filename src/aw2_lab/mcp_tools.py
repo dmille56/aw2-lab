@@ -30,6 +30,7 @@ from aw2_lab.api_contract import (
 from aw2_lab.authorization import AuthorizationError, Permission
 from aw2_lab.checkpoint_store import MAX_ARCHIVE_BYTES
 from aw2_lab.match_contract import (
+    AttackAction,
     CargoDrop,
     CheckpointReference,
     CommandReceipt,
@@ -319,6 +320,24 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
                 match_id,
                 expected_revision,
                 MoveAttackAction(unit_id=unit_id, path=path, target=target),
+                request_id=request_id,
+            )
+
+    @server.tool()
+    async def attack(
+        match_id: UUID,
+        expected_revision: Revision,
+        request_id: UUID,
+        unit_id: UnitID,
+        target: Coordinate,
+        contract_version: int = 1,
+    ) -> CommandReceipt:
+        """Attack a zero-based target from the unit's current tile, including with indirect units."""
+        async with client(Permission.PLAY, match_id) as sdk:
+            return await sdk.submit(
+                match_id,
+                expected_revision,
+                AttackAction(unit_id=unit_id, target=target),
                 request_id=request_id,
             )
 

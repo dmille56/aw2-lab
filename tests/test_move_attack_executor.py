@@ -15,6 +15,7 @@ from test_state_validation import snapshot
 
 from aw2_lab.action_navigation import ActionNavigator
 from aw2_lab.match_contract import (
+    AttackAction,
     CommandRequest,
     Coordinate,
     MatchLifecycle,
@@ -137,6 +138,122 @@ def test_move_attack_executes_targeting_and_commits_verified_result(memory) -> N
     assert outcome.lifecycle is MatchLifecycle.PLAYABLE
     assert outcome.observation is not None
     assert outcome.observation.revision == 2
+
+
+def test_attack_executes_stationary_attack_without_movement(memory) -> None:
+    match_id = uuid4()
+    tracker = MatchObservationTracker(match_id)
+    state = decode_snapshot(snapshot(memory))
+    battle = state.battle.value
+    assert battle is not None
+    attacker = next(unit for unit in battle.units if unit.army_slot == battle.active_player_slot)
+    target = next(unit for unit in battle.units if unit.army_slot != battle.active_player_slot)
+    state = replace(
+        state,
+        battle=replace(
+            state.battle,
+            value=replace(
+                battle,
+                units=tuple(
+                    replace(unit, x=attacker.x + 1, y=attacker.y)
+                    if unit.reference == target.reference
+                    else unit
+                    for unit in battle.units
+                ),
+            ),
+        ),
+    )
+    initial = tracker.commit_boundary(state)
+    battle = initial.game_state.battle.value
+    assert battle is not None
+    attacker = next(unit for unit in battle.units if unit.army_slot == battle.active_player_slot)
+    target = next(unit for unit in battle.units if unit.army_slot != battle.active_player_slot)
+    unit_id = next(
+        i.identity_id for i in initial.unit_identities if i.reference == attacker.reference
+    )
+    selected = SelectedUnitObservation(
+        0x02022684 + attacker.reference * 12,
+        attacker.army_slot,
+        attacker.unit_slot,
+        attacker.unit_type,
+        attacker.x,
+        attacker.y,
+    )
+    final_state = replace(
+        initial.game_state,
+        frame=124,
+        validation=replace(initial.game_state.validation, frame=124),
+        ui=replace(
+            initial.game_state.ui,
+            frame=124,
+            map_cursor=replace(initial.game_state.ui.map_cursor, frame=124),
+            menu=MenuObservation(124, MenuFamily.MAP_INPUT),
+        ),
+        battle=replace(
+            initial.game_state.battle,
+            value=replace(
+                battle,
+                units=tuple(
+                    replace(unit, used_this_turn=True)
+                    if unit.reference == attacker.reference
+                    else unit
+                    for unit in battle.units
+                ),
+            ),
+        ),
+    )
+
+    class FakeNavigator:
+        calls: list[tuple[object, ...]]
+
+        def __init__(self) -> None:
+            self.calls = []
+
+        async def select_unit(self, selected_id: str, observation: MatchObservation) -> GameState:
+            assert selected_id == unit_id
+            return replace(
+                initial.game_state,
+                ui=replace(
+                    initial.game_state.ui,
+                    menu=MenuObservation(123, MenuFamily.UNIT_MOVEMENT, selected),
+                ),
+            )
+
+        async def move_selected_unit_along_path(self, path, **kwargs) -> None:
+            self.calls.append(("move", tuple(path)))
+
+        async def choose_fire(self):
+            self.calls.append(("fire",))
+
+        async def move_target_cursor_to(self, x: int, y: int, **kwargs) -> None:
+            self.calls.append(("target", x, y))
+
+        async def confirm_attack(self):
+            self.calls.append(("confirm",))
+            return final_state
+
+    navigator = FakeNavigator()
+    command = CommandRequest(
+        match_id=match_id,
+        player_slot=PlayerSlot.SLOT_1,
+        credential=SecretStr("x" * 32),
+        request_id=uuid4(),
+        expected_revision=1,
+        action=AttackAction(unit_id=unit_id, target=Coordinate(x=target.x, y=target.y)),
+    )
+    outcome = asyncio.run(
+        MoveAttackActionExecutor(cast(ActionNavigator, navigator), tracker).execute(
+            command, initial
+        )
+    )
+    assert navigator.calls == [
+        ("move", ()),
+        ("fire",),
+        ("target", target.x, target.y),
+        ("confirm",),
+    ]
+    assert outcome.lifecycle is MatchLifecycle.PLAYABLE
+    assert outcome.observation is not None and outcome.observation.revision == 2
 
 
 @pytest.mark.parametrize(
