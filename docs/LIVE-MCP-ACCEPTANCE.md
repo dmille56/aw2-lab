@@ -84,10 +84,42 @@ These artifacts are outside Git. Each evidence file contains a full serialized
 state resource; sibling temporary storage contains generated credentials and
 server logs and should be treated as private test data.
 
+## Actual Pi model-host gameplay (2026-11-08)
+
+Pi 1.5.0 with the configured OpenAI `gpt-6-luna` model completed live gameplay
+through the local MCP endpoint with the supported ROM above. Pi connected and
+listed the AW2 tools before gameplay. Each player slot used its own credential,
+agent directory, and session history. The human side used the documented
+interactive SDK player; the model side used `examples/pi_host.py`.
+
+| Emulator | Matchup | Completed actions and revisions |
+| --- | --- | --- |
+| Headless | Human vs model | Slot 1 `end_turn`, 1→2; slot 2 Pi purchased Infantry at (12, 6), 2→3 |
+| Headless | Model vs model | Slot 2 Pi `end_turn`, 3→4; slot 1 Pi purchased Infantry at (1, 6), 4→5 |
+| Windowed | Human vs model | Slot 1 `end_turn`, 1→2; slot 2 Pi purchased Infantry at (12, 6), 2→3 |
+| Windowed | Model vs model | Slot 2 Pi `end_turn`, 3→4; slot 1 Pi purchased Infantry at (1, 6), 4→5 |
+
+All eight submitted commands completed successfully. The model/model rows used
+two independent Pi hosts with per-slot credentials and session storage. The
+sanitized command evidence is outside Git at
+`/tmp/aw2-model-host-acceptance/evidence.json` (SHA-256
+`2f72114364e119425b3d86d935b9f31245ac510aca86c8117f4c71e66d141a22`). Full Pi
+session transcripts and credentials remain private under the ignored local
+runtime directory and `/tmp`.
+
+Pi called `get_readiness` in a player session and received `permission_denied`;
+it recovered by using the authorized state and observation tools, then completed
+gameplay actions. The host prompt now explicitly directs player hosts to derive
+readiness from their authorized state and observation and not call the
+operator-only tool. These short runs verify real model-host interoperability and
+turn scheduling, but do not measure strategy quality, long-term play, or match
+victory. The headless run used the API's default per-user durable storage; the
+windowed run used isolated temporary storage.
+
 ## Limits and failures
 
-These runs use deterministic drivers, not a third-party or model-based host.
-The MCP-specific gameplay flow does not yet cover `move_attack`; checkpoint,
+The deterministic MCP scenarios above do not use a model-based host. The
+MCP-specific gameplay flow does not yet cover `move_attack`; checkpoint,
 restart, and resource acceptance is documented above.
 Separately, the SDK-vs-SDK live scenario passed in both modes, including attack,
 full capture, checkpoint restore/restart, natural HQ victory, and the
@@ -104,5 +136,5 @@ the navigation wall-clock watchdog expired while selecting the unit. The passing
 MCP scenario stops after the verified capture instead of claiming that route
 passed. Resource notifications, reconnect, and both bounded wait tools were
 verified with the supported Python MCP SDK client and deterministic drivers;
-real model-host behavior remains unverified. The host transport must allow a
+model-host resource subscription behavior remains unverified. The host transport must allow a
 read timeout longer than the requested MCP wait duration.

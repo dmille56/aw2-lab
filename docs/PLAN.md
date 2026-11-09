@@ -203,8 +203,8 @@ The implementation checklist is tracked in [MILESTONE-4.org](MILESTONE-4.org).
 
 The MCP implementation and documentation deliverables are present. The recorded
 live runs establish interoperability with deterministic Python MCP SDK clients
-in both emulator modes. Actual model-host play remains unverified, so the
-human-versus-agent and agent-versus-agent acceptance criterion remains open.
+in both emulator modes. At the time of this audit, actual model-host play was
+unverified; the later same-day addendum below records that acceptance.
 
 | Deliverable or criterion | Implementation and checks | Recorded evidence and result |
 | --- | --- | --- |
@@ -214,7 +214,19 @@ human-versus-agent and agent-versus-agent acceptance criterion remains open.
 | Coordinates, turn handling, failures, debug, and connection examples | [Host integration guide](MCP-INTEGRATION.md), [debug and tool checks](../tests/test_mcp_tools.py) | Instructions cover roles, high-level actions, revision/request IDs, retries, recovery, transport timeouts, and debug opt-in; live MCP debug execution remains unverified |
 | Authorization, retry, recovery, restart, and HTTP/MCP parity | [Shared-service acceptance](../tests/test_coordination_acceptance.py), [HTTP checkpoint checks](../tests/test_http_gameplay_checkpoints.py), MCP authorization/runtime/tool checks above | [Live MCP report](LIVE-MCP-ACCEPTANCE.md) and [live SDK report](LIVE-SDK-ACCEPTANCE.md): durable retries, checkpoint restoration, restart, committed-state agreement, and gameplay evidence; synthetic fault checks are distinguished from live execution |
 | Versioning, client compatibility, and host responsibilities | [Compatibility checks](../tests/test_mcp_compatibility.py), [compatibility audit](MCP-COMPATIBILITY.md), [host guide](MCP-INTEGRATION.md) | MCP protocol negotiation and AW2 contract v1 are distinct; Python MCP SDK 1.29.0 is verified. Model scheduling and strategy belong to the host; other model-host compatibility remains unverified |
-| Human/agent and agent/agent play in both modes | [Live scenarios](../tests/test_mcp_live_acceptance.py) exercise SDK-versus-MCP and independent MCP sessions | [Live MCP report](LIVE-MCP-ACCEPTANCE.md): all four mode/client combinations passed using deterministic drivers. Actual human/model-host and model-host/model-host sessions still need acceptance evidence |
+| Human/agent and agent/agent play in both modes | [Live scenarios](../tests/test_mcp_live_acceptance.py) exercise SDK-versus-MCP and independent MCP sessions; actual Pi sessions use [the launcher](../examples/pi_host.py) | [Live MCP report](LIVE-MCP-ACCEPTANCE.md): deterministic scenarios and actual Pi 1.5.0/OpenAI `gpt-6-luna` human/model and model/model gameplay passed headless and windowed |
+
+#### Actual model-host acceptance addendum (2026-11-08)
+
+Pi 1.5.0 with the configured OpenAI `gpt-6-luna` model connected to the live
+loopback MCP endpoint and completed human-versus-model and two independent
+model-host turns in both headless and windowed emulator modes. Purchases and
+turn handoffs completed through revisions 1–5 in each mode. The report records
+the ROM identity, actions, results, host/model version, sanitized evidence
+fingerprint, and the observed `get_readiness` permission limitation. This
+completes the model-host gameplay acceptance criterion; strategy quality,
+long-term play, match victory, and model-host resource subscription behavior
+remain unverified.
 
 The current Linux human client has [recorded acceptance](MILESTONE-4.org).
 By project decision, aarch64, macOS, Windows, Android, and iOS acceptance resumes
