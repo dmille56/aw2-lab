@@ -206,5 +206,19 @@ acting unit's post-attack turn state. The direct run used checkpoint SHA-256
 `e34dddc4216fef3a84390796a0b188f76ff51f123983f0dc4da423fe970b36d0`; the
 indirect run used `ca10e6e6b5293a7986f9fceb9e8925c3288d45cca93fbefc3c1155c5d57e3539`.
 The ROM SHA-256 and headless build identity matched the recorded acceptance
-environment above. This verifies the command and executor on the headless
-frontend; windowed verification of the new action remains open.
+environment above. Windowed verification passed on 2026-11-09 using the same
+direct Tank case and checkpoint. The pathless `attack` command completed from
+frame 19421 to 19991 on windowed build
+`sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810`;
+Tank reference 3 retained 98 health and 60 fuel, target reference 130 went
+from 44 health to destroyed, and the match returned to a ready playable turn.
+The ROM SHA-256 is
+`ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`, and the
+checkpoint SHA-256 is
+`e34dddc4216fef3a84390796a0b188f76ff51f123983f0dc4da423fe970b36d0`.
+Evidence and screenshot are outside Git at
+`/tmp/aw2-attack-windowed-stationary/`; evidence JSON SHA-256
+`69e3378a55674b8924eedd594030e2b0041a3459148ac697cafb663367002912`, screenshot
+SHA-256 `27fd23ce77ed4aba840115b6863be5c7cd1a43992fb1831fd0c25fff68466a14`.
+This closes live frontend verification of the stationary `attack` action in
+both headless and windowed mGBA.
