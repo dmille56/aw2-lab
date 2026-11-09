@@ -44,10 +44,34 @@ acceptance results, including any limits. Unsupported features and illegal
 actions must remain distinguishable at the public boundary.
 
 ** TODO Implement CO power and super power activation
-   - [ ] Research and verify readiness, power selection, activation, and settled turn boundaries against the supported ROM.
-   - [ ] Add typed actions, capability advertisement, executor, HTTP/SDK/MCP access, and human-client controls.
-   - [ ] Cover unavailable powers, wrong-turn requests, stale state, navigation failure/recovery, and resulting power state.
-   - [ ] Verify both activation variants live in headless and windowed mGBA and record evidence.
+   Keep normal Power and Super Power as separate tracked paths. The lifecycle
+   research log documents a controlled normal Power activation, but only an
+   already-active SUPER snapshot; it does not establish Super Power activation.
+
+*** TODO Add verified CO-power menu observations
+    - [ ] Decode the Power choice and any normal/Super choice from the command UI with frame-coherent state.
+    - [ ] Identify and test unavailable/unknown menu cases; keep them unresolved instead of guessing.
+    - [ ] Add ROM-independent observer regressions for each recognized menu and malformed/ambiguous state.
+
+*** TODO Implement normal CO Power activation
+    - [ ] Replay the documented normal Power input sequence from a known ready checkpoint and verify readiness, selection, activation animation, and the settled active-power byte.
+    - [ ] Add a typed normal-power action to the shared contract and capability surface, and route it through HTTP, SDK, and MCP.
+    - [ ] Add an executor that checks active player, ready boundary, known CO/power state, sufficient meter, and unused activation before input; verify the power becomes active after effects settle.
+    - [ ] Add the human-client control and show pending, completed, and failed command status.
+    - [ ] Cover insufficient meter, already active/used power, wrong turn, stale revision, observer uncertainty, and navigation timeout/recovery.
+    - [ ] Verify normal Power live in headless and windowed mGBA; record ROM/build/checkpoint identities, effects, final boundary, and evidence hashes.
+
+*** TODO Research Super Power activation
+    - [ ] Find or prepare a supported-ROM checkpoint with a ready Super Power meter without editing game RAM.
+    - [ ] Record the observed menu choice, activation input sequence, animation/process phases, meter debit, active-power byte, effects, and settled turn boundary.
+    - [ ] Repeat or independently confirm the sequence, then document the limits and evidence in the lifecycle research log.
+
+*** TODO Implement Super Power activation
+    - [ ] Extend typed actions and capabilities to distinguish Super Power from normal Power.
+    - [ ] Reuse the guarded executor only where observed behavior is shared; encode and test any distinct navigation or postconditions.
+    - [ ] Add Super Power controls to HTTP/SDK/MCP-backed clients and the human client, with pending/completed/failed status.
+    - [ ] Cover insufficient meter, already active/used power, wrong turn, stale revision, unknown activation state, and timeout/recovery.
+    - [ ] Verify Super Power live in headless and windowed mGBA using researched checkpoints and record identities/evidence.
 
 ** TODO Implement joining units
 ** TODO Implement resupplying
