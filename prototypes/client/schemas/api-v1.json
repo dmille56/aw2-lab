@@ -568,7 +568,7 @@
           },
           "supported_game_state_schema_versions": {
             "default": [
-              4
+              5
             ],
             "items": {
               "type": "integer"
@@ -1416,6 +1416,43 @@
         "title": "DebugResetRequest",
         "type": "object"
       },
+      "DiveAction": {
+        "additionalProperties": false,
+        "description": "Move a surfaced Sub and Dive.",
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "dive",
+            "default": "dive",
+            "title": "Kind",
+            "type": "string"
+          },
+          "path": {
+            "items": {
+              "$ref": "#/components/schemas/Coordinate"
+            },
+            "maxItems": 4096,
+            "title": "Path",
+            "type": "array"
+          },
+          "unit_id": {
+            "minLength": 1,
+            "title": "Unit Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit_id",
+          "path"
+        ],
+        "title": "DiveAction",
+        "type": "object"
+      },
       "EndTurnAction": {
         "additionalProperties": false,
         "properties": {
@@ -1618,6 +1655,7 @@
                 "activate_normal_power": "#/components/schemas/ActivateNormalPowerAction",
                 "activate_super_power": "#/components/schemas/ActivateSuperPowerAction",
                 "attack": "#/components/schemas/AttackAction",
+                "dive": "#/components/schemas/DiveAction",
                 "end_turn": "#/components/schemas/EndTurnAction",
                 "join": "#/components/schemas/JoinAction",
                 "load": "#/components/schemas/LoadAction",
@@ -1625,6 +1663,7 @@
                 "move_capture": "#/components/schemas/MoveCaptureAction",
                 "move_wait": "#/components/schemas/MoveWaitAction",
                 "purchase": "#/components/schemas/PurchaseAction",
+                "rise": "#/components/schemas/RiseAction",
                 "supply": "#/components/schemas/SupplyAction",
                 "surrender": "#/components/schemas/SurrenderAction",
                 "unload": "#/components/schemas/UnloadAction"
@@ -1649,6 +1688,12 @@
               },
               {
                 "$ref": "#/components/schemas/SupplyAction"
+              },
+              {
+                "$ref": "#/components/schemas/DiveAction"
+              },
+              {
+                "$ref": "#/components/schemas/RiseAction"
               },
               {
                 "$ref": "#/components/schemas/LoadAction"
@@ -2443,6 +2488,8 @@
           "wait",
           "join",
           "supply",
+          "dive",
+          "rise",
           "other_unit_action",
           "yes",
           "no"
@@ -3313,6 +3360,43 @@
         "title": "RevokeSlotRequest",
         "type": "object"
       },
+      "RiseAction": {
+        "additionalProperties": false,
+        "description": "Move a submerged Sub and Rise.",
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "rise",
+            "default": "rise",
+            "title": "Kind",
+            "type": "string"
+          },
+          "path": {
+            "items": {
+              "$ref": "#/components/schemas/Coordinate"
+            },
+            "maxItems": 4096,
+            "title": "Path",
+            "type": "array"
+          },
+          "unit_id": {
+            "minLength": 1,
+            "title": "Unit Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit_id",
+          "path"
+        ],
+        "title": "RiseAction",
+        "type": "object"
+      },
       "RomProfile": {
         "description": "A verified ROM identity and the versions used to interpret its memory.",
         "properties": {
@@ -3443,6 +3527,11 @@
           "record_address": {
             "title": "Record Address",
             "type": "integer"
+          },
+          "submerged": {
+            "default": false,
+            "title": "Submerged",
+            "type": "boolean"
           },
           "unit_slot": {
             "title": "Unit Slot",
@@ -3811,6 +3900,11 @@
           "reference": {
             "title": "Reference",
             "type": "integer"
+          },
+          "submerged": {
+            "default": false,
+            "title": "Submerged",
+            "type": "boolean"
           },
           "unit_slot": {
             "title": "Unit Slot",

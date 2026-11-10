@@ -383,3 +383,37 @@ pytest -s tests/test_supply_live_acceptance.py --basetemp=/tmp/aw2-supply-live
 Automatic allied-property replenishment remains the game's turn-start upkeep;
 the live acceptance above focuses on explicit APC Supply. The earlier
 [[file:AW2-MAP-RESEARCH.org::*Finding: allied-property recovery and turn-start fuel upkeep][allied-property observation]] records the automatic recovery evidence.
+
+## Milestone 5 Sub Dive and Rise (2026-11-10)
+
+The production Submarine action executors replayed both transitions from the
+newly supplied natural checkpoints in headless and windowed mGBA. The surfaced
+Sub (reference 1, `(4,7)`) showed `(Wait, Dive)` and finished with status bit 5
+set and its turn used. The submerged Sub showed `(Wait, Rise)` and finished
+with bit 5 cleared and its turn used. Both returned to a ready player-turn
+boundary; no unit movement was requested.
+
+ROM SHA-256:
+`ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`.
+Surfaced checkpoint `aw2.ss1` SHA-256:
+`ee3751cf9f910a10710652dbf9d9bdf52feada7d5db5e89b8c616cc67aa3d8cd`.
+Submerged checkpoint `aw2.ss6` SHA-256:
+`3a2698b25f93efa58acab80b4b148b55cf592cef8d7889243685ff309b1f15d7`.
+
+| Action | Restored → settled frame | Headless evidence JSON SHA-256 | Windowed evidence JSON SHA-256 |
+|--------|--------------------------|--------------------------------|--------------------------------|
+| Dive | 4575 → 4687 | `85cfeafc4c45bf8f2c05a321c22ef08d85424d4ca6afddb17252c3c9ceda7980` | `f1bfd9c67e1f01bdcdc0301f116ea00cda1c37e620ee47696e949f67ffcebc17` |
+| Rise | 5824 → 5936 | `4ac1f014585d07aa4d8e5ddf4f7180b88221c5357f7971ab4a47600c4c73dc99` | `1c826b5f2705be34eb8bc1a804c0181c5a41a2993b047e8dd8ee86c8a0c4ca57` |
+
+Both frontends used build identities `sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22`
+(headless) and `sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810`
+(windowed). Dive before/after screenshot hashes are
+`feba40bee11d018426757e341a5e73904b21f11d8017cbf2ba638b0dcad38f3e` /
+`0f1a869b244aece60d2c756f973ab14e5c2fc1545cf1236e9441d0796d381ce6`;
+Rise hashes are
+`bf8730d0baec97c6825581b297ac824ff89c2856f9387b419ce7bc0475a9ed51` /
+`ae2921c591f384e43925e58aba06b797008caf37d48f42d8a96338d50bd00b04`.
+Per-run screenshots and evidence JSON are outside Git at
+`/tmp/aw2-submarine-live-verified/`. The opt-in acceptance is
+`tests/test_submarine_live_acceptance.py`; run it with
+`AW2_RUN_SUBMARINE_LIVE_TESTS=1 pytest -s tests/test_submarine_live_acceptance.py`.

@@ -316,6 +316,20 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     canSupply &&
     !movement?.error &&
     available("supply");
+  const diveReady =
+    !!selectedUnit &&
+    selectedUnit.unit_type === 24 &&
+    !selectedUnit.submerged &&
+    !!movement &&
+    !movement.error &&
+    available("dive");
+  const riseReady =
+    !!selectedUnit &&
+    selectedUnit.unit_type === 24 &&
+    selectedUnit.submerged &&
+    !!movement &&
+    !movement.error &&
+    available("rise");
   const selectedTransportCargo =
     selectedUnit && [7, 20, 23].includes(selectedUnit.unit_type)
       ? selectedUnit.cargo_references.flatMap((reference) => {
@@ -637,6 +651,20 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
         unit_id: draft.unitId,
         path: draft.path.map(coordinate),
       };
+    else if (selectedUnit && kind === "dive" && diveReady)
+      action = {
+        contract_version: 1,
+        kind,
+        unit_id: draft.unitId,
+        path: draft.path.map(coordinate),
+      };
+    else if (selectedUnit && kind === "rise" && riseReady)
+      action = {
+        contract_version: 1,
+        kind,
+        unit_id: draft.unitId,
+        path: draft.path.map(coordinate),
+      };
     else if (
       selectedUnit &&
       movementReady &&
@@ -706,6 +734,8 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     joinReady,
     canSupply,
     supplyReady,
+    diveReady,
+    riseReady,
     loadAction,
     loadTransport: transportAtDestination,
     loadUnavailableReason,

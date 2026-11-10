@@ -11,7 +11,7 @@ from aw2_lab.rom_profile import AW2_US_REVISION_0, RomProfile, UnsupportedRomErr
 from aw2_lab.state_validation import BattleValidationReport
 from aw2_lab.ui_state import MapCursorObservation, MenuObservation
 
-GAME_STATE_SCHEMA_VERSION = 4
+GAME_STATE_SCHEMA_VERSION = 5
 
 
 class ValueStatus(StrEnum):
@@ -101,6 +101,7 @@ class UnitState:
     embarked: bool
     capture_points: int
     cargo_references: tuple[int, ...]
+    submerged: bool = False
 
 
 @dataclass(frozen=True, slots=True)

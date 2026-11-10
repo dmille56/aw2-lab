@@ -2570,6 +2570,14 @@ and full gameplay consequences of bits 6/7 remain unverified.
   selected unit and =0x080606A0= clears it. Menu check =0x0802CC90= restricts
   the set action to type =0x18= when bit 5 is clear. This does not by itself
   establish all visibility or combat rules for a submerged Sub.
+- The nine user-supplied checkpoints =aw2.ss1=..=aw2.ss9= (2026-11-10)
+  include surfaced and submerged ready turns and both action selectors. Direct
+  selector reads show the surfaced menu IDs =(0x0A, 0x0B)= for Wait/Dive and
+  the submerged menu IDs =(0x0A, 0x0C)= for Wait/Rise. Selection rows are 0
+  and 1 respectively, with the Sub status byte carrying temporary menu bits
+  (=0x06= surfaced, =0x26= submerged). This supplies the exact typed menu
+  mapping; it does not expand the separately verified rules for visibility or
+  combat while submerged.
 - Before a unit is removed, =sub_08025D60= calls =sub_0802A5C4=. If status
   bit 6 is set, that helper writes its one-based army number to IWRAM byte
   =0x030030F8=. If bit 7 is set, it writes that number only when no other active

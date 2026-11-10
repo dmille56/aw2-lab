@@ -416,7 +416,7 @@ export interface components {
             /**
              * Supported Game State Schema Versions
              * @default [
-             *       4
+             *       5
              *     ]
              */
             supported_game_state_schema_versions: number[];
@@ -892,6 +892,27 @@ export interface components {
              */
             request_id: string;
         };
+        /**
+         * DiveAction
+         * @description Move a surfaced Sub and Dive.
+         */
+        DiveAction: {
+            /**
+             * Contract Version
+             * @default 1
+             * @constant
+             */
+            contract_version: 1;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "dive";
+            /** Path */
+            path: components["schemas"]["Coordinate"][];
+            /** Unit Id */
+            unit_id: string;
+        };
         /** EndTurnAction */
         EndTurnAction: {
             /**
@@ -977,7 +998,7 @@ export interface components {
          */
         GameplayCommandRequest: {
             /** Action */
-            action: components["schemas"]["MoveWaitAction"] | components["schemas"]["MoveAttackAction"] | components["schemas"]["AttackAction"] | components["schemas"]["MoveCaptureAction"] | components["schemas"]["JoinAction"] | components["schemas"]["SupplyAction"] | components["schemas"]["LoadAction"] | components["schemas"]["UnloadAction"] | components["schemas"]["PurchaseAction"] | components["schemas"]["ActivateNormalPowerAction"] | components["schemas"]["ActivateSuperPowerAction"] | components["schemas"]["EndTurnAction"] | components["schemas"]["SurrenderAction"];
+            action: components["schemas"]["MoveWaitAction"] | components["schemas"]["MoveAttackAction"] | components["schemas"]["AttackAction"] | components["schemas"]["MoveCaptureAction"] | components["schemas"]["JoinAction"] | components["schemas"]["SupplyAction"] | components["schemas"]["DiveAction"] | components["schemas"]["RiseAction"] | components["schemas"]["LoadAction"] | components["schemas"]["UnloadAction"] | components["schemas"]["PurchaseAction"] | components["schemas"]["ActivateNormalPowerAction"] | components["schemas"]["ActivateSuperPowerAction"] | components["schemas"]["EndTurnAction"] | components["schemas"]["SurrenderAction"];
             /**
              * Contract Version
              * @default 1
@@ -1385,7 +1406,7 @@ export interface components {
          * @description Choices resolved from the verified general battle selectors.
          * @enum {string}
          */
-        MenuItem: "co" | "intel" | "power" | "super_power" | "options" | "save" | "end" | "status" | "unit" | "rules" | "delete" | "yield" | "music" | "visual_mode" | "exit_map" | "fire" | "capture" | "load" | "unload" | "wait" | "join" | "supply" | "other_unit_action" | "yes" | "no";
+        MenuItem: "co" | "intel" | "power" | "super_power" | "options" | "save" | "end" | "status" | "unit" | "rules" | "delete" | "yield" | "music" | "visual_mode" | "exit_map" | "fire" | "capture" | "load" | "unload" | "wait" | "join" | "supply" | "dive" | "rise" | "other_unit_action" | "yes" | "no";
         /**
          * MenuObservation
          * @description Recognized menu context and its current typed selection, when known.
@@ -1812,6 +1833,27 @@ export interface components {
             request_id: string;
         };
         /**
+         * RiseAction
+         * @description Move a submerged Sub and Rise.
+         */
+        RiseAction: {
+            /**
+             * Contract Version
+             * @default 1
+             * @constant
+             */
+            contract_version: 1;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "rise";
+            /** Path */
+            path: components["schemas"]["Coordinate"][];
+            /** Unit Id */
+            unit_id: string;
+        };
+        /**
          * RomProfile
          * @description A verified ROM identity and the versions used to interpret its memory.
          */
@@ -1866,6 +1908,11 @@ export interface components {
             army_slot: number;
             /** Record Address */
             record_address: number;
+            /**
+             * Submerged
+             * @default false
+             */
+            submerged: boolean;
             /** Unit Slot */
             unit_slot: number;
             /** Unit Type */
@@ -2050,6 +2097,11 @@ export interface components {
             internal_health: number;
             /** Reference */
             reference: number;
+            /**
+             * Submerged
+             * @default false
+             */
+            submerged: boolean;
             /** Unit Slot */
             unit_slot: number;
             /** Unit Type */

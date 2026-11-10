@@ -346,7 +346,7 @@ async def test_capabilities_are_public_and_match_access_requires_provisioning(
         ]
         assert document["supported_game_contract_versions"] == [1]
         assert document["supported_match_observation_schema_versions"] == [1]
-        assert document["supported_game_state_schema_versions"] == [4]
+        assert document["supported_game_state_schema_versions"] == [5]
         assert document["supported_control_modes"] == ["external"]
         assert document["http_sse"]["implemented"] is True
         assert document["http_sse"]["available"] is False

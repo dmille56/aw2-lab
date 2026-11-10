@@ -19,10 +19,10 @@ export function validateState(value: unknown): StateResponse {
   if (
     envelope.observation !== null &&
     (observation.schema_version !== 1 ||
-      record(observation.game_state).schema_version !== 4)
+      record(observation.game_state).schema_version !== 5)
   )
     throw new Error(
-      "Unsupported observation schema. Expected match schema 1 and game-state schema 4.",
+      "Unsupported observation schema. Expected match schema 1 and game-state schema 5.",
     );
   if (!validateSchema(value))
     throw new Error(

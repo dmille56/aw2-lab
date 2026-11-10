@@ -37,6 +37,7 @@ from aw2_lab.match_contract import (
     CommandResult,
     ContractModel,
     Coordinate,
+    DiveAction,
     EndTurnAction,
     ErrorCode,
     JoinAction,
@@ -47,6 +48,7 @@ from aw2_lab.match_contract import (
     PlayerSlot,
     PurchaseAction,
     Revision,
+    RiseAction,
     SupplyAction,
     SurrenderAction,
     UnloadAction,
@@ -394,6 +396,42 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
                 match_id,
                 expected_revision,
                 SupplyAction(unit_id=unit_id, path=path),
+                request_id=request_id,
+            )
+
+    @server.tool()
+    async def dive(
+        match_id: UUID,
+        expected_revision: Revision,
+        request_id: UUID,
+        unit_id: UnitID,
+        path: Path,
+        contract_version: int = 1,
+    ) -> CommandReceipt:
+        """Move a surfaced Sub, then Dive."""
+        async with client(Permission.PLAY, match_id) as sdk:
+            return await sdk.submit(
+                match_id,
+                expected_revision,
+                DiveAction(unit_id=unit_id, path=path),
+                request_id=request_id,
+            )
+
+    @server.tool()
+    async def rise(
+        match_id: UUID,
+        expected_revision: Revision,
+        request_id: UUID,
+        unit_id: UnitID,
+        path: Path,
+        contract_version: int = 1,
+    ) -> CommandReceipt:
+        """Move a submerged Sub, then Rise."""
+        async with client(Permission.PLAY, match_id) as sdk:
+            return await sdk.submit(
+                match_id,
+                expected_revision,
+                RiseAction(unit_id=unit_id, path=path),
                 request_id=request_id,
             )
 

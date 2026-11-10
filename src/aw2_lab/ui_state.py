@@ -133,6 +133,8 @@ class MenuItem(StrEnum):
     WAIT = "wait"
     JOIN = "join"
     SUPPLY = "supply"
+    DIVE = "dive"
+    RISE = "rise"
     OTHER_UNIT_ACTION = "other_unit_action"
     YES = "yes"
     NO = "no"
@@ -206,6 +208,7 @@ class SelectedUnitObservation:
     unit_type: int
     x: int
     y: int
+    submerged: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -592,8 +595,9 @@ def _observe_unit_action_choices(
         selected is None
         or len(ids) != count
         or (ids.count(0x0A) != 1 and ids not in ((5,), (8,), (9,)))
-        or any(item_id not in (0, 2, 3, 4, 5, 6, 7, 8, 9, 0x0A, 0x0B) for item_id in ids)
+        or any(item_id not in (0, 2, 3, 4, 5, 6, 7, 8, 9, 0x0A, 0x0B, 0x0C) for item_id in ids)
         or row >= count
+        or not _selected_sub_action_is_valid(ids, selected)
     ):
         return None
     if not _menu_rules_allow_dispatch(snapshot):
@@ -641,6 +645,10 @@ def _observe_unit_action_choices(
             if item_id == 6 and selected.unit_type in (7, 20, 23) and has_cargo
             else MenuItem.SUPPLY
             if item_id == 9 and _selected_unit_can_supply(snapshot, selected)
+            else MenuItem.DIVE
+            if item_id == 0x0B and selected.unit_type == 24 and not selected.submerged
+            else MenuItem.RISE
+            if item_id == 0x0C and selected.unit_type == 24 and selected.submerged
             else MenuItem.OTHER_UNIT_ACTION
             for item_id in ids
         )
@@ -653,6 +661,17 @@ def _observe_unit_action_choices(
         actionable=True,
         items=items,
     )
+
+
+def _selected_sub_action_is_valid(ids: tuple[int, ...], selected: SelectedUnitObservation) -> bool:
+    """Only expose the observed Sub action when its current mode agrees."""
+    if 0x0B in ids and 0x0C in ids:
+        return False
+    if 0x0B in ids:
+        return selected.unit_type == 24 and not selected.submerged
+    if 0x0C in ids:
+        return selected.unit_type == 24 and selected.submerged
+    return True
 
 
 def _selected_unit_can_join_at_cursor(
@@ -841,7 +860,15 @@ def _observe_selected_unit(snapshot: BattleMemorySnapshot) -> SelectedUnitObserv
     logical_unit = snapshot.read(MAP_BASE + 0x051A + row_offset + x, 1)[0]
     if logical_unit != relative // UNIT_STRIDE:
         return None
-    return SelectedUnitObservation(pointer, army_slot, unit_slot, record[0], x, y)
+    return SelectedUnitObservation(
+        pointer,
+        army_slot,
+        unit_slot,
+        record[0],
+        x,
+        y,
+        record[0] == 24 and bool(record[1] & 0x20),
+    )
 
 
 def _observe_command_menu(

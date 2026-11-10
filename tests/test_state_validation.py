@@ -353,6 +353,7 @@ def test_unit_movement_overlay_exposes_verified_source_cursor(memory) -> None:
         ((6, 0x0A), MenuItem.UNLOAD),
         ((9, 0x0A), MenuItem.SUPPLY),
         ((0x0A, 0x0B), MenuItem.WAIT),
+        ((0x0A, 0x0C), MenuItem.WAIT),
         ((0x0A,), MenuItem.WAIT),
     ],
 )
@@ -371,6 +372,9 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
     iwram[0x14A1 + offset : 0x14A1 + offset + len(action_ids)] = bytes(action_ids)
     iwram[0x30F0] = 1
     ewram[0x22690:0x2269C] = bytes((1, 6, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
+    if 0x0B in action_ids or 0x0C in action_ids:
+        ewram[0x22690] = 24
+        ewram[0x22691] = 0x26 if 0x0C in action_ids else 0x06
     iwram[0x3140:0x3142] = bytes((1, 1))
     ewram[0x1E450 + 0x51A + 3] = 1
     if 5 in action_ids:
@@ -400,10 +404,20 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
         if item_id == 6
         else MenuItem.SUPPLY
         if item_id == 9
+        else MenuItem.DIVE
+        if item_id == 0x0B
+        else MenuItem.RISE
+        if item_id == 0x0C
         else MenuItem.OTHER_UNIT_ACTION
         for item_id in action_ids
     )
     assert menu.selected_item is selected_item
+    if 0x0B in action_ids or 0x0C in action_ids:
+        iwram[0x14B2 + offset] = 1
+        current = snapshot(memory)
+        sub_menu = observe_menu(current, validate_battle_snapshot(current))
+        assert sub_menu.selected_item is (MenuItem.DIVE if 0x0B in action_ids else MenuItem.RISE)
+        iwram[0x14B2 + offset] = 0
 
     # Stale rows in an inactive slot must not create another action menu.
     inactive = ((selector_slot + 1) % 3) * 0x60

@@ -12,6 +12,8 @@ const labels: Record<ActionKind, string> = {
   move_capture: "Capture",
   join: "Join units",
   supply: "Supply",
+  dive: "Dive",
+  rise: "Rise",
   load: "Load",
   unload: "Unload",
   purchase: "Purchase unit",
@@ -369,6 +371,24 @@ export function CommandPanel({
                 >
                   Supply adjacent allied units
                 </button>
+                {model.selectedUnit?.unit_type === 24 && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={!editable || !model.diveReady}
+                      onClick={() => choose("dive")}
+                    >
+                      Dive submarine
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!editable || !model.riseReady}
+                      onClick={() => choose("rise")}
+                    >
+                      Rise submarine
+                    </button>
+                  </>
+                )}
                 {model.loadTransport && (
                   <button
                     type="button"

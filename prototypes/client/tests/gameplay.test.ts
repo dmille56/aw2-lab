@@ -323,6 +323,59 @@ it("builds Super Power independently of a selected unit", () => {
   unmount();
 });
 
+it.each([
+  ["dive", false],
+  ["rise", true],
+] as const)(
+  "builds %s only for a Sub in the matching mode",
+  (kind, submerged) => {
+    const state = structuredClone(stateFixture) as StateResponse;
+    if (!state.observation) throw new Error("fixture has no observation");
+    const battle = state.observation.game_state.battle;
+    if (battle.status !== "available" || !battle.value)
+      throw new Error("fixture is not playable");
+    battle.value.units[0] = {
+      ...battle.value.units[0],
+      unit_type: 24,
+      fuel: 60,
+      submerged,
+    };
+    const capabilities = validateCapabilitiesResponse(capabilityFixture);
+    capabilities.actions = [kind].map((name) => ({
+      contract_version: 1 as const,
+      name,
+      implemented: true,
+      available: true,
+      verification: "synthetic",
+      unavailable_reason: null,
+    }));
+    const view: ViewState = {
+      ...new MatchSession().getSnapshot(),
+      snapshot: validateState(state),
+      connected: true,
+      ready: true,
+      identity: {
+        contract_version: 1,
+        match_id: state.summary.match_id,
+        role: "player",
+        player_slot: "slot_1",
+      },
+      capabilities,
+    };
+    const { result, unmount } = renderHook(() => useGameplay(view, vi.fn()));
+    act(() => result.current.selectUnit("1"));
+    act(() => result.current.dispatch({ type: "plan" }));
+    act(() => result.current.dispatch({ type: "choose", kind }));
+    expect(result.current.action).toEqual({
+      contract_version: 1,
+      kind,
+      unit_id: "1",
+      path: [],
+    });
+    unmount();
+  },
+);
+
 it("offers Load only on a compatible friendly carrier tile and builds its payload", () => {
   const capabilities = validateCapabilitiesResponse(capabilityFixture);
   capabilities.actions = ["load"].map((name) => ({

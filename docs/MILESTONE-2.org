@@ -569,7 +569,7 @@ frame-coherent envelope around the currently verified Milestone 2 observations:
 
 | Field | Contract |
 |-------+----------|
-| =schema_version= | Integer schema version; v4 is required and other versions are rejected. |
+| =schema_version= | Integer schema version; v5 is required and other versions are rejected. |
 | =frame= | Unsigned 32-bit emulator frame shared by validation and UI observations. Construction rejects cross-frame components. |
 | =context.rom_profile= | Verified =RomProfile= including profile name, SHA-256, memory-layout version, and decoder version. Unsupported profiles are rejected. |
 | =validation= | Lifecycle classification plus geometry/property/player/unit validation statuses, counts, and reasons. =VALID=, =UNKNOWN=, and =INVALID= remain distinct. |

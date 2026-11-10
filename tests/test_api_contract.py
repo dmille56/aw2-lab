@@ -407,6 +407,26 @@ def test_supply_action_is_bounded_and_advertised_as_apc_resupply() -> None:
     assert "resupply" not in Capabilities().unsupported_features
 
 
+@pytest.mark.parametrize(
+    ("kind", "expected_feature"),
+    [("dive", "diving_and_surfacing"), ("rise", "diving_and_surfacing")],
+)
+def test_submarine_mode_actions_are_bounded_and_advertised(
+    kind: str, expected_feature: str
+) -> None:
+    request = GameplayCommandRequest.model_validate(
+        {
+            "request_id": uuid4(),
+            "expected_revision": 0,
+            "action": {"kind": kind, "unit_id": "sub-1", "path": []},
+        }
+    )
+    assert request.action.kind == kind
+    assert kind in Capabilities().supported_actions
+    assert expected_feature in Capabilities().supported_features
+    assert expected_feature not in Capabilities().unsupported_features
+
+
 def test_close_has_no_expected_revision() -> None:
     assert CloseMatchRequest(request_id=uuid4())
     with pytest.raises(ValidationError):
@@ -504,7 +524,7 @@ def test_capabilities_do_not_claim_runtime_actions_by_default() -> None:
     assert caps.actions == ()
     assert caps.supported_game_contract_versions == (1,)
     assert caps.supported_match_observation_schema_versions == (1,)
-    assert caps.supported_game_state_schema_versions == (4,)
+    assert caps.supported_game_state_schema_versions == (5,)
     assert not caps.mcp_resources.implemented
     assert not caps.mcp_resources.available
     assert not caps.mcp_subscriptions.available

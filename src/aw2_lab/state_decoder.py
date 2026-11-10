@@ -179,6 +179,7 @@ def _decode_battle(snapshot: BattleMemorySnapshot) -> BattleState:
                     embarked=bool(record[1] & 8),
                     capture_points=record[5] >> 3,
                     cargo_references=tuple(ref for ref in record[7:9] if ref),
+                    submerged=record[0] == 24 and bool(record[1] & 0x20),
                 )
             )
 

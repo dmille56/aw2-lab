@@ -105,6 +105,8 @@ class Capabilities(ContractModel):
         "move_capture",
         "join",
         "supply",
+        "dive",
+        "rise",
         "load",
         "unload",
         "purchase",
@@ -124,6 +126,7 @@ class Capabilities(ContractModel):
         "transport_loading_and_unloading",
         "unit_joining",
         "apc_resupply",
+        "diving_and_surfacing",
     )
     unsupported_features: tuple[str, ...] = (
         "multiple_active_matches",
@@ -132,7 +135,6 @@ class Capabilities(ContractModel):
         "campaign_or_multiplayer_modes_other_than_versus",
         "competitive_player_visibility_isolation",
         "arbitrary_memory_writes_as_gameplay",
-        "diving_and_surfacing",
         "missile_silo_use",
     )
 
@@ -181,6 +183,22 @@ class SupplyAction(ContractModel):
     """Move an APC and supply every adjacent allied unit."""
 
     kind: Literal["supply"] = "supply"
+    unit_id: str = Field(min_length=1)
+    path: tuple[Coordinate, ...] = Field(max_length=4096)
+
+
+class DiveAction(ContractModel):
+    """Move a surfaced Sub and Dive."""
+
+    kind: Literal["dive"] = "dive"
+    unit_id: str = Field(min_length=1)
+    path: tuple[Coordinate, ...] = Field(max_length=4096)
+
+
+class RiseAction(ContractModel):
+    """Move a submerged Sub and Rise."""
+
+    kind: Literal["rise"] = "rise"
     unit_id: str = Field(min_length=1)
     path: tuple[Coordinate, ...] = Field(max_length=4096)
 
@@ -237,6 +255,8 @@ GameplayAction = Annotated[
     | MoveCaptureAction
     | JoinAction
     | SupplyAction
+    | DiveAction
+    | RiseAction
     | LoadAction
     | UnloadAction
     | PurchaseAction

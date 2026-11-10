@@ -51,23 +51,27 @@ export function UnitInspector({
   const identity = snapshot.observation?.unit_identities.find(
     (id) => id.reference === unit.reference,
   );
+  const entries: [string, ReactNode][] = [
+    ["Health (internal)", `${unit.internal_health}/100`],
+    ["Turn status", unit.used_this_turn ? "Used" : "Ready"],
+    ["Fuel", `${unit.fuel}${profile ? `/${profile.fuel_capacity}` : ""}`],
+    ["Ammo", `${unit.ammo}${profile ? `/${profile.ammo_capacity}` : ""}`],
+    ["Capture points (observed)", unit.capture_points],
+    ["Embarked", unit.embarked ? "Yes" : "No"],
+    ["Unit identity", identity?.identity_id ?? "Unavailable"],
+    ["Cargo references", unit.cargo_references.join(", ") || "None"],
+  ];
+  if (unit.unit_type === 24)
+    entries.splice(2, 0, [
+      "Submarine mode",
+      unit.submerged ? "Submerged" : "Surfaced",
+    ]);
   return (
     <>
       <h3>
         {unitName(unit)} · {owner(unit.army_slot)}
       </h3>
-      <Details
-        entries={[
-          ["Health (internal)", `${unit.internal_health}/100`],
-          ["Turn status", unit.used_this_turn ? "Used" : "Ready"],
-          ["Fuel", `${unit.fuel}${profile ? `/${profile.fuel_capacity}` : ""}`],
-          ["Ammo", `${unit.ammo}${profile ? `/${profile.ammo_capacity}` : ""}`],
-          ["Capture points (observed)", unit.capture_points],
-          ["Embarked", unit.embarked ? "Yes" : "No"],
-          ["Unit identity", identity?.identity_id ?? "Unavailable"],
-          ["Cargo references", unit.cargo_references.join(", ") || "None"],
-        ]}
-      />
+      <Details entries={entries} />
       {profile && (
         <>
           <h3>Baseline rule information</h3>

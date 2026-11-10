@@ -636,6 +636,45 @@ class ActionNavigator:
                 poll_frames=self.limits.resolution_poll_frames,
             )
 
+    async def choose_dive(self) -> GameState:
+        """Choose the verified Dive row on a surfaced Sub."""
+        return await self._choose_sub_action(MenuItem.DIVE)
+
+    async def choose_rise(self) -> GameState:
+        """Choose the verified Rise row on a submerged Sub."""
+        return await self._choose_sub_action(MenuItem.RISE)
+
+    async def _choose_sub_action(self, item: MenuItem) -> GameState:
+        async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
+            self._begin(item.value)
+            state = await self._observe()
+            menu = state.ui.menu
+            expected_submerged = item is MenuItem.RISE
+            if (
+                menu.family is not MenuFamily.UNIT_ACTION_CHOICES
+                or menu.selected_item is None
+                or item not in menu.items
+                or menu.selected_unit is None
+                or menu.selected_unit.unit_type != 24
+                or menu.selected_unit.submerged != expected_submerged
+                or not menu.actionable
+            ):
+                raise await self._fail(
+                    f"{item.value.title()} requires the matching Sub action selector", state
+                )
+            state = await self._navigate_unit_action(item, state)
+            await self._tap(f"confirm-{item.value}", _KEY_A)
+            return await self._wait_for(
+                lambda value: (
+                    value.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN
+                    and value.ui.menu.family is MenuFamily.MAP_INPUT
+                    and value.battle.status is ValueStatus.AVAILABLE
+                ),
+                description=f"the settled player turn after {item.value.title()}",
+                frame_budget=self.limits.resolution_frame_budget,
+                poll_frames=self.limits.resolution_poll_frames,
+            )
+
     async def choose_load(self) -> GameState:
         """Choose Load and wait for the settled boundary after boarding."""
         async with self._bounded_operation():

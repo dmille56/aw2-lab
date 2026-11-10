@@ -57,7 +57,7 @@
     "match_id": "00000000-0000-4000-8000-000000000001",
     "revision": 1,
     "game_state": {
-      "schema_version": 4,
+      "schema_version": 5,
       "frame": 123,
       "context": {
         "rom_profile": {
@@ -235,7 +235,8 @@
               "used_this_turn": false,
               "embarked": false,
               "capture_points": 0,
-              "cargo_references": []
+              "cargo_references": [],
+              "submerged": false
             },
             {
               "reference": 65,
@@ -250,7 +251,8 @@
               "used_this_turn": false,
               "embarked": false,
               "capture_points": 0,
-              "cargo_references": []
+              "cargo_references": [],
+              "submerged": false
             }
           ],
           "co_effects_enabled": {

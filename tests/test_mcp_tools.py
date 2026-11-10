@@ -104,6 +104,8 @@ def payload(response):
         ("move_capture", "MoveCaptureActionExecutor", {"unit_id": "1", "path": []}),
         ("join", "JoinActionExecutor", {"unit_id": "1", "path": [{"x": 1, "y": 0}]}),
         ("supply", "SupplyActionExecutor", {"unit_id": "1", "path": []}),
+        ("dive", "DiveActionExecutor", {"unit_id": "1", "path": []}),
+        ("rise", "RiseActionExecutor", {"unit_id": "1", "path": []}),
         (
             "unload",
             "UnloadActionExecutor",

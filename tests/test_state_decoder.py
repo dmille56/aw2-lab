@@ -45,10 +45,11 @@ def test_live_decoder_preserves_packed_fields_ownership_and_json_contract(memory
     assert battle.players[0].power_use_counter == ObservedValue(ValueStatus.AVAILABLE, 10)
     tank, infantry, blue = battle.units
     assert (tank.internal_health, tank.ammo, tank.fuel, tank.used_this_turn) == (37, 9, 45, True)
+    assert not tank.submerged
     assert (infantry.internal_health, infantry.ammo, infantry.capture_points) == (65, 0, 10)
     assert (blue.reference, blue.army_slot, blue.unit_slot) == (65, 2, 1)
     encoded = json.loads(json.dumps(state.to_dict()))
-    assert encoded["schema_version"] == 4
+    assert encoded["schema_version"] == 5
     assert encoded["frame"] == state.validation.frame == state.ui.frame
     assert encoded["context"]["rom_profile"]["sha256"] == memory[0].profile.sha256
     assert encoded["battle"]["value"]["weather"] == {
@@ -61,6 +62,20 @@ def test_live_decoder_preserves_packed_fields_ownership_and_json_contract(memory
         "value": 32400,
         "reasons": [],
     }
+
+
+def test_submerged_sub_status_is_exposed(memory) -> None:
+    raw = memory[1]
+    raw[0x22690] = 24
+    raw[0x22691] = 0x21
+
+    state = decode_snapshot(snapshot(memory))
+
+    assert state.battle.value is not None
+    sub = state.battle.value.units[0]
+    assert sub.unit_type == 24
+    assert sub.used_this_turn
+    assert sub.submerged
 
 
 @pytest.mark.parametrize(

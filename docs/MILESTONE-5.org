@@ -23,7 +23,7 @@ configuration features that remain unimplemented.
 | CO power/super power | Implemented and verified | [[file:LIVE-SDK-ACCEPTANCE.md::#milestone-5-super-power-action-2026-11-09][Separate actions, guarded cost checks, both live frontends]] |
 | Joining units | Implemented and verified | [[file:LIVE-SDK-ACCEPTANCE.md::#milestone-5-join-action-2026-11-10][Natural Join row, both live frontends, merge survivor verified]] |
 | Resupplying | Implemented and verified | [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 APC Supply action (2026-11-10)][APC Supply and automatic allied-property upkeep; headless and windowed mGBA]] |
-| Diving/surfacing | Open | No dive/surface action/executor |
+| Diving/surfacing | Implemented and verified | Sub action selector: Dive row =0x0B=, Rise row =0x0C=; guarded typed actions and headless/windowed acceptance in [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 Sub Dive and Rise (2026-11-10)][the live acceptance log]] |
 | Missile silos | Open | No silo action/executor |
 | Map/CO/rules/weather selection | Open | Fixed match profile; explicitly unsupported |
 | Two to four players/teams | Open | Two fixed external player slots |
@@ -86,7 +86,12 @@ actions must remain distinguishable at the public boundary.
    - [X] Verify the APC action and full fuel/ammo refill for every allied adjacent unit after Supply.
    - [X] Keep allied-property recovery automatic at turn start; do not expose it as a player command.
    - [X] Capture and replay a live APC Supply sequence in headless and windowed mGBA; record evidence and limits.
-** TODO Implement diving and surfacing
+** DONE Implement diving and surfacing
+   - [X] Decode the documented Sub status bit 5 and expose submerged state in the versioned observation.
+   - [X] Capture natural surfaced and submerged Sub selectors; Dive is row =0x0B= and Rise is row =0x0C= alongside Wait =0x0A=.
+   - [X] Add guarded typed Dive/Rise actions and verify surfaced/submerged preconditions, active turn, unit usage, identity, and settled state transitions.
+   - [X] Route through HTTP, SDK, MCP, and the human client; update supported actions/features.
+   - [X] Verify both transitions in headless and windowed mGBA from the supplied natural checkpoints; record acceptance evidence.
 ** TODO Implement missile silo use
 ** TODO Add map and CO selection and configurable match rules/weather
 ** TODO Expand match setup and authorization to two through four players and teams
