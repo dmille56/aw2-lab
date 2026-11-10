@@ -193,6 +193,48 @@ headless midgame/restore/resume and 6640 for windowed. Public state equality
 and lifetime identities were checked within each restore/restart sequence;
 these independent cold boots do not establish identical native-state parity.
 
+## Milestone 5 Super Power action (2026-11-09)
+
+The opt-in `tests/test_super_power_live_acceptance.py` replays the supplied
+ready Andy checkpoint through the production `ActivateSuperPowerActionExecutor`
+and the real mGBA bridge in both frontends. It validates the settled source
+boundary before input, performs the distinct Super menu action, and waits for
+the active-power flag, meter result, use counter, map-input UI, and settled
+player-turn boundary together. This acceptance calls the executor directly;
+HTTP/SDK/MCP routing and the human-client control are covered by ROM-independent
+contract/client tests.
+
+Reproduction:
+
+```sh
+AW2_RUN_SUPER_POWER_LIVE_TESTS=1 \
+AW2_ROM_PATH=/absolute/path/to/aw2.gba \
+AW2_SUPER_POWER_STATE_PATH=/absolute/path/to/aw2.ss1 \
+  nix develop -c pytest -s tests/test_super_power_live_acceptance.py \
+  --basetemp=/tmp/aw2-super-power-live
+```
+
+Supported ROM SHA-256:
+`ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`.
+Source checkpoint SHA-256:
+`19eec5b8576e77ea1ec38ec071413383f8226a1e9747419b880c46427e33a0a1`.
+Both frontends restored frame 12924 with Andy/CO ID 1, Super readiness 2,
+meter 54,000, use counter 0, active-power byte 0, and no RAM edits. The current
+counter's readiness threshold is 54,000; after the game's counter increment,
+the debit threshold becomes 64,800. The game clamps the 54,000 available meter
+to zero. Both frontends settled at frame 13699 with meter 0, counter 1, and
+active-power byte 2.
+
+| Frontend | mGBA build identity | Evidence JSON SHA-256 |
+|----------|---------------------|-----------------------|
+| Headless | `sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22` | `d2a5f5276b9a3709ace319db868597d2a9d8aeedefdbdf12ede8b09d4114a8a5` |
+| Windowed | `sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810` | `9d7f63477c40b658ab49c3c0ef3e4a36459dafec02ec9e5a60d1a6fdf94d3327` |
+
+Private evidence and screenshots are under
+`/tmp/aw2-super-power-live-verified/`. This verifies Andy's Super activation
+from the researched checkpoint; it does not generalize all CO costs/effects,
+duration/reset behavior, or the intermediate presentation classifier.
+
 ## Milestone 5 stationary attack action (2026-11-09)
 
 The distinct pathless `attack` action passed live headless execution against

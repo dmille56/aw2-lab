@@ -32,27 +32,57 @@ _VERIFIED_MAX_USE_COUNTER = 9
 _COST_FUNCTION = Callable[[tuple[int, ...], int, int], int]
 
 
-def _power_cost(stars_by_co: tuple[int, ...], co_id: int, use_counter: int, label: str) -> int:
-    """Return a researched CO Power threshold in raw meter units."""
+def _validated_stars(stars_by_co: tuple[int, ...], co_id: int, label: str) -> int:
     if len(stars_by_co) != 19 or not 1 <= co_id <= 18:
         raise ValueError("CO power-star metadata is unavailable")
-    if not 0 <= use_counter <= _VERIFIED_MAX_USE_COUNTER:
-        raise ValueError("Power-use counter is outside the verified cost range")
     stars = stars_by_co[co_id]
     if not 1 <= stars <= 10:
         raise ValueError(f"CO {label} star count is unrecognized")
+    return stars
+
+
+def _power_cost(stars_by_co: tuple[int, ...], co_id: int, use_counter: int, label: str) -> int:
+    """Return the meter debit, calculated after the game's counter increment."""
+    if not 0 <= use_counter <= _VERIFIED_MAX_USE_COUNTER:
+        raise ValueError("Power-use counter is outside the verified cost range")
+    stars = _validated_stars(stars_by_co, co_id, label)
     next_counter = use_counter + 1
-    return stars * (9000 * (100 + 20 * next_counter) // 100)
+    units_per_star = 18_000 if next_counter >= 10 else 9000 * (100 + 20 * next_counter) // 100
+    return stars * units_per_star
 
 
 def normal_power_cost(co_power_stars: tuple[int, ...], co_id: int, use_counter: int) -> int:
-    """Return this CO's next normal Power threshold in raw meter units."""
+    """Return this CO's normal Power debit after the use counter increments."""
     return _power_cost(co_power_stars, co_id, use_counter, "normal Power")
 
 
 def super_power_cost(co_super_power_stars: tuple[int, ...], co_id: int, use_counter: int) -> int:
-    """Return this CO's next Super Power threshold in raw meter units."""
+    """Return this CO's Super Power debit after the use counter increments."""
     return _power_cost(co_super_power_stars, co_id, use_counter, "Super Power")
+
+
+def _power_activation_threshold(
+    stars_by_co: tuple[int, ...], co_id: int, use_counter: int, label: str
+) -> int:
+    """Return the meter needed before activation, before the counter increments."""
+    if not 0 <= use_counter <= _VERIFIED_MAX_USE_COUNTER:
+        raise ValueError("Power-use counter is outside the verified readiness range")
+    stars = _validated_stars(stars_by_co, co_id, label)
+    return stars * (9000 * (100 + 20 * use_counter) // 100)
+
+
+def normal_power_activation_threshold(
+    co_power_stars: tuple[int, ...], co_id: int, use_counter: int
+) -> int:
+    """Return the current normal Power readiness threshold in raw meter units."""
+    return _power_activation_threshold(co_power_stars, co_id, use_counter, "normal Power")
+
+
+def super_power_activation_threshold(
+    co_super_power_stars: tuple[int, ...], co_id: int, use_counter: int
+) -> int:
+    """Return the current Super Power readiness threshold in raw meter units."""
+    return _power_activation_threshold(co_super_power_stars, co_id, use_counter, "Super Power")
 
 
 @dataclass(slots=True)
@@ -70,6 +100,7 @@ class _ActivatePowerActionExecutor:
     star_attribute: ClassVar[str]
     power_label: ClassVar[str]
     cost_function: ClassVar[_COST_FUNCTION]
+    threshold_function: ClassVar[_COST_FUNCTION]
 
     async def execute(
         self, request: CommandRequest, observation: MatchObservation
@@ -128,6 +159,12 @@ class _ActivatePowerActionExecutor:
                 "The active player's Power meter or use counter is unknown",
             )
 
+        current_meter = player.power_meter.value
+        if current_meter is None:
+            raise CommandRejected(
+                ErrorCode.OBSERVATION_UNAVAILABLE,
+                "The active player's Power meter is unknown",
+            )
         current_counter = player.power_use_counter.value
         if current_counter > _VERIFIED_MAX_USE_COUNTER:
             raise CommandRejected(
@@ -156,7 +193,16 @@ class _ActivatePowerActionExecutor:
                 f"The active CO's {self.power_label} cost is not recognized",
             ) from None
         next_counter = current_counter + 1
-        if player.power_meter.value < meter_cost:
+        try:
+            activation_threshold = type(self).threshold_function(
+                stars_by_co, player.co_id, current_counter
+            )
+        except ValueError:
+            raise CommandRejected(
+                ErrorCode.OBSERVATION_UNAVAILABLE,
+                f"The active CO's {self.power_label} readiness threshold is not recognized",
+            ) from None
+        if current_meter < activation_threshold:
             raise CommandRejected(ErrorCode.INVALID_REQUEST, "Insufficient CO Power meter")
 
         # Verify the exact separate command row before confirming it.
@@ -178,17 +224,31 @@ class _ActivatePowerActionExecutor:
         ):
             raise RuntimeError(f"{self.power_label} was not selected in the command menu")
 
-        def settled(value: GameState) -> bool:
+        def activated(value: GameState) -> bool:
+            if (
+                value.lifecycle.phase is not LifecyclePhase.BATTLE_PLAYER_TURN
+                or value.ui.menu.family is not MenuFamily.MAP_INPUT
+                or value.battle.status is not ValueStatus.AVAILABLE
+                or value.battle.value is None
+                or value.battle.value.active_player_slot != expected_player
+            ):
+                return False
+            activated_player = next(
+                (item for item in value.battle.value.players if item.slot == expected_player),
+                None,
+            )
             return (
-                value.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN
-                and value.ui.menu.family is MenuFamily.MAP_INPUT
-                and value.battle.status is ValueStatus.AVAILABLE
-                and value.battle.value is not None
-                and value.battle.value.active_player_slot == expected_player
+                activated_player is not None
+                and activated_player.co_id == player.co_id
+                and activated_player.active_power == self.active_power_kind
+                and activated_player.power_meter.status is ValueStatus.AVAILABLE
+                and activated_player.power_meter.value == max(0, current_meter - meter_cost)
+                and activated_player.power_use_counter.status is ValueStatus.AVAILABLE
+                and activated_player.power_use_counter.value == next_counter
             )
 
         final_state = await self.navigator.confirm(
-            settled,
+            activated,
             label=self.power_label.lower().replace(" ", "-"),
             frame_budget=self.navigator.limits.resolution_frame_budget,
             poll_frames=self.navigator.limits.resolution_poll_frames,
@@ -210,12 +270,20 @@ class _ActivatePowerActionExecutor:
             or final_player.co_id != player.co_id
             or final_player.active_power != self.active_power_kind
             or final_player.power_meter.status is not ValueStatus.AVAILABLE
-            or final_player.power_meter.value != player.power_meter.value - meter_cost
+            or final_player.power_meter.value != max(0, current_meter - meter_cost)
             or final_player.power_use_counter.status is not ValueStatus.AVAILABLE
             or final_player.power_use_counter.value != next_counter
         ):
             raise RuntimeError(
-                f"{self.power_label} did not reach its verified settled postcondition"
+                f"{self.power_label} did not reach its verified settled postcondition "
+                f"(phase={final_state.lifecycle.phase.value}, "
+                f"menu={final_state.ui.menu.family.value}, "
+                f"cursor={final_state.ui.map_cursor.status.value}, "
+                f"active={getattr(final_player, 'active_power', None)}, "
+                f"meter={getattr(getattr(final_player, 'power_meter', None), 'value', None)}, "
+                f"expected_meter={max(0, current_meter - meter_cost)}, "
+                f"uses={getattr(getattr(final_player, 'power_use_counter', None), 'value', None)}, "
+                f"expected_uses={next_counter})"
             )
 
         committed = self.tracker.commit_boundary(final_state)
@@ -232,6 +300,7 @@ class ActivateNormalPowerActionExecutor(_ActivatePowerActionExecutor):
     star_attribute: ClassVar[str] = "co_power_stars"
     power_label: ClassVar[str] = "Normal Power"
     cost_function: ClassVar[_COST_FUNCTION] = normal_power_cost
+    threshold_function: ClassVar[_COST_FUNCTION] = normal_power_activation_threshold
 
 
 @dataclass(slots=True)
@@ -244,3 +313,4 @@ class ActivateSuperPowerActionExecutor(_ActivatePowerActionExecutor):
     star_attribute: ClassVar[str] = "co_super_power_stars"
     power_label: ClassVar[str] = "Super Power"
     cost_function: ClassVar[_COST_FUNCTION] = super_power_cost
+    threshold_function: ClassVar[_COST_FUNCTION] = super_power_activation_threshold

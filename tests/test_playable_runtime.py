@@ -414,7 +414,7 @@ async def test_super_power_executor_uses_super_stars_and_verifies_activation(
 ):
     _, ewram, iwram = memory
     player_offset = 0x23284 + 0x3C
-    ewram[player_offset + 0x20 : player_offset + 0x24] = (64800).to_bytes(4, "little")
+    ewram[player_offset + 0x20 : player_offset + 0x24] = (54000).to_bytes(4, "little")
     iwram[0x3FC8] = 1
     install_power_cost_layout(monkeypatch, memory)
     runtime, public, match_id, operator, bridge = await setup(memory, tmp_path)
@@ -494,7 +494,7 @@ async def test_super_power_executor_uses_super_stars_and_verifies_activation(
 @pytest.mark.parametrize(
     ("case", "meter", "active_power", "co_effects", "player_token", "stale", "expected"),
     [
-        ("insufficient_meter", 32399, 0, 1, "p", False, ErrorCode.INVALID_REQUEST),
+        ("insufficient_meter", 26999, 0, 1, "p", False, ErrorCode.INVALID_REQUEST),
         ("already_active", 54000, 1, 1, "p", False, ErrorCode.INVALID_REQUEST),
         ("wrong_turn", 54000, 0, 1, "q", False, ErrorCode.NOT_YOUR_TURN),
         ("stale_revision", 54000, 0, 1, "p", True, ErrorCode.STALE_REVISION),
@@ -574,8 +574,18 @@ async def test_normal_power_preflight_rejections_do_not_navigate(
 @pytest.mark.parametrize(
     ("case", "meter", "active_power", "co_effects", "player_token", "stale", "expected"),
     [
-        ("insufficient_meter", 64799, 0, 1, "p", False, ErrorCode.INVALID_REQUEST),
+        ("insufficient_meter", 53999, 0, 1, "p", False, ErrorCode.INVALID_REQUEST),
+        ("normal_power_active", 64800, 1, 1, "p", False, ErrorCode.INVALID_REQUEST),
         ("already_active", 64800, 2, 1, "p", False, ErrorCode.INVALID_REQUEST),
+        (
+            "unknown_activation_state",
+            64800,
+            3,
+            1,
+            "p",
+            False,
+            ErrorCode.OBSERVATION_UNAVAILABLE,
+        ),
         ("wrong_turn", 64800, 0, 1, "q", False, ErrorCode.NOT_YOUR_TURN),
         ("stale_revision", 64800, 0, 1, "p", True, ErrorCode.STALE_REVISION),
         (
@@ -590,6 +600,15 @@ async def test_normal_power_preflight_rejections_do_not_navigate(
         (
             "unknown_meter",
             -1,
+            0,
+            1,
+            "p",
+            False,
+            ErrorCode.OBSERVATION_UNAVAILABLE,
+        ),
+        (
+            "unknown_super_metadata",
+            54000,
             0,
             1,
             "p",
@@ -615,6 +634,15 @@ async def test_super_power_preflight_rejections_do_not_navigate(
         memory, meter=meter, active_power=active_power, co_effects=co_effects
     )
     install_power_cost_layout(monkeypatch, memory)
+    if case == "unknown_super_metadata":
+        from aw2_lab import power_executor
+
+        layout = power_executor.load_battle_layout(Path("unused"))
+        monkeypatch.setattr(
+            power_executor,
+            "load_battle_layout",
+            lambda _path: replace(layout, co_super_power_stars=()),
+        )
     runtime, public, match_id, operator, _bridge = await setup(memory, tmp_path)
 
     async def unexpected_navigation(*_args, **_kwargs):
@@ -644,9 +672,11 @@ async def test_super_power_preflight_rejections_do_not_navigate(
         assert result.status is CommandStatus.REJECTED
         assert result.error is not None
         assert result.error.code is expected
-        assert (
-            runtime.checkpoints.session.tracker.read().revision == start_result.resulting_revision
-        )
+        if case != "unknown_activation_state":
+            assert (
+                runtime.checkpoints.session.tracker.read().revision
+                == start_result.resulting_revision
+            )
     finally:
         await runtime.controller.stop()
 
@@ -699,9 +729,16 @@ async def test_normal_power_rejects_when_menu_does_not_offer_unused_power(
         await runtime.controller.stop()
 
 
+@pytest.mark.parametrize(
+    ("action", "menu_item", "label"),
+    [
+        (ActivateNormalPowerAction(), MenuItem.POWER, "normal Power"),
+        (ActivateSuperPowerAction(), MenuItem.SUPER_POWER, "Super Power"),
+    ],
+)
 @run_async_test
-async def test_normal_power_navigation_timeout_rolls_back_to_committed_boundary(
-    memory, tmp_path, monkeypatch
+async def test_power_navigation_timeout_rolls_back_to_committed_boundary(
+    memory, tmp_path, monkeypatch, action, menu_item, label
 ):
     prepare_normal_power_memory(memory)
     install_power_cost_layout(monkeypatch, memory)
@@ -720,7 +757,7 @@ async def test_normal_power_navigation_timeout_rolls_back_to_committed_boundary(
             family=MenuFamily.COMMAND,
             selected_item=MenuItem.CO,
             actionable=True,
-            items=(MenuItem.CO, MenuItem.POWER, MenuItem.END),
+            items=(MenuItem.CO, MenuItem.POWER, MenuItem.SUPER_POWER, MenuItem.END),
         )
         return replace(state, ui=replace(state.ui, menu=menu))
 
@@ -728,18 +765,17 @@ async def test_normal_power_navigation_timeout_rolls_back_to_committed_boundary(
         return await command_menu()
 
     async def select_power(_navigator, item):
-        assert item is MenuItem.POWER
+        assert item is menu_item
         state = await command_menu()
-        menu = replace(state.ui.menu, selected_item=MenuItem.POWER)
+        menu = replace(state.ui.menu, selected_item=menu_item)
         return replace(state, ui=replace(state.ui, menu=menu))
 
     async def time_out(navigator, _postcondition, **_kwargs):
-        navigator._begin("confirm-normal-power")
-        navigator.inputs.append(
-            InputEvent("confirm-normal-power", 1, 1, bridge.frame, bridge.frame + 1)
-        )
+        operation = f"confirm-{label.lower().replace(' ', '-')}"
+        navigator._begin(operation)
+        navigator.inputs.append(InputEvent(operation, 1, 1, bridge.frame, bridge.frame + 1))
         raise await navigator._fail(
-            "Timed out waiting for normal Power to settle", await runtime._observe()
+            f"Timed out waiting for {label} to settle", await runtime._observe()
         )
 
     monkeypatch.setattr(ActionNavigator, "open_command_menu", open_menu)
@@ -755,7 +791,7 @@ async def test_normal_power_navigation_timeout_rolls_back_to_committed_boundary(
             GameplayCommandRequest(
                 request_id=uuid4(),
                 expected_revision=started.resulting_revision,
-                action=ActivateNormalPowerAction(),
+                action=action,
             ),
         )
         result = await public.wait_for_command(player, match_id, receipt.command_id, timeout=2)
@@ -763,12 +799,12 @@ async def test_normal_power_navigation_timeout_rolls_back_to_committed_boundary(
         assert result.error is not None
         assert result.error.code is ErrorCode.RECOVERY_REQUIRED
         assert (
-            result.error.details["navigation_message"]
-            == "Timed out waiting for normal Power to settle"
+            result.error.details["navigation_message"] == f"Timed out waiting for {label} to settle"
         )
         context = json.loads(str(result.error.details["navigation_context"]))
-        assert context["operation"] == "confirm-normal-power"
-        assert context["input_sequence"][0]["name"] == "confirm-normal-power"
+        operation = f"confirm-{label.lower().replace(' ', '-')}"
+        assert context["operation"] == operation
+        assert context["input_sequence"][0]["name"] == operation
         assert runtime.checkpoints.session.tracker.read().revision == result.resulting_revision
         restored = next(
             player

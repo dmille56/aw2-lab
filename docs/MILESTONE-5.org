@@ -9,19 +9,18 @@ cover stationary attacks, transports, and a production navigation fix. They
 do not cover all of Milestone 5 in [[file:PLAN.md][PLAN.md]].
 
 The current [[file:../src/aw2_lab/match_contract.py][gameplay contract]] advertises
-=attack=, =load=, and =unload= alongside the accepted playable-slice actions.
-Its action union contains no CO power, join, resupply, dive/surface, or silo
-action. Match creation still fixes fog off, clear weather, and two slots.
-Capabilities explicitly exclude CO power activation, resupply, configurable
-maps/COs/rules/weather/teams, and fog. Observing power/weather fields does not
-establish support for activating powers or configuring matches.
+=attack=, =load=, =unload=, and separate normal/Super Power actions alongside
+the accepted playable-slice actions. Join, resupply, dive/surface, and silo
+actions remain unavailable. Match creation still fixes fog off, clear weather,
+and two slots. Capability reporting excludes the gameplay and configuration
+features that remain unimplemented.
 
 | Planned coverage | Audit result | Evidence or remaining work |
 |------------------+--------------+----------------------------|
 | Stationary attack | Implemented and verified | [[file:LIVE-SDK-ACCEPTANCE.md::#milestone-5-stationary-attack-action-2026-11-09][Direct Tank in both modes; indirect Rockets headless]] |
 | Transport loading/unloading | Implemented and verified | [[file:MILESTONE-4.org::*Add human-client support for loading eligible units into and unloading cargo from APCs, Landers, and Transport Copters][APC API/runtime, Lander and Transport Copter executors, both modes; recovery evidence]] |
 | Production cursor regression | Fixed and verified | [[file:MILESTONE-3.org::*Expand gameplay command coverage in Milestone 5][Windowed replay and headless SDK acceptance]] |
-| CO power/super power | Open | No gameplay activation action/executor |
+| CO power/super power | Implemented and verified | [[file:LIVE-SDK-ACCEPTANCE.md::#milestone-5-super-power-action-2026-11-09][Separate actions, guarded cost checks, both live frontends]] |
 | Joining units | Open | No join action/executor |
 | Resupplying | Open | Explicitly unsupported; no action/executor |
 | Diving/surfacing | Open | No dive/surface action/executor |
@@ -32,8 +31,8 @@ establish support for activating powers or configuring matches.
 
 Existing live evidence retains its stated limits: Lander/Transport Copter
 acceptance uses standalone restored checkpoints, and the new stationary
-action's windowed case covers a direct Tank. This audit reviews existing
-implementation and evidence; it does not add new live runs.
+action's windowed case covers a direct Tank. Super Power was replayed through
+the guarded executor from the same native checkpoint in both frontends.
 
 * Remaining implementation order
 
@@ -43,10 +42,10 @@ marking it complete. Record ROM/build identities and the headless/windowed
 acceptance results, including any limits. Unsupported features and illegal
 actions must remain distinguishable at the public boundary.
 
-** TODO Implement CO power and super power activation
+** DONE Implement CO power and super power activation
    Keep normal Power and Super Power as separate tracked paths. The lifecycle
-   research log now includes supplied before/during/settled Super Power
-   checkpoints; separate guarded gameplay actions remain to implement.
+   and live-acceptance logs record supplied and replayed Super Power
+   checkpoints, including the readiness/debit distinction and frontend evidence.
 
 *** DONE Add verified CO-power menu observations
     - [X] Decode the Power row in the command menu with frame-coherent state.
@@ -57,7 +56,7 @@ actions must remain distinguishable at the public boundary.
 *** DONE Implement normal CO Power activation
     - [X] Replay normal Power from a ready checkpoint; verify readiness, selection, presentation, and the settled active-power byte.
     - [X] Add a typed normal-power action to the shared contract and capability surface, and route it through HTTP, SDK, and MCP.
-    - [X] Add an executor that checks active player, ready boundary, known CO/power state, sufficient meter using that CO's normal Power cost, and unused activation before input; verify the power becomes active after effects settle.
+    - [X] Add an executor that checks active player, ready boundary, known CO/power state, the CO's normal Power readiness threshold and post-increment debit, and unused activation before input; verify the power becomes active after effects settle.
     - [X] Add the human-client control and show pending, completed, and failed command status; component and gameplay tests cover availability and command status.
     - [X] Cover insufficient meter, already active/used power, wrong turn, stale revision, observer uncertainty, and navigation timeout/recovery.
     - [X] Verify normal Power live in headless and windowed mGBA; record ROM/build/checkpoint identities, effects, final boundary, and evidence hashes in [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 normal CO Power action (2026-11-09)][the live acceptance log]].
@@ -67,13 +66,13 @@ actions must remain distinguishable at the public boundary.
     - [X] Independently replay and record the menu choice, activation inputs, presentation phases, CO-specific Super Power cost and meter debit, active-power byte, effects, and settled turn boundary.
     - [X] Repeat or independently confirm the sequence, then document the limits and evidence in the lifecycle research log.
 
-*** TODO Implement Super Power activation
-    - [ ] Extend typed actions and capabilities to distinguish Super Power from normal Power.
-    - [ ] Check sufficient meter against the active CO's Super Power cost; do not assume costs are shared across COs or between normal and Super Power.
-    - [ ] Reuse the guarded executor only where observed behavior is shared; encode and test any distinct navigation or postconditions.
-    - [ ] Add Super Power controls to HTTP/SDK/MCP-backed clients and the human client, with pending/completed/failed status.
-    - [ ] Cover insufficient meter, already active/used power, wrong turn, stale revision, unknown activation state, and timeout/recovery.
-    - [ ] Verify Super Power live in headless and windowed mGBA using researched checkpoints and record identities/evidence.
+*** DONE Implement Super Power activation
+    - [X] Extend typed actions and capabilities to distinguish Super Power from normal Power.
+    - [X] Check the current-counter readiness threshold for the active CO and verify the post-increment debit with the game's zero clamp; do not share assumptions across COs or power kinds.
+    - [X] Reuse shared guarded navigation while verifying the distinct Super row, active-power value, meter debit, use counter, and settled boundary.
+    - [X] Add Super Power controls to HTTP/SDK/MCP-backed clients and the human client; cover pending/completed/failed status.
+    - [X] Cover insufficient meter, already active/used power, wrong turn, stale revision, unknown activation/cost state, and timeout/recovery.
+    - [X] Verify Super Power live in headless and windowed mGBA using the researched checkpoint; record ROM/build/checkpoint identities and evidence hashes in the live acceptance log.
 
 ** TODO Implement joining units
 ** TODO Implement resupplying

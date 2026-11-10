@@ -599,11 +599,15 @@ both restores:
 | 13687 | Settled player turn / map input | 0 | 0 / 1 | 2 / 2 | No active process scripts |
 
 The ROM CO table gives Andy six Super stars at the record's =+0x10= field.
-At use counter zero, the measured formula is 9,000 raw meter units per star,
-so the expected cost is =6 * 9000 = 54000=. Both replays observed exactly
+At use counter zero, the readiness threshold is 9,000 raw meter units per
+star, or =54,000=. Activation increments the shared use counter before
+calculating its debit, so the post-increment deduction threshold is
+=6 * 10,800 = 64,800=. Since the checkpoint contains only 54,000, the game
+subtracts the full available meter and clamps it at zero. Both replays observed
 =54000 -> 0=, use count =0 -> 1=, readiness =2 -> 0=, and active status
-=0 -> 2=. The active byte stayed zero during sampled presentation phases and
-became 2 before the settled boundary.
+=0 -> 2=. The 54,000 debit is therefore the clamped observed meter change, not
+the full calculated deduction. The active byte stayed zero during sampled
+presentation phases and became 2 before the settled boundary.
 
 The settled effect observation showed four damaged Andy units' decoder health
 values change =73 -> 100=, =33 -> 90=, =87 -> 100=, and =80 -> 100=; the other
@@ -613,6 +617,12 @@ checkpoint, and these units; it does not establish all Super effects, duration
 or resets, availability rules during an active Power, or other CO costs. The
 intermediate lifecycle classifier also remains unknown for some presentation
 script combinations, even though the raw Power fields were coherent.
+
+The guarded executor's live acceptance replays this checkpoint in both
+headless and windowed mGBA. It checks the 54,000 pre-activation threshold, waits
+for the post-increment spend and active flag, and reaches a settled player turn
+at frame =13699= with meter 0, use count 1, and active Super flag 2. See the
+[[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 Super Power action (2026-11-09)][live acceptance evidence]].
 
 Both independent runs reached the same settled frame =13687= and produced the
 same inputs, meter debit, selected kind, active byte, and unit health values.
