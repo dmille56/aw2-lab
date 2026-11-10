@@ -59,7 +59,7 @@ actions must remain distinguishable at the public boundary.
     - [X] Add a typed normal-power action to the shared contract and capability surface, and route it through HTTP, SDK, and MCP.
     - [X] Add an executor that checks active player, ready boundary, known CO/power state, sufficient meter using that CO's normal Power cost, and unused activation before input; verify the power becomes active after effects settle.
     - [ ] Add the human-client control and show pending, completed, and failed command status.
-    - [ ] Cover insufficient meter, already active/used power, wrong turn, stale revision, observer uncertainty, and navigation timeout/recovery.
+    - [X] Cover insufficient meter, already active/used power, wrong turn, stale revision, observer uncertainty, and navigation timeout/recovery.
     - [ ] Verify normal Power live in headless and windowed mGBA; record ROM/build/checkpoint identities, effects, final boundary, and evidence hashes.
 
 *** TODO Research Super Power activation

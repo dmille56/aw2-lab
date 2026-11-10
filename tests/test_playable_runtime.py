@@ -136,6 +136,27 @@ def start_request():
     return StartMatchRequest(request_id=uuid4(), expected_revision=0)
 
 
+def prepare_normal_power_memory(
+    memory, *, meter=54000, active_power=0, use_counter=0, co_effects=1
+):
+    _, ewram, iwram = memory
+    player_offset = 0x23284 + 0x3C
+    ewram[player_offset + 0x20 : player_offset + 0x24] = meter.to_bytes(4, "little", signed=True)
+    ewram[player_offset + 0x1E] = active_power
+    ewram[player_offset + 0x25] = use_counter
+    iwram[0x3FC8] = co_effects
+
+
+def install_power_cost_layout(monkeypatch, memory):
+    from aw2_lab import power_executor
+
+    stars = [0] * 19
+    stars[1] = 3
+    stars[2] = 4
+    layout = replace(memory[0], co_power_stars=tuple(stars))
+    monkeypatch.setattr(power_executor, "load_battle_layout", lambda _path: layout)
+
+
 @run_async_test
 async def test_start_is_queued_idempotent_and_commits_initial_checkpoint(memory, tmp_path):
     entered, release = asyncio.Event(), asyncio.Event()
@@ -369,6 +390,217 @@ async def test_normal_power_executor_activates_and_verifies_the_settled_state(
         assert final_player.active_power == 1
         assert final_player.power_meter.value == 21600
         assert final_player.power_use_counter.value == 1
+    finally:
+        await runtime.controller.stop()
+
+
+@pytest.mark.parametrize(
+    ("case", "meter", "active_power", "co_effects", "player_token", "stale", "expected"),
+    [
+        ("insufficient_meter", 32399, 0, 1, "p", False, ErrorCode.INVALID_REQUEST),
+        ("already_active", 54000, 1, 1, "p", False, ErrorCode.INVALID_REQUEST),
+        ("wrong_turn", 54000, 0, 1, "q", False, ErrorCode.NOT_YOUR_TURN),
+        ("stale_revision", 54000, 0, 1, "p", True, ErrorCode.STALE_REVISION),
+        (
+            "unknown_co_power_rule",
+            54000,
+            0,
+            2,
+            "p",
+            False,
+            ErrorCode.OBSERVATION_UNAVAILABLE,
+        ),
+        (
+            "unknown_meter",
+            -1,
+            0,
+            1,
+            "p",
+            False,
+            ErrorCode.OBSERVATION_UNAVAILABLE,
+        ),
+    ],
+)
+@run_async_test
+async def test_normal_power_preflight_rejections_do_not_navigate(
+    memory,
+    tmp_path,
+    monkeypatch,
+    case,
+    meter,
+    active_power,
+    co_effects,
+    player_token,
+    stale,
+    expected,
+):
+    prepare_normal_power_memory(
+        memory, meter=meter, active_power=active_power, co_effects=co_effects
+    )
+    install_power_cost_layout(monkeypatch, memory)
+    runtime, public, match_id, operator, _bridge = await setup(memory, tmp_path)
+
+    async def unexpected_navigation(*_args, **_kwargs):
+        raise AssertionError(f"{case} must be rejected before menu navigation")
+
+    monkeypatch.setattr(ActionNavigator, "open_command_menu", unexpected_navigation)
+    monkeypatch.setattr(ActionNavigator, "navigate_menu", unexpected_navigation)
+    monkeypatch.setattr(ActionNavigator, "confirm", unexpected_navigation)
+    try:
+        started = await public.start(operator, match_id, start_request())
+        start_result = await public.wait_for_command(
+            operator, match_id, started.command_id, timeout=2
+        )
+        assert start_result.resulting_revision is not None
+        revision = start_result.resulting_revision - 1 if stale else start_result.resulting_revision
+        player = public.authenticate(token(player_token))
+        receipt = await public.submit(
+            player,
+            match_id,
+            GameplayCommandRequest(
+                request_id=uuid4(),
+                expected_revision=revision,
+                action=ActivateNormalPowerAction(),
+            ),
+        )
+        result = await public.wait_for_command(player, match_id, receipt.command_id, timeout=2)
+        assert result.status is CommandStatus.REJECTED
+        assert result.error is not None
+        assert result.error.code is expected
+        assert (
+            runtime.checkpoints.session.tracker.read().revision == start_result.resulting_revision
+        )
+    finally:
+        await runtime.controller.stop()
+
+
+@run_async_test
+async def test_normal_power_rejects_when_menu_does_not_offer_unused_power(
+    memory, tmp_path, monkeypatch
+):
+    prepare_normal_power_memory(memory)
+    install_power_cost_layout(monkeypatch, memory)
+    runtime, public, match_id, operator, _bridge = await setup(memory, tmp_path)
+
+    async def open_menu(_navigator):
+        state = await runtime._observe()
+        menu = replace(
+            state.ui.menu,
+            family=MenuFamily.COMMAND,
+            selected_item=MenuItem.CO,
+            actionable=True,
+            items=(MenuItem.CO, MenuItem.SUPER_POWER, MenuItem.END),
+        )
+        return replace(state, ui=replace(state.ui, menu=menu))
+
+    async def unexpected_activation(*_args, **_kwargs):
+        raise AssertionError("Power was not available and must not be confirmed")
+
+    monkeypatch.setattr(ActionNavigator, "open_command_menu", open_menu)
+    monkeypatch.setattr(ActionNavigator, "navigate_menu", unexpected_activation)
+    monkeypatch.setattr(ActionNavigator, "confirm", unexpected_activation)
+    try:
+        start = await public.start(operator, match_id, start_request())
+        started = await public.wait_for_command(operator, match_id, start.command_id, timeout=2)
+        player = public.authenticate(token("p"))
+        receipt = await public.submit(
+            player,
+            match_id,
+            GameplayCommandRequest(
+                request_id=uuid4(),
+                expected_revision=started.resulting_revision,
+                action=ActivateNormalPowerAction(),
+            ),
+        )
+        result = await public.wait_for_command(player, match_id, receipt.command_id, timeout=2)
+        assert result.status is CommandStatus.REJECTED
+        assert result.error is not None
+        assert result.error.code is ErrorCode.INVALID_REQUEST
+        assert "not available" in result.error.message
+        assert runtime.checkpoints.session.tracker.read().revision == started.resulting_revision
+    finally:
+        await runtime.controller.stop()
+
+
+@run_async_test
+async def test_normal_power_navigation_timeout_rolls_back_to_committed_boundary(
+    memory, tmp_path, monkeypatch
+):
+    prepare_normal_power_memory(memory)
+    install_power_cost_layout(monkeypatch, memory)
+    runtime, public, match_id, operator, bridge = await setup(memory, tmp_path)
+
+    async def save_screenshot(path):
+        path.write_bytes(b"normal Power timeout screenshot")
+        return path
+
+    bridge.save_screenshot = save_screenshot
+
+    async def command_menu():
+        state = await runtime._observe()
+        menu = replace(
+            state.ui.menu,
+            family=MenuFamily.COMMAND,
+            selected_item=MenuItem.CO,
+            actionable=True,
+            items=(MenuItem.CO, MenuItem.POWER, MenuItem.END),
+        )
+        return replace(state, ui=replace(state.ui, menu=menu))
+
+    async def open_menu(_navigator):
+        return await command_menu()
+
+    async def select_power(_navigator, item):
+        assert item is MenuItem.POWER
+        state = await command_menu()
+        menu = replace(state.ui.menu, selected_item=MenuItem.POWER)
+        return replace(state, ui=replace(state.ui, menu=menu))
+
+    async def time_out(navigator, _postcondition, **_kwargs):
+        navigator._begin("confirm-normal-power")
+        navigator.inputs.append(
+            InputEvent("confirm-normal-power", 1, 1, bridge.frame, bridge.frame + 1)
+        )
+        raise await navigator._fail(
+            "Timed out waiting for normal Power to settle", await runtime._observe()
+        )
+
+    monkeypatch.setattr(ActionNavigator, "open_command_menu", open_menu)
+    monkeypatch.setattr(ActionNavigator, "navigate_menu", select_power)
+    monkeypatch.setattr(ActionNavigator, "confirm", time_out)
+    try:
+        start = await public.start(operator, match_id, start_request())
+        started = await public.wait_for_command(operator, match_id, start.command_id, timeout=2)
+        player = public.authenticate(token("p"))
+        receipt = await public.submit(
+            player,
+            match_id,
+            GameplayCommandRequest(
+                request_id=uuid4(),
+                expected_revision=started.resulting_revision,
+                action=ActivateNormalPowerAction(),
+            ),
+        )
+        result = await public.wait_for_command(player, match_id, receipt.command_id, timeout=2)
+        assert result.status is CommandStatus.ROLLED_BACK
+        assert result.error is not None
+        assert result.error.code is ErrorCode.RECOVERY_REQUIRED
+        assert (
+            result.error.details["navigation_message"]
+            == "Timed out waiting for normal Power to settle"
+        )
+        context = json.loads(str(result.error.details["navigation_context"]))
+        assert context["operation"] == "confirm-normal-power"
+        assert context["input_sequence"][0]["name"] == "confirm-normal-power"
+        assert runtime.checkpoints.session.tracker.read().revision == result.resulting_revision
+        restored = next(
+            player
+            for player in runtime.checkpoints.session.tracker.read().game_state.battle.value.players
+            if player.slot == 1
+        )
+        assert restored.active_power == 0
+        assert restored.power_meter.value == 54000
+        assert restored.power_use_counter.value == 0
     finally:
         await runtime.controller.stop()
 
