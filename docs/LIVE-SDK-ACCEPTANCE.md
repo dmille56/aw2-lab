@@ -222,3 +222,40 @@ Evidence and screenshot are outside Git at
 SHA-256 `27fd23ce77ed4aba840115b6863be5c7cd1a43992fb1831fd0c25fff68466a14`.
 This closes live frontend verification of the stationary `attack` action in
 both headless and windowed mGBA.
+
+## Milestone 5 normal CO Power action (2026-11-09)
+
+The production `ActivateNormalPowerActionExecutor` completed against the
+supplied normal-Power checkpoint in both headless and windowed mGBA. The source
+checkpoint was on the COMMAND menu with Power selected at frame 13242. Pressing
+B returned it to a ready map-input boundary at frame 13247; the executor then
+opened the menu, selected Power, and waited for the settled player-turn
+boundary. Both runs returned playable at frame 13779, revision 1 to 2, with
+map input available. Andy (CO ID 1) changed from inactive Power to active
+Power; meter changed from 54,000 to 21,600 (32,400 spent), and the use counter
+changed from 0 to 1. The effect state was recognized after the animation and
+before any further player action.
+
+ROM SHA-256:
+`ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`.
+Source checkpoint `aw2.ss3` SHA-256:
+`558078226bc01a35832d61a0d54a4cdb3165628d512af665711272ccdf63ce1d`.
+Frontend build identities:
+
+- Headless: `sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22`
+- Windowed: `sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810`
+
+| Evidence | Headless SHA-256 | Windowed SHA-256 |
+| --- | --- | --- |
+| Executor-ready derived state | `667312f191b5d6d6aa348cdc97105592f5e7c2de3cb09581e3db3ac089d02a4e` | `1a46a5ba5fb255807d92d2a80ec29b68af456385a40d8bc5d26b6ebee339d6bd` |
+| Settled state | `f81230ec7530b55fd9d8d78d617b1412d2c6ef94469a25fd66f8d77a26fdd691` | `4790a1f16f32d7923b48213f6e7f6070c302238a893ae1a98069ddeae325e360` |
+| Before screenshot | `4f8b3488c31be0e2ac98abd45565ba1c9d4ad7e99bf4fe6285ff4014f3675efc` | `4f8b3488c31be0e2ac98abd45565ba1c9d4ad7e99bf4fe6285ff4014f3675efc` |
+| After screenshot | `04db1e4e811f9485087e1c6c291fec5d2b101171fb99418f816b7d73dbeb87ad` | `04db1e4e811f9485087e1c6c291fec5d2b101171fb99418f816b7d73dbeb87ad` |
+| Evidence JSON | `d14a4537f862b478b139f0eb0e82565c3236e8c06d1e0d068daa3d938e4d7019` | `d442bf1ac37ea0405e43284a271757c60e085e81e578a987c1ae7d2509016ac6` |
+
+Artifacts and per-file hash manifests are stored outside Git at
+`/tmp/aw2-normal-power-live/{headless,windowed}/`. The supported-ROM layout
+loader also exposed and this run corrected a bad CO-table ROM offset: the
+table literal is `0x085D3DD0`, so its file offset must subtract
+`0x08000000` from that full address. Before that correction, layout loading
+raised `struct.error` before the executor could run.

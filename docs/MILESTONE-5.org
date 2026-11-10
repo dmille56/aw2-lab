@@ -54,13 +54,13 @@ actions must remain distinguishable at the public boundary.
     - [X] Identify and test unavailable/unknown menu cases; keep them unresolved instead of guessing.
     - [X] Add ROM-independent regressions for recognized Power rows and malformed/ambiguous selectors.
 
-*** TODO Implement normal CO Power activation
+*** DONE Implement normal CO Power activation
     - [X] Replay normal Power from a ready checkpoint; verify readiness, selection, presentation, and the settled active-power byte.
     - [X] Add a typed normal-power action to the shared contract and capability surface, and route it through HTTP, SDK, and MCP.
     - [X] Add an executor that checks active player, ready boundary, known CO/power state, sufficient meter using that CO's normal Power cost, and unused activation before input; verify the power becomes active after effects settle.
-    - [ ] Add the human-client control and show pending, completed, and failed command status.
+    - [X] Add the human-client control and show pending, completed, and failed command status; component and gameplay tests cover availability and command status.
     - [X] Cover insufficient meter, already active/used power, wrong turn, stale revision, observer uncertainty, and navigation timeout/recovery.
-    - [ ] Verify normal Power live in headless and windowed mGBA; record ROM/build/checkpoint identities, effects, final boundary, and evidence hashes.
+    - [X] Verify normal Power live in headless and windowed mGBA; record ROM/build/checkpoint identities, effects, final boundary, and evidence hashes in [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 normal CO Power action (2026-11-09)][the live acceptance log]].
 
 *** TODO Research Super Power activation
     - [X] Find a supported-ROM checkpoint with a ready Super Power meter without editing game RAM.

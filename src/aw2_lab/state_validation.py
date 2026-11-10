@@ -101,7 +101,7 @@ def load_battle_layout(rom_path: Path) -> BattleLayout:
             unpack_from("<I", raw, 0x5C77A0 + map_id * 0x5C + 4)[0] for map_id in range(256)
         ),
         co_power_stars=tuple(
-            unpack_from("<H", raw, 0x5D3DD0 - 0x08000000 + 0x104 * co_id + 0x0C)[0]
+            unpack_from("<H", raw, 0x085D3DD0 - 0x08000000 + 0x104 * co_id + 0x0C)[0]
             for co_id in range(19)
         ),
     )
