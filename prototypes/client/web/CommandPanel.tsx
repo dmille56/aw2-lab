@@ -10,6 +10,7 @@ const labels: Record<ActionKind, string> = {
   attack: "Attack in place",
   move_attack: "Attack",
   move_capture: "Capture",
+  join: "Join units",
   load: "Load",
   unload: "Unload",
   purchase: "Purchase unit",
@@ -112,6 +113,8 @@ export function CommandPanel({
       return `${movement}, then attack at ${draft.target ? positionLabel(draft.target) : "the selected target"}.`;
     if (draft.kind === "move_capture")
       return `${movement}, then capture the property.`;
+    if (draft.kind === "join")
+      return `${movement}, then merge with the allied ${selectedUnit ? unitName(selectedUnit) : "unit"} at ${to}. The moving unit survives.`;
     return `${movement}, then wait.`;
   })();
   const activityEntries = command
@@ -350,6 +353,13 @@ export function CommandPanel({
                   onClick={() => choose("move_capture")}
                 >
                   Capture here
+                </button>
+                <button
+                  type="button"
+                  disabled={!editable || !model.joinReady}
+                  onClick={() => choose("join")}
+                >
+                  Join allied unit here
                 </button>
                 {model.loadTransport && (
                   <button

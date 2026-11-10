@@ -321,6 +321,7 @@ async def capabilities(request: Request) -> CapabilitiesResponse:
                 "move_attack",
                 "attack",
                 "move_capture",
+                "join",
                 "load",
                 "unload",
                 "purchase",

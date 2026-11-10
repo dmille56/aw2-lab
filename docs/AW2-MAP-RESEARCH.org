@@ -2618,6 +2618,20 @@ and full gameplay consequences of bits 6/7 remain unverified.
   =join-flag-probe.json= is
   =12437763e15aae9bd5c854103f3b12884cdb719cf2a9a5e6df6e90fe3912ee72=.
 
+*** Natural Join action
+- In the supplied natural merge sequence, the moving Tank used reference 1 at
+  =(8,5)= and moved along =(8,4)= to allied same-type Tank reference 3 at
+  =(7,4)=. The selected unit's action selector had one row, ROM row ID =8=,
+  highlighted as =Join=. Confirming that row returned directly to map input;
+  there was no separate partner-selection prompt. The moving unit survived at
+  the partner tile, retained its reference, gained health, and was marked used;
+  the partner record disappeared.
+- The decoder recognizes row 8 only when the selector signatures are valid and
+  the reached cursor tile contains an unused, unembarked same-type unit in the
+  same army. Other unrecognized rows remain unavailable for dispatch.
+- Headless and windowed executor evidence, ROM/build identities, and checkpoint
+  hash are recorded in [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 Join action (2026-11-10)][the Join live acceptance log]].
+
 *** ROM readers and writers
 - =sub_080258CC= builds a logical lookup at =MAP_BASE+0x051A= and a visible
   lookup at =MAP_BASE+0x12=, using global unit indices at row-offset plus X.

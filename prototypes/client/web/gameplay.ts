@@ -257,6 +257,10 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     (unit) => unit.army_slot !== slot && !unit.embarked,
   );
   const selectedUnit = units.find((item) => item.id === draft.unitId)?.unit;
+  const feature = (kind: ActionKind) =>
+    view.capabilities?.actions.find((item) => item.name === kind);
+  const available = (kind: ActionKind) =>
+    !!feature(kind)?.implemented && !!feature(kind)?.available;
   const profile = selectedUnit
     ? (
         catalog.units as Record<
@@ -275,6 +279,25 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     battle && selectedUnit
       ? validateMovement(battle, selectedUnit, draft.path)
       : null;
+  const joinPartner =
+    battle && selectedUnit && destination && draft.path.length
+      ? battle.units.find(
+          (unit) =>
+            unit.army_slot === selectedUnit.army_slot &&
+            unit.unit_type === selectedUnit.unit_type &&
+            !unit.used_this_turn &&
+            !unit.embarked &&
+            unit.reference !== selectedUnit.reference &&
+            sameTile(unit, destination),
+        )
+      : undefined;
+  const canJoin = !!joinPartner;
+  const joinReady =
+    !!selectedUnit &&
+    !!destination &&
+    canJoin &&
+    !movement?.error &&
+    available("join");
   const selectedTransportCargo =
     selectedUnit && [7, 20, 23].includes(selectedUnit.unit_type)
       ? selectedUnit.cargo_references.flatMap((reference) => {
@@ -325,10 +348,6 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
   const loadTransportId = observation?.unit_identities.find(
     (item) => item.reference === transportAtDestination?.reference,
   )?.identity_id;
-  const feature = (kind: ActionKind) =>
-    view.capabilities?.actions.find((item) => item.name === kind);
-  const available = (kind: ActionKind) =>
-    !!feature(kind)?.implemented && !!feature(kind)?.available;
   const canLoad = !!loadTransport && !!loadTransportId && !movement?.error;
   const selectedDrops = unloadDropOptions.flatMap(
     ({ unit, id, destinations }) => {
@@ -586,6 +605,13 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
         unit_id: draft.unitId,
         path: draft.path.map(coordinate),
       };
+    else if (selectedUnit && kind === "join" && joinReady)
+      action = {
+        contract_version: 1,
+        kind,
+        unit_id: draft.unitId,
+        path: draft.path.map(coordinate),
+      };
     else if (
       selectedUnit &&
       movementReady &&
@@ -651,6 +677,8 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     canAttack,
     canCapture,
     canLoad,
+    canJoin,
+    joinReady,
     loadAction,
     loadTransport: transportAtDestination,
     loadUnavailableReason,

@@ -102,6 +102,7 @@ def payload(response):
         ),
         ("attack", "MoveAttackActionExecutor", {"unit_id": "1", "target": {"x": 1, "y": 1}}),
         ("move_capture", "MoveCaptureActionExecutor", {"unit_id": "1", "path": []}),
+        ("join", "JoinActionExecutor", {"unit_id": "1", "path": [{"x": 1, "y": 0}]}),
         (
             "unload",
             "UnloadActionExecutor",
@@ -163,6 +164,8 @@ async def test_gameplay_receipts_retries_conflicts_and_permissions(
             )
             assert not complete["timed_out"] and complete["command"]["status"] == "completed"
             expected = {"contract_version": 1, "kind": kind, **extra}
+            if "path" in expected:
+                expected["path"] = [{"contract_version": 1, **point} for point in expected["path"]]
             for field in ("target", "property"):
                 if field in expected:
                     expected[field] = {"contract_version": 1, **expected[field]}

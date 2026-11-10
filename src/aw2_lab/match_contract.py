@@ -103,6 +103,7 @@ class Capabilities(ContractModel):
         "attack",
         "move_attack",
         "move_capture",
+        "join",
         "load",
         "unload",
         "purchase",
@@ -120,6 +121,7 @@ class Capabilities(ContractModel):
         "command_status_polling",
         "checkpoints",
         "transport_loading_and_unloading",
+        "unit_joining",
     )
     unsupported_features: tuple[str, ...] = (
         "multiple_active_matches",
@@ -129,6 +131,8 @@ class Capabilities(ContractModel):
         "campaign_or_multiplayer_modes_other_than_versus",
         "competitive_player_visibility_isolation",
         "arbitrary_memory_writes_as_gameplay",
+        "diving_and_surfacing",
+        "missile_silo_use",
     )
 
 
@@ -162,6 +166,14 @@ class MoveCaptureAction(ContractModel):
     kind: Literal["move_capture"] = "move_capture"
     unit_id: str = Field(min_length=1)
     path: tuple[Coordinate, ...] = Field(max_length=4096)
+
+
+class JoinAction(ContractModel):
+    """Move a unit onto an adjacent allied unit of the same type and merge."""
+
+    kind: Literal["join"] = "join"
+    unit_id: str = Field(min_length=1)
+    path: tuple[Coordinate, ...] = Field(min_length=1, max_length=4096)
 
 
 class LoadAction(ContractModel):
@@ -214,6 +226,7 @@ GameplayAction = Annotated[
     | MoveAttackAction
     | AttackAction
     | MoveCaptureAction
+    | JoinAction
     | LoadAction
     | UnloadAction
     | PurchaseAction

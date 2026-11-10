@@ -15,6 +15,7 @@ from aw2_lab.checkpoint_store import CheckpointStore
 from aw2_lab.cold_boot import ColdBootResult, boot_fixed_versus_match
 from aw2_lab.command_journal import JsonlCommandJournal
 from aw2_lab.end_turn_executor import EndTurnActionExecutor
+from aw2_lab.join_executor import JoinActionExecutor
 from aw2_lab.match_checkpoint import CheckpointRuntime, CheckpointSession, MatchCheckpointService
 from aw2_lab.match_contract import CommandRequest, ErrorBody, ErrorCode, MatchLifecycle
 from aw2_lab.match_controller import (
@@ -150,6 +151,7 @@ class PlayableRuntime:
             "move_attack": MoveAttackActionExecutor,
             "attack": MoveAttackActionExecutor,
             "move_capture": MoveCaptureActionExecutor,
+            "join": JoinActionExecutor,
             "load": LoadActionExecutor,
             "unload": UnloadActionExecutor,
             "purchase": PurchaseActionExecutor,

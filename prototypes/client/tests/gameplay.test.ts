@@ -113,6 +113,7 @@ it("builds a command only for the current ready boundary and locks uncertain sub
     "attack",
     "move_attack",
     "move_capture",
+    "join",
     "load",
     "purchase",
     "activate_normal_power",
@@ -182,6 +183,57 @@ it("builds a command only for the current ready boundary and locks uncertain sub
   act(() => result.current.selectUnit("1"));
   rerender({ view: { ...initial, connected: false, identity: null } });
   expect(result.current.draft.unitId).toBe("");
+  unmount();
+});
+
+it("submits Join only when the route ends on an unused same-type ally", () => {
+  const state = structuredClone(stateFixture);
+  state.observation.game_state.battle.value.units.push({
+    ...state.observation.game_state.battle.value.units[0],
+    reference: 2,
+    unit_slot: 2,
+    x: 1,
+    y: 0,
+  });
+  state.observation.unit_identities.push({
+    reference: 2,
+    identity_id: "3",
+    generation: 1,
+  });
+  const capabilities = validateCapabilitiesResponse(capabilityFixture);
+  capabilities.actions = ["join"].map((name) => ({
+    contract_version: 1,
+    name,
+    implemented: true,
+    available: true,
+    verification: "synthetic",
+    unavailable_reason: null,
+  }));
+  const view: ViewState = {
+    ...new MatchSession().getSnapshot(),
+    snapshot: validateState(state),
+    connected: true,
+    ready: true,
+    identity: {
+      contract_version: 1,
+      match_id: state.summary.match_id,
+      role: "player",
+      player_slot: "slot_1",
+    },
+    capabilities,
+  };
+  const { result, unmount } = renderHook(() => useGameplay(view, vi.fn()));
+  act(() => result.current.selectUnit("1"));
+  act(() => result.current.dispatch({ type: "plan" }));
+  act(() => result.current.activate({ x: 1, y: 0 }));
+  expect(result.current.joinReady).toBe(true);
+  act(() => result.current.dispatch({ type: "choose", kind: "join" }));
+  expect(result.current.action).toEqual({
+    contract_version: 1,
+    kind: "join",
+    unit_id: "1",
+    path: [{ contract_version: 1, x: 1, y: 0 }],
+  });
   unmount();
 });
 

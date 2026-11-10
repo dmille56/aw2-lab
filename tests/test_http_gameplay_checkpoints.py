@@ -62,6 +62,7 @@ async def finished(client, runtime, match_id, response):
         ),
         ("attack", "MoveAttackActionExecutor", {"unit_id": "1", "target": {"x": 1, "y": 1}}),
         ("move_capture", "MoveCaptureActionExecutor", {"unit_id": "1", "path": []}),
+        ("join", "JoinActionExecutor", {"unit_id": "1", "path": [{"x": 1, "y": 0}]}),
         (
             "purchase",
             "PurchaseActionExecutor",

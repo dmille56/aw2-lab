@@ -39,6 +39,7 @@ from aw2_lab.match_contract import (
     Coordinate,
     EndTurnAction,
     ErrorCode,
+    JoinAction,
     LoadAction,
     MoveAttackAction,
     MoveCaptureAction,
@@ -356,6 +357,24 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
                 match_id,
                 expected_revision,
                 MoveCaptureAction(unit_id=unit_id, path=path),
+                request_id=request_id,
+            )
+
+    @server.tool()
+    async def join(
+        match_id: UUID,
+        expected_revision: Revision,
+        request_id: UUID,
+        unit_id: UnitID,
+        path: Path,
+        contract_version: int = 1,
+    ) -> CommandReceipt:
+        """Move onto an allied unit of the same type and Join it. The final path tile names the partner."""
+        async with client(Permission.PLAY, match_id) as sdk:
+            return await sdk.submit(
+                match_id,
+                expected_revision,
+                JoinAction(unit_id=unit_id, path=path),
                 request_id=request_id,
             )
 

@@ -380,6 +380,20 @@ def test_transport_load_and_unload_action_contracts_are_bounded() -> None:
         GameplayCommandRequest.model_validate(body)
 
 
+def test_join_action_requires_a_nonempty_bounded_path() -> None:
+    body = {
+        "request_id": uuid4(),
+        "expected_revision": 0,
+        "action": {"kind": "join", "unit_id": "1", "path": [{"x": 1, "y": 0}]},
+    }
+    request = GameplayCommandRequest.model_validate(body)
+    assert request.action.kind == "join"
+    assert "join" in Capabilities().supported_actions
+    body["action"]["path"] = []
+    with pytest.raises(ValidationError):
+        GameplayCommandRequest.model_validate(body)
+
+
 def test_close_has_no_expected_revision() -> None:
     assert CloseMatchRequest(request_id=uuid4())
     with pytest.raises(ValidationError):

@@ -1619,6 +1619,7 @@
                 "activate_super_power": "#/components/schemas/ActivateSuperPowerAction",
                 "attack": "#/components/schemas/AttackAction",
                 "end_turn": "#/components/schemas/EndTurnAction",
+                "join": "#/components/schemas/JoinAction",
                 "load": "#/components/schemas/LoadAction",
                 "move_attack": "#/components/schemas/MoveAttackAction",
                 "move_capture": "#/components/schemas/MoveCaptureAction",
@@ -1641,6 +1642,9 @@
               },
               {
                 "$ref": "#/components/schemas/MoveCaptureAction"
+              },
+              {
+                "$ref": "#/components/schemas/JoinAction"
               },
               {
                 "$ref": "#/components/schemas/LoadAction"
@@ -1800,6 +1804,44 @@
           "request_id"
         ],
         "title": "IssueInvitationRequest",
+        "type": "object"
+      },
+      "JoinAction": {
+        "additionalProperties": false,
+        "description": "Move a unit onto an adjacent allied unit of the same type and merge.",
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "join",
+            "default": "join",
+            "title": "Kind",
+            "type": "string"
+          },
+          "path": {
+            "items": {
+              "$ref": "#/components/schemas/Coordinate"
+            },
+            "maxItems": 4096,
+            "minItems": 1,
+            "title": "Path",
+            "type": "array"
+          },
+          "unit_id": {
+            "minLength": 1,
+            "title": "Unit Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit_id",
+          "path"
+        ],
+        "title": "JoinAction",
         "type": "object"
       },
       "JoinSlotRequest-Input": {
@@ -2395,6 +2437,7 @@
           "load",
           "unload",
           "wait",
+          "join",
           "other_unit_action",
           "yes",
           "no"

@@ -129,6 +129,38 @@ def test_capture_choices_use_the_reached_tile_and_capture_row_id(memory) -> None
     assert menu.items == (MenuItem.CAPTURE, MenuItem.WAIT)
 
 
+def test_join_choice_requires_the_verified_single_row_and_same_type_ally(memory) -> None:
+    _, ewram, iwram = memory
+    pack_into("<I", ewram, 0xD610, UNIT_ACTION_MENU_SCRIPT)
+    pack_into("<I", iwram, 0x1470 + 0x60, 0x0848A42C)
+    pack_into("<I", iwram, 0x1490 + 0x60, 0x0849AE28)
+    pack_into("<I", iwram, 0x40D8, 0x02022690)
+    iwram[0x14A1 + 0x60] = 8
+    iwram[0x14B1 + 0x60] = 1
+    iwram[0x14B2 + 0x60] = 0
+    pack_into("<HH", iwram, 0x33E4, 1, 0)
+    pack_into("<H", iwram, 0x32D8, 13)
+    iwram[0x30F0] = 1
+    pack_into("<H", iwram, 0x3334, 4)
+    ewram[0x226A8:0x226B4] = bytes((1, 0, 1, 0, 100, 0, 99, 0, 0, 0, 0, 0))
+    ewram[0x1E450 + 0x51A] = 1
+    ewram[0x1E450 + 0x51A + 1] = 3
+
+    current = snapshot(memory)
+    menu = observe_menu(current, validate_battle_snapshot(current))
+    assert menu.family is MenuFamily.UNIT_ACTION_CHOICES
+    assert menu.items == (MenuItem.JOIN,)
+    assert menu.selected_item is MenuItem.JOIN
+    assert menu.actionable
+
+    ewram[0x226A8] = 2  # Different unit type.
+    current = snapshot(memory)
+    assert (
+        observe_menu(current, validate_battle_snapshot(current)).family
+        is not MenuFamily.UNIT_ACTION_CHOICES
+    )
+
+
 @pytest.mark.parametrize(
     ("script", "callbacks", "phase"),
     [

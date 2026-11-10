@@ -301,3 +301,32 @@ loader also exposed and this run corrected a bad CO-table ROM offset: the
 table literal is `0x085D3DD0`, so its file offset must subtract
 `0x08000000` from that full address. Before that correction, layout loading
 raised `struct.error` before the executor could run.
+
+## Milestone 5 Join action (2026-11-10)
+
+The production `JoinActionExecutor` completed the naturally prepared Tank merge
+from `aw2.ss1` in headless and windowed mGBA. The mover (reference 1, 27
+internal health) started at `(8,5)` and followed `(8,4)`, then `(7,4)`, where
+the same-army, same-type partner (reference 3, 51 internal health) stood. The
+observed single-row action selector identifies Join with ROM row ID 8. After
+confirmation, reference 1 survived at `(7,4)` with 90 internal health and its
+turn used; reference 3 was gone. The observer returned to a ready player turn
+at frame 27662. The health value is recorded as observed; this case does not
+establish a general merge-health formula.
+
+ROM SHA-256:
+`ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`.
+Ready checkpoint `aw2.ss1` SHA-256:
+`1b522efba629301e07041bd9a7ea2ab3f0d419cea06670934d566701f5bb561b`.
+
+| Frontend | mGBA build identity | Evidence JSON SHA-256 |
+|----------|---------------------|-----------------------|
+| Headless | `sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22` | `4806cc1de921da1a04fe36ab4a7a9b198e7c569c8c033ee512b7e0509007d87a` |
+| Windowed | `sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810` | `3a78ed36625b616aebb338bb1ad01661de38d3431c305908e5aacadd097cd083` |
+
+The opt-in acceptance is `tests/test_join_live_acceptance.py` and is enabled
+with `AW2_RUN_JOIN_LIVE_TESTS=1`. It checks the complete action path and merge
+outcome in both modes. Screenshot SHA-256 values are `fccae882aee0e8480027e1641fcce7ac28d88fb276c605b0286887aa27b6556b` before
+and `d86fcde97b82e09f8037576f4f52abb7df9f6ccf3de35eff61efe363d11143d9` after.
+Screenshots and JSON evidence are kept outside Git at
+`/tmp/aw2-join-live-verified/`.

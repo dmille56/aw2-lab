@@ -131,6 +131,7 @@ class MenuItem(StrEnum):
     LOAD = "load"
     UNLOAD = "unload"
     WAIT = "wait"
+    JOIN = "join"
     OTHER_UNIT_ACTION = "other_unit_action"
     YES = "yes"
     NO = "no"
@@ -589,8 +590,8 @@ def _observe_unit_action_choices(
     if (
         selected is None
         or len(ids) != count
-        or (ids.count(0x0A) != 1 and ids != (5,))
-        or any(item_id not in (0, 2, 3, 4, 5, 6, 7, 0x0A, 0x0B) for item_id in ids)
+        or (ids.count(0x0A) != 1 and ids not in ((5,), (8,)))
+        or any(item_id not in (0, 2, 3, 4, 5, 6, 7, 8, 0x0A, 0x0B) for item_id in ids)
         or row >= count
     ):
         return None
@@ -608,24 +609,37 @@ def _observe_unit_action_choices(
         )
         and has_cargo
     )
-    if 0x0A not in ids and not (ids == (5,) and load_eligible):
+    if (
+        0x0A not in ids
+        and not (ids == (5,) and load_eligible)
+        and not (
+            ids == (8,)
+            and count == 1
+            and row == 0
+            and _selected_unit_can_join_at_cursor(snapshot, selected)
+        )
+    ):
         return None
     # Three-row menus are accepted only for verified capture or cargo cases.
     if count == 3 and not (ids == (0, 2, 0x0A) and capture_eligible) and not cargo_menu:
         return None
-    items = tuple(
-        MenuItem.WAIT
-        if item_id == 0x0A
-        else MenuItem.FIRE
-        if item_id == 0
-        else MenuItem.CAPTURE
-        if item_id in (2, 3) and capture_eligible
-        else MenuItem.LOAD
-        if item_id == 5 and load_eligible
-        else MenuItem.UNLOAD
-        if item_id == 6 and selected.unit_type in (7, 20, 23) and has_cargo
-        else MenuItem.OTHER_UNIT_ACTION
-        for item_id in ids
+    items = (
+        (MenuItem.JOIN,)
+        if ids == (8,) and _selected_unit_can_join_at_cursor(snapshot, selected)
+        else tuple(
+            MenuItem.WAIT
+            if item_id == 0x0A
+            else MenuItem.FIRE
+            if item_id == 0
+            else MenuItem.CAPTURE
+            if item_id in (2, 3) and capture_eligible
+            else MenuItem.LOAD
+            if item_id == 5 and load_eligible
+            else MenuItem.UNLOAD
+            if item_id == 6 and selected.unit_type in (7, 20, 23) and has_cargo
+            else MenuItem.OTHER_UNIT_ACTION
+            for item_id in ids
+        )
     )
     return MenuObservation(
         snapshot.frame,
@@ -635,6 +649,26 @@ def _observe_unit_action_choices(
         actionable=True,
         items=items,
     )
+
+
+def _selected_unit_can_join_at_cursor(
+    snapshot: BattleMemorySnapshot, selected: SelectedUnitObservation
+) -> bool:
+    """Recognize the observed single-row Join selector over an allied same-type unit."""
+    x, y = snapshot.u16(CURSOR_SOURCE), snapshot.u16(CURSOR_SOURCE + 2)
+    width, height = snapshot.u16(MAP_BASE), snapshot.u16(MAP_BASE + 2)
+    if not (0 <= x < width and 0 <= y < height) or (x, y) == (selected.x, selected.y):
+        return False
+    for slot in range(1, UNITS_PER_ARMY + 1):
+        address = UNIT_BASE + ((selected.army_slot - 1) * 64 + slot) * UNIT_STRIDE
+        record = snapshot.read(address, UNIT_STRIDE)
+        if (
+            record[0] == selected.unit_type
+            and not record[1] & 0x09
+            and (record[2], record[3]) == (x, y)
+        ):
+            return True
+    return False
 
 
 def _selected_unit_can_load_at_cursor(
