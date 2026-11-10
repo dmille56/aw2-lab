@@ -52,6 +52,38 @@ async def test_sdk_retries_preserve_ids_bodies_and_null_configuration_rules(tmp_
 
 
 @run_async_test
+async def test_sdk_submits_super_power_as_a_distinct_typed_action():
+    match_id, request_id, command_id = uuid4(), uuid4(), uuid4()
+    requests = []
+
+    async def handler(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            202,
+            json={
+                "contract_version": 1,
+                "command_id": str(command_id),
+                "request_id": str(request_id),
+                "match_id": str(match_id),
+                "status": "queued",
+                "accepted_revision": 7,
+            },
+        )
+
+    async with AsyncAW2Client(
+        credential=token("p"),
+        base_url="http://aw2.test",
+        transport=httpx.MockTransport(handler),
+    ) as sdk:
+        receipt = await sdk.activate_super_power(match_id, 7, request_id=request_id)
+    assert receipt.command_id == command_id
+    assert requests[0]["action"] == {
+        "contract_version": 1,
+        "kind": "activate_super_power",
+    }
+
+
+@run_async_test
 async def test_sdk_real_http_play_checkpoint_restore_and_errors(memory, tmp_path, monkeypatch):
     app, runtime, _public, match_id, _operator, _ = await setup(memory, tmp_path, monkeypatch)
     from aw2_lab import playable_runtime as runtime_module

@@ -573,6 +573,32 @@ async def test_authorized_state_command_resources_and_coherent_screenshot(
             )
             assert power_result["command"]["status"] == "rejected"
             assert power_result["command"]["error"]["code"] == "unsupported_feature"
+            super_receipt = payload(
+                await call(
+                    "activate_super_power",
+                    {
+                        "match_id": str(match_id),
+                        "expected_revision": initial["summary"]["revision"],
+                        "request_id": str(uuid4()),
+                    },
+                )
+            )
+            super_result = payload(
+                await call(
+                    "wait_for_command",
+                    {
+                        "match_id": str(match_id),
+                        "command_id": super_receipt["command_id"],
+                        "timeout_seconds": 2,
+                    },
+                )
+            )
+            assert super_result["command"]["status"] in {
+                "rejected",
+                "completed",
+                "rolled_back",
+                "recovery_required",
+            }
             actions_before = bridge.frame
             request_id = str(uuid4())
             receipt = payload(

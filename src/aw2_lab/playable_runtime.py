@@ -27,7 +27,10 @@ from aw2_lab.match_observation import ActionReadiness, MatchObservation, MatchOb
 from aw2_lab.move_attack_executor import MoveAttackActionExecutor
 from aw2_lab.move_capture_executor import MoveCaptureActionExecutor
 from aw2_lab.move_wait_executor import MoveWaitActionExecutor
-from aw2_lab.power_executor import ActivateNormalPowerActionExecutor
+from aw2_lab.power_executor import (
+    ActivateNormalPowerActionExecutor,
+    ActivateSuperPowerActionExecutor,
+)
 from aw2_lab.purchase_executor import PurchaseActionExecutor
 from aw2_lab.state_decoder import capture_game_state
 from aw2_lab.state_model import GameState
@@ -156,6 +159,10 @@ class PlayableRuntime:
         executor: ActionExecutor
         if request.action.kind == "activate_normal_power":
             executor = ActivateNormalPowerActionExecutor(
+                self.navigator, service.session.tracker, self.rom_path
+            )
+        elif request.action.kind == "activate_super_power":
+            executor = ActivateSuperPowerActionExecutor(
                 self.navigator, service.session.tracker, self.rom_path
             )
         else:

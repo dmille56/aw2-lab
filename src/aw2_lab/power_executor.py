@@ -1,17 +1,20 @@
-"""Guarded activation of the researched normal CO Power command."""
+"""Guarded activation of researched normal and Super CO Powers."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar
 
 from aw2_lab.action_navigation import ActionNavigator
 from aw2_lab.lifecycle import LifecyclePhase
 from aw2_lab.match_contract import (
     ActivateNormalPowerAction,
+    ActivateSuperPowerAction,
     CommandRequest,
     ErrorCode,
+    GameplayAction,
     MatchLifecycle,
 )
 from aw2_lab.match_controller import CommandRejected, MutationOutcome
@@ -26,35 +29,55 @@ from aw2_lab.ui_state import CursorStatus, MenuFamily, MenuItem
 
 _PLAYER_SLOT_NUMBER = {"slot_1": 1, "slot_2": 2}
 _VERIFIED_MAX_USE_COUNTER = 9
+_COST_FUNCTION = Callable[[tuple[int, ...], int, int], int]
 
 
-def normal_power_cost(co_power_stars: tuple[int, ...], co_id: int, use_counter: int) -> int:
-    """Return this CO's next normal Power threshold in raw meter units."""
-    if len(co_power_stars) != 19 or not 1 <= co_id <= 18:
+def _power_cost(stars_by_co: tuple[int, ...], co_id: int, use_counter: int, label: str) -> int:
+    """Return a researched CO Power threshold in raw meter units."""
+    if len(stars_by_co) != 19 or not 1 <= co_id <= 18:
         raise ValueError("CO power-star metadata is unavailable")
     if not 0 <= use_counter <= _VERIFIED_MAX_USE_COUNTER:
         raise ValueError("Power-use counter is outside the verified cost range")
-    stars = co_power_stars[co_id]
+    stars = stars_by_co[co_id]
     if not 1 <= stars <= 10:
-        raise ValueError("CO normal Power star count is unrecognized")
+        raise ValueError(f"CO {label} star count is unrecognized")
     next_counter = use_counter + 1
     return stars * (9000 * (100 + 20 * next_counter) // 100)
 
 
+def normal_power_cost(co_power_stars: tuple[int, ...], co_id: int, use_counter: int) -> int:
+    """Return this CO's next normal Power threshold in raw meter units."""
+    return _power_cost(co_power_stars, co_id, use_counter, "normal Power")
+
+
+def super_power_cost(co_super_power_stars: tuple[int, ...], co_id: int, use_counter: int) -> int:
+    """Return this CO's next Super Power threshold in raw meter units."""
+    return _power_cost(co_super_power_stars, co_id, use_counter, "Super Power")
+
+
 @dataclass(slots=True)
-class ActivateNormalPowerActionExecutor:
-    """Activate normal Power only when observed state and its CO cost are known."""
+class _ActivatePowerActionExecutor:
+    """Shared guarded menu navigation and postcondition for one Power kind."""
 
     navigator: ActionNavigator
     tracker: MatchObservationTracker
     rom_path: Path
     layout_loader: Callable[[Path], BattleLayout] | None = None
 
+    action_type: ClassVar[type[GameplayAction]]
+    menu_item: ClassVar[MenuItem]
+    active_power_kind: ClassVar[int]
+    star_attribute: ClassVar[str]
+    power_label: ClassVar[str]
+    cost_function: ClassVar[_COST_FUNCTION]
+
     async def execute(
         self, request: CommandRequest, observation: MatchObservation
     ) -> MutationOutcome:
-        if not isinstance(request.action, ActivateNormalPowerAction):
-            raise CommandRejected(ErrorCode.UNSUPPORTED_FEATURE, "Only normal Power is supported")
+        if not isinstance(request.action, self.action_type):
+            raise CommandRejected(
+                ErrorCode.UNSUPPORTED_FEATURE, f"Only {self.power_label} is supported"
+            )
 
         game_state = observation.game_state
         battle = game_state.battle.value
@@ -66,7 +89,7 @@ class ActivateNormalPowerActionExecutor:
         ):
             raise CommandRejected(
                 ErrorCode.OBSERVATION_UNAVAILABLE,
-                "Normal Power requires a ready, settled player-turn boundary",
+                f"{self.power_label} requires a ready, settled player-turn boundary",
             )
 
         expected_player = _PLAYER_SLOT_NUMBER[request.player_slot.value]
@@ -119,41 +142,41 @@ class ActivateNormalPowerActionExecutor:
                 ErrorCode.OBSERVATION_UNAVAILABLE,
                 "Verified CO Power cost metadata is unavailable",
             ) from None
-        if layout.profile != game_state.context.rom_profile or len(layout.co_power_stars) != 19:
+        stars_by_co = getattr(layout, self.star_attribute)
+        if layout.profile != game_state.context.rom_profile or len(stars_by_co) != 19:
             raise CommandRejected(
                 ErrorCode.OBSERVATION_UNAVAILABLE,
                 "CO Power cost metadata does not match the observed ROM",
             )
         try:
-            meter_cost = normal_power_cost(layout.co_power_stars, player.co_id, current_counter)
+            meter_cost = type(self).cost_function(stars_by_co, player.co_id, current_counter)
         except ValueError:
             raise CommandRejected(
                 ErrorCode.OBSERVATION_UNAVAILABLE,
-                "The active CO's normal Power cost is not recognized",
+                f"The active CO's {self.power_label} cost is not recognized",
             ) from None
         next_counter = current_counter + 1
         if player.power_meter.value < meter_cost:
             raise CommandRejected(ErrorCode.INVALID_REQUEST, "Insufficient CO Power meter")
 
-        # Opening the selector is safe; verify that the ROM exposes normal Power
-        # before confirming it, so unavailable or already-used choices are not guessed.
+        # Verify the exact separate command row before confirming it.
         command_menu = await self.navigator.open_command_menu()
         if (
             command_menu.ui.menu.family is not MenuFamily.COMMAND
-            or MenuItem.POWER not in command_menu.ui.menu.items
+            or self.menu_item not in command_menu.ui.menu.items
             or command_menu.ui.menu.actionable is not True
         ):
             raise CommandRejected(
                 ErrorCode.INVALID_REQUEST,
-                "Normal Power is not available in the active player's command menu",
+                f"{self.power_label} is not available in the active player's command menu",
             )
-        selected = await self.navigator.navigate_menu(MenuItem.POWER)
+        selected = await self.navigator.navigate_menu(self.menu_item)
         if (
             selected.ui.menu.family is not MenuFamily.COMMAND
-            or selected.ui.menu.selected_item is not MenuItem.POWER
+            or selected.ui.menu.selected_item is not self.menu_item
             or selected.ui.menu.actionable is not True
         ):
-            raise RuntimeError("Normal Power was not selected in the command menu")
+            raise RuntimeError(f"{self.power_label} was not selected in the command menu")
 
         def settled(value: GameState) -> bool:
             return (
@@ -166,7 +189,7 @@ class ActivateNormalPowerActionExecutor:
 
         final_state = await self.navigator.confirm(
             settled,
-            label="normal-power",
+            label=self.power_label.lower().replace(" ", "-"),
             frame_budget=self.navigator.limits.resolution_frame_budget,
             poll_frames=self.navigator.limits.resolution_poll_frames,
             wall_timeout=self.navigator.limits.resolution_wall_timeout,
@@ -185,13 +208,39 @@ class ActivateNormalPowerActionExecutor:
             or final_state.ui.map_cursor.status is not CursorStatus.AVAILABLE
             or final_player is None
             or final_player.co_id != player.co_id
-            or final_player.active_power != 1
+            or final_player.active_power != self.active_power_kind
             or final_player.power_meter.status is not ValueStatus.AVAILABLE
             or final_player.power_meter.value != player.power_meter.value - meter_cost
             or final_player.power_use_counter.status is not ValueStatus.AVAILABLE
             or final_player.power_use_counter.value != next_counter
         ):
-            raise RuntimeError("Normal Power did not reach its verified settled postcondition")
+            raise RuntimeError(
+                f"{self.power_label} did not reach its verified settled postcondition"
+            )
 
         committed = self.tracker.commit_boundary(final_state)
         return MutationOutcome(observation=committed, lifecycle=MatchLifecycle.PLAYABLE)
+
+
+@dataclass(slots=True)
+class ActivateNormalPowerActionExecutor(_ActivatePowerActionExecutor):
+    """Activate normal Power only when observed state and its CO cost are known."""
+
+    action_type: ClassVar[type[GameplayAction]] = ActivateNormalPowerAction
+    menu_item: ClassVar[MenuItem] = MenuItem.POWER
+    active_power_kind: ClassVar[int] = 1
+    star_attribute: ClassVar[str] = "co_power_stars"
+    power_label: ClassVar[str] = "Normal Power"
+    cost_function: ClassVar[_COST_FUNCTION] = normal_power_cost
+
+
+@dataclass(slots=True)
+class ActivateSuperPowerActionExecutor(_ActivatePowerActionExecutor):
+    """Activate Super Power only when observed state and its CO cost are known."""
+
+    action_type: ClassVar[type[GameplayAction]] = ActivateSuperPowerAction
+    menu_item: ClassVar[MenuItem] = MenuItem.SUPER_POWER
+    active_power_kind: ClassVar[int] = 2
+    star_attribute: ClassVar[str] = "co_super_power_stars"
+    power_label: ClassVar[str] = "Super Power"
+    cost_function: ClassVar[_COST_FUNCTION] = super_power_cost

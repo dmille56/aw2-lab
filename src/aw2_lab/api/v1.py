@@ -325,6 +325,7 @@ async def capabilities(request: Request) -> CapabilitiesResponse:
                 "unload",
                 "purchase",
                 "activate_normal_power",
+                "activate_super_power",
                 "end_turn",
                 "surrender",
             )

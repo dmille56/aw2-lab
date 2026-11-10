@@ -426,6 +426,16 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
             )
 
     @server.tool()
+    async def activate_super_power(
+        match_id: UUID, expected_revision: Revision, request_id: UUID, contract_version: int = 1
+    ) -> CommandReceipt:
+        """Request Super CO Power activation for the caller's active turn."""
+        async with client(Permission.PLAY, match_id) as sdk:
+            return await sdk.activate_super_power(
+                match_id, expected_revision, request_id=request_id
+            )
+
+    @server.tool()
     async def end_turn(
         match_id: UUID, expected_revision: Revision, request_id: UUID, contract_version: int = 1
     ) -> CommandReceipt:

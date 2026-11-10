@@ -148,7 +148,8 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
       return {
         ...(event.kind === "end_turn" ||
         event.kind === "surrender" ||
-        event.kind === "activate_normal_power"
+        event.kind === "activate_normal_power" ||
+        event.kind === "activate_super_power"
           ? emptyDraft(draft.boundary)
           : draft),
         kind: event.kind,
@@ -523,7 +524,8 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     if (
       kind === "end_turn" ||
       kind === "surrender" ||
-      kind === "activate_normal_power"
+      kind === "activate_normal_power" ||
+      kind === "activate_super_power"
     )
       action = { contract_version: 1, kind };
     else if (

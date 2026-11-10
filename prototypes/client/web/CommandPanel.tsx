@@ -14,6 +14,7 @@ const labels: Record<ActionKind, string> = {
   unload: "Unload",
   purchase: "Purchase unit",
   activate_normal_power: "Activate normal Power",
+  activate_super_power: "Activate Super Power",
   end_turn: "End turn",
   surrender: "Surrender",
 };
@@ -86,6 +87,8 @@ export function CommandPanel({
     if (!draft.kind) return "";
     if (draft.kind === "activate_normal_power")
       return "Activate your CO's normal Power. The server checks meter and activation state before using it.";
+    if (draft.kind === "activate_super_power")
+      return "Activate your CO's Super Power. The server checks its CO-specific meter cost and activation state before using it.";
     if (draft.kind === "purchase")
       return `Buy ${draft.unitType} at ${draft.base ? positionLabel(draft.base) : "the selected facility"}. Baseline cost: ${profileByName(draft.unitType)?.cost ?? "unknown"}.`;
     if (draft.kind === "end_turn")
@@ -473,6 +476,13 @@ export function CommandPanel({
           onClick={() => choose("activate_normal_power")}
         >
           Activate normal Power
+        </button>
+        <button
+          type="button"
+          disabled={!editable || !model.available("activate_super_power")}
+          onClick={() => choose("activate_super_power")}
+        >
+          Activate Super Power
         </button>
         <button
           type="button"

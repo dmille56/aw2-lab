@@ -31,6 +31,7 @@ from aw2_lab.api_contract import (
 )
 from aw2_lab.match_contract import (
     ActivateNormalPowerAction,
+    ActivateSuperPowerAction,
     CheckpointReference,
     CommandReceipt,
     CommandResult,
@@ -380,6 +381,21 @@ class AsyncAW2Client:
             match_id,
             expected_revision,
             ActivateNormalPowerAction(),
+            request_id=request_id,
+        )
+
+    async def activate_super_power(
+        self,
+        match_id: UUID,
+        expected_revision: int,
+        *,
+        request_id: UUID | None = None,
+    ) -> CommandReceipt:
+        """Queue a Super CO Power request for the given revision."""
+        return await self.submit(
+            match_id,
+            expected_revision,
+            ActivateSuperPowerAction(),
             request_id=request_id,
         )
 

@@ -229,6 +229,48 @@ it("builds normal Power independently of a selected unit", () => {
   unmount();
 });
 
+it("builds Super Power independently of a selected unit", () => {
+  const capabilities = validateCapabilitiesResponse(capabilityFixture);
+  capabilities.actions = ["activate_super_power"].map((name) => ({
+    contract_version: 1,
+    name,
+    implemented: true,
+    available: true,
+    verification: "synthetic",
+    unavailable_reason: null,
+  }));
+  const view: ViewState = {
+    ...new MatchSession().getSnapshot(),
+    snapshot: validateState(stateFixture),
+    connected: true,
+    ready: true,
+    identity: {
+      contract_version: 1,
+      match_id: stateFixture.summary.match_id,
+      role: "player",
+      player_slot: "slot_1",
+    },
+    capabilities,
+  };
+  const { result, unmount } = renderHook(() => useGameplay(view, vi.fn()));
+
+  act(() => result.current.selectUnit("1"));
+  act(() =>
+    result.current.dispatch({ type: "choose", kind: "activate_super_power" }),
+  );
+
+  expect(result.current.draft).toMatchObject({
+    kind: "activate_super_power",
+    phase: "review",
+    unitId: "",
+  });
+  expect(result.current.action).toEqual({
+    contract_version: 1,
+    kind: "activate_super_power",
+  });
+  unmount();
+});
+
 it("offers Load only on a compatible friendly carrier tile and builds its payload", () => {
   const capabilities = validateCapabilitiesResponse(capabilityFixture);
   capabilities.actions = ["load"].map((name) => ({

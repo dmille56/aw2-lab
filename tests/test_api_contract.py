@@ -44,6 +44,7 @@ from aw2_lab.api_validation import (
     validation_error,
 )
 from aw2_lab.match_contract import (
+    ActivateSuperPowerAction,
     Capabilities,
     ErrorBody,
     ErrorCode,
@@ -327,6 +328,19 @@ def test_normal_power_action_contract() -> None:
     )
     assert request.action.kind == "activate_normal_power"
     assert "activate_normal_power" in Capabilities().supported_actions
+
+
+def test_super_power_action_contract_is_distinct_and_supported() -> None:
+    request = GameplayCommandRequest.model_validate(
+        {
+            "request_id": uuid4(),
+            "expected_revision": 0,
+            "action": {"kind": "activate_super_power"},
+        }
+    )
+    assert isinstance(request.action, ActivateSuperPowerAction)
+    assert "activate_super_power" in Capabilities().supported_actions
+    assert "super_power_activation" not in Capabilities().unsupported_features
 
 
 def test_transport_load_and_unload_action_contracts_are_bounded() -> None:

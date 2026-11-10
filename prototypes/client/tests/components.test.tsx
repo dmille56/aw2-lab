@@ -23,6 +23,62 @@ afterEach(() => {
 });
 
 describe("React viewer", () => {
+  it("offers Super Power as a separate, reviewed action", async () => {
+    const capabilities = validateCapabilitiesResponse(capabilityFixture);
+    capabilities.actions = [
+      {
+        contract_version: 1,
+        name: "activate_super_power",
+        implemented: true,
+        available: true,
+        verification: "synthetic",
+        unavailable_reason: null,
+      },
+    ];
+    const initial: ViewState = {
+      ...new MatchSession().getSnapshot(),
+      snapshot,
+      connected: true,
+      ready: true,
+      identity: {
+        contract_version: 1,
+        match_id: snapshot.summary.match_id,
+        role: "player",
+        player_slot: "slot_1",
+      },
+      capabilities,
+    };
+    const onSubmit = vi.fn();
+    function SuperPanel() {
+      const model = useGameplay(initial, vi.fn());
+      return (
+        <CommandPanel
+          model={model}
+          view={initial}
+          onSubmit={onSubmit}
+          onRetry={vi.fn()}
+          onCheckStatus={vi.fn()}
+        />
+      );
+    }
+    render(<SuperPanel />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Activate Super Power" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Confirm Activate Super Power" }),
+    ).toBeVisible();
+    expect(screen.getByText(/CO-specific meter cost/)).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Confirm Activate Super Power" }),
+    );
+    expect(onSubmit).toHaveBeenCalledWith(
+      { contract_version: 1, kind: "activate_super_power" },
+      snapshot.summary.revision,
+    );
+  });
+
   it("offers normal Power and shows its pending, completed, and failed status", async () => {
     const capabilities = validateCapabilitiesResponse(capabilityFixture);
     capabilities.actions = [

@@ -67,6 +67,7 @@ async def finished(client, runtime, match_id, response):
             "PurchaseActionExecutor",
             {"property": {"x": 1, "y": 1}, "unit_type": "Infantry"},
         ),
+        ("activate_super_power", "ActivateSuperPowerActionExecutor", {}),
         ("end_turn", "EndTurnActionExecutor", {}),
         ("surrender", "SurrenderActionExecutor", {}),
     ],
@@ -79,7 +80,7 @@ async def test_typed_http_gameplay_dispatch_retry_and_sse(
     calls = []
 
     class Executor:
-        def __init__(self, navigator, tracker):
+        def __init__(self, navigator, tracker, *_runtime_args):
             self.tracker = tracker
 
         async def execute(self, request, observation):
@@ -108,7 +109,9 @@ async def test_typed_http_gameplay_dispatch_retry_and_sse(
                 f"/v1/matches/{match_id}/commands", json=body, headers=headers("p")
             )
             result = await finished(client, runtime, match_id, submitted)
-            assert result["status"] == "completed" and result["resulting_revision"] == 2
+            assert result["status"] == "completed" and result["resulting_revision"] == 2, (
+                result.get("error")
+            )
             assert calls == [kind]
             retry = await client.post(
                 f"/v1/matches/{match_id}/commands", json=body, headers=headers("p")
@@ -154,6 +157,7 @@ async def test_http_checkpoint_create_reads_import_restore_and_revocation(
             actions = {item["name"]: item for item in caps["actions"]}
             assert all(item["available"] for item in actions.values())
             assert "activate_normal_power" in actions
+            assert "activate_super_power" in actions
             assert "unload" in {item["name"] for item in caps["actions"]}
             assert next(item for item in caps["operations"] if item["name"] == "checkpoints")[
                 "available"

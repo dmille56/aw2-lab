@@ -30,6 +30,25 @@
         "title": "ActivateNormalPowerAction",
         "type": "object"
       },
+      "ActivateSuperPowerAction": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "activate_super_power",
+            "default": "activate_super_power",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "title": "ActivateSuperPowerAction",
+        "type": "object"
+      },
       "ApiLimits": {
         "additionalProperties": false,
         "properties": {
@@ -1597,6 +1616,7 @@
             "discriminator": {
               "mapping": {
                 "activate_normal_power": "#/components/schemas/ActivateNormalPowerAction",
+                "activate_super_power": "#/components/schemas/ActivateSuperPowerAction",
                 "attack": "#/components/schemas/AttackAction",
                 "end_turn": "#/components/schemas/EndTurnAction",
                 "load": "#/components/schemas/LoadAction",
@@ -1633,6 +1653,9 @@
               },
               {
                 "$ref": "#/components/schemas/ActivateNormalPowerAction"
+              },
+              {
+                "$ref": "#/components/schemas/ActivateSuperPowerAction"
               },
               {
                 "$ref": "#/components/schemas/EndTurnAction"

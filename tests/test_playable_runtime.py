@@ -28,6 +28,7 @@ from aw2_lab.cold_boot import ColdBootResult
 from aw2_lab.command_journal import JsonlCommandJournal
 from aw2_lab.match_contract import (
     ActivateNormalPowerAction,
+    ActivateSuperPowerAction,
     CommandStatus,
     ErrorCode,
     MatchLifecycle,
@@ -153,7 +154,14 @@ def install_power_cost_layout(monkeypatch, memory):
     stars = [0] * 19
     stars[1] = 3
     stars[2] = 4
-    layout = replace(memory[0], co_power_stars=tuple(stars))
+    super_stars = [0] * 19
+    super_stars[1] = 6
+    super_stars[2] = 8
+    layout = replace(
+        memory[0],
+        co_power_stars=tuple(stars),
+        co_super_power_stars=tuple(super_stars),
+    )
     monkeypatch.setattr(power_executor, "load_battle_layout", lambda _path: layout)
 
 
@@ -316,7 +324,13 @@ async def test_normal_power_executor_activates_and_verifies_the_settled_state(
 
     stars = [0] * 19
     stars[1] = 3
-    fixture_layout = replace(memory[0], co_power_stars=tuple(stars))
+    super_stars = [0] * 19
+    super_stars[1] = 6
+    fixture_layout = replace(
+        memory[0],
+        co_power_stars=tuple(stars),
+        co_super_power_stars=tuple(super_stars),
+    )
     monkeypatch.setattr(power_executor, "load_battle_layout", lambda _path: fixture_layout)
 
     async def command_state():
@@ -394,6 +408,89 @@ async def test_normal_power_executor_activates_and_verifies_the_settled_state(
         await runtime.controller.stop()
 
 
+@run_async_test
+async def test_super_power_executor_uses_super_stars_and_verifies_activation(
+    memory, tmp_path, monkeypatch
+):
+    _, ewram, iwram = memory
+    player_offset = 0x23284 + 0x3C
+    ewram[player_offset + 0x20 : player_offset + 0x24] = (64800).to_bytes(4, "little")
+    iwram[0x3FC8] = 1
+    install_power_cost_layout(monkeypatch, memory)
+    runtime, public, match_id, operator, bridge = await setup(memory, tmp_path)
+
+    async def command_state():
+        current = await runtime._observe()
+        menu = replace(
+            current.ui.menu,
+            family=MenuFamily.COMMAND,
+            selected_item=MenuItem.CO,
+            actionable=True,
+            items=(MenuItem.CO, MenuItem.POWER, MenuItem.SUPER_POWER),
+        )
+        return replace(current, ui=replace(current.ui, menu=menu))
+
+    async def open_command_menu(_navigator):
+        return await command_state()
+
+    async def navigate_menu(_navigator, item):
+        assert item is MenuItem.SUPER_POWER
+        state = await command_state()
+        menu = replace(state.ui.menu, selected_item=MenuItem.SUPER_POWER)
+        return replace(state, ui=replace(state.ui, menu=menu))
+
+    async def confirm(
+        _navigator,
+        postcondition,
+        *,
+        label,
+        frame_budget,
+        poll_frames,
+        wall_timeout,
+    ):
+        assert label == "super-power"
+        assert frame_budget == runtime.navigator.limits.resolution_frame_budget
+        assert poll_frames == runtime.navigator.limits.resolution_poll_frames
+        assert wall_timeout == runtime.navigator.limits.resolution_wall_timeout
+        ewram[player_offset + 0x20 : player_offset + 0x24] = (0).to_bytes(4, "little")
+        ewram[player_offset + 0x25] = 1
+        ewram[player_offset + 0x1E] = 2
+        bridge.frame += 500
+        settled = await runtime._observe()
+        assert postcondition(settled)
+        return settled
+
+    monkeypatch.setattr(ActionNavigator, "open_command_menu", open_command_menu)
+    monkeypatch.setattr(ActionNavigator, "navigate_menu", navigate_menu)
+    monkeypatch.setattr(ActionNavigator, "confirm", confirm)
+    try:
+        start = await public.start(operator, match_id, start_request())
+        started = await public.wait_for_command(operator, match_id, start.command_id, timeout=2)
+        player = public.authenticate(token("p"))
+        receipt = await public.submit(
+            player,
+            match_id,
+            GameplayCommandRequest(
+                request_id=uuid4(),
+                expected_revision=started.resulting_revision,
+                action=ActivateSuperPowerAction(),
+            ),
+        )
+        result = await public.wait_for_command(player, match_id, receipt.command_id, timeout=2)
+        assert result.status is CommandStatus.COMPLETED
+        assert result.resulting_revision == started.resulting_revision + 1
+        final_player = next(
+            item
+            for item in runtime.checkpoints.session.tracker.read().game_state.battle.value.players
+            if item.slot == 1
+        )
+        assert final_player.active_power == 2
+        assert final_player.power_meter.value == 0
+        assert final_player.power_use_counter.value == 1
+    finally:
+        await runtime.controller.stop()
+
+
 @pytest.mark.parametrize(
     ("case", "meter", "active_power", "co_effects", "player_token", "stale", "expected"),
     [
@@ -461,6 +558,86 @@ async def test_normal_power_preflight_rejections_do_not_navigate(
                 request_id=uuid4(),
                 expected_revision=revision,
                 action=ActivateNormalPowerAction(),
+            ),
+        )
+        result = await public.wait_for_command(player, match_id, receipt.command_id, timeout=2)
+        assert result.status is CommandStatus.REJECTED
+        assert result.error is not None
+        assert result.error.code is expected
+        assert (
+            runtime.checkpoints.session.tracker.read().revision == start_result.resulting_revision
+        )
+    finally:
+        await runtime.controller.stop()
+
+
+@pytest.mark.parametrize(
+    ("case", "meter", "active_power", "co_effects", "player_token", "stale", "expected"),
+    [
+        ("insufficient_meter", 64799, 0, 1, "p", False, ErrorCode.INVALID_REQUEST),
+        ("already_active", 64800, 2, 1, "p", False, ErrorCode.INVALID_REQUEST),
+        ("wrong_turn", 64800, 0, 1, "q", False, ErrorCode.NOT_YOUR_TURN),
+        ("stale_revision", 64800, 0, 1, "p", True, ErrorCode.STALE_REVISION),
+        (
+            "unknown_co_power_rule",
+            64800,
+            0,
+            2,
+            "p",
+            False,
+            ErrorCode.OBSERVATION_UNAVAILABLE,
+        ),
+        (
+            "unknown_meter",
+            -1,
+            0,
+            1,
+            "p",
+            False,
+            ErrorCode.OBSERVATION_UNAVAILABLE,
+        ),
+    ],
+)
+@run_async_test
+async def test_super_power_preflight_rejections_do_not_navigate(
+    memory,
+    tmp_path,
+    monkeypatch,
+    case,
+    meter,
+    active_power,
+    co_effects,
+    player_token,
+    stale,
+    expected,
+):
+    prepare_normal_power_memory(
+        memory, meter=meter, active_power=active_power, co_effects=co_effects
+    )
+    install_power_cost_layout(monkeypatch, memory)
+    runtime, public, match_id, operator, _bridge = await setup(memory, tmp_path)
+
+    async def unexpected_navigation(*_args, **_kwargs):
+        raise AssertionError(f"{case} must be rejected before menu navigation")
+
+    monkeypatch.setattr(ActionNavigator, "open_command_menu", unexpected_navigation)
+    monkeypatch.setattr(ActionNavigator, "navigate_menu", unexpected_navigation)
+    monkeypatch.setattr(ActionNavigator, "confirm", unexpected_navigation)
+    try:
+        started = await public.start(operator, match_id, start_request())
+        start_result = await public.wait_for_command(
+            operator, match_id, started.command_id, timeout=2
+        )
+        assert start_result.resulting_revision is not None
+        revision = start_result.resulting_revision - 1 if stale else start_result.resulting_revision
+        player = public.authenticate(token(player_token))
+        receipt = await public.submit(
+            player,
+            match_id,
+            GameplayCommandRequest(
+                request_id=uuid4(),
+                expected_revision=revision,
+                action=ActivateSuperPowerAction(),
             ),
         )
         result = await public.wait_for_command(player, match_id, receipt.command_id, timeout=2)

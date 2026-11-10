@@ -107,6 +107,7 @@ class Capabilities(ContractModel):
         "unload",
         "purchase",
         "activate_normal_power",
+        "activate_super_power",
         "end_turn",
         "surrender",
     )
@@ -124,7 +125,6 @@ class Capabilities(ContractModel):
         "multiple_active_matches",
         "configurable_maps_cos_rules_weather_or_teams",
         "fog_of_war",
-        "super_power_activation",
         "resupply",
         "campaign_or_multiplayer_modes_other_than_versus",
         "competitive_player_visibility_isolation",
@@ -201,6 +201,10 @@ class ActivateNormalPowerAction(ContractModel):
     kind: Literal["activate_normal_power"] = "activate_normal_power"
 
 
+class ActivateSuperPowerAction(ContractModel):
+    kind: Literal["activate_super_power"] = "activate_super_power"
+
+
 class SurrenderAction(ContractModel):
     kind: Literal["surrender"] = "surrender"
 
@@ -214,6 +218,7 @@ GameplayAction = Annotated[
     | UnloadAction
     | PurchaseAction
     | ActivateNormalPowerAction
+    | ActivateSuperPowerAction
     | EndTurnAction
     | SurrenderAction,
     Field(discriminator="kind"),
