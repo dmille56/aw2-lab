@@ -136,7 +136,7 @@ class Capabilities(ContractModel):
     unsupported_features: tuple[str, ...] = (
         "multiple_active_matches",
         "configurable_cos_rules_weather_or_teams",
-        "maps_outside_two_player_classic_catalog",
+        "maps_outside_two_player_versus_catalog",
         "fog_of_war",
         "campaign_or_multiplayer_modes_other_than_versus",
         "competitive_player_visibility_isolation",

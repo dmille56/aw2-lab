@@ -462,14 +462,14 @@ spent-silo re-selection behavior remain outside the verified acceptance.
 
 ## Milestone 5 map selection (2026-11-10)
 
-Map selection supports the 17 two-player **Classic** maps, keeping Bean Island
-as the default. Each complete configuration is advertised as `<map_id>_v1`;
-Andy/Max, Red/Blue, teams A/B, external control, and verified rules remain fixed.
-Other categories, custom maps, and three/four-player maps are not advertised.
+The first map selection implementation covered the 17 two-player **Classic**
+maps, with Bean Island as the default. Each complete configuration was
+advertised as `<map_id>_v1` and used Andy/Max, Red/Blue, teams A/B, external
+control, and the verified rules.
 
 The catalog's ROM IDs, names, army count, and dimensions were checked against
 the supported original ROM: header table `0x085C77A0`, stride `0x5C`, map payload
-pointer at offset 0, name ID at `+0x14`, army count at `+0x1A`, and name string
+pointer at offset 0, name ID at `+0x14`, army count at `+0x18`, category at `+0x1A`, and name string
 pointer table `0x08610A38`. The first two decompressed payload bytes are width
 and height. Live startup independently checks the loaded ID and decoded dimensions.
 
@@ -507,7 +507,8 @@ all map choices through durable authorization creation, restart/retry, profile
 validation, runtime boot forwarding, and checkpoint metadata. Unknown maps and
 unverified player/rule combinations retain their existing rejection behavior.
 
-Reproduce sequentially, with no other emulator using bridge port 43128:
+These commands reproduce the original Classic coverage on revision `acef405`.
+Run them sequentially because the emulator bridge uses port 43128.
 
 ```sh
 AW2_RUN_MAP_SELECTION_TESTS=1 AW2_ROM_PATH=/private/aw2.gba \
@@ -541,3 +542,63 @@ Limits: these checks establish startup and structured first-turn observations
 for each map, plus alternate-map checkpoint continuity. They do not establish
 complete playthroughs or new map categories, COs, rules, weather, fog modes, or
 player counts. Cross-platform acceptance remains deferred until after Milestone 5.
+
+## Milestone 5 additional Versus map categories (2026-11-10)
+
+The original ROM has 137 entries across six built-in Versus categories. The
+catalog contains every entry whose army count at header offset `+0x18` is two.
+The category at offset `+0x1A` agrees with the live selector at `0x0300596C`.
+Menu positions count all preceding entries in a category, including maps for
+more than two players.
+
+| Category | Selector | ROM rows | Two-player profiles | Profiles requiring unlocks |
+| --- | ---: | ---: | ---: | ---: |
+| Classic | 2 | 17 | 17 | 0 |
+| Vs. Maps | 3 | 21 | 21 | 1 |
+| Pre-Deployed | 4 | 20 | 12 | 1 |
+| 3P Maps | 5 | 24 | 0 | 0 |
+| 4P Maps | 6 | 25 | 0 | 0 |
+| War Room | 7 | 30 | 22 | 6 |
+
+All 72 profiles reached the expected first player turn in headless and windowed
+mGBA. The checks verify the loaded ROM ID, dimensions, two external players,
+and fixed match rules. The eight unlock-dependent profiles passed with the
+companion cartridge save loaded from an isolated copy. The source save's hash
+matched before and after each run.
+
+The negative cases dropped Down while selecting Crater Isle and Right while
+selecting Little Island. Both failed before CO setup. Hourglass Isle was
+rejected with a fresh save in both frontends. ROM-independent tests verify that
+the startup error retains the menu diagnostic and publishes a recovery-required
+match without a playable observation.
+
+To reproduce the map matrix, use a ROM with a companion `.sav` containing the
+relevant unlocks. The fresh-save cases create their own isolated ROM copies.
+Run emulator tests sequentially because the bridge uses port 43128.
+
+```sh
+AW2_RUN_MAP_SELECTION_TESTS=1 AW2_ROM_PATH=/private/aw2.gba \
+  pytest -q tests/test_map_selection_live_acceptance.py
+```
+
+The ROM and frontend build hashes match the original Classic acceptance above.
+The source cartridge save SHA-256 was
+`f596b04b096de3a3b89615cf0ea2c3b6d2904bee26ff7b84fcbd0215e483e42a`.
+The initial run produced 77 map records before interruption. The resumed run
+passed the remaining 67 map cases and all four rejection cases. External
+evidence directories `aw2-versus-categories-acceptance` and
+`aw2-versus-categories-resume` contain the per-case observations and screenshots.
+The combined `aw2-versus-categories-summary.json` has SHA-256
+`926c1b47663b4fbaf7fbd95702999df2c5e98e06b64c136f9e4eb43ae1ae0c9c`.
+
+Little Island, Big Daddy, and Pay Dirt also passed the real application check
+in each frontend. Each match starts, commits a checkpoint, advances to Blue's
+turn, restores that boundary, and continues to Red's second day. The match
+summary and checkpoint manifest retain the selected map ID. Run the same check
+with `AW2_RUNTIME_MODE=headless` and `AW2_RUNTIME_MODE=windowed`.
+
+```sh
+AW2_RUN_RUNTIME_TESTS=1 AW2_ROM_PATH=/private/aw2.gba \
+  AW2_RUNTIME_MAP_IDS=little_island,big_daddy,pay_dirt AW2_RUNTIME_MODE=headless \
+  pytest -q tests/test_playable_runtime_integration.py
+```

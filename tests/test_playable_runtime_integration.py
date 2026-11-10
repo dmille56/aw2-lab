@@ -27,7 +27,13 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_playable_runtime_start_turn_restore_and_continue(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "map_id",
+    os.environ.get(
+        "AW2_RUNTIME_MAP_IDS", os.environ.get("AW2_RUNTIME_MAP_ID", "bean_island")
+    ).split(","),
+)
+def test_playable_runtime_start_turn_restore_and_continue(tmp_path, monkeypatch, map_id):
     rom = Path(os.environ.get("AW2_ROM_PATH", "")).expanduser()
     if not rom.is_file():
         pytest.fail("AW2_ROM_PATH must name a supported local ROM")
@@ -53,7 +59,6 @@ def test_playable_runtime_start_turn_restore_and_continue(tmp_path, monkeypatch)
         async with application.router.lifespan_context(application):
             public = application.state.authorized_matches
             operator = public.authenticate(secret)
-            map_id = os.environ.get("AW2_RUNTIME_MAP_ID", "bean_island")
             summary = await public.create(
                 operator,
                 CreateMatchRequest(

@@ -67,8 +67,8 @@ capabilities. Select a complete entry from `configuration_profiles` using
 combinations from the option lists. Profile selection does not depend on emulator
 availability; Start reports whether the runtime is available.
 
-The default profile uses Bean Island. Map selection supports all 17 two-player
-Classic maps (Bean Island through Royal Channel), each advertised as
+The default profile uses Bean Island. Map selection supports 72 two-player maps across
+Classic (17), Vs. Maps (21), Pre-Deployed (12), and War Room (22), each advertised as
 `<map_id>_v1`. These profiles use external Andy/Red/team A and Max/Blue/team
 B, fog Off, Clear weather, income 1,000 per property, a 30-day limit,
 capture limit Off, and CO powers On. Creation validates before allocating a match
@@ -76,7 +76,7 @@ or touching the emulator. Known alternative COs, valid alternative assignments/r
 CPU control, and the future three/four-player shape return
 `422 unsupported_feature`. Unknown map/CO IDs, duplicate colors, invalid slot
 ordering, incomplete configurations, and malformed values return
-`422 invalid_request`. Map IDs outside the advertised two-player Classic catalog
+`422 invalid_request`. Map IDs outside the advertised two-player Versus catalog
 are rejected. Failed validation allocates no
 match and does not reserve the request ID.
 
@@ -253,5 +253,15 @@ python examples/manage_match.py create --token-file /path/to/operator-token --ma
 The selected map is persisted in match metadata and checkpoints. Start verifies
 its numeric ROM ID, dimensions, two external armies, fixed rules, and opening
 property income before publishing a playable boundary. A wrong loaded map fails
-startup. Other categories, custom maps, and three/four-player maps remain outside
-the current map-selection catalog.
+startup. Profiles include `map_category` (`classic`, `versus`, `pre_deployed`, or
+`war_room`) and `requires_unlock`. Eight entries require purchases/unlocks in the
+local cartridge save: Hourglass Isle, Big Daddy, Pay Dirt, Long Road, Nest Egg,
+The Trident, Banker Hills, and Missile Plains. A fresh save cannot start those
+profiles; the failed Start retains an actionable menu diagnostic and enters
+recovery-required without publishing a playable observation. Close that match
+before choosing another map.
+
+The launcher explicitly loads an isolated copy of the ROM's companion `.sav`;
+source saves are never changed. Unlocks are not granted or patched by the server.
+3P Maps, 4P Maps, and maps with three/four armies in Pre-Deployed or War Room
+remain tied to the player-count expansion. Custom maps remain deferred.

@@ -107,7 +107,18 @@ class EmulatorLauncher:
                 shutil.copyfile(rom_path, local_rom)
                 source_save = rom_path.with_suffix(".sav")
                 if source_save.is_file():
-                    shutil.copyfile(source_save, local_rom.with_suffix(".sav"))
+                    local_save = local_rom.with_suffix(".sav")
+                    shutil.copyfile(source_save, local_save)
+                    # The headless frontend does not reliably autoload this copy.
+                    # Bind the core to the isolated save before exposing the bridge.
+                    bootstrap = root / "bootstrap.lua"
+                    bootstrap.write_text(
+                        f"assert(emu:loadSaveFile({_lua_string(str(local_save))}, false), "
+                        "'Cannot load isolated cartridge save')\n"
+                        "emu:reset()\n"
+                        f"dofile({_lua_string(str(script.resolve()))})\n"
+                    )
+                    script = bootstrap
                 config = root / "config" / "mgba"
                 config.mkdir(parents=True)
                 (config / "config.ini").write_text(
@@ -234,3 +245,11 @@ def _build_identity(executable: Path) -> str:
     except OSError:
         return f"path:{resolved}"
     return f"sha256:{digest}"
+
+
+def _lua_string(value: str) -> str:
+    """Quote paths as Lua long strings without interpreting filename contents."""
+    separator = ""
+    while f"]{separator}]" in value or value.endswith(f"]{separator}"):
+        separator += "="
+    return f"[{separator}[{value}]{separator}]"

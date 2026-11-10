@@ -14,14 +14,14 @@ Contract version 1 supports exactly one active local Versus match:
 
 | Setting | Supported value |
 | --- | --- |
-| Map | Selectable two-player Classic map; Bean Island (`bean_island`) by default |
+| Map | Selectable two-player built-in Versus map; Bean Island (`bean_island`) by default |
 | Slot 1 | Red, Andy, Team A |
 | Slot 2 | Blue, Max, Team B |
 | Control | Both armies controlled by the server for their external players |
 | Rules | 30-day limit, 1,000 income per owned property, CO Powers enabled, clear starting weather |
 | Fog | Disabled |
 
-Map selection is caller-selectable through the 17 advertised two-player Classic
+Map selection is caller-selectable through the 72 advertised two-player Versus
 profiles. The other values remain fixed. Match creation validates a complete
 profile before allocation; unsupported COs, rules, or player assignments fail
 with `unsupported_feature`. AW2 remains
@@ -255,7 +255,7 @@ collection and per-slot permissions/subscriptions while initially advertising
 only the fixed two-player configuration. The current Python contract and
 executors require explicit extension before three or four players are supported.
 The creation design accepts an explicit map/player/rule configuration, initially
-restricted to the advertised two-player Classic profiles. Future COs,
+restricted to the advertised two-player Versus profiles. Future COs,
 teams, fog/weather, and rule combinations use that same creation shape after
 validation and runtime verification. Adopting this proposed schema requires
 explicit conversion between the legacy `FixedMatchConfiguration` and new

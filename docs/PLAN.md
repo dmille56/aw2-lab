@@ -239,12 +239,9 @@ remain open. No support claim extends beyond the linked checks and live evidence
 
 **Status (2026-11-10): incomplete.** The [Milestone 5 audit and checklist](MILESTONE-5.org)
 records accepted stationary attacks, transport actions, powers, joining,
-resupplying, diving/surfacing, missile silo use, and two-player Classic map
-selection. Completing the earlier
-three-item gameplay checklist does not complete this milestone. The next
-implementation task is enabling the other built-in Versus map categories,
-followed by CO selection, configurable match rules, and starting weather as
-separate items.
+resupplying, diving/surfacing, missile silo use, and selection across the 72
+built-in two-player Versus maps. CO selection is the next implementation task,
+followed by configurable match rules and starting weather.
 
 **Dependencies:** stable playable slice and MCP adapter.
 
@@ -258,6 +255,7 @@ Add features in this order:
 6. Starting weather selection.
 7. Two to four players and teams.
 8. Fog-enabled matches with explicitly omniscient observations for trusted research clients.
+9. Investigate how to detect and handle Versus maps that are locked in the local cartridge save.
 
 **Acceptance criteria:** each feature has verified decoding, action execution, error/recovery scenarios, and capability advertisement. Clients can distinguish unsupported features from illegal actions.
 

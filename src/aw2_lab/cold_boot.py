@@ -1,4 +1,4 @@
-"""Bounded cold boot into a selected two-player Classic map with fixed COs/rules."""
+"""Bounded cold boot into a selected two-player Versus map with fixed COs/rules."""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ _LOCK = (0x030030F0, 1)
 _INPUT_GATE = (0x030040E4, 2)
 _INPUT_STATE = (0x03003334, 2)
 _FRONTEND_SELECTOR = (0x03001470, 0x80)
+_MAP_CATEGORY = (0x0300596C, 1)
 # Correlated with the Rules-screen Fog label in fresh and existing save traces.
 _FOG_RULE = (0x03001698, 1)
 _POLL_FRAMES = 30
@@ -80,6 +81,7 @@ class _FrontendState:
     day_rule: int
     capture_rule: int
     powers_rule: int
+    map_category: int = 2
 
 
 async def boot_fixed_versus_match(
@@ -113,6 +115,7 @@ async def boot_fixed_versus_match(
             _INPUT_STATE,
             _FRONTEND_SELECTOR,
             _FOG_RULE,
+            _MAP_CATEGORY,
             *((_FOG_RULE[0] + index * 0x60, 1) for index in range(1, 6)),
         ]
         snapshot = await bridge.read_memory_snapshot(ranges)
@@ -127,6 +130,7 @@ async def boot_fixed_versus_match(
             input_state,
             selector,
             fog_rule,
+            map_category,
             weather_rule,
             income_rule,
             day_rule,
@@ -156,6 +160,7 @@ async def boot_fixed_versus_match(
             selector_table=unpack_from("<I", selector, 0x20)[0],
             yes_no_selection=selector[0x7E],
             fog_rule=fog_rule[0],
+            map_category=map_category[0],
             weather_rule=weather_rule[0],
             income_rule=income_rule[0],
             day_rule=day_rule[0],
@@ -389,16 +394,35 @@ async def boot_fixed_versus_match(
                 "Bean Island selection changed during map-screen settle: "
                 f"phase={map_select.phase.value}, map ID={map_select.map_id}"
             )
-        # Classic maps are in ROM ID order. Never assume the selected battle ID
-        # tracks the highlight: it is assigned only when A confirms the map.
-        for index in range(selected_map.rom_id - 1):
+        if map_select.map_category != 2:
+            raise ColdBootError("Expected Classic as the initial map category")
+        for category_id in range(3, selected_map.category.selector_id + 1):
+            await tap(f"select-map-category-{category_id}", _KEY_RIGHT)
+            map_select = await settle(120)
+            if (
+                map_select.phase is not LifecyclePhase.VERSUS_MAP_SELECT
+                or map_select.map_category != category_id
+            ):
+                raise ColdBootError("Map category input did not reach the expected category")
+        # The battle ID is assigned only when A confirms the map. List positions
+        # include maps for other player counts, especially in Pre-Deployed/War Room.
+        for index in range(selected_map.menu_index):
             await tap(f"select-map-down-{index + 1}", _KEY_DOWN)
             map_select = await settle(120)
-            if map_select.phase is not LifecyclePhase.VERSUS_MAP_SELECT:
-                raise ColdBootError("Left map selection while moving the map highlight")
+            if (
+                map_select.phase is not LifecyclePhase.VERSUS_MAP_SELECT
+                or map_select.map_category != selected_map.category.selector_id
+            ):
+                raise ColdBootError("Left the expected category while moving the map highlight")
         await checkpoint(f"{map_id.replace('_', '-')}-selected", map_select)
         await tap(f"confirm-{map_id.replace('_', '-')}", _KEY_A)
 
+        if selected_map.requires_unlock:
+            confirmed = await settle(180)
+            if confirmed.phase is LifecyclePhase.VERSUS_MAP_SELECT:
+                raise ColdBootError(
+                    f"{selected_map.name} is not selectable in this save; unlock it in Battle Maps"
+                )
         teams = await wait_for(
             LifecyclePhase.VERSUS_SETUP,
             setup_subphase=0,

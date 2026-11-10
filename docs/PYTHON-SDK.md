@@ -147,3 +147,10 @@ controlled streams for reconnect/resync and bounded-wait cleanup. They run with
 Nix-provided Python/dependencies. Full live two-player runs in headless/windowed
 mGBA and a listening server remain Milestone 3 acceptance work; these examples
 do not constitute live verification.
+
+Map selection covers Classic, Vs. Maps, Pre-Deployed, and War Room two-player
+profiles. Use, for example, `--map-id brace_range` for a Pre-Deployed match or
+`--map-id spann_island` for War Room. Read `map_category` and `requires_unlock`
+in each advertised configuration profile. Unlock-dependent maps use the local
+ROM's companion `.sav`, loaded from an isolated copy; they require the relevant
+purchases/unlocks in that save. COs, rules, and the two external slots remain fixed.

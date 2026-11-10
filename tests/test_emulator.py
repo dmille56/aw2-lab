@@ -301,6 +301,13 @@ async def test_server_isolates_rom_and_save_copy_and_cleans_up(monkeypatch, tmp_
         copied.append(local)
         assert local != rom and local.read_bytes() == rom.read_bytes()
         assert local.with_suffix(".sav").read_bytes() == b"original save"
+        bootstrap = Path(args[2])
+        assert bootstrap.parent == local.parent
+        script_text = bootstrap.read_text()
+        assert "emu:loadSaveFile" in script_text
+        assert str(local.with_suffix(".sav")) in script_text
+        assert str(save) not in script_text
+        assert str(script) in script_text
         local.with_suffix(".sav").write_bytes(b"changed isolated save")
         assert (
             str(local.parent)

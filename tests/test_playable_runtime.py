@@ -25,7 +25,7 @@ from aw2_lab.authorization import AuthorizationError, AuthorizationService
 from aw2_lab.authorized_match import AuthorizedMatchService
 from aw2_lab.bridge import MemorySnapshot
 from aw2_lab.checkpoint_store import CheckpointStore
-from aw2_lab.cold_boot import ColdBootResult
+from aw2_lab.cold_boot import ColdBootError, ColdBootResult
 from aw2_lab.command_journal import JsonlCommandJournal
 from aw2_lab.match_contract import (
     ActivateNormalPowerAction,
@@ -224,10 +224,19 @@ async def test_start_requires_operator_and_both_claims_before_input(memory, tmp_
         await public.controller.stop()
 
 
+@pytest.mark.parametrize(
+    "boot_error",
+    [
+        RuntimeError("unexpected menu"),
+        ColdBootError("Hourglass Isle is not selectable in this save"),
+    ],
+)
 @run_async_test
-async def test_failed_boot_is_recovery_required_without_playable_publication(memory, tmp_path):
+async def test_failed_boot_is_recovery_required_without_playable_publication(
+    memory, tmp_path, boot_error
+):
     async def fail():
-        raise RuntimeError("unexpected menu")
+        raise boot_error
 
     runtime, public, match_id, operator, bridge = await setup(memory, tmp_path, boot=fail)
     try:
@@ -237,6 +246,8 @@ async def test_failed_boot_is_recovery_required_without_playable_publication(mem
         assert result.status is CommandStatus.RECOVERY_REQUIRED
         assert state.summary.lifecycle is MatchLifecycle.RECOVERY_REQUIRED
         assert state.observation is None and state.summary.revision == 0
+        if isinstance(boot_error, ColdBootError):
+            assert result.error.details["failure_message"] == str(boot_error)
         assert bridge.keys == 0 and runtime.store.current() is None
         assert public.authorization.summaries()[0].lifecycle is MatchLifecycle.RECOVERY_REQUIRED
         close = await public.close(operator, match_id, uuid4())

@@ -12,7 +12,7 @@ from aw2_lab.api_contract import configuration_from_controller
 from aw2_lab.api_validation import validate_configuration
 from aw2_lab.bridge import LuaBridgeClient
 from aw2_lab.checkpoint_store import CheckpointStore
-from aw2_lab.cold_boot import ColdBootResult, boot_fixed_versus_match
+from aw2_lab.cold_boot import ColdBootError, ColdBootResult, boot_fixed_versus_match
 from aw2_lab.command_journal import JsonlCommandJournal
 from aw2_lab.end_turn_executor import EndTurnActionExecutor
 from aw2_lab.join_executor import JoinActionExecutor
@@ -22,6 +22,7 @@ from aw2_lab.match_controller import (
     ActionExecutor,
     CommandRejected,
     MatchController,
+    MatchControllerError,
     MutationOutcome,
 )
 from aw2_lab.match_observation import ActionReadiness, MatchObservation, MatchObservationTracker
@@ -126,12 +127,17 @@ class PlayableRuntime:
         if self._session_changed is not None:
             self._session_changed(self._service)
         # Existing-save confirmations are restricted to the isolated emulator save copy.
-        result = await self._boot_match(
-            self.bridge,
-            rom_path=self.rom_path,
-            save_mode="existing",
-            map_id=summary.configuration.map_id,
-        )
+        try:
+            result = await self._boot_match(
+                self.bridge,
+                rom_path=self.rom_path,
+                save_mode="existing",
+                map_id=summary.configuration.map_id,
+            )
+        except ColdBootError as error:
+            # Startup has already mutated the emulator. Preserve the safe menu
+            # diagnostic while retaining recovery-required startup semantics.
+            raise MatchControllerError(ErrorCode.ACTION_REJECTED, str(error)) from error
         observation = self.checkpoints.session.tracker.commit_boundary(result.game_state)
         if observation.action_readiness is not ActionReadiness.READY:
             raise RuntimeError("Startup did not reach a recognized playable boundary")

@@ -25,7 +25,7 @@ configuration features that remain unimplemented.
 | Resupplying | Implemented and verified | [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 APC Supply action (2026-11-10)][APC Supply and automatic allied-property upkeep; headless and windowed mGBA]] |
 | Diving/surfacing | Implemented and verified | Sub action selector: Dive row =0x0B=, Rise row =0x0C=; guarded typed actions and headless/windowed acceptance in [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 Sub Dive and Rise (2026-11-10)][the live acceptance log]] |
 | Missile silos | Implemented and verified | Infantry/Mech Launch row, target prompt/cursor, silo consumption, and 3x3 blast in both live frontends; [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 missile silo launch (2026-11-10)][live evidence]] |
-| Map selection | Accepted for two-player Classic maps | 17 advertised map profiles; guarded cold boot and durable configuration |
+| Map selection | Accepted | 72 two-player profiles across Classic, Vs. Maps, Pre-Deployed, and War Room, with category guards and local unlock requirements |
 | CO selection | Open | Fixed to Andy vs. Max; explicitly unsupported |
 | Configurable match rules | Open | Fixed verified versus rules; explicitly unsupported |
 | Starting weather selection | Open | Fixed to clear; explicitly unsupported |
@@ -109,18 +109,24 @@ actions must remain distinguishable at the public boundary.
    - [X] Navigate the Classic list with bounded inputs and reject a mismatched loaded map before CO/team setup; verify dimensions and property-dependent opening income at the first turn.
    - [X] Add operator example selection with =--map-id= and regenerate client contracts.
    - [X] Verify every supported map in headless and windowed mGBA; see [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 map selection (2026-11-10)][live acceptance]].
-   - Scope: other categories, custom maps, and three/four-player maps are not advertised; expanded player counts remain a separate item.
-** TODO Enable the other built-in Versus map categories
-   - [ ] Identify the remaining category selectors, map IDs, dimensions, player counts, and any save/unlock requirements in the supported ROM.
-   - [ ] Extend the map catalog and guarded category/list navigation; verify the loaded map before publishing a playable match.
-   - [ ] Advertise verified profiles through HTTP/SDK/MCP and support selection in the operator example while preserving existing profiles and checkpoints.
-   - [ ] Verify supported maps in headless and windowed mGBA, including unavailable selections, navigation failures, and checkpoint restore; record acceptance evidence.
+   - Initial scope: two-player Classic maps; the additional categories are tracked below. Custom maps and expanded player counts remain separate.
+** DONE Enable the other built-in Versus map categories
+   - [X] Identify the remaining category selectors, map IDs, dimensions, player counts, and any save/unlock requirements in the supported ROM.
+   - [X] Extend the map catalog and guarded category/list navigation; verify the loaded map before publishing a playable match.
+   - [X] Advertise category/unlock metadata through HTTP/SDK/MCP and support selection in the operator example while preserving existing profiles and checkpoints.
+   - [X] Explicitly load the isolated cartridge save so unlocks are honored; preserve safe startup diagnostics and leave the source save unchanged.
+   - [X] Verify supported maps in headless and windowed mGBA, including unavailable selections, navigation failures, and checkpoint restore. See [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 additional Versus map categories (2026-11-10)][the acceptance evidence]].
    - Scope: built-in Versus maps outside Classic; three/four-player profiles depend on the player-count expansion below. Custom maps remain deferred.
 ** TODO Add CO selection
 ** TODO Add configurable match rules
 ** TODO Add starting weather selection
 ** TODO Expand match setup and authorization to two through four players and teams
+   - [ ] Enable 3P Maps, 4P Maps, and the three/four-player entries in Pre-Deployed and War Room after expanding the match contract and player authorization.
 ** TODO Add fog-enabled matches with explicitly omniscient trusted-client observations
+** TODO Investigate how to handle locked Versus maps
+   - [ ] Determine whether map availability can be read reliably from the local cartridge save before match creation.
+   - [ ] Decide how to show unavailable maps in capabilities and explain how to unlock them, including when no companion save is present.
+   - [ ] Verify the chosen behavior with fresh, partially unlocked, and fully unlocked saves.
 
 ** TODO Complete the final Milestone 5 acceptance audit
    - [ ] Map each planned feature to implementation and checks, including error/recovery and public capability behavior.

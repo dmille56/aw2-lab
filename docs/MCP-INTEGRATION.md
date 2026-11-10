@@ -53,7 +53,7 @@ server advertises AW2 `contract_version: 1` on tool schemas/results and supports
 versioned endpoint such as `/mcp/v2`. After initialization, call
 `get_capabilities` and `tools/list`. Use the returned profile, action
 availability, operation limits, and runtime status as authoritative. The only
-advertised match profiles support 17 two-player Classic maps, two external players, fog Off,
+advertised match profiles support 72 two-player built-in Versus maps, two external players, fog Off,
 Clear weather, and the documented fixed rules. A valid tool schema does not
 mean an action is legal in the current game state.
 

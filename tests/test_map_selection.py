@@ -15,7 +15,7 @@ from aw2_lab.api_contract import (
 )
 from aw2_lab.api_validation import configuration_to_controller, validate_configuration
 from aw2_lab.authorization import AuthorizationError, AuthorizationService
-from aw2_lab.map_catalog import MAP_IDS
+from aw2_lab.map_catalog import ALL_MAPS, MAP_IDS
 from aw2_lab.match_contract import ErrorCode
 
 
@@ -66,7 +66,22 @@ def test_advertised_profiles_and_options_describe_the_same_supported_maps():
         tuple(p.configuration.map_id for p in profiles)
         == capabilities.configuration_options.map_ids
     )
-    assert len(profiles) == len(MAP_IDS) == 17
+    assert len(profiles) == len(MAP_IDS) == 72
     assert profiles[0].profile_id == capabilities.default_profile_id
-    for profile in profiles:
+    for profile, entry in zip(profiles, ALL_MAPS, strict=True):
+        assert profile.map_category == entry.category
+        assert profile.requires_unlock == entry.requires_unlock
         assert validate_configuration(profile.configuration) == profile.configuration
+
+
+@pytest.mark.parametrize("field", ["map_category", "requires_unlock"])
+def test_profiles_cannot_hide_category_or_unlock_requirements(field):
+    data = {
+        "profile_id": "hourglass_isle_v1",
+        "configuration": VERIFIED_CONFIGURATION.model_copy(update={"map_id": "hourglass_isle"}),
+        "map_category": "versus",
+        "requires_unlock": True,
+    }
+    data[field] = "classic" if field == "map_category" else False
+    with pytest.raises(ValidationError):
+        ConfigurationProfile.model_validate(data)

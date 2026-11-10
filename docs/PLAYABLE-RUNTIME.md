@@ -49,7 +49,7 @@ widgets have a 0x60-byte stride starting at `0x03001698`: Fog Off index 1,
 Weather Clear index 1, Funds 1000 index 0, Turn 30 index 26, Capture limit Off
 index 0, and Powers On index 0. Turn goes from OFF to 5 on the first Down, then
 increments one day per Down. Every increment and final combination is checked
-before confirming. The final playable observation verifies the selected Classic
+before confirming. The final playable observation verifies the selected Versus
 map ID and dimensions, Red Andy/Blue Max, external control, separate teams A/B,
 day 1/Red turn, Clear weather, Fog Off, CO effects On, and opening property income.
 Unknown or mismatched settings fail startup through recovery.
@@ -124,10 +124,23 @@ regained it at Red's next turn. The subsequent
 actual process restart, and controlled post-input timeout/rollback recovery in
 both modes on 2026-11-03.
 
-Map selection now accepts the 17 two-player Classic maps in
+Map selection now accepts the 72 two-player built-in Versus maps in
 `src/aw2_lab/map_catalog.py`. Bean Island remains the default. The public profile
 selection is preserved through authorization, startup, and checkpoint restore.
-Navigation starts from the default Classic entry, sends bounded Down inputs,
-and checks the loaded map ID before CO/team setup. Opening income is computed
+Navigation starts from the default Classic entry, selects the required category
+with observed Right inputs, sends bounded Down inputs using category-local list
+positions, and checks the loaded map ID before CO/team setup. List positions
+include intervening three/four-player maps; ROM IDs are not list indexes.
+The category selector at `0x0300596C` is checked after each category/list input.
+Locked entries that remain on the map screen after confirmation fail startup
+before CO/team setup. Safe menu diagnostics survive in command error details;
+failed startup retains recovery-required semantics. Opening income is computed
 from Red's observed cities, HQ, bases, airports, and ports, rather than assuming
 Bean Island's 11,000 funds on every map. COs, teams, and rules remain fixed.
+
+The isolated launcher explicitly loads the copied `.sav` with mGBA's
+`loadSaveFile`, then resets before starting the bridge. Copying the file alone
+did not reliably load its unlock data in the headless frontend. The bootstrap
+and copied save live only in the temporary workspace, with paths quoted as Lua
+long strings. The source save is not passed to mGBA. Profiles mark eight maps as
+requiring local cartridge unlocks; the runtime does not alter unlock flags.

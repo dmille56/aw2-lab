@@ -109,7 +109,7 @@ the named shared models unless a representation is explicitly defined below.
 | `restore_checkpoint` | match_id, checkpoint_id, expected_revision, request_id | `restore_checkpoint` / `CommandReceipt` |
 | `wait_for_turn` | match_id, player_slot, after_revision, timeout_seconds | shared publisher plus SDK `state` / turn wait result |
 
-Use `MatchConfiguration` restricted to an advertised two-player Classic map
+Use `MatchConfiguration` restricted to an advertised two-player built-in Versus map
 profile, external Andy/Max players, and fog off. Coordinates are zero-based
 `{x, y}`. Paths explicitly list successive destination tiles, excluding the
 starting tile; an empty path acts at the current tile. Unit IDs identify a

@@ -15,7 +15,7 @@ from mcp.shared.version import SUPPORTED_PROTOCOL_VERSIONS
 from mcp.types import LATEST_PROTOCOL_VERSION
 from pydantic import AwareDatetime, Field, SecretStr, StringConstraints, model_validator
 
-from aw2_lab.map_catalog import CLASSIC_MAPS, MAP_IDS, MapId
+from aw2_lab.map_catalog import ALL_MAPS, MAP_IDS, MAPS_BY_ID, MapCategory, MapId
 from aw2_lab.match_contract import (
     CheckpointReference,
     ContractModel,
@@ -239,12 +239,16 @@ class StateResponse(ContractModel):
 class ConfigurationProfile(ContractModel):
     profile_id: Identifier = "bean_island_v1"
     configuration: MatchConfiguration = VERIFIED_CONFIGURATION
+    map_category: MapCategory = MapCategory.CLASSIC
+    requires_unlock: bool = False
 
     @model_validator(mode="after")
     def validate_verified_profile(self) -> ConfigurationProfile:
         if (
             self.configuration.map_id not in MAP_IDS
             or self.profile_id != f"{self.configuration.map_id}_v1"
+            or self.map_category != MAPS_BY_ID[self.configuration.map_id].category
+            or self.requires_unlock != MAPS_BY_ID[self.configuration.map_id].requires_unlock
             or self.configuration.players != VERIFIED_CONFIGURATION.players
             or self.configuration.rules != VERIFIED_CONFIGURATION.rules
         ):
@@ -347,8 +351,10 @@ class CapabilitiesResponse(ContractModel):
         ConfigurationProfile(
             profile_id=f"{entry.id}_v1",
             configuration=VERIFIED_CONFIGURATION.model_copy(update={"map_id": entry.id}),
+            map_category=entry.category,
+            requires_unlock=entry.requires_unlock,
         )
-        for entry in CLASSIC_MAPS
+        for entry in ALL_MAPS
     )
     configuration_options: ConfigurationOptions = ConfigurationOptions()
     # Whole profiles are the combination constraint; catalogs do not imply a Cartesian product.
