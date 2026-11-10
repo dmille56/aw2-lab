@@ -11,8 +11,8 @@ do not cover all of Milestone 5 in [[file:PLAN.md][PLAN.md]].
 The current [[file:../src/aw2_lab/match_contract.py][gameplay contract]] advertises
 =attack=, =join=, =supply=, =load=, =unload=, and separate normal/Super Power
 actions alongside the accepted playable-slice actions. Diving/surfacing and
-silo actions remain unavailable. Match creation still fixes fog off, clear
-weather, and two slots. Capability reporting excludes the gameplay and
+=silo_launch= are implemented. Match creation still fixes fog off, clear
+weather, and two slots. Capability reporting excludes gameplay and
 configuration features that remain unimplemented.
 
 | Planned coverage | Audit result | Evidence or remaining work |
@@ -24,7 +24,7 @@ configuration features that remain unimplemented.
 | Joining units | Implemented and verified | [[file:LIVE-SDK-ACCEPTANCE.md::#milestone-5-join-action-2026-11-10][Natural Join row, both live frontends, merge survivor verified]] |
 | Resupplying | Implemented and verified | [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 APC Supply action (2026-11-10)][APC Supply and automatic allied-property upkeep; headless and windowed mGBA]] |
 | Diving/surfacing | Implemented and verified | Sub action selector: Dive row =0x0B=, Rise row =0x0C=; guarded typed actions and headless/windowed acceptance in [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 Sub Dive and Rise (2026-11-10)][the live acceptance log]] |
-| Missile silos | Open | No silo action/executor |
+| Missile silos | Implemented and verified | Infantry/Mech Launch row, target prompt/cursor, silo consumption, and 3x3 blast in both live frontends; [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 missile silo launch (2026-11-10)][live evidence]] |
 | Map/CO/rules/weather selection | Open | Fixed match profile; explicitly unsupported |
 | Two to four players/teams | Open | Two fixed external player slots |
 | Fog-enabled matches | Open | Fog off contract; explicitly unsupported |
@@ -92,14 +92,20 @@ actions must remain distinguishable at the public boundary.
    - [X] Add guarded typed Dive/Rise actions and verify surfaced/submerged preconditions, active turn, unit usage, identity, and settled state transitions.
    - [X] Route through HTTP, SDK, MCP, and the human client; update supported actions/features.
    - [X] Verify both transitions in headless and windowed mGBA from the supplied natural checkpoints; record acceptance evidence.
-** TODO Implement missile silo use
+** DONE Implement missile silo use
+   - [X] Decode Launch as a separate unit-action row only for Infantry/Mechs on an unused silo.
+   - [X] Observe the first-use target tutorial and verified map target cursor; move and confirm a selected map coordinate.
+   - [X] Add a guarded typed action through the API, SDK, MCP, playable runtime, capabilities, and human client.
+   - [X] Reject unavailable units, invalid routes/targets, and destinations that are not unused silos before emulator input.
+   - [X] Verify the unit remains at the silo and is consumed for the turn, the silo changes from terrain 17 to spent terrain 18, and missile damage resolves before returning a settled boundary.
+   - [X] Replay the supplied ready checkpoint in headless and windowed mGBA; record ROM/build/checkpoint identities, blast observations, and evidence hashes in [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 missile silo launch (2026-11-10)][the live acceptance log]].
 ** TODO Add map and CO selection and configurable match rules/weather
 ** TODO Expand match setup and authorization to two through four players and teams
 ** TODO Add fog-enabled matches with explicitly omniscient trusted-client observations
 
 ** TODO Complete the final Milestone 5 acceptance audit
    - [ ] Map each planned feature to implementation and checks, including error/recovery and public capability behavior.
-   - [ ] Ensure unsupported feature declarations explicitly cover remaining unavailable gameplay actions, including diving/surfacing and silos.
+   - [ ] Ensure unsupported feature declarations explicitly cover remaining unavailable gameplay actions and match-configuration options.
    - [ ] Record supported ROM/build identities and live evidence with limits for every implemented feature.
    - [ ] Run =pre-commit run --all-files= and require every hook to pass.
    - [ ] Mark the milestone complete only when all planned coverage above is accepted.

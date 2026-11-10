@@ -417,3 +417,44 @@ Per-run screenshots and evidence JSON are outside Git at
 `/tmp/aw2-submarine-live-verified/`. The opt-in acceptance is
 `tests/test_submarine_live_acceptance.py`; run it with
 `AW2_RUN_SUBMARINE_LIVE_TESTS=1 pytest -s tests/test_submarine_live_acceptance.py`.
+
+## Milestone 5 missile silo launch (2026-11-10)
+
+The guarded `silo_launch` action replayed the supplied ready map ID 85 state in
+headless and windowed mGBA. Infantry reference 1 at `(3,16)` selected the
+observed Launch row, acknowledged the first-use tutorial, moved the target
+cursor from `(3,16)` to `(2,13)`, and confirmed. Both runs returned to the
+settled player-turn boundary at frame 5147. The Infantry remained at `(3,16)`
+and became used; its silo changed from terrain 17 to spent terrain 18. Four
+enemy Infantry in the 3x3 blast changed from 100 to 70 health: `(2,14)`,
+`(1,13)`, `(2,12)`, and `(3,13)`. This records the observed damage in this
+checkpoint only; no general damage formula or launch range is claimed.
+
+ROM SHA-256:
+`ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`.
+Ready checkpoint `aw2.ss1` SHA-256:
+`77afc4d6ef7267e7a7ea57787baeeada3528a52c47c8a2054a2383890e71a2ef`.
+
+| Frontend | mGBA build identity | Evidence JSON SHA-256 |
+|----------|---------------------|-----------------------|
+| Headless | `sha256:2428496c7cf6efaa59aa9533d2e3c2ce7c79771b642695a1fe24744c42871810` | `5582f882b290af7b6d326e29a1c5ab3828a4bd991d00e54ebd93c6dd3e87e251` |
+| Windowed | `sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810` | `87fd9000279a765c576ddc96715a5f2dcb4f9044eb10c5d16697debacefb1d1a` |
+
+Both runs used the same screenshot hashes: before
+`c3c82a69a2960e79aee393e6fbcb11d81184bc52493592d15941bdb2789910af`, after
+`e80f78f2ef759bd4df098d7c7c8f33479bbd9c0376081b4e4497495a851f3257`.
+Generated evidence and screenshots are outside Git under
+`/tmp/pytest-of-dono/pytest-1304/test_live_silo_launch_headless0/headless/`
+and
+`/tmp/pytest-of-dono/pytest-1305/test_live_silo_launch_windowed0/windowed/`
+(the repeated headless run produced identical evidence). Run both frontends
+with:
+
+```sh
+AW2_RUN_SILO_LIVE_TESTS=1 pytest -s tests/test_silo_live_acceptance.py
+```
+
+ROM-independent UI tests cover the Launch/Wait row mapping and target
+prompt/cursor classification. Public API, MCP, runtime, capabilities, and human
+client payloads expose the typed launch action. Missile range restrictions and
+spent-silo re-selection behavior remain outside the verified acceptance.

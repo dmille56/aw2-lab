@@ -376,6 +376,56 @@ it.each([
   },
 );
 
+it("builds a silo launch only for an eligible unit on an unused silo", () => {
+  const state = structuredClone(stateFixture) as StateResponse;
+  const observation = state.observation;
+  if (!observation) throw new Error("fixture has no observation");
+  const battle = observation.game_state.battle;
+  if (battle.status !== "available" || !battle.value)
+    throw new Error("fixture is not playable");
+  battle.value.map.tiles[0] = {
+    ...battle.value.map.tiles[0],
+    terrain_class: 17,
+  };
+  const capabilities = validateCapabilitiesResponse(capabilityFixture);
+  capabilities.actions = ["silo_launch"].map((name) => ({
+    contract_version: 1 as const,
+    name,
+    implemented: true,
+    available: true,
+    verification: "synthetic",
+    unavailable_reason: null,
+  }));
+  const view: ViewState = {
+    ...new MatchSession().getSnapshot(),
+    snapshot: validateState(state),
+    connected: true,
+    ready: true,
+    identity: {
+      contract_version: 1,
+      match_id: state.summary.match_id,
+      role: "player",
+      player_slot: "slot_1",
+    },
+    capabilities,
+  };
+  const { result, unmount } = renderHook(() => useGameplay(view, vi.fn()));
+  act(() => result.current.selectUnit("1"));
+  act(() => result.current.dispatch({ type: "plan" }));
+  expect(result.current.siloReady).toBe(true);
+  act(() => result.current.dispatch({ type: "choose", kind: "silo_launch" }));
+  expect(result.current.draft.phase).toBe("target");
+  act(() => result.current.activate({ x: 1, y: 0 }));
+  expect(result.current.action).toEqual({
+    contract_version: 1,
+    kind: "silo_launch",
+    unit_id: "1",
+    path: [],
+    target: { contract_version: 1, x: 1, y: 0 },
+  });
+  unmount();
+});
+
 it("offers Load only on a compatible friendly carrier tile and builds its payload", () => {
   const capabilities = validateCapabilitiesResponse(capabilityFixture);
   capabilities.actions = ["load"].map((name) => ({

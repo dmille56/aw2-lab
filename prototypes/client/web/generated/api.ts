@@ -998,7 +998,7 @@ export interface components {
          */
         GameplayCommandRequest: {
             /** Action */
-            action: components["schemas"]["MoveWaitAction"] | components["schemas"]["MoveAttackAction"] | components["schemas"]["AttackAction"] | components["schemas"]["MoveCaptureAction"] | components["schemas"]["JoinAction"] | components["schemas"]["SupplyAction"] | components["schemas"]["DiveAction"] | components["schemas"]["RiseAction"] | components["schemas"]["LoadAction"] | components["schemas"]["UnloadAction"] | components["schemas"]["PurchaseAction"] | components["schemas"]["ActivateNormalPowerAction"] | components["schemas"]["ActivateSuperPowerAction"] | components["schemas"]["EndTurnAction"] | components["schemas"]["SurrenderAction"];
+            action: components["schemas"]["MoveWaitAction"] | components["schemas"]["MoveAttackAction"] | components["schemas"]["AttackAction"] | components["schemas"]["MoveCaptureAction"] | components["schemas"]["JoinAction"] | components["schemas"]["SupplyAction"] | components["schemas"]["DiveAction"] | components["schemas"]["RiseAction"] | components["schemas"]["SiloLaunchAction"] | components["schemas"]["LoadAction"] | components["schemas"]["UnloadAction"] | components["schemas"]["PurchaseAction"] | components["schemas"]["ActivateNormalPowerAction"] | components["schemas"]["ActivateSuperPowerAction"] | components["schemas"]["EndTurnAction"] | components["schemas"]["SurrenderAction"];
             /**
              * Contract Version
              * @default 1
@@ -1400,13 +1400,13 @@ export interface components {
          * @description Menu contexts supported by the current UI research subset.
          * @enum {string}
          */
-        MenuFamily: "map_input" | "command" | "intel" | "options" | "unit_action" | "unit_movement" | "unit_action_choices" | "production_choices" | "confirmation" | "unit_targeting" | "unit_drop_targeting" | "unresolved";
+        MenuFamily: "map_input" | "command" | "intel" | "options" | "unit_action" | "unit_movement" | "unit_action_choices" | "production_choices" | "confirmation" | "unit_targeting" | "unit_drop_targeting" | "silo_tutorial" | "silo_targeting" | "unresolved";
         /**
          * MenuItem
          * @description Choices resolved from the verified general battle selectors.
          * @enum {string}
          */
-        MenuItem: "co" | "intel" | "power" | "super_power" | "options" | "save" | "end" | "status" | "unit" | "rules" | "delete" | "yield" | "music" | "visual_mode" | "exit_map" | "fire" | "capture" | "load" | "unload" | "wait" | "join" | "supply" | "dive" | "rise" | "other_unit_action" | "yes" | "no";
+        MenuItem: "co" | "intel" | "power" | "super_power" | "options" | "save" | "end" | "status" | "unit" | "rules" | "delete" | "yield" | "music" | "visual_mode" | "exit_map" | "fire" | "capture" | "load" | "unload" | "wait" | "join" | "supply" | "dive" | "rise" | "launch" | "other_unit_action" | "yes" | "no";
         /**
          * MenuObservation
          * @description Recognized menu context and its current typed selection, when known.
@@ -1921,6 +1921,28 @@ export interface components {
             x: number;
             /** Y */
             y: number;
+        };
+        /**
+         * SiloLaunchAction
+         * @description Move an Infantry/Mech onto an unused silo and launch at a map coordinate.
+         */
+        SiloLaunchAction: {
+            /**
+             * Contract Version
+             * @default 1
+             * @constant
+             */
+            contract_version: 1;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "silo_launch";
+            /** Path */
+            path: components["schemas"]["Coordinate"][];
+            target: components["schemas"]["Coordinate"];
+            /** Unit Id */
+            unit_id: string;
         };
         /**
          * SlotAuthorization

@@ -644,6 +644,157 @@ class ActionNavigator:
         """Choose the verified Rise row on a submerged Sub."""
         return await self._choose_sub_action(MenuItem.RISE)
 
+    async def choose_silo_launch(
+        self,
+        target: tuple[int, int],
+        *,
+        unit: tuple[int, int, int, int],
+        width: int,
+        height: int,
+    ) -> GameState:
+        """Choose Launch, acknowledge its first-use prompt, and verify the target cursor."""
+        async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
+            self._begin("launch_silo")
+            state = await self._observe()
+            menu = state.ui.menu
+            selected = menu.selected_unit
+            if (
+                menu.family is not MenuFamily.UNIT_ACTION_CHOICES
+                or selected is None
+                or (
+                    selected.army_slot,
+                    selected.unit_slot,
+                    selected.unit_type,
+                    selected.record_address,
+                )
+                != unit
+                or selected.unit_type not in (1, 2)
+                or menu.selected_item is None
+                or MenuItem.LAUNCH not in menu.items
+                or not menu.actionable
+            ):
+                raise await self._fail(
+                    "Launch requires the selected unit's verified silo action", state
+                )
+            if not (0 <= target[0] < width and 0 <= target[1] < height):
+                raise await self._fail("Missile target is outside the validated map", state)
+            state = await self._navigate_unit_action(MenuItem.LAUNCH, state)
+            await self._tap(
+                "confirm-silo-launch",
+                _KEY_A,
+                minimum_gap=30,
+                frame_budget=self.limits.resolution_frame_budget,
+            )
+            launch_frame = self._last_state.frame if self._last_state is not None else state.frame
+            state = await self._wait_for(
+                lambda value: (
+                    value.frame >= launch_frame + 180
+                    and value.ui.menu.family
+                    in (MenuFamily.SILO_TUTORIAL, MenuFamily.SILO_TARGETING)
+                ),
+                description="the missile target prompt or cursor",
+                frame_budget=self.limits.resolution_frame_budget,
+                poll_frames=self.limits.resolution_poll_frames,
+            )
+            if state.ui.menu.family is MenuFamily.SILO_TUTORIAL:
+                await self._tap(
+                    "acknowledge-silo-target-prompt",
+                    _KEY_A,
+                    minimum_gap=30,
+                    frame_budget=self.limits.resolution_frame_budget,
+                )
+                acknowledgement_frame = (
+                    self._last_state.frame if self._last_state is not None else state.frame
+                )
+                state = await self._wait_for(
+                    lambda value: (
+                        value.frame >= acknowledgement_frame + 120
+                        and value.ui.menu.family is MenuFamily.SILO_TARGETING
+                    ),
+                    description="the missile target cursor",
+                    frame_budget=self.limits.resolution_frame_budget,
+                    poll_frames=self.limits.resolution_poll_frames,
+                )
+            state = await self._move_silo_cursor(target, unit=unit, width=width, height=height)
+            await self._tap(
+                "confirm-silo-target",
+                _KEY_A,
+                minimum_gap=8,
+                frame_budget=self.limits.resolution_frame_budget,
+            )
+            return await self._wait_for(
+                lambda value: (
+                    value.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN
+                    and value.ui.menu.family is MenuFamily.MAP_INPUT
+                    and value.battle.status is ValueStatus.AVAILABLE
+                ),
+                description="the settled player turn after missile impact",
+                frame_budget=self.limits.resolution_frame_budget,
+                poll_frames=self.limits.resolution_poll_frames,
+            )
+
+    async def _move_silo_cursor(
+        self,
+        target: tuple[int, int],
+        *,
+        unit: tuple[int, int, int, int],
+        width: int,
+        height: int,
+    ) -> GameState:
+        state = await self._observe()
+        cursor = state.ui.map_cursor
+        if (
+            state.ui.menu.family is not MenuFamily.SILO_TARGETING
+            or cursor.status is not CursorStatus.AVAILABLE
+            or cursor.x is None
+            or cursor.y is None
+        ):
+            raise await self._fail(
+                "Missile targeting requires the observed silo target cursor", state
+            )
+        if not (0 <= target[0] < width and 0 <= target[1] < height):
+            raise await self._fail("Missile target is outside the validated map", state)
+        while (cursor.x, cursor.y) != target:
+            dx, dy = target[0] - cursor.x, target[1] - cursor.y
+            if dx:
+                name, sx, sy, key = (
+                    ("right", 1, 0, _KEY_RIGHT) if dx > 0 else ("left", -1, 0, _KEY_LEFT)
+                )
+            else:
+                name, sx, sy, key = ("down", 0, 1, _KEY_DOWN) if dy > 0 else ("up", 0, -1, _KEY_UP)
+            expected = (cursor.x + sx, cursor.y + sy)
+            await self._tap(
+                f"silo-target-{name}",
+                key,
+                minimum_gap=8,
+                frame_budget=self.limits.resolution_frame_budget,
+            )
+
+            def cursor_reached(
+                value: GameState,
+                expected_position: tuple[int, int] = expected,
+            ) -> bool:
+                return (
+                    value.ui.menu.family is MenuFamily.SILO_TARGETING
+                    and value.ui.menu.selected_unit is not None
+                    and (
+                        value.ui.menu.selected_unit.army_slot,
+                        value.ui.menu.selected_unit.unit_slot,
+                        value.ui.menu.selected_unit.unit_type,
+                        value.ui.menu.selected_unit.record_address,
+                    )
+                    == unit
+                    and value.ui.map_cursor.status is CursorStatus.AVAILABLE
+                    and (value.ui.map_cursor.x, value.ui.map_cursor.y) == expected_position
+                )
+
+            state = await self._wait_for(
+                cursor_reached,
+                description=f"missile target cursor to reach {expected}",
+            )
+            cursor = state.ui.map_cursor
+        return state
+
     async def _choose_sub_action(self, item: MenuItem) -> GameState:
         async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
             self._begin(item.value)
@@ -1134,12 +1285,19 @@ class ActionNavigator:
         self._last_state = state
         return state
 
-    async def _tap(self, name: str, keys: int, *, minimum_gap: int = 0) -> None:
+    async def _tap(
+        self,
+        name: str,
+        keys: int,
+        *,
+        minimum_gap: int = 0,
+        frame_budget: int | None = None,
+    ) -> None:
         count = self.limits.input_frames
         # Let cursor changes and new selectors settle before dispatching A.
         # Sampling release also makes consecutive button presses distinct.
         gap = max(self.limits.input_gap_frames, minimum_gap)
-        if self._frames_used + gap + count > self.limits.frame_budget:
+        if self._frames_used + gap + count > (frame_budget or self.limits.frame_budget):
             state = await self._observe()
             raise await self._fail("Navigation frame budget exhausted", state)
         end = await self.bridge.advance_frames(gap)

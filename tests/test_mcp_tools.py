@@ -107,6 +107,11 @@ def payload(response):
         ("dive", "DiveActionExecutor", {"unit_id": "1", "path": []}),
         ("rise", "RiseActionExecutor", {"unit_id": "1", "path": []}),
         (
+            "silo_launch",
+            "SiloLaunchActionExecutor",
+            {"unit_id": "1", "path": [], "target": {"x": 2, "y": 13}},
+        ),
+        (
             "unload",
             "UnloadActionExecutor",
             {

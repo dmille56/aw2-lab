@@ -325,6 +325,7 @@ async def capabilities(request: Request) -> CapabilitiesResponse:
                 "supply",
                 "dive",
                 "rise",
+                "silo_launch",
                 "load",
                 "unload",
                 "purchase",

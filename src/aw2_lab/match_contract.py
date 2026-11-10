@@ -107,6 +107,7 @@ class Capabilities(ContractModel):
         "supply",
         "dive",
         "rise",
+        "silo_launch",
         "load",
         "unload",
         "purchase",
@@ -127,6 +128,7 @@ class Capabilities(ContractModel):
         "unit_joining",
         "apc_resupply",
         "diving_and_surfacing",
+        "missile_silo_use",
     )
     unsupported_features: tuple[str, ...] = (
         "multiple_active_matches",
@@ -135,7 +137,6 @@ class Capabilities(ContractModel):
         "campaign_or_multiplayer_modes_other_than_versus",
         "competitive_player_visibility_isolation",
         "arbitrary_memory_writes_as_gameplay",
-        "missile_silo_use",
     )
 
 
@@ -203,6 +204,15 @@ class RiseAction(ContractModel):
     path: tuple[Coordinate, ...] = Field(max_length=4096)
 
 
+class SiloLaunchAction(ContractModel):
+    """Move an Infantry/Mech onto an unused silo and launch at a map coordinate."""
+
+    kind: Literal["silo_launch"] = "silo_launch"
+    unit_id: str = Field(min_length=1)
+    path: tuple[Coordinate, ...] = Field(max_length=4096)
+    target: Coordinate
+
+
 class LoadAction(ContractModel):
     """Move one unit onto an allied transport's tile and load it."""
 
@@ -257,6 +267,7 @@ GameplayAction = Annotated[
     | SupplyAction
     | DiveAction
     | RiseAction
+    | SiloLaunchAction
     | LoadAction
     | UnloadAction
     | PurchaseAction

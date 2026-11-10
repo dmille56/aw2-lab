@@ -49,6 +49,7 @@ from aw2_lab.match_contract import (
     PurchaseAction,
     Revision,
     RiseAction,
+    SiloLaunchAction,
     SupplyAction,
     SurrenderAction,
     UnloadAction,
@@ -432,6 +433,25 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
                 match_id,
                 expected_revision,
                 RiseAction(unit_id=unit_id, path=path),
+                request_id=request_id,
+            )
+
+    @server.tool()
+    async def silo_launch(
+        match_id: UUID,
+        expected_revision: Revision,
+        request_id: UUID,
+        unit_id: UnitID,
+        path: Path,
+        target: Coordinate,
+        contract_version: int = 1,
+    ) -> CommandReceipt:
+        """Move an Infantry/Mech onto a missile silo and launch at a target."""
+        async with client(Permission.PLAY, match_id) as sdk:
+            return await sdk.submit(
+                match_id,
+                expected_revision,
+                SiloLaunchAction(unit_id=unit_id, path=path, target=target),
                 request_id=request_id,
             )
 

@@ -155,13 +155,17 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
         kind: event.kind,
         target: null,
         phase:
-          event.kind === "move_attack" || event.kind === "attack"
+          event.kind === "move_attack" ||
+          event.kind === "attack" ||
+          event.kind === "silo_launch"
             ? "target"
             : "review",
         notice:
-          event.kind === "move_attack" || event.kind === "attack"
-            ? "Choose an observed enemy unit on the board or from the target list."
-            : "Review the action, then confirm to send it.",
+          event.kind === "silo_launch"
+            ? "Choose a map tile for the missile target."
+            : event.kind === "move_attack" || event.kind === "attack"
+              ? "Choose an observed enemy unit on the board or from the target list."
+              : "Review the action, then confirm to send it.",
       };
     case "target":
       return {
@@ -330,6 +334,18 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     !!movement &&
     !movement.error &&
     available("rise");
+  const siloReady =
+    !!battle &&
+    !!selectedUnit &&
+    (selectedUnit.unit_type === 1 || selectedUnit.unit_type === 2) &&
+    !selectedUnit.used_this_turn &&
+    !selectedUnit.embarked &&
+    !!destination &&
+    battle.map.tiles.some(
+      (tile) => sameTile(tile, destination) && tile.terrain_class === 17,
+    ) &&
+    !movement?.error &&
+    available("silo_launch");
   const selectedTransportCargo =
     selectedUnit && [7, 20, 23].includes(selectedUnit.unit_type)
       ? selectedUnit.cargo_references.flatMap((reference) => {
@@ -525,7 +541,8 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
       return;
     }
     if (draft.phase === "target") {
-      if (targets.some((unit) => sameTile(unit, point)))
+      if (draft.kind === "silo_launch") dispatch({ type: "target", point });
+      else if (targets.some((unit) => sameTile(unit, point)))
         dispatch({ type: "target", point });
       else
         dispatch({
@@ -667,6 +684,19 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
       };
     else if (
       selectedUnit &&
+      kind === "silo_launch" &&
+      siloReady &&
+      draft.target
+    )
+      action = {
+        contract_version: 1,
+        kind,
+        unit_id: draft.unitId,
+        path: draft.path.map(coordinate),
+        target: coordinate(draft.target),
+      };
+    else if (
+      selectedUnit &&
       movementReady &&
       kind === "attack" &&
       draft.path.length === 0 &&
@@ -736,6 +766,7 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     supplyReady,
     diveReady,
     riseReady,
+    siloReady,
     loadAction,
     loadTransport: transportAtDestination,
     loadUnavailableReason,

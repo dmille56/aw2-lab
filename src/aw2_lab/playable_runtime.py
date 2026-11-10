@@ -33,6 +33,7 @@ from aw2_lab.power_executor import (
     ActivateSuperPowerActionExecutor,
 )
 from aw2_lab.purchase_executor import PurchaseActionExecutor
+from aw2_lab.silo_executor import SiloLaunchActionExecutor
 from aw2_lab.state_decoder import capture_game_state
 from aw2_lab.state_model import GameState
 from aw2_lab.submarine_executor import DiveActionExecutor, RiseActionExecutor
@@ -157,6 +158,7 @@ class PlayableRuntime:
             "supply": SupplyActionExecutor,
             "dive": DiveActionExecutor,
             "rise": RiseActionExecutor,
+            "silo_launch": SiloLaunchActionExecutor,
             "load": LoadActionExecutor,
             "unload": UnloadActionExecutor,
             "purchase": PurchaseActionExecutor,

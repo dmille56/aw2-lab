@@ -61,6 +61,8 @@ FIRE_TARGETING_SCRIPT = 0x0849A9F8
 # Observed while AW2 is choosing a tile for a transport Drop action. The
 # selector is a cursor helper, not one of the action-menu selector tables.
 UNLOAD_TARGETING_SELECTOR = 0x0849A080
+SILO_TARGETING_SCRIPT = 0x0849FC0C
+SILO_TUTORIAL_OBJECT = 0x08489530
 
 # Original-ROM selector tables verified in supplied Versus battle checkpoints.
 # Command rows vary with the CO-power choices available in that state. Each
@@ -105,6 +107,8 @@ class MenuFamily(StrEnum):
     CONFIRMATION = "confirmation"
     UNIT_TARGETING = "unit_targeting"
     UNIT_DROP_TARGETING = "unit_drop_targeting"
+    SILO_TUTORIAL = "silo_tutorial"
+    SILO_TARGETING = "silo_targeting"
     UNRESOLVED = "unresolved"
 
 
@@ -135,6 +139,7 @@ class MenuItem(StrEnum):
     SUPPLY = "supply"
     DIVE = "dive"
     RISE = "rise"
+    LAUNCH = "launch"
     OTHER_UNIT_ACTION = "other_unit_action"
     YES = "yes"
     NO = "no"
@@ -272,11 +277,13 @@ def observe_map_cursor(
     )
     targeting_cursor = _is_fire_targeting(snapshot, validation)
     unload_cursor = _is_unload_targeting(snapshot, validation)
+    silo_cursor = _is_silo_targeting(snapshot, validation)
     if (
         validation.lifecycle.phase is not LifecyclePhase.BATTLE_PLAYER_TURN
         and not movement_cursor
         and not targeting_cursor
         and not unload_cursor
+        and not silo_cursor
     ):
         return MapCursorObservation(
             snapshot.frame,
@@ -291,7 +298,7 @@ def observe_map_cursor(
         )
 
     width, height = snapshot.u16(MAP_BASE), snapshot.u16(MAP_BASE + 2)
-    if movement_cursor or targeting_cursor or unload_cursor:
+    if movement_cursor or targeting_cursor or unload_cursor or silo_cursor:
         x, y = snapshot.u16(CURSOR_SOURCE), snapshot.u16(CURSOR_SOURCE + 2)
         if 0 <= x < width and 0 <= y < height:
             return MapCursorObservation(snapshot.frame, CursorStatus.AVAILABLE, x, y)
@@ -346,6 +353,23 @@ def observe_menu(
         return MenuObservation(
             snapshot.frame,
             MenuFamily.UNIT_DROP_TARGETING,
+            selected_unit=selected,
+            actionable=selected is not None,
+        )
+
+    if _is_silo_tutorial(snapshot, validation):
+        return MenuObservation(
+            snapshot.frame,
+            MenuFamily.SILO_TUTORIAL,
+            selected_unit=_observe_selected_unit(snapshot),
+            actionable=True,
+        )
+
+    if _is_silo_targeting(snapshot, validation):
+        selected = _observe_selected_unit(snapshot)
+        return MenuObservation(
+            snapshot.frame,
+            MenuFamily.SILO_TARGETING,
             selected_unit=selected,
             actionable=selected is not None,
         )
@@ -597,7 +621,7 @@ def _observe_unit_action_choices(
         or (ids.count(0x0A) != 1 and ids not in ((5,), (8,), (9,)))
         or any(item_id not in (0, 2, 3, 4, 5, 6, 7, 8, 9, 0x0A, 0x0B, 0x0C) for item_id in ids)
         or row >= count
-        or not _selected_sub_action_is_valid(ids, selected)
+        or not _selected_special_unit_action_is_valid(snapshot, ids, selected)
     ):
         return None
     if not _menu_rules_allow_dispatch(snapshot):
@@ -649,6 +673,10 @@ def _observe_unit_action_choices(
             if item_id == 0x0B and selected.unit_type == 24 and not selected.submerged
             else MenuItem.RISE
             if item_id == 0x0C and selected.unit_type == 24 and selected.submerged
+            else MenuItem.LAUNCH
+            if item_id == 4
+            and selected.unit_type in (1, 2)
+            and _selected_unit_can_launch_silo(snapshot, selected)
             else MenuItem.OTHER_UNIT_ACTION
             for item_id in ids
         )
@@ -663,8 +691,10 @@ def _observe_unit_action_choices(
     )
 
 
-def _selected_sub_action_is_valid(ids: tuple[int, ...], selected: SelectedUnitObservation) -> bool:
-    """Only expose the observed Sub action when its current mode agrees."""
+def _selected_special_unit_action_is_valid(
+    snapshot: BattleMemorySnapshot, ids: tuple[int, ...], selected: SelectedUnitObservation
+) -> bool:
+    """Expose selector rows only when the selected unit matches its special action."""
     if 0x0B in ids and 0x0C in ids:
         return False
     if 0x0B in ids:
@@ -672,6 +702,18 @@ def _selected_sub_action_is_valid(ids: tuple[int, ...], selected: SelectedUnitOb
     if 0x0C in ids:
         return selected.unit_type == 24 and selected.submerged
     return True
+
+
+def _selected_unit_can_launch_silo(
+    snapshot: BattleMemorySnapshot, selected: SelectedUnitObservation
+) -> bool:
+    """Recognize Launch only when an Infantry/Mech reaches an unused silo."""
+    x, y = snapshot.u16(CURSOR_SOURCE), snapshot.u16(CURSOR_SOURCE + 2)
+    width, height = snapshot.u16(MAP_BASE), snapshot.u16(MAP_BASE + 2)
+    if not (0 <= x < width and 0 <= y < height):
+        return False
+    terrain = snapshot.read(MAP_BASE + 0x1432 + y * width + x, 1)[0] & 31
+    return terrain == 17
 
 
 def _selected_unit_can_join_at_cursor(
@@ -835,6 +877,36 @@ def _is_unload_targeting(
         and snapshot.u16(0x03003334) == 4
     )
     return lander_drop_list or single_tile_drop_cursor
+
+
+def _is_silo_targeting(snapshot: BattleMemorySnapshot, validation: BattleValidationReport) -> bool:
+    scripts = validation.lifecycle.active_process_scripts
+    return (
+        validation.lifecycle.phase is LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+        and validation.lifecycle.engine is LifecycleEngine.BATTLE
+        and SILO_TARGETING_SCRIPT in scripts
+        and UNIT_ACTION_MENU_SCRIPT in scripts
+        and len(scripts) == 2
+        and snapshot.u32(SELECTOR_OBJECT) == 0
+        and snapshot.u16(CONTROLLER_STATE) == 13
+        and snapshot.read(CONTROLLER_LOCK, 1)[0] == 1
+        and snapshot.u16(0x03003334) == 4
+    )
+
+
+def _is_silo_tutorial(snapshot: BattleMemorySnapshot, validation: BattleValidationReport) -> bool:
+    scripts = validation.lifecycle.active_process_scripts
+    return (
+        validation.lifecycle.phase is LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+        and validation.lifecycle.engine is LifecycleEngine.BATTLE
+        and SILO_TARGETING_SCRIPT in scripts
+        and UNIT_ACTION_MENU_SCRIPT in scripts
+        and len(scripts) == 2
+        and snapshot.u32(SELECTOR_OBJECT) == SILO_TUTORIAL_OBJECT
+        and snapshot.u16(CONTROLLER_STATE) == 13
+        and snapshot.read(CONTROLLER_LOCK, 1)[0] == 1
+        and snapshot.u16(0x03003334) == 4
+    )
 
 
 def _observe_selected_unit(snapshot: BattleMemorySnapshot) -> SelectedUnitObservation | None:

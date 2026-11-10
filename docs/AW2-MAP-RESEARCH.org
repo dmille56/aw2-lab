@@ -1590,12 +1590,43 @@ hashes, including exploratory branches. All supplied files stayed unchanged.
 
 *** Remaining questions
 - Destroy a seam and verify its replacement terrain/tile and HP semantics.
-  Establish missile targeting/damage behavior and spent-silo action restrictions.
+  Broaden missile targeting/range and spent-silo action-restriction checks beyond
+  the Pipe Maze launch below.
 - Obtain a Campaign checkpoint containing labs, per the user's Campaign-only
   scenario guidance; lab classes and capture behavior remain unverified here.
   Reef labels also still need an observation.
 - Retain the earlier allocation, unknown-field, capture-variant, player/team,
   unit-resolution, lifecycle-generalization, frontend-parity, and decoder gaps.
+
+*** Follow-up: Map 85 silo targeting, blast, and guarded launch (2026-11-10)
+- The supplied =~/Downloads/aw2/aw2.ss1= through =aw2.ss9= checkpoints show
+  a ready Infantry on an unused silo, the Launch/Wait selector, the first-use
+  tutorial, target cursor movement, missile animation, and the settled result
+  on map ID 85 (20 x 20).
+  The ready checkpoint SHA-256 is
+  =77afc4d6ef7267e7a7ea57787baeeada3528a52c47c8a2054a2383890e71a2ef=.
+- Launch is selector row ID =0x04= followed by Wait =0x0A=. The acting Infantry
+  is at =(3,16)= on terrain 17; choosing Launch starts the target tutorial.
+  Target cursor coordinates are read from the cursor source while the verified
+  silo-targeting process is active. After confirmation, the game resolves the
+  blast and returns to the player-turn boundary.
+- Target =(2,13)= damages four adjacent enemy infantry at =(2,14)=, =(1,13)=,
+  =(2,12)=, and =(3,13)= from 100 to 70 health in this replay. The silo tile
+  at =(3,16)= changes from terrain 17 / graphic =0x0180= to terrain 18 /
+  graphic =0x01A0=; the unit remains on the tile and is marked used. The blast
+  behavior is therefore observed as a 3x3 area in this checkpoint, not a
+  generalized damage formula.
+- The guarded executor rejects a non-Infantry/Mech, an already-used or
+  non-active unit, out-of-bounds route/target, or a route ending anywhere other
+  than unused terrain-17 silo before input. Its settled postcondition requires
+  the same unit at the destination, used, with terrain 18.
+- Live headless and windowed replay use the same restored checkpoint and target.
+  ROM SHA-256 remains
+  =ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=;
+  checkpoint SHA-256 is listed above. See
+  [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 missile silo launch (2026-11-10)][the acceptance evidence]]
+  for emulator builds and screenshot/evidence hashes. Save states and evidence
+  remain external to Git.
 
 ** Finding: Kita Straight reefs and map stability across turns
 

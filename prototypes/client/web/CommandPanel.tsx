@@ -14,6 +14,7 @@ const labels: Record<ActionKind, string> = {
   supply: "Supply",
   dive: "Dive",
   rise: "Rise",
+  silo_launch: "Launch missile",
   load: "Load",
   unload: "Unload",
   purchase: "Purchase unit",
@@ -93,6 +94,8 @@ export function CommandPanel({
       return "Activate your CO's normal Power. The server checks meter and activation state before using it.";
     if (draft.kind === "activate_super_power")
       return "Activate your CO's Super Power. The server checks its CO-specific meter cost and activation state before using it.";
+    if (draft.kind === "silo_launch")
+      return `Launch the missile from the silo at ${draft.target ? positionLabel(draft.target) : "the selected map tile"}. The blast affects a 3×3 area.`;
     if (draft.kind === "purchase")
       return `Buy ${draft.unitType} at ${draft.base ? positionLabel(draft.base) : "the selected facility"}. Baseline cost: ${profileByName(draft.unitType)?.cost ?? "unknown"}.`;
     if (draft.kind === "end_turn")
@@ -389,6 +392,16 @@ export function CommandPanel({
                     </button>
                   </>
                 )}
+                {(model.selectedUnit?.unit_type === 1 ||
+                  model.selectedUnit?.unit_type === 2) && (
+                  <button
+                    type="button"
+                    disabled={!editable || !model.siloReady}
+                    onClick={() => choose("silo_launch")}
+                  >
+                    Launch missile from silo
+                  </button>
+                )}
                 {model.loadTransport && (
                   <button
                     type="button"
@@ -447,29 +460,37 @@ export function CommandPanel({
       )}
       {draft.phase === "target" && (
         <>
-          <label htmlFor="action-target">Observed enemy target</label>
-          <select
-            id="action-target"
-            value=""
-            disabled={!editable}
-            onChange={(event) => {
-              const target = model.targets.find(
-                (p) => `${p.x},${p.y}` === event.currentTarget.value,
-              );
-              if (target) model.activate(target);
-            }}
-          >
-            <option value="">Choose a target</option>
-            {model.targets.map((unit) => (
-              <option key={unit.reference} value={`${unit.x},${unit.y}`}>
-                {unitName(unit)} · {positionLabel(unit)}
-              </option>
-            ))}
-          </select>
-          <p>
-            Targets are observed enemies; weapon compatibility and attack range
-            are checked by the server.
-          </p>
+          {draft.kind === "silo_launch" ? (
+            <p id="action-target">
+              Click a map tile to choose the missile target.
+            </p>
+          ) : (
+            <>
+              <label htmlFor="action-target">Observed enemy target</label>
+              <select
+                id="action-target"
+                value=""
+                disabled={!editable}
+                onChange={(event) => {
+                  const target = model.targets.find(
+                    (p) => `${p.x},${p.y}` === event.currentTarget.value,
+                  );
+                  if (target) model.activate(target);
+                }}
+              >
+                <option value="">Choose a target</option>
+                {model.targets.map((unit) => (
+                  <option key={unit.reference} value={`${unit.x},${unit.y}`}>
+                    {unitName(unit)} · {positionLabel(unit)}
+                  </option>
+                ))}
+              </select>
+              <p>
+                Targets are observed enemies; weapon compatibility and attack
+                range are checked by the server.
+              </p>
+            </>
+          )}
         </>
       )}
       {draft.base && (

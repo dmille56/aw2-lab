@@ -1664,6 +1664,7 @@
                 "move_wait": "#/components/schemas/MoveWaitAction",
                 "purchase": "#/components/schemas/PurchaseAction",
                 "rise": "#/components/schemas/RiseAction",
+                "silo_launch": "#/components/schemas/SiloLaunchAction",
                 "supply": "#/components/schemas/SupplyAction",
                 "surrender": "#/components/schemas/SurrenderAction",
                 "unload": "#/components/schemas/UnloadAction"
@@ -1694,6 +1695,9 @@
               },
               {
                 "$ref": "#/components/schemas/RiseAction"
+              },
+              {
+                "$ref": "#/components/schemas/SiloLaunchAction"
               },
               {
                 "$ref": "#/components/schemas/LoadAction"
@@ -2458,6 +2462,8 @@
           "confirmation",
           "unit_targeting",
           "unit_drop_targeting",
+          "silo_tutorial",
+          "silo_targeting",
           "unresolved"
         ],
         "title": "MenuFamily",
@@ -2490,6 +2496,7 @@
           "supply",
           "dive",
           "rise",
+          "launch",
           "other_unit_action",
           "yes",
           "no"
@@ -3559,6 +3566,47 @@
           "y"
         ],
         "title": "SelectedUnitObservation",
+        "type": "object"
+      },
+      "SiloLaunchAction": {
+        "additionalProperties": false,
+        "description": "Move an Infantry/Mech onto an unused silo and launch at a map coordinate.",
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "silo_launch",
+            "default": "silo_launch",
+            "title": "Kind",
+            "type": "string"
+          },
+          "path": {
+            "items": {
+              "$ref": "#/components/schemas/Coordinate"
+            },
+            "maxItems": 4096,
+            "title": "Path",
+            "type": "array"
+          },
+          "target": {
+            "$ref": "#/components/schemas/Coordinate"
+          },
+          "unit_id": {
+            "minLength": 1,
+            "title": "Unit Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit_id",
+          "path",
+          "target"
+        ],
+        "title": "SiloLaunchAction",
         "type": "object"
       },
       "SlotAuthorization": {

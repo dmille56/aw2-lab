@@ -25,6 +25,7 @@ from aw2_lab.state_validation import (
     validate_battle_snapshot,
 )
 from aw2_lab.ui_state import (
+    SILO_TARGETING_SCRIPT,
     UNIT_ACTION_MENU_SCRIPT,
     UNLOAD_TARGETING_SELECTOR,
     CursorStatus,
@@ -475,6 +476,81 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
         observe_menu(current, validate_battle_snapshot(current)).family
         is not MenuFamily.UNIT_ACTION_CHOICES
     )
+
+
+def test_missile_silo_launch_row_requires_a_ready_silo_and_capture_unit(memory) -> None:
+    _, ewram, iwram = memory
+    pack_into("<I", ewram, 0xD610, UNIT_ACTION_MENU_SCRIPT)
+    pack_into("<I", iwram, 0x40D8, 0x02022690)
+    pack_into("<H", iwram, 0x3334, 4)
+    pack_into("<I", iwram, 0x1470, 0x0848A42C)
+    pack_into("<I", iwram, 0x1490, 0x0849AE28)
+    iwram[0x14B1] = 2
+    iwram[0x14B2] = 0
+    iwram[0x14A1:0x14A3] = bytes((4, 0x0A))
+    iwram[0x30F0] = 1
+    pack_into("<HH", iwram, 0x33E4, 1, 1)
+    iwram[0x3140:0x3142] = bytes((1, 1))
+    ewram[0x22690:0x2269C] = bytes((1, 6, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
+    ewram[0x1E450 + 0x1432 + 3] = 17
+    ewram[0x1E450 + 0x051A + 3] = 1
+
+    current = snapshot(memory)
+    menu = observe_menu(current, validate_battle_snapshot(current))
+    assert menu.family is MenuFamily.UNIT_ACTION_CHOICES
+    assert menu.items == (MenuItem.LAUNCH, MenuItem.WAIT)
+    assert menu.selected_item is MenuItem.LAUNCH
+
+    iwram[0x14B2] = 1
+    current = snapshot(memory)
+    menu = observe_menu(current, validate_battle_snapshot(current))
+    assert menu.selected_item is MenuItem.WAIT
+
+    # Spent silos and non-capture units must not expose Launch.
+    ewram[0x1E450 + 0x1432 + 3] = 18
+    current = snapshot(memory)
+    menu = observe_menu(current, validate_battle_snapshot(current))
+    assert MenuItem.LAUNCH not in menu.items
+    ewram[0x1E450 + 0x1432 + 3] = 17
+    ewram[0x22690] = 3
+    current = snapshot(memory)
+    menu = observe_menu(current, validate_battle_snapshot(current))
+    assert MenuItem.LAUNCH not in menu.items
+
+
+@pytest.mark.parametrize(
+    ("selector_object", "expected_family", "cursor_available"),
+    [
+        (0, MenuFamily.SILO_TARGETING, True),
+        (0x08489530, MenuFamily.SILO_TUTORIAL, False),
+    ],
+)
+def test_silo_target_prompt_and_cursor_are_observed_only_in_verified_process(
+    memory, selector_object, expected_family, cursor_available
+) -> None:
+    _, ewram, iwram = memory
+    pack_into("<I", ewram, 0xD610, SILO_TARGETING_SCRIPT)
+    pack_into("<I", ewram, 0xD610 + 0x6C, UNIT_ACTION_MENU_SCRIPT)
+    pack_into("<I", iwram, 0x1470, selector_object)
+    pack_into("<I", iwram, 0x40D8, 0x02022690)
+    pack_into("<H", iwram, 0x3334, 4)
+    pack_into("<HH", iwram, 0x33E4, 1, 1)
+    iwram[0x30F0] = 1
+    iwram[0x3140:0x3142] = bytes((0, 0))
+    ewram[0x1E450 + 0x051A] = 1
+
+    current = snapshot(memory)
+    report = validate_battle_snapshot(current)
+    menu = observe_menu(current, report)
+    cursor = observe_map_cursor(current, report)
+
+    assert menu.family is expected_family
+    assert menu.selected_unit is not None
+    assert cursor.status is (
+        CursorStatus.AVAILABLE if cursor_available else CursorStatus.UNAVAILABLE
+    )
+    if cursor_available:
+        assert (cursor.x, cursor.y) == (1, 1)
 
 
 def test_lander_load_choice_accepts_recon_on_carrier_tile(memory) -> None:

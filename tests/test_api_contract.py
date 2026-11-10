@@ -343,6 +343,25 @@ def test_super_power_action_contract_is_distinct_and_supported() -> None:
     assert "super_power_activation" not in Capabilities().unsupported_features
 
 
+def test_silo_launch_action_contract_is_supported() -> None:
+    request = GameplayCommandRequest.model_validate(
+        {
+            "request_id": uuid4(),
+            "expected_revision": 0,
+            "action": {
+                "kind": "silo_launch",
+                "unit_id": "1",
+                "path": [],
+                "target": {"x": 2, "y": 13},
+            },
+        }
+    )
+    assert request.action.kind == "silo_launch"
+    assert "silo_launch" in Capabilities().supported_actions
+    assert "missile_silo_use" in Capabilities().supported_features
+    assert "missile_silo_use" not in Capabilities().unsupported_features
+
+
 def test_transport_load_and_unload_action_contracts_are_bounded() -> None:
     load = GameplayCommandRequest.model_validate(
         {
