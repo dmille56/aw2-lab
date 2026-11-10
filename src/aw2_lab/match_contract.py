@@ -10,6 +10,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 
+from aw2_lab.map_catalog import MapId
+
 CONTRACT_VERSION = 1
 MAX_SAFE_REVISION = (1 << 53) - 1
 Revision = Annotated[int, Field(strict=True, ge=0, le=MAX_SAFE_REVISION)]
@@ -63,9 +65,9 @@ class MatchRules(ContractModel):
 
 
 class FixedMatchConfiguration(ContractModel):
-    """The only configuration advertised as playable by contract version 1."""
+    """Two-player configuration with selectable maps and fixed COs and rules."""
 
-    map_id: Literal["bean_island"] = "bean_island"
+    map_id: MapId = "bean_island"
     player_1_co: Literal["andy"] = "andy"
     player_2_co: Literal["max"] = "max"
     player_1_color: Literal["red"] = "red"
@@ -120,6 +122,7 @@ class Capabilities(ContractModel):
         "single_active_match",
         "two_external_players",
         "fixed_versus_configuration",
+        "map_selection",
         "structured_observation",
         "screenshots",
         "command_status_polling",
@@ -132,7 +135,8 @@ class Capabilities(ContractModel):
     )
     unsupported_features: tuple[str, ...] = (
         "multiple_active_matches",
-        "configurable_maps_cos_rules_weather_or_teams",
+        "configurable_cos_rules_weather_or_teams",
+        "maps_outside_two_player_classic_catalog",
         "fog_of_war",
         "campaign_or_multiplayer_modes_other_than_versus",
         "competitive_player_visibility_isolation",

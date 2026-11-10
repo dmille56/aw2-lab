@@ -11,6 +11,7 @@ from pydantic import SecretStr
 
 from aw2_lab.api import app as app_module
 from aw2_lab.api_contract import (
+    VERIFIED_CONFIGURATION,
     CreateMatchRequest,
     GameplayCommandRequest,
     IssueInvitationRequest,
@@ -52,7 +53,14 @@ def test_playable_runtime_start_turn_restore_and_continue(tmp_path, monkeypatch)
         async with application.router.lifespan_context(application):
             public = application.state.authorized_matches
             operator = public.authenticate(secret)
-            summary = await public.create(operator, CreateMatchRequest(request_id=uuid4()))
+            map_id = os.environ.get("AW2_RUNTIME_MAP_ID", "bean_island")
+            summary = await public.create(
+                operator,
+                CreateMatchRequest(
+                    request_id=uuid4(),
+                    configuration=VERIFIED_CONFIGURATION.model_copy(update={"map_id": map_id}),
+                ),
+            )
             players = []
             for slot in PlayerSlot:
                 invitation, credential = SecretStr(token_urlsafe(32)), SecretStr(token_urlsafe(32))
@@ -82,6 +90,9 @@ def test_playable_runtime_start_turn_restore_and_continue(tmp_path, monkeypatch)
             assert result.status is CommandStatus.COMPLETED, result.error
             assert result.resulting_revision == 1 and result.checkpoint_id is not None
             initial = await public.state(operator, summary.match_id)
+            assert initial.summary.configuration.map_id == map_id
+            manifest, _blob = application.state.playable_runtime.store.load(result.checkpoint_id)
+            assert manifest.match.configuration.map_id == map_id
             runtime = application.state.playable_runtime
             for expected_slot, player in ((2, players[0]), (1, players[1])):
                 before = await public.state(operator, summary.match_id)
@@ -115,6 +126,9 @@ def test_playable_runtime_start_turn_restore_and_continue(tmp_path, monkeypatch)
                     )
                     assert restored.status is CommandStatus.COMPLETED, restored.error
                     assert runtime.checkpoints.session.tracker is not tracker
+                    assert (
+                        await public.state(operator, summary.match_id)
+                    ).summary.configuration.map_id == map_id
             assert initial.observation.game_state.battle.value.day == 1
             assert after.observation.game_state.battle.value.day == 2
 

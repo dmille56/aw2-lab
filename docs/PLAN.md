@@ -239,17 +239,25 @@ remain open. No support claim extends beyond the linked checks and live evidence
 
 **Status (2026-11-10): incomplete.** The [Milestone 5 audit and checklist](MILESTONE-5.org)
 records accepted stationary attacks, transport actions, powers, joining,
-resupplying, diving/surfacing, and missile silo use. Completing the earlier
+resupplying, diving/surfacing, missile silo use, and two-player Classic map
+selection. Completing the earlier
 three-item gameplay checklist does not complete this milestone. The next
-implementation task is map/CO selection and configurable match rules/weather.
+implementation task is enabling the other built-in Versus map categories,
+followed by CO selection, configurable match rules, and starting weather as
+separate items.
 
 **Dependencies:** stable playable slice and MCP adapter.
 
 Add features in this order:
 
 1. CO power/super power, joining units, transport loading/unloading, resupplying, diving/surfacing, and missile silos.
-2. Map/CO selection, configurable match rules, weather, and two to four players/teams.
-3. Fog-enabled matches with explicitly omniscient observations for trusted research clients.
+2. Map selection.
+3. Other built-in Versus map categories.
+4. CO selection.
+5. Configurable match rules.
+6. Starting weather selection.
+7. Two to four players and teams.
+8. Fog-enabled matches with explicitly omniscient observations for trusted research clients.
 
 **Acceptance criteria:** each feature has verified decoding, action execution, error/recovery scenarios, and capability advertisement. Clients can distinguish unsupported features from illegal actions.
 

@@ -126,7 +126,12 @@ class PlayableRuntime:
         if self._session_changed is not None:
             self._session_changed(self._service)
         # Existing-save confirmations are restricted to the isolated emulator save copy.
-        result = await self._boot_match(self.bridge, rom_path=self.rom_path, save_mode="existing")
+        result = await self._boot_match(
+            self.bridge,
+            rom_path=self.rom_path,
+            save_mode="existing",
+            map_id=summary.configuration.map_id,
+        )
         observation = self.checkpoints.session.tracker.commit_boundary(result.game_state)
         if observation.action_readiness is not ActionReadiness.READY:
             raise RuntimeError("Startup did not reach a recognized playable boundary")

@@ -14,6 +14,7 @@ from test_state_validation import memory as memory  # noqa: PLC0414
 
 from aw2_lab.action_navigation import ActionNavigator, InputEvent
 from aw2_lab.api_contract import (
+    VERIFIED_CONFIGURATION,
     CreateMatchRequest,
     GameplayCommandRequest,
     IssueInvitationRequest,
@@ -83,7 +84,7 @@ class RuntimeBridge(MemoryBridge):
         return {"written": len(values)}
 
 
-async def setup(memory, tmp_path, *, joins=2, boot=None):
+async def setup(memory, tmp_path, *, joins=2, boot=None, map_id="bean_island"):
     auth = AuthorizationService(tmp_path / "auth.json", token("o"))
     journal = JsonlCommandJournal(tmp_path / "commands.jsonl")
     store = CheckpointStore(tmp_path / "checkpoints")
@@ -92,6 +93,7 @@ async def setup(memory, tmp_path, *, joins=2, boot=None):
 
     async def boot_match(*args, **kwargs):
         bridge.boot_calls = getattr(bridge, "boot_calls", 0) + 1
+        assert kwargs["map_id"] == map_id
         if boot is not None:
             await boot()
         bridge.frame = 123
@@ -112,7 +114,13 @@ async def setup(memory, tmp_path, *, joins=2, boot=None):
     public = AuthorizedMatchService(controller)
     await controller.start()
     operator = public.authenticate(token("o"))
-    match = await public.create(operator, CreateMatchRequest(request_id=uuid4()))
+    match = await public.create(
+        operator,
+        CreateMatchRequest(
+            request_id=uuid4(),
+            configuration=VERIFIED_CONFIGURATION.model_copy(update={"map_id": map_id}),
+        ),
+    )
     for index, slot in enumerate(PlayerSlot):
         if index >= joins:
             break
@@ -1061,8 +1069,9 @@ def test_first_turn_verification_checks_actual_roster_weather_fog_and_income(mem
     from test_state_validation import snapshot
 
     from aw2_lab.cold_boot import ColdBootError, _verify_playable_state
+    from aw2_lab.map_catalog import MAPS_BY_ID
     from aw2_lab.state_decoder import decode_snapshot
-    from aw2_lab.state_model import ObservedValue, ValueStatus, Weather
+    from aw2_lab.state_model import ObservedValue, PropertyState, ValueStatus, Weather
 
     state = decode_snapshot(snapshot(memory))
     battle = state.battle.value
@@ -1079,6 +1088,7 @@ def test_first_turn_verification_checks_actual_roster_weather_fog_and_income(mem
     battle = replace(
         battle,
         map=replace(battle.map, width=16, height=15),
+        properties=tuple(PropertyState(x, 0, 6, 1) for x in range(11)),
         players=players,
         weather=ObservedValue(ValueStatus.AVAILABLE, Weather.CLEAR),
         fog_enabled=ObservedValue(ValueStatus.AVAILABLE, False),
@@ -1086,7 +1096,13 @@ def test_first_turn_verification_checks_actual_roster_weather_fog_and_income(mem
     )
     state = replace(state, battle=ObservedValue(ValueStatus.AVAILABLE, battle))
     _verify_playable_state(state, 1)
+
+    crater = MAPS_BY_ID["crater_isle"]
+    _verify_playable_state(state, 2, crater)
+    with pytest.raises(ColdBootError, match="Expected Crater Isle"):
+        _verify_playable_state(state, 1, crater)
     for changed in (
+        replace(battle, map=replace(battle.map, width=32)),
         replace(battle, fog_enabled=ObservedValue(ValueStatus.AVAILABLE, True)),
         replace(battle, co_effects_enabled=ObservedValue(ValueStatus.AVAILABLE, False)),
         replace(battle, players=(replace(players[0], funds=1000), players[1])),
@@ -1097,3 +1113,21 @@ def test_first_turn_verification_checks_actual_roster_weather_fog_and_income(mem
             _verify_playable_state(
                 replace(state, battle=ObservedValue(ValueStatus.AVAILABLE, changed)), 1
             )
+
+
+@run_async_test
+async def test_start_uses_selected_map_and_checkpoints_it(memory, tmp_path):
+    runtime, public, match_id, operator, _bridge = await setup(
+        memory, tmp_path, map_id="crater_isle"
+    )
+    try:
+        receipt = await public.start(operator, match_id, start_request())
+        result = await public.wait_for_command(operator, match_id, receipt.command_id, timeout=2)
+        assert result.status is CommandStatus.COMPLETED, result.error
+        assert (
+            await public.state(operator, match_id)
+        ).summary.configuration.map_id == "crater_isle"
+        manifest, _state = runtime.store.load(result.checkpoint_id)
+        assert manifest.match.configuration.map_id == "crater_isle"
+    finally:
+        await public.controller.stop()

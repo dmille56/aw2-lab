@@ -67,15 +67,17 @@ capabilities. Select a complete entry from `configuration_profiles` using
 combinations from the option lists. Profile selection does not depend on emulator
 availability; Start reports whether the runtime is available.
 
-The current profile uses Bean Island, external Andy/Red/team A and Max/Blue/team
+The default profile uses Bean Island. Map selection supports all 17 two-player
+Classic maps (Bean Island through Royal Channel), each advertised as
+`<map_id>_v1`. These profiles use external Andy/Red/team A and Max/Blue/team
 B, fog Off, Clear weather, income 1,000 per property, a 30-day limit,
 capture limit Off, and CO powers On. Creation validates before allocating a match
 or touching the emulator. Known alternative COs, valid alternative assignments/rules, internal
 CPU control, and the future three/four-player shape return
 `422 unsupported_feature`. Unknown map/CO IDs, duplicate colors, invalid slot
 ordering, incomplete configurations, and malformed values return
-`422 invalid_request`. Only `bean_island` is currently a recognized map ID;
-no alternate map is advertised or executable. Failed validation allocates no
+`422 invalid_request`. Map IDs outside the advertised two-player Classic catalog
+are rejected. Failed validation allocates no
 match and does not reserve the request ID.
 
 The shared schema retains two to four ordered slots with explicit CO, color,
@@ -239,3 +241,17 @@ checkpoint before gameplay resumes. Debug is disabled by default.
 
 Use [the typed Python SDK and two-player examples](PYTHON-SDK.md) for async
 HTTP methods, SSE subscriptions, retry-safe commands, and checkpoint workflows.
+
+To select a map, submit its complete advertised profile to match creation. For
+example, select `crater_isle_v1` from capabilities and use its `configuration`.
+The operator example accepts `--map-id crater_isle` on `create`:
+
+```sh
+python examples/manage_match.py create --token-file /path/to/operator-token --map-id crater_isle
+```
+
+The selected map is persisted in match metadata and checkpoints. Start verifies
+its numeric ROM ID, dimensions, two external armies, fixed rules, and opening
+property income before publishing a playable boundary. A wrong loaded map fails
+startup. Other categories, custom maps, and three/four-player maps remain outside
+the current map-selection catalog.

@@ -49,9 +49,9 @@ widgets have a 0x60-byte stride starting at `0x03001698`: Fog Off index 1,
 Weather Clear index 1, Funds 1000 index 0, Turn 30 index 26, Capture limit Off
 index 0, and Powers On index 0. Turn goes from OFF to 5 on the first Down, then
 increments one day per Down. Every increment and final combination is checked
-before confirming. The final playable observation verifies Bean Island ID 1,
-16×15 dimensions, Red Andy/Blue Max, external control, separate teams A/B,
-day 1/Red turn, Clear weather, Fog Off, CO effects On, and funds 11,000/0.
+before confirming. The final playable observation verifies the selected Classic
+map ID and dimensions, Red Andy/Blue Max, external control, separate teams A/B,
+day 1/Red turn, Clear weather, Fog Off, CO effects On, and opening property income.
 Unknown or mismatched settings fail startup through recovery.
 
 ## Sessions, gameplay, and persistence
@@ -123,3 +123,11 @@ regained it at Red's next turn. The subsequent
 [live SDK acceptance](LIVE-SDK-ACCEPTANCE.md) passed checkpoint restore/continue,
 actual process restart, and controlled post-input timeout/rollback recovery in
 both modes on 2026-11-03.
+
+Map selection now accepts the 17 two-player Classic maps in
+`src/aw2_lab/map_catalog.py`. Bean Island remains the default. The public profile
+selection is preserved through authorization, startup, and checkpoint restore.
+Navigation starts from the default Classic entry, sends bounded Down inputs,
+and checks the loaded map ID before CO/team setup. Opening income is computed
+from Red's observed cities, HQ, bases, airports, and ports, rather than assuming
+Bean Island's 11,000 funds on every map. COs, teams, and rules remain fixed.

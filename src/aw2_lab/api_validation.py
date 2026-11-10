@@ -10,9 +10,10 @@ from uuid import UUID
 from pydantic import ValidationError
 
 from aw2_lab.api_contract import VERIFIED_CONFIGURATION, CreateMatchRequest, MatchConfiguration
+from aw2_lab.map_catalog import MAP_IDS, MAPS_BY_ID
 from aw2_lab.match_contract import ErrorBody, ErrorCode, ErrorResponse, FixedMatchConfiguration
 
-# Recognized IDs do not imply playable combinations. Only the profile below is verified.
+# Recognized CO IDs do not imply playable combinations. Players and rules remain fixed.
 KNOWN_CO_IDS = frozenset(
     [
         "andy",
@@ -36,7 +37,7 @@ KNOWN_CO_IDS = frozenset(
         "sturm",
     ]
 )
-KNOWN_MAP_IDS = frozenset({"bean_island"})
+KNOWN_MAP_IDS = frozenset(MAP_IDS)
 
 
 def resolve_configuration(request: CreateMatchRequest) -> MatchConfiguration:
@@ -62,7 +63,10 @@ def validate_configuration(configuration: MatchConfiguration) -> MatchConfigurat
         raise ContractValidationError(
             ErrorCode.INVALID_REQUEST, "Unknown CO identifier", field="configuration.players.co_id"
         )
-    if configuration != VERIFIED_CONFIGURATION:
+    if (
+        configuration.players != VERIFIED_CONFIGURATION.players
+        or configuration.rules != VERIFIED_CONFIGURATION.rules
+    ):
         raise ContractValidationError(
             ErrorCode.UNSUPPORTED_FEATURE,
             "Configuration does not match a verified profile",
@@ -74,7 +78,7 @@ def validate_configuration(configuration: MatchConfiguration) -> MatchConfigurat
 def configuration_to_controller(configuration: MatchConfiguration) -> FixedMatchConfiguration:
     """Prevent an unsupported transport configuration from being silently defaulted."""
     validate_configuration(configuration)
-    return FixedMatchConfiguration()
+    return FixedMatchConfiguration(map_id=MAPS_BY_ID[configuration.map_id].id)
 
 
 ERROR_HTTP_STATUS: Mapping[ErrorCode, int] = {

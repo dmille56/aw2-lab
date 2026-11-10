@@ -15,6 +15,7 @@ from mcp.shared.version import SUPPORTED_PROTOCOL_VERSIONS
 from mcp.types import LATEST_PROTOCOL_VERSION
 from pydantic import AwareDatetime, Field, SecretStr, StringConstraints, model_validator
 
+from aw2_lab.map_catalog import CLASSIC_MAPS, MAP_IDS, MapId
 from aw2_lab.match_contract import (
     CheckpointReference,
     ContractModel,
@@ -241,15 +242,22 @@ class ConfigurationProfile(ContractModel):
 
     @model_validator(mode="after")
     def validate_verified_profile(self) -> ConfigurationProfile:
-        if self.profile_id != "bean_island_v1" or self.configuration != VERIFIED_CONFIGURATION:
-            raise ValueError("Only the verified bean_island_v1 profile can be advertised")
+        if (
+            self.configuration.map_id not in MAP_IDS
+            or self.profile_id != f"{self.configuration.map_id}_v1"
+            or self.configuration.players != VERIFIED_CONFIGURATION.players
+            or self.configuration.rules != VERIFIED_CONFIGURATION.rules
+        ):
+            raise ValueError(
+                "Only supported map profiles with fixed players and rules can be advertised"
+            )
         return self
 
 
 class ConfigurationOptions(ContractModel):
     """Accepted options derived from the verified profile, not the recognition catalog."""
 
-    map_ids: tuple[Literal["bean_island"]] = ("bean_island",)
+    map_ids: Annotated[tuple[MapId, ...], Field(min_length=1)] = MAP_IDS
     co_ids: tuple[Literal["andy"], Literal["max"]] = ("andy", "max")
     players: tuple[PlayerConfiguration, ...] = VERIFIED_CONFIGURATION.players
     rules: RuleConfiguration = VERIFIED_CONFIGURATION.rules
@@ -335,7 +343,13 @@ class CapabilitiesResponse(ContractModel):
     supported_player_counts: tuple[Literal[2]] = (2,)
     supported_control_modes: tuple[Literal["external"]] = ("external",)
     default_profile_id: Literal["bean_island_v1"] = "bean_island_v1"
-    configuration_profiles: tuple[ConfigurationProfile] = (ConfigurationProfile(),)
+    configuration_profiles: tuple[ConfigurationProfile, ...] = tuple(
+        ConfigurationProfile(
+            profile_id=f"{entry.id}_v1",
+            configuration=VERIFIED_CONFIGURATION.model_copy(update={"map_id": entry.id}),
+        )
+        for entry in CLASSIC_MAPS
+    )
     configuration_options: ConfigurationOptions = ConfigurationOptions()
     # Whole profiles are the combination constraint; catalogs do not imply a Cartesian product.
     operations: tuple[FeatureAvailability, ...] = ()
@@ -379,7 +393,7 @@ def configuration_from_controller(configuration: FixedMatchConfiguration) -> Mat
     # Legacy fixed-profile documents have no capture-limit field; their rule is Off.
     rules["capture_limit"] = None
     return VERIFIED_CONFIGURATION.model_copy(
-        update={"rules": RuleConfiguration.model_validate(rules)}
+        update={"map_id": configuration.map_id, "rules": RuleConfiguration.model_validate(rules)}
     )
 
 

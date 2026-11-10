@@ -458,3 +458,86 @@ ROM-independent UI tests cover the Launch/Wait row mapping and target
 prompt/cursor classification. Public API, MCP, runtime, capabilities, and human
 client payloads expose the typed launch action. Missile range restrictions and
 spent-silo re-selection behavior remain outside the verified acceptance.
+
+
+## Milestone 5 map selection (2026-11-10)
+
+Map selection supports the 17 two-player **Classic** maps, keeping Bean Island
+as the default. Each complete configuration is advertised as `<map_id>_v1`;
+Andy/Max, Red/Blue, teams A/B, external control, and verified rules remain fixed.
+Other categories, custom maps, and three/four-player maps are not advertised.
+
+The catalog's ROM IDs, names, army count, and dimensions were checked against
+the supported original ROM: header table `0x085C77A0`, stride `0x5C`, map payload
+pointer at offset 0, name ID at `+0x14`, army count at `+0x1A`, and name string
+pointer table `0x08610A38`. The first two decompressed payload bytes are width
+and height. Live startup independently checks the loaded ID and decoded dimensions.
+
+Every catalog entry reached the first recognized player turn in both frontends.
+The checks verify two human-controlled armies (Andy/Max, teams A/B), day 1/Red,
+Clear weather, Fog Off, CO effects On, and income from Red's observed properties.
+No Bean Island opening-funds constant is applied to other maps.
+
+| Map ID | ROM ID | Dimensions | Red / Blue opening funds | Headless / windowed frame |
+| --- | --- | --- | --- | --- |
+| `bean_island` | 1 | 16 × 15 | 11,000 / 0 | 3983 / 3984 |
+| `crater_isle` | 2 | 16 × 15 | 11,000 / 0 | 4104 / 4105 |
+| `triangles` | 3 | 16 × 15 | 5,000 / 0 | 4225 / 4226 |
+| `ball_islands` | 4 | 42 × 15 | 10,000 / 0 | 4376 / 4377 |
+| `coral_lagoon` | 5 | 16 × 15 | 5,000 / 0 | 4467 / 4468 |
+| `puzzle_trio` | 6 | 32 × 15 | 15,000 / 0 | 4588 / 4589 |
+| `fist_peninsula` | 7 | 16 × 15 | 4,000 / 0 | 4709 / 4710 |
+| `deer_harbor` | 8 | 32 × 30 | 8,000 / 0 | 4860 / 4861 |
+| `alara_range` | 9 | 32 × 15 | 7,000 / 0 | 4951 / 4952 |
+| `lost_river` | 10 | 32 × 15 | 6,000 / 0 | 5072 / 5073 |
+| `volcano_isle` | 11 | 16 × 15 | 5,000 / 0 | 5193 / 5194 |
+| `turtle_atoll` | 12 | 16 × 30 | 12,000 / 0 | 5314 / 5315 |
+| `squash_island` | 13 | 48 × 15 | 7,000 / 0 | 5465 / 5466 |
+| `cube_keys` | 14 | 32 × 30 | 7,000 / 0 | 5556 / 5557 |
+| `mirror_islands` | 15 | 32 × 15 | 6,000 / 0 | 5677 / 5678 |
+| `shark_strait` | 16 | 37 × 30 | 17,000 / 0 | 5888 / 5889 |
+| `royal_channel` | 17 | 39 × 30 | 23,000 / 0 | 6009 / 6010 |
+
+The opt-in test also drops the map-navigation Down input when requesting Crater
+Isle: Bean Island loads, and startup raises `ColdBootError` before any CO/team
+input. The real application test selects Crater Isle, starts the match, ends
+both turns, restores a checkpoint, and continues play. Public summaries and the
+checkpoint manifest retain `crater_isle` throughout. ROM-independent tests cover
+all map choices through durable authorization creation, restart/retry, profile
+validation, runtime boot forwarding, and checkpoint metadata. Unknown maps and
+unverified player/rule combinations retain their existing rejection behavior.
+
+Reproduce sequentially, with no other emulator using bridge port 43128:
+
+```sh
+AW2_RUN_MAP_SELECTION_TESTS=1 AW2_ROM_PATH=/private/aw2.gba \
+  pytest -q tests/test_map_selection_live_acceptance.py
+AW2_RUN_RUNTIME_TESTS=1 AW2_RUNTIME_MAP_ID=crater_isle AW2_ROM_PATH=/private/aw2.gba \
+  pytest -q tests/test_playable_runtime_integration.py
+```
+
+ROM SHA-256:
+`ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`.
+Headless build: `sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22`.
+Windowed build: `sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810`.
+
+Evidence is external at `/tmp/aw2-map-selection-acceptance/` and
+`/tmp/aw2-map-selection-recheck/`: per-map JSON and screenshots; the latter also
+contains the dropped-input rejection trace. The aggregate
+`/tmp/aw2-map-selection-summary.json` records all 34 accepted mode/map cases,
+frames, funds, build identities, screenshot hashes, and individual evidence hashes;
+its SHA-256 is
+`3cec678e895754678215e7ddf5c5784e8f87b566819e64bfee7becce2f670cf3`.
+Application checkpoint/restore artifacts are external at
+`/tmp/aw2-map-runtime-recheck/`.
+
+An initial headless Volcano Isle case and initial application run overlapped on
+the shared bridge port, producing a frame mismatch/input-release error. The
+sequential Volcano Isle retry and dropped-input case passed; the remaining 33
+map/mode cases passed in the original matrix. This was a test-run collision,
+not accepted map evidence. Saves and ROMs remain outside Git and the Nix store.
+
+Limits: these checks establish startup and structured first-turn observations
+for each map, plus alternate-map checkpoint continuity. They do not establish
+complete playthroughs or new map categories, COs, rules, weather, fog modes, or
+player counts. Cross-platform acceptance remains deferred until after Milestone 5.

@@ -1,4 +1,4 @@
-"""Bounded cold boot into the fixed, two-player Versus configuration."""
+"""Bounded cold boot into a selected two-player Classic map with fixed COs/rules."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from typing import Literal, Protocol
 
 from aw2_lab.bridge import LuaBridgeClient
 from aw2_lab.lifecycle import BattleControlObservation, LifecyclePhase, classify_lifecycle
+from aw2_lab.map_catalog import MAPS_BY_ID, MapId, VersusMap
 from aw2_lab.rom_profile import select_rom_profile
 from aw2_lab.state_decoder import capture_game_state
 from aw2_lab.state_model import GameState, ValueStatus, Weather
@@ -86,15 +87,17 @@ async def boot_fixed_versus_match(
     *,
     rom_path: Path,
     save_mode: Literal["fresh", "existing"] = "fresh",
+    map_id: MapId = "bean_island",
     checkpoint_recorder: CheckpointRecorder | None = None,
 ) -> ColdBootResult:
-    """Navigate from cartridge boot and verify the fixed first playable turn.
+    """Navigate from cartridge boot and verify the selected map at the first turn.
 
     Frontend menu inputs use ROM-specific selector signatures observed in the
     fresh and existing save traces. Existing-save overwrite confirmation is
     accepted only after the expected prompt is recognized in the isolated save
     copy. Every wait is bounded and the final playable state is verified.
     """
+    selected_map = MAPS_BY_ID[map_id]
     select_rom_profile(rom_path)
     events: list[ColdBootEvent] = []
 
@@ -386,13 +389,25 @@ async def boot_fixed_versus_match(
                 "Bean Island selection changed during map-screen settle: "
                 f"phase={map_select.phase.value}, map ID={map_select.map_id}"
             )
-        await checkpoint("bean-island-selected", map_select)
-        await tap("confirm-bean-island", _KEY_A)
+        # Classic maps are in ROM ID order. Never assume the selected battle ID
+        # tracks the highlight: it is assigned only when A confirms the map.
+        for index in range(selected_map.rom_id - 1):
+            await tap(f"select-map-down-{index + 1}", _KEY_DOWN)
+            map_select = await settle(120)
+            if map_select.phase is not LifecyclePhase.VERSUS_MAP_SELECT:
+                raise ColdBootError("Left map selection while moving the map highlight")
+        await checkpoint(f"{map_id.replace('_', '-')}-selected", map_select)
+        await tap(f"confirm-{map_id.replace('_', '-')}", _KEY_A)
 
         teams = await wait_for(
             LifecyclePhase.VERSUS_SETUP,
             setup_subphase=0,
         )
+        if teams.map_id != selected_map.rom_id:
+            raise ColdBootError(
+                f"Expected {selected_map.name} ID {selected_map.rom_id}; "
+                f"map confirmation loaded ID {teams.map_id}"
+            )
         for label, keys in (
             ("select-team-player", _KEY_LEFT),
             ("select-player-control", _KEY_UP),
@@ -470,12 +485,12 @@ async def boot_fixed_versus_match(
         await tap("start-battle", _KEY_A)
         await wait_for(LifecyclePhase.BATTLE_PLAYER_TURN, budget=1800)
         game_state = await capture_game_state(bridge, rom_path=rom_path)
-        map_id = (await bridge.read_memory_snapshot([(0x03003FC2, 1)])).ranges[0][0]
-        _verify_playable_state(game_state, map_id)
+        loaded_map_id = (await bridge.read_memory_snapshot([(0x03003FC2, 1)])).ranges[0][0]
+        _verify_playable_state(game_state, loaded_map_id, selected_map)
         ready = await observe()
         await checkpoint("player-one-ready", ready)
 
-    return ColdBootResult(game_state, map_id, tuple(events))
+    return ColdBootResult(game_state, loaded_map_id, tuple(events))
 
 
 def _verify_setup(state: _FrontendState) -> None:
@@ -500,15 +515,21 @@ def _verify_rules(state: _FrontendState) -> None:
         )
 
 
-def _verify_playable_state(state: GameState, map_id: int) -> None:
+def _verify_playable_state(
+    state: GameState, map_id: int, selected_map: VersusMap = MAPS_BY_ID["bean_island"]
+) -> None:
     if state.lifecycle.phase is not LifecyclePhase.BATTLE_PLAYER_TURN:
         raise ColdBootError(f"Expected a human player turn; observed {state.lifecycle.phase.value}")
     if state.battle.status is not ValueStatus.AVAILABLE or state.battle.value is None:
         raise ColdBootError("Battle state is not validated and available at the first turn")
     battle = state.battle.value
-    if map_id != 1 or (battle.map.width, battle.map.height) != (16, 15):
+    if map_id != selected_map.rom_id or (battle.map.width, battle.map.height) != (
+        selected_map.width,
+        selected_map.height,
+    ):
         raise ColdBootError(
-            f"Expected Bean Island (map ID 1, 16x15); observed ID {map_id}, "
+            f"Expected {selected_map.name} (map ID {selected_map.rom_id}, "
+            f"{selected_map.width}x{selected_map.height}); observed ID {map_id}, "
             f"{battle.map.width}x{battle.map.height}"
         )
     players = {player.slot: player for player in battle.players}
@@ -546,7 +567,14 @@ def _verify_playable_state(state: GameState, map_id: int) -> None:
         or battle.co_effects_enabled.value is not True
     ):
         raise ColdBootError("CO effects On was not observed at the playable boundary")
-    if (players[1].funds, players[2].funds) != (11000, 0):
+    # At day one Red has received one income payment. Count actual owned
+    # properties rather than carrying Bean Island's opening balance to other maps.
+    income_properties = sum(
+        prop.owner_slot == 1 and prop.terrain_class in (6, 8, 10, 11, 14)
+        for prop in battle.properties
+    )
+    expected_funds = (income_properties * 1000, 0)
+    if (players[1].funds, players[2].funds) != expected_funds:
         raise ColdBootError(
-            "Initial funds do not match Bean Island income 1000 (Red 11000, Blue 0)"
+            f"Initial funds do not match {selected_map.name} income 1000: {expected_funds}"
         )

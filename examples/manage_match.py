@@ -30,6 +30,7 @@ async def main() -> None:
     parser.add_argument(
         "--directory", type=Path, default=Path.home() / ".local/state/aw2-lab/sdk-demo"
     )
+    parser.add_argument("--map-id", help="select an advertised map ID when creating a match")
     parser.add_argument("--checkpoint", type=UUID)
     parser.add_argument("--archive", type=Path)
     args = parser.parse_args()
@@ -38,13 +39,15 @@ async def main() -> None:
     ) as client:
         directory = args.directory
         if args.operation == "create":
-            directory.mkdir(mode=0o700, parents=True)
             capabilities = await client.capabilities()
+            profile_id = f"{args.map_id}_v1" if args.map_id else capabilities.default_profile_id
             profile = next(
-                p
-                for p in capabilities.configuration_profiles
-                if p.profile_id == capabilities.default_profile_id
+                (p for p in capabilities.configuration_profiles if p.profile_id == profile_id),
+                None,
             )
+            if profile is None:
+                parser.error("map ID is not advertised by this server")
+            directory.mkdir(mode=0o700, parents=True)
             match = await client.create_match(profile.configuration)
             private_file(directory / "match-id", str(match.match_id))
             for slot in PlayerSlot:

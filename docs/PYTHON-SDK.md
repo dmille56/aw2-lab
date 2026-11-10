@@ -91,7 +91,7 @@ operator file path with your private file. Tokens are generated into private fil
 never printed. Setup invitations expire after 15 minutes.
 
 ```sh
-python examples/manage_match.py create --token-file "$AW2_OPERATOR_SECRET_FILE" --directory /tmp/aw2-sdk-demo
+python examples/manage_match.py create --token-file "$AW2_OPERATOR_SECRET_FILE" --directory /tmp/aw2-sdk-demo --map-id crater_isle
 ```
 
 In two separate terminals, join each slot using its own player credential:

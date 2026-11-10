@@ -25,7 +25,10 @@ configuration features that remain unimplemented.
 | Resupplying | Implemented and verified | [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 APC Supply action (2026-11-10)][APC Supply and automatic allied-property upkeep; headless and windowed mGBA]] |
 | Diving/surfacing | Implemented and verified | Sub action selector: Dive row =0x0B=, Rise row =0x0C=; guarded typed actions and headless/windowed acceptance in [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 Sub Dive and Rise (2026-11-10)][the live acceptance log]] |
 | Missile silos | Implemented and verified | Infantry/Mech Launch row, target prompt/cursor, silo consumption, and 3x3 blast in both live frontends; [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 missile silo launch (2026-11-10)][live evidence]] |
-| Map/CO/rules/weather selection | Open | Fixed match profile; explicitly unsupported |
+| Map selection | Accepted for two-player Classic maps | 17 advertised map profiles; guarded cold boot and durable configuration |
+| CO selection | Open | Fixed to Andy vs. Max; explicitly unsupported |
+| Configurable match rules | Open | Fixed verified versus rules; explicitly unsupported |
+| Starting weather selection | Open | Fixed to clear; explicitly unsupported |
 | Two to four players/teams | Open | Two fixed external player slots |
 | Fog-enabled matches | Open | Fog off contract; explicitly unsupported |
 
@@ -99,7 +102,23 @@ actions must remain distinguishable at the public boundary.
    - [X] Reject unavailable units, invalid routes/targets, and destinations that are not unused silos before emulator input.
    - [X] Verify the unit remains at the silo and is consumed for the turn, the silo changes from terrain 17 to spent terrain 18, and missile damage resolves before returning a settled boundary.
    - [X] Replay the supplied ready checkpoint in headless and windowed mGBA; record ROM/build/checkpoint identities, blast observations, and evidence hashes in [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 missile silo launch (2026-11-10)][the live acceptance log]].
-** TODO Add map and CO selection and configurable match rules/weather
+** DONE Add map selection
+   - [X] Catalog the 17 two-player Classic maps, with ROM IDs, names, and dimensions; keep Bean Island as the default.
+   - [X] Advertise complete map profiles and validate creation through HTTP/SDK/MCP without allowing unverified CO/rule/player combinations.
+   - [X] Preserve the selection through authorization, startup, match summaries, checkpoints, and restore.
+   - [X] Navigate the Classic list with bounded inputs and reject a mismatched loaded map before CO/team setup; verify dimensions and property-dependent opening income at the first turn.
+   - [X] Add operator example selection with =--map-id= and regenerate client contracts.
+   - [X] Verify every supported map in headless and windowed mGBA; see [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 map selection (2026-11-10)][live acceptance]].
+   - Scope: other categories, custom maps, and three/four-player maps are not advertised; expanded player counts remain a separate item.
+** TODO Enable the other built-in Versus map categories
+   - [ ] Identify the remaining category selectors, map IDs, dimensions, player counts, and any save/unlock requirements in the supported ROM.
+   - [ ] Extend the map catalog and guarded category/list navigation; verify the loaded map before publishing a playable match.
+   - [ ] Advertise verified profiles through HTTP/SDK/MCP and support selection in the operator example while preserving existing profiles and checkpoints.
+   - [ ] Verify supported maps in headless and windowed mGBA, including unavailable selections, navigation failures, and checkpoint restore; record acceptance evidence.
+   - Scope: built-in Versus maps outside Classic; three/four-player profiles depend on the player-count expansion below. Custom maps remain deferred.
+** TODO Add CO selection
+** TODO Add configurable match rules
+** TODO Add starting weather selection
 ** TODO Expand match setup and authorization to two through four players and teams
 ** TODO Add fog-enabled matches with explicitly omniscient trusted-client observations
 

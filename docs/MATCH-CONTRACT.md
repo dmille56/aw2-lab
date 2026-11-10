@@ -1,29 +1,30 @@
 # Milestone 3 public match contract, version 1
 
 This document and [`aw2_lab.match_contract`](../src/aw2_lab/match_contract.py)
-define the fixed playable configuration and the shared Python/HTTP/SDK model
+define the playable configuration and the shared Python/HTTP/SDK model
 surface. Controller, persistence, and shared authorization services exist; HTTP
 match routes remain unfinished. The queued runtime is wired to existing executors
 and checkpoint recovery; see [runtime verification](PLAYABLE-RUNTIME.md). The Pydantic
 models are the schema source for the eventual HTTP OpenAPI document and generated
 non-Python client types.
 
-## Fixed match
+## Match configuration
 
 Contract version 1 supports exactly one active local Versus match:
 
-| Setting | Fixed value |
+| Setting | Supported value |
 | --- | --- |
-| Map | Bean Island (`bean_island`), built-in Versus map |
+| Map | Selectable two-player Classic map; Bean Island (`bean_island`) by default |
 | Slot 1 | Red, Andy, Team A |
 | Slot 2 | Blue, Max, Team B |
 | Control | Both armies controlled by the server for their external players |
 | Rules | 30-day limit, 1,000 income per owned property, CO Powers enabled, clear starting weather |
 | Fog | Disabled |
 
-The fixed values are not caller-selectable. Match creation either uses this
-configuration or fails with `unsupported_feature`; a later configurable-match
-contract must advertise and version the additional choices. AW2 remains
+Map selection is caller-selectable through the 17 advertised two-player Classic
+profiles. The other values remain fixed. Match creation validates a complete
+profile before allocation; unsupported COs, rules, or player assignments fail
+with `unsupported_feature`. AW2 remains
 authoritative for legal actions, combat, randomness, upkeep, and outcomes.
 
 ## Supported operations and actions
@@ -254,12 +255,12 @@ collection and per-slot permissions/subscriptions while initially advertising
 only the fixed two-player configuration. The current Python contract and
 executors require explicit extension before three or four players are supported.
 The creation design accepts an explicit map/player/rule configuration, initially
-restricted to the verified fixed profile. Future capability-advertised maps, COs,
+restricted to the advertised two-player Classic profiles. Future COs,
 teams, fog/weather, and rule combinations use that same creation shape after
 validation and runtime verification. Adopting this proposed schema requires
 explicit conversion between the legacy `FixedMatchConfiguration` and new
 collection-based transport models. `api_validation.py` validates the complete
-profile before conversion; this does not expand the executable configuration.
+profile before conversion; map selection now preserves the requested supported map.
 MCP protocol revisions and AW2 game contracts are versioned independently. The
 proposed MCP application payloads share HTTP's `contract_version: 1`, resources
 use `aw2://v1/...` URIs, and breaking game contracts require a separate MCP
