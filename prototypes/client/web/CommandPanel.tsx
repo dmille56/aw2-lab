@@ -11,6 +11,7 @@ const labels: Record<ActionKind, string> = {
   move_attack: "Attack",
   move_capture: "Capture",
   join: "Join units",
+  supply: "Supply",
   load: "Load",
   unload: "Unload",
   purchase: "Purchase unit",
@@ -360,6 +361,13 @@ export function CommandPanel({
                   onClick={() => choose("join")}
                 >
                   Join allied unit here
+                </button>
+                <button
+                  type="button"
+                  disabled={!editable || !model.supplyReady}
+                  onClick={() => choose("supply")}
+                >
+                  Supply adjacent allied units
                 </button>
                 {model.loadTransport && (
                   <button

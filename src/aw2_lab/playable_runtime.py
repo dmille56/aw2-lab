@@ -35,6 +35,7 @@ from aw2_lab.power_executor import (
 from aw2_lab.purchase_executor import PurchaseActionExecutor
 from aw2_lab.state_decoder import capture_game_state
 from aw2_lab.state_model import GameState
+from aw2_lab.supply_executor import SupplyActionExecutor
 from aw2_lab.surrender_executor import SurrenderActionExecutor
 from aw2_lab.transport_executor import LoadActionExecutor, UnloadActionExecutor
 
@@ -152,6 +153,7 @@ class PlayableRuntime:
             "attack": MoveAttackActionExecutor,
             "move_capture": MoveCaptureActionExecutor,
             "join": JoinActionExecutor,
+            "supply": SupplyActionExecutor,
             "load": LoadActionExecutor,
             "unload": UnloadActionExecutor,
             "purchase": PurchaseActionExecutor,

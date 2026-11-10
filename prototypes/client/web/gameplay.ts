@@ -298,6 +298,24 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     canJoin &&
     !movement?.error &&
     available("join");
+  const canSupply =
+    !!battle &&
+    selectedUnit?.unit_type === 7 &&
+    !!destination &&
+    battle.units.some(
+      (unit) =>
+        unit.army_slot === selectedUnit.army_slot &&
+        !unit.embarked &&
+        unit.reference !== selectedUnit.reference &&
+        Math.abs(unit.x - destination.x) + Math.abs(unit.y - destination.y) ===
+          1,
+    );
+  const supplyReady =
+    !!selectedUnit &&
+    !!destination &&
+    canSupply &&
+    !movement?.error &&
+    available("supply");
   const selectedTransportCargo =
     selectedUnit && [7, 20, 23].includes(selectedUnit.unit_type)
       ? selectedUnit.cargo_references.flatMap((reference) => {
@@ -612,6 +630,13 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
         unit_id: draft.unitId,
         path: draft.path.map(coordinate),
       };
+    else if (selectedUnit && kind === "supply" && supplyReady)
+      action = {
+        contract_version: 1,
+        kind,
+        unit_id: draft.unitId,
+        path: draft.path.map(coordinate),
+      };
     else if (
       selectedUnit &&
       movementReady &&
@@ -679,6 +704,8 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     canLoad,
     canJoin,
     joinReady,
+    canSupply,
+    supplyReady,
     loadAction,
     loadTransport: transportAtDestination,
     loadUnavailableReason,

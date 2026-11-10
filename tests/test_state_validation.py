@@ -351,6 +351,7 @@ def test_unit_movement_overlay_exposes_verified_source_cursor(memory) -> None:
         ((5, 0x0A), MenuItem.LOAD),
         ((5,), MenuItem.LOAD),
         ((6, 0x0A), MenuItem.UNLOAD),
+        ((7, 0x0A), MenuItem.SUPPLY),
         ((0x0A, 0x0B), MenuItem.WAIT),
         ((0x0A,), MenuItem.WAIT),
     ],
@@ -378,6 +379,10 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
     if 6 in action_ids:
         ewram[0x22690] = 7
         ewram[0x22697] = 2
+    if 7 in action_ids:
+        ewram[0x22690] = 7
+        ewram[0x226A8:0x226B4] = bytes((1, 0, 2, 1, 100, 0, 99, 0, 0, 0, 0, 0))
+        pack_into("<HH", iwram, 0x33E4, 1, 1)
 
     current = snapshot(memory)
     menu = observe_menu(current, validate_battle_snapshot(current))
@@ -393,6 +398,8 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
         if item_id == 5
         else MenuItem.UNLOAD
         if item_id == 6
+        else MenuItem.SUPPLY
+        if item_id == 7
         else MenuItem.OTHER_UNIT_ACTION
         for item_id in action_ids
     )
@@ -440,6 +447,11 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
             observe_menu(current, validate_battle_snapshot(current)).family
             is not MenuFamily.UNIT_ACTION_CHOICES
         )
+
+    if 7 in action_ids:
+        ewram[0x22690] = 1  # A non-APC must not expose Supply.
+        current = snapshot(memory)
+        assert MenuItem.SUPPLY not in observe_menu(current, validate_battle_snapshot(current)).items
 
     layout, _, _ = memory
     rules = list(layout.menu_rules_by_map)

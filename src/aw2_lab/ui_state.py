@@ -132,6 +132,7 @@ class MenuItem(StrEnum):
     UNLOAD = "unload"
     WAIT = "wait"
     JOIN = "join"
+    SUPPLY = "supply"
     OTHER_UNIT_ACTION = "other_unit_action"
     YES = "yes"
     NO = "no"
@@ -590,7 +591,7 @@ def _observe_unit_action_choices(
     if (
         selected is None
         or len(ids) != count
-        or (ids.count(0x0A) != 1 and ids not in ((5,), (8,)))
+        or (ids.count(0x0A) != 1 and ids not in ((5,), (8,), (7,)))
         or any(item_id not in (0, 2, 3, 4, 5, 6, 7, 8, 0x0A, 0x0B) for item_id in ids)
         or row >= count
     ):
@@ -618,6 +619,7 @@ def _observe_unit_action_choices(
             and row == 0
             and _selected_unit_can_join_at_cursor(snapshot, selected)
         )
+        and not (7 in ids and _selected_unit_can_supply(snapshot, selected))
     ):
         return None
     # Three-row menus are accepted only for verified capture or cargo cases.
@@ -637,6 +639,8 @@ def _observe_unit_action_choices(
             if item_id == 5 and load_eligible
             else MenuItem.UNLOAD
             if item_id == 6 and selected.unit_type in (7, 20, 23) and has_cargo
+            else MenuItem.SUPPLY
+            if item_id == 7 and _selected_unit_can_supply(snapshot, selected)
             else MenuItem.OTHER_UNIT_ACTION
             for item_id in ids
         )
@@ -666,6 +670,29 @@ def _selected_unit_can_join_at_cursor(
             record[0] == selected.unit_type
             and not record[1] & 0x09
             and (record[2], record[3]) == (x, y)
+        ):
+            return True
+    return False
+
+
+def _selected_unit_can_supply(
+    snapshot: BattleMemorySnapshot, selected: SelectedUnitObservation
+) -> bool:
+    """Recognize Supply only for an APC adjacent to an allied unit at its endpoint."""
+    if selected.unit_type != 7:
+        return False
+    x, y = snapshot.u16(CURSOR_SOURCE), snapshot.u16(CURSOR_SOURCE + 2)
+    width, height = snapshot.u16(MAP_BASE), snapshot.u16(MAP_BASE + 2)
+    if not (0 <= x < width and 0 <= y < height):
+        return False
+    for slot in range(1, UNITS_PER_ARMY + 1):
+        address = UNIT_BASE + ((selected.army_slot - 1) * 64 + slot) * UNIT_STRIDE
+        record = snapshot.read(address, UNIT_STRIDE)
+        if (
+            record[0] not in (0, 0xFF)
+            and not record[1] & 0x08
+            and (record[2], record[3]) != (x, y)
+            and abs(record[2] - x) + abs(record[3] - y) == 1
         ):
             return True
     return False

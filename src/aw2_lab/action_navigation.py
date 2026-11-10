@@ -608,6 +608,34 @@ class ActionNavigator:
                 poll_frames=self.limits.resolution_poll_frames,
             )
 
+    async def choose_supply(self) -> GameState:
+        """Choose the APC Supply order and wait for the settled turn boundary."""
+        async with self._bounded_operation():
+            self._begin("supply_units")
+            state = await self._observe()
+            menu = state.ui.menu
+            if (
+                menu.family is not MenuFamily.UNIT_ACTION_CHOICES
+                or menu.selected_item is None
+                or MenuItem.SUPPLY not in menu.items
+                or menu.selected_unit is None
+                or menu.selected_unit.unit_type != 7
+                or not menu.actionable
+            ):
+                raise await self._fail("Supply requires a recognized APC Supply order", state)
+            state = await self._navigate_unit_action(MenuItem.SUPPLY, state)
+            await self._tap("confirm-supply", _KEY_A)
+            return await self._wait_for(
+                lambda value: (
+                    value.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN
+                    and value.ui.menu.family is MenuFamily.MAP_INPUT
+                    and value.battle.status is ValueStatus.AVAILABLE
+                ),
+                description="the settled player turn after Supply",
+                frame_budget=self.limits.resolution_frame_budget,
+                poll_frames=self.limits.resolution_poll_frames,
+            )
+
     async def choose_load(self) -> GameState:
         """Choose Load and wait for the settled boundary after boarding."""
         async with self._bounded_operation():

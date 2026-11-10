@@ -1625,6 +1625,7 @@
                 "move_capture": "#/components/schemas/MoveCaptureAction",
                 "move_wait": "#/components/schemas/MoveWaitAction",
                 "purchase": "#/components/schemas/PurchaseAction",
+                "supply": "#/components/schemas/SupplyAction",
                 "surrender": "#/components/schemas/SurrenderAction",
                 "unload": "#/components/schemas/UnloadAction"
               },
@@ -1645,6 +1646,9 @@
               },
               {
                 "$ref": "#/components/schemas/JoinAction"
+              },
+              {
+                "$ref": "#/components/schemas/SupplyAction"
               },
               {
                 "$ref": "#/components/schemas/LoadAction"
@@ -2438,6 +2442,7 @@
           "unload",
           "wait",
           "join",
+          "supply",
           "other_unit_action",
           "yes",
           "no"
@@ -3632,6 +3637,43 @@
           "status"
         ],
         "title": "StructureValidation",
+        "type": "object"
+      },
+      "SupplyAction": {
+        "additionalProperties": false,
+        "description": "Move an APC and supply every adjacent allied unit.",
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "supply",
+            "default": "supply",
+            "title": "Kind",
+            "type": "string"
+          },
+          "path": {
+            "items": {
+              "$ref": "#/components/schemas/Coordinate"
+            },
+            "maxItems": 4096,
+            "title": "Path",
+            "type": "array"
+          },
+          "unit_id": {
+            "minLength": 1,
+            "title": "Unit Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit_id",
+          "path"
+        ],
+        "title": "SupplyAction",
         "type": "object"
       },
       "SurrenderAction": {

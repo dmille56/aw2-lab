@@ -977,7 +977,7 @@ export interface components {
          */
         GameplayCommandRequest: {
             /** Action */
-            action: components["schemas"]["MoveWaitAction"] | components["schemas"]["MoveAttackAction"] | components["schemas"]["AttackAction"] | components["schemas"]["MoveCaptureAction"] | components["schemas"]["JoinAction"] | components["schemas"]["LoadAction"] | components["schemas"]["UnloadAction"] | components["schemas"]["PurchaseAction"] | components["schemas"]["ActivateNormalPowerAction"] | components["schemas"]["ActivateSuperPowerAction"] | components["schemas"]["EndTurnAction"] | components["schemas"]["SurrenderAction"];
+            action: components["schemas"]["MoveWaitAction"] | components["schemas"]["MoveAttackAction"] | components["schemas"]["AttackAction"] | components["schemas"]["MoveCaptureAction"] | components["schemas"]["JoinAction"] | components["schemas"]["SupplyAction"] | components["schemas"]["LoadAction"] | components["schemas"]["UnloadAction"] | components["schemas"]["PurchaseAction"] | components["schemas"]["ActivateNormalPowerAction"] | components["schemas"]["ActivateSuperPowerAction"] | components["schemas"]["EndTurnAction"] | components["schemas"]["SurrenderAction"];
             /**
              * Contract Version
              * @default 1
@@ -1385,7 +1385,7 @@ export interface components {
          * @description Choices resolved from the verified general battle selectors.
          * @enum {string}
          */
-        MenuItem: "co" | "intel" | "power" | "super_power" | "options" | "save" | "end" | "status" | "unit" | "rules" | "delete" | "yield" | "music" | "visual_mode" | "exit_map" | "fire" | "capture" | "load" | "unload" | "wait" | "join" | "other_unit_action" | "yes" | "no";
+        MenuItem: "co" | "intel" | "power" | "super_power" | "options" | "save" | "end" | "status" | "unit" | "rules" | "delete" | "yield" | "music" | "visual_mode" | "exit_map" | "fire" | "capture" | "load" | "unload" | "wait" | "join" | "supply" | "other_unit_action" | "yes" | "no";
         /**
          * MenuObservation
          * @description Recognized menu context and its current typed selection, when known.
@@ -1955,6 +1955,27 @@ export interface components {
              */
             reasons: string[];
             status: components["schemas"]["ValidationStatus"];
+        };
+        /**
+         * SupplyAction
+         * @description Move an APC and supply every adjacent allied unit.
+         */
+        SupplyAction: {
+            /**
+             * Contract Version
+             * @default 1
+             * @constant
+             */
+            contract_version: 1;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "supply";
+            /** Path */
+            path: components["schemas"]["Coordinate"][];
+            /** Unit Id */
+            unit_id: string;
         };
         /** SurrenderAction */
         SurrenderAction: {
