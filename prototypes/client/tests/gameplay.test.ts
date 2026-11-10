@@ -115,6 +115,7 @@ it("builds a command only for the current ready boundary and locks uncertain sub
     "move_capture",
     "load",
     "purchase",
+    "activate_normal_power",
     "end_turn",
     "surrender",
   ].map((name) => ({
@@ -181,6 +182,50 @@ it("builds a command only for the current ready boundary and locks uncertain sub
   act(() => result.current.selectUnit("1"));
   rerender({ view: { ...initial, connected: false, identity: null } });
   expect(result.current.draft.unitId).toBe("");
+  unmount();
+});
+
+it("builds normal Power independently of a selected unit", () => {
+  const capabilities = validateCapabilitiesResponse(capabilityFixture);
+  capabilities.actions = [
+    {
+      contract_version: 1,
+      name: "activate_normal_power",
+      implemented: true,
+      available: true,
+      verification: "synthetic",
+      unavailable_reason: null,
+    },
+  ];
+  const view: ViewState = {
+    ...new MatchSession().getSnapshot(),
+    snapshot: validateState(stateFixture),
+    connected: true,
+    ready: true,
+    identity: {
+      contract_version: 1,
+      match_id: stateFixture.summary.match_id,
+      role: "player",
+      player_slot: "slot_1",
+    },
+    capabilities,
+  };
+  const { result, unmount } = renderHook(() => useGameplay(view, vi.fn()));
+
+  act(() => result.current.selectUnit("1"));
+  act(() =>
+    result.current.dispatch({ type: "choose", kind: "activate_normal_power" }),
+  );
+
+  expect(result.current.draft).toMatchObject({
+    kind: "activate_normal_power",
+    phase: "review",
+    unitId: "",
+  });
+  expect(result.current.action).toEqual({
+    contract_version: 1,
+    kind: "activate_normal_power",
+  });
   unmount();
 });
 

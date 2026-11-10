@@ -146,7 +146,9 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
       };
     case "choose":
       return {
-        ...(event.kind === "end_turn" || event.kind === "surrender"
+        ...(event.kind === "end_turn" ||
+        event.kind === "surrender" ||
+        event.kind === "activate_normal_power"
           ? emptyDraft(draft.boundary)
           : draft),
         kind: event.kind,
@@ -518,7 +520,11 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     available(draft.kind)
   ) {
     const kind = draft.kind;
-    if (kind === "end_turn" || kind === "surrender")
+    if (
+      kind === "end_turn" ||
+      kind === "surrender" ||
+      kind === "activate_normal_power"
+    )
       action = { contract_version: 1, kind };
     else if (
       kind === "purchase" &&

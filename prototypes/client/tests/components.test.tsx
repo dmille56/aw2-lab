@@ -6,9 +6,14 @@ import { Board, UnitInspector } from "../web/Board";
 import { MapPanel } from "../web/MapPanel";
 import { Health } from "../web/Health";
 import { App } from "../web/App";
+import { CommandPanel } from "../web/CommandPanel";
+import { validateCapabilitiesResponse } from "../web/capabilities";
+import { useGameplay } from "../web/gameplay";
+import { MatchSession, type ViewState } from "../web/session";
 import { validateState } from "../web/state";
 import { supportedProductionProperties } from "../web/command_input";
 import fixture from "./fixtures/state.json";
+import capabilityFixture from "./fixtures/capabilities.json";
 const snapshot = validateState(fixture);
 const battle = snapshot.observation?.game_state.battle.value;
 if (!battle) throw new Error("Fixture has no battle");
@@ -18,6 +23,129 @@ afterEach(() => {
 });
 
 describe("React viewer", () => {
+  it("offers normal Power and shows its pending, completed, and failed status", async () => {
+    const capabilities = validateCapabilitiesResponse(capabilityFixture);
+    capabilities.actions = [
+      {
+        contract_version: 1,
+        name: "activate_normal_power",
+        implemented: true,
+        available: true,
+        verification: "synthetic",
+        unavailable_reason: null,
+      },
+    ];
+    const initial: ViewState = {
+      ...new MatchSession().getSnapshot(),
+      snapshot,
+      connected: true,
+      ready: true,
+      identity: {
+        contract_version: 1,
+        match_id: snapshot.summary.match_id,
+        role: "player",
+        player_slot: "slot_1",
+      },
+      capabilities,
+    };
+    const onSubmit = vi.fn();
+    function PowerPanel({ view }: { view: ViewState }) {
+      const model = useGameplay(view, vi.fn());
+      return (
+        <CommandPanel
+          model={model}
+          view={view}
+          onSubmit={onSubmit}
+          onRetry={vi.fn()}
+          onCheckStatus={vi.fn()}
+        />
+      );
+    }
+
+    const rendered = render(<PowerPanel view={initial} />);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Activate normal Power" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Confirm Activate normal Power" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/server checks meter and activation state/),
+    ).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Confirm Activate normal Power" }),
+    );
+    const action = {
+      contract_version: 1 as const,
+      kind: "activate_normal_power" as const,
+    };
+    expect(onSubmit).toHaveBeenCalledWith(action, snapshot.summary.revision);
+
+    const requestId = "00000000-0000-4000-8000-000000000051";
+    const commandId = "00000000-0000-4000-8000-000000000052";
+    const request = {
+      contract_version: 1 as const,
+      request_id: requestId,
+      expected_revision: snapshot.summary.revision,
+      action,
+    };
+    const receipt = {
+      contract_version: 1 as const,
+      command_id: commandId,
+      request_id: requestId,
+      match_id: snapshot.summary.match_id,
+      accepted_revision: snapshot.summary.revision,
+      status: "queued" as const,
+    };
+    const pending = {
+      request,
+      receipt,
+      result: null,
+      phase: "queued" as const,
+    };
+    rendered.rerender(<PowerPanel view={{ ...initial, command: pending }} />);
+    expect(
+      screen.getByRole("heading", { name: "Command status: queued" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/waiting for the emulator to finish/),
+    ).toBeVisible();
+
+    const completedResult = {
+      contract_version: 1 as const,
+      command_id: commandId,
+      request_id: requestId,
+      match_id: snapshot.summary.match_id,
+      accepted_revision: snapshot.summary.revision,
+      resulting_revision: snapshot.summary.revision + 1,
+      checkpoint_id: null,
+      error: null,
+      status: "completed" as const,
+    };
+    rendered.rerender(
+      <PowerPanel
+        view={{
+          ...initial,
+          command: { ...pending, phase: "completed", result: completedResult },
+        }}
+      />,
+    );
+    expect(
+      screen.getByText("Completed and committed to the match."),
+    ).toBeVisible();
+
+    rendered.rerender(
+      <PowerPanel
+        view={{ ...initial, command: { ...pending, phase: "rejected" } }}
+      />,
+    );
+    expect(
+      screen.getByText(
+        "The action did not complete. Review the result details.",
+      ),
+    ).toBeVisible();
+  });
+
   it("offers only owned production bases for purchase", () => {
     const properties = [
       { owner_slot: 1, terrain_class: 6, x: 0, y: 0 },

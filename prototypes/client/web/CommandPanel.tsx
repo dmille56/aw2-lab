@@ -84,6 +84,8 @@ export function CommandPanel({
   )?.funds;
   const preview = (() => {
     if (!draft.kind) return "";
+    if (draft.kind === "activate_normal_power")
+      return "Activate your CO's normal Power. The server checks meter and activation state before using it.";
     if (draft.kind === "purchase")
       return `Buy ${draft.unitType} at ${draft.base ? positionLabel(draft.base) : "the selected facility"}. Baseline cost: ${profileByName(draft.unitType)?.cost ?? "unknown"}.`;
     if (draft.kind === "end_turn")
@@ -465,6 +467,13 @@ export function CommandPanel({
         </>
       )}
       <div className="toolbar">
+        <button
+          type="button"
+          disabled={!editable || !model.available("activate_normal_power")}
+          onClick={() => choose("activate_normal_power")}
+        >
+          Activate normal Power
+        </button>
         <button
           type="button"
           disabled={!editable || !model.available("end_turn")}
