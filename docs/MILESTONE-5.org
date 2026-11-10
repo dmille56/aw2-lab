@@ -1,7 +1,7 @@
 #+TITLE: Milestone 5: Expand Local Versus Coverage
 #+TODO: TODO IN-PROGRESS BLOCKED | DONE DEFERRED
 
-* Completion audit (2026-11-09)
+* Completion audit (2026-11-10)
 
 Status: INCOMPLETE. The three completed entries in
 [[file:MILESTONE-3.org::*Expand gameplay command coverage in Milestone 5][the earlier gameplay checklist]]
@@ -9,11 +9,11 @@ cover stationary attacks, transports, and a production navigation fix. They
 do not cover all of Milestone 5 in [[file:PLAN.md][PLAN.md]].
 
 The current [[file:../src/aw2_lab/match_contract.py][gameplay contract]] advertises
-=attack=, =join=, =load=, =unload=, and separate normal/Super Power actions
-alongside the accepted playable-slice actions. Resupply, dive/surface, and silo
-actions remain unavailable. Match creation still fixes fog off, clear weather,
-and two slots. Capability reporting excludes the gameplay and configuration
-features that remain unimplemented.
+=attack=, =join=, =supply=, =load=, =unload=, and separate normal/Super Power
+actions alongside the accepted playable-slice actions. Diving/surfacing and
+silo actions remain unavailable. Match creation still fixes fog off, clear
+weather, and two slots. Capability reporting excludes the gameplay and
+configuration features that remain unimplemented.
 
 | Planned coverage | Audit result | Evidence or remaining work |
 |------------------+--------------+----------------------------|
@@ -22,7 +22,7 @@ features that remain unimplemented.
 | Production cursor regression | Fixed and verified | [[file:MILESTONE-3.org::*Expand gameplay command coverage in Milestone 5][Windowed replay and headless SDK acceptance]] |
 | CO power/super power | Implemented and verified | [[file:LIVE-SDK-ACCEPTANCE.md::#milestone-5-super-power-action-2026-11-09][Separate actions, guarded cost checks, both live frontends]] |
 | Joining units | Implemented and verified | [[file:LIVE-SDK-ACCEPTANCE.md::#milestone-5-join-action-2026-11-10][Natural Join row, both live frontends, merge survivor verified]] |
-| Resupplying | Implemented; live acceptance pending | APC Supply order and allied-property upkeep are represented; live acceptance remains open |
+| Resupplying | Implemented and verified | [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 APC Supply action (2026-11-10)][APC Supply and automatic allied-property upkeep; headless and windowed mGBA]] |
 | Diving/surfacing | Open | No dive/surface action/executor |
 | Missile silos | Open | No silo action/executor |
 | Map/CO/rules/weather selection | Open | Fixed match profile; explicitly unsupported |
@@ -80,12 +80,12 @@ actions must remain distinguishable at the public boundary.
    - [X] Verify the moving unit survives with its lifetime identity, the partner is removed, and the turn settles.
    - [X] Expose Join through capabilities, MCP, and the human client.
    - [X] Verify the natural merge in headless and windowed mGBA; record ROM/build/checkpoint identities and evidence hashes.
-** IN-PROGRESS Implement resupplying
+** DONE Implement resupplying
    - [X] Add a typed APC-only Supply action through the API, SDK contract, MCP, runtime, and human client.
    - [X] Recognize the Supply menu row only when an APC has an allied unit adjacent to its endpoint; reject non-APCs and invalid endpoints before emulator input.
    - [X] Verify the APC action and full fuel/ammo refill for every allied adjacent unit after Supply.
    - [X] Keep allied-property recovery automatic at turn start; do not expose it as a player command.
-   - [ ] Capture and replay a live APC Supply checkpoint in headless and windowed mGBA; record evidence and limits.
+   - [X] Capture and replay a live APC Supply sequence in headless and windowed mGBA; record evidence and limits.
 ** TODO Implement diving and surfacing
 ** TODO Implement missile silo use
 ** TODO Add map and CO selection and configurable match rules/weather
@@ -94,7 +94,7 @@ actions must remain distinguishable at the public boundary.
 
 ** TODO Complete the final Milestone 5 acceptance audit
    - [ ] Map each planned feature to implementation and checks, including error/recovery and public capability behavior.
-   - [ ] Ensure unsupported feature declarations explicitly cover remaining unavailable gameplay actions, including resupplying, diving/surfacing, and silos.
+   - [ ] Ensure unsupported feature declarations explicitly cover remaining unavailable gameplay actions, including diving/surfacing and silos.
    - [ ] Record supported ROM/build identities and live evidence with limits for every implemented feature.
    - [ ] Run =pre-commit run --all-files= and require every hook to pass.
    - [ ] Mark the milestone complete only when all planned coverage above is accepted.

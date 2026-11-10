@@ -591,8 +591,8 @@ def _observe_unit_action_choices(
     if (
         selected is None
         or len(ids) != count
-        or (ids.count(0x0A) != 1 and ids not in ((5,), (8,), (7,)))
-        or any(item_id not in (0, 2, 3, 4, 5, 6, 7, 8, 0x0A, 0x0B) for item_id in ids)
+        or (ids.count(0x0A) != 1 and ids not in ((5,), (8,), (9,)))
+        or any(item_id not in (0, 2, 3, 4, 5, 6, 7, 8, 9, 0x0A, 0x0B) for item_id in ids)
         or row >= count
     ):
         return None
@@ -619,7 +619,7 @@ def _observe_unit_action_choices(
             and row == 0
             and _selected_unit_can_join_at_cursor(snapshot, selected)
         )
-        and not (7 in ids and _selected_unit_can_supply(snapshot, selected))
+        and not (9 in ids and _selected_unit_can_supply(snapshot, selected))
     ):
         return None
     # Three-row menus are accepted only for verified capture or cargo cases.
@@ -640,7 +640,7 @@ def _observe_unit_action_choices(
             else MenuItem.UNLOAD
             if item_id == 6 and selected.unit_type in (7, 20, 23) and has_cargo
             else MenuItem.SUPPLY
-            if item_id == 7 and _selected_unit_can_supply(snapshot, selected)
+            if item_id == 9 and _selected_unit_can_supply(snapshot, selected)
             else MenuItem.OTHER_UNIT_ACTION
             for item_id in ids
         )
