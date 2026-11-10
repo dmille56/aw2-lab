@@ -16,7 +16,13 @@ from aw2_lab.cold_boot import ColdBootResult, boot_fixed_versus_match
 from aw2_lab.command_journal import JsonlCommandJournal
 from aw2_lab.end_turn_executor import EndTurnActionExecutor
 from aw2_lab.match_checkpoint import CheckpointRuntime, CheckpointSession, MatchCheckpointService
-from aw2_lab.match_contract import CommandRequest, ErrorBody, ErrorCode, MatchLifecycle
+from aw2_lab.match_contract import (
+    ActivateNormalPowerAction,
+    CommandRequest,
+    ErrorBody,
+    ErrorCode,
+    MatchLifecycle,
+)
 from aw2_lab.match_controller import (
     ActionExecutor,
     CommandRejected,
@@ -137,6 +143,11 @@ class PlayableRuntime:
             raise CommandRejected(
                 ErrorCode.OBSERVATION_UNAVAILABLE,
                 "Runtime session does not match the committed state",
+            )
+        if isinstance(request.action, ActivateNormalPowerAction):
+            raise CommandRejected(
+                ErrorCode.UNSUPPORTED_FEATURE,
+                "Normal CO Power execution is not implemented yet",
             )
         # Restores replace session.tracker. Never retain it in long-lived executors.
         executors: dict[

@@ -13,6 +13,7 @@ const labels: Record<ActionKind, string> = {
   load: "Load",
   unload: "Unload",
   purchase: "Purchase unit",
+  activate_normal_power: "Activate normal Power",
   end_turn: "End turn",
   surrender: "Surrender",
 };

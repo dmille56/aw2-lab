@@ -93,6 +93,12 @@ async def test_sdk_real_http_play_checkpoint_restore_and_errors(memory, tmp_path
             result = await red.wait_for_command(match_id, receipt.command_id)
             assert result.status is CommandStatus.COMPLETED
             assert (await blue.observation(match_id)).observation.revision == 2
+            power = await red.activate_normal_power(match_id, 2)
+            await runtime.controller.wait_for_command(match_id, power.command_id, timeout=2)
+            power_result = await red.command_status(match_id, power.command_id)
+            assert power_result.status is CommandStatus.REJECTED
+            assert power_result.error is not None
+            assert power_result.error.code.value == "unsupported_feature"
             restored = await admin.restore_checkpoint(match_id, checkpoint, 2)
             await runtime.controller.wait_for_command(match_id, restored.command_id, timeout=2)
             assert (

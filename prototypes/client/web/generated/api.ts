@@ -8,6 +8,20 @@ export interface components {
          * @enum {string}
          */
         ActionReadiness: "ready" | "blocked" | "unknown";
+        /** ActivateNormalPowerAction */
+        ActivateNormalPowerAction: {
+            /**
+             * Contract Version
+             * @default 1
+             * @constant
+             */
+            contract_version: 1;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "activate_normal_power";
+        };
         /** ApiLimits */
         ApiLimits: {
             /**
@@ -949,7 +963,7 @@ export interface components {
          */
         GameplayCommandRequest: {
             /** Action */
-            action: components["schemas"]["MoveWaitAction"] | components["schemas"]["MoveAttackAction"] | components["schemas"]["AttackAction"] | components["schemas"]["MoveCaptureAction"] | components["schemas"]["LoadAction"] | components["schemas"]["UnloadAction"] | components["schemas"]["PurchaseAction"] | components["schemas"]["EndTurnAction"] | components["schemas"]["SurrenderAction"];
+            action: components["schemas"]["MoveWaitAction"] | components["schemas"]["MoveAttackAction"] | components["schemas"]["AttackAction"] | components["schemas"]["MoveCaptureAction"] | components["schemas"]["LoadAction"] | components["schemas"]["UnloadAction"] | components["schemas"]["PurchaseAction"] | components["schemas"]["ActivateNormalPowerAction"] | components["schemas"]["EndTurnAction"] | components["schemas"]["SurrenderAction"];
             /**
              * Contract Version
              * @default 1

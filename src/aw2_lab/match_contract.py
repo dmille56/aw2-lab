@@ -106,6 +106,7 @@ class Capabilities(ContractModel):
         "load",
         "unload",
         "purchase",
+        "activate_normal_power",
         "end_turn",
         "surrender",
     )
@@ -196,6 +197,10 @@ class EndTurnAction(ContractModel):
     kind: Literal["end_turn"] = "end_turn"
 
 
+class ActivateNormalPowerAction(ContractModel):
+    kind: Literal["activate_normal_power"] = "activate_normal_power"
+
+
 class SurrenderAction(ContractModel):
     kind: Literal["surrender"] = "surrender"
 
@@ -208,6 +213,7 @@ GameplayAction = Annotated[
     | LoadAction
     | UnloadAction
     | PurchaseAction
+    | ActivateNormalPowerAction
     | EndTurnAction
     | SurrenderAction,
     Field(discriminator="kind"),

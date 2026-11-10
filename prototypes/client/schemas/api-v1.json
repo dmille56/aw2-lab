@@ -11,6 +11,25 @@
         "title": "ActionReadiness",
         "type": "string"
       },
+      "ActivateNormalPowerAction": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "activate_normal_power",
+            "default": "activate_normal_power",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "title": "ActivateNormalPowerAction",
+        "type": "object"
+      },
       "ApiLimits": {
         "additionalProperties": false,
         "properties": {
@@ -1577,6 +1596,7 @@
           "action": {
             "discriminator": {
               "mapping": {
+                "activate_normal_power": "#/components/schemas/ActivateNormalPowerAction",
                 "attack": "#/components/schemas/AttackAction",
                 "end_turn": "#/components/schemas/EndTurnAction",
                 "load": "#/components/schemas/LoadAction",
@@ -1610,6 +1630,9 @@
               },
               {
                 "$ref": "#/components/schemas/PurchaseAction"
+              },
+              {
+                "$ref": "#/components/schemas/ActivateNormalPowerAction"
               },
               {
                 "$ref": "#/components/schemas/EndTurnAction"

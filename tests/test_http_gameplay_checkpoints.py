@@ -151,7 +151,14 @@ async def test_http_checkpoint_create_reads_import_restore_and_revocation(
     try:
         async with client_for(app) as client:
             caps = (await client.get("/v1/capabilities")).json()
-            assert all(item["available"] for item in caps["actions"])
+            actions = {item["name"]: item for item in caps["actions"]}
+            assert all(
+                item["available"]
+                for name, item in actions.items()
+                if name != "activate_normal_power"
+            )
+            assert not actions["activate_normal_power"]["available"]
+            assert "not implemented" in actions["activate_normal_power"]["unavailable_reason"]
             assert "unload" in {item["name"] for item in caps["actions"]}
             assert next(item for item in caps["operations"] if item["name"] == "checkpoints")[
                 "available"

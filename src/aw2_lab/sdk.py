@@ -30,6 +30,7 @@ from aw2_lab.api_contract import (
     StateResponse,
 )
 from aw2_lab.match_contract import (
+    ActivateNormalPowerAction,
     CheckpointReference,
     CommandReceipt,
     CommandResult,
@@ -365,6 +366,21 @@ class AsyncAW2Client:
             self._path(match_id) + "/commands",
             payload=body.model_dump(mode="json"),
             request_id=identifier,
+        )
+
+    async def activate_normal_power(
+        self,
+        match_id: UUID,
+        expected_revision: int,
+        *,
+        request_id: UUID | None = None,
+    ) -> CommandReceipt:
+        """Queue a normal CO Power request for the given revision."""
+        return await self.submit(
+            match_id,
+            expected_revision,
+            ActivateNormalPowerAction(),
+            request_id=request_id,
         )
 
     async def command_status(self, match_id: UUID, command_id: UUID) -> CommandResult:

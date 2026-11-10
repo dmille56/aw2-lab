@@ -80,6 +80,29 @@ debit and the delayed active-power update. The transition timing and full
 Super-specific effects still need controlled replay and independent
 confirmation.
 
+* Controlled normal Power replay
+
+On 2026-11-09, =aw2.ss3= was restored in pinned headless mGBA. The source
+checkpoint SHA-256 is
+=558078226bc01a35832d61a0d54a4cdb3165628d512af665711272ccdf63ce1d=; the ROM
+is the supported US revision 0 above. At frame =13242=, player slot 1 (CO ID
+1) has the command menu open on the normal Power row, meter =54000=, readiness
+=2=, use counter =0=, active-Power byte =0=, and selected power kind =0=.
+Confirming Power with A for one frame begins the presentation at frame =13244=
+(script =0x0849D77C=); at that frame the meter is =21600=, readiness is =0=,
+the use counter is =1=, and active Power is still =0=. The selected power kind
+becomes =1= at frame =13648=, then the active-Power byte becomes =1= at frame
+=13704= while the presentation continues. At frame =13727= the phase settles
+to =battle_player_turn= with no active processes, active Power =1=, and
+=can_decode_live=true=. The final menu observation is map input.
+
+The reproduced inputs from the selected-Power checkpoint are =A:1= followed by
+=neutral:484=. Meter spending is =54000 -> 21600= (=32400=); readiness changes
+=2 -> 0= and use count changes =0 -> 1=. The coherent observations, rendered
+transition screenshots, and settled save state are external in
+=/tmp/aw2-normal-power-replay/=. Its evidence manifest SHA-256 is
+=200167809244707d5a42dbde45ea45206ab02baa69f7bfbc9642e8f578f8b302=.
+
 * Verified fields and raw observations
 
 Use =R(k) = 0x02023284 + 0x3C*k= for participating player slots 1..4.

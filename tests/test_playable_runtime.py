@@ -25,7 +25,13 @@ from aw2_lab.bridge import MemorySnapshot
 from aw2_lab.checkpoint_store import CheckpointStore
 from aw2_lab.cold_boot import ColdBootResult
 from aw2_lab.command_journal import JsonlCommandJournal
-from aw2_lab.match_contract import CommandStatus, ErrorCode, MatchLifecycle, PlayerSlot
+from aw2_lab.match_contract import (
+    ActivateNormalPowerAction,
+    CommandStatus,
+    ErrorCode,
+    MatchLifecycle,
+    PlayerSlot,
+)
 from aw2_lab.match_controller import MatchController, MutationOutcome
 from aw2_lab.playable_runtime import PlayableRuntime
 
@@ -272,6 +278,31 @@ async def test_dispatch_uses_current_tracker_after_restore_and_commits_boundary(
         assert result.resulting_revision == restored.resulting_revision + 1
     finally:
         await public.controller.stop()
+
+
+@run_async_test
+async def test_normal_power_is_safely_rejected_until_executor_exists(memory, tmp_path):
+    runtime, public, match_id, operator, _bridge = await setup(memory, tmp_path)
+    try:
+        start = await public.start(operator, match_id, start_request())
+        started = await public.wait_for_command(operator, match_id, start.command_id, timeout=2)
+        player = public.authenticate(token("p"))
+        receipt = await public.submit(
+            player,
+            match_id,
+            GameplayCommandRequest(
+                request_id=uuid4(),
+                expected_revision=started.resulting_revision,
+                action=ActivateNormalPowerAction(),
+            ),
+        )
+        result = await public.wait_for_command(player, match_id, receipt.command_id, timeout=2)
+        assert result.status is CommandStatus.REJECTED
+        assert result.error is not None
+        assert result.error.code is ErrorCode.UNSUPPORTED_FEATURE
+        assert result.error.message == "Normal CO Power execution is not implemented yet"
+    finally:
+        await runtime.controller.stop()
 
 
 @run_async_test

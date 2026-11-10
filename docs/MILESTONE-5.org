@@ -55,20 +55,21 @@ actions must remain distinguishable at the public boundary.
     - [X] Add ROM-independent regressions for recognized Power rows and malformed/ambiguous selectors.
 
 *** TODO Implement normal CO Power activation
-    - [ ] Replay the documented normal Power input sequence from a known ready checkpoint and verify readiness, selection, activation animation, and the settled active-power byte.
-    - [ ] Add a typed normal-power action to the shared contract and capability surface, and route it through HTTP, SDK, and MCP.
-    - [ ] Add an executor that checks active player, ready boundary, known CO/power state, sufficient meter, and unused activation before input; verify the power becomes active after effects settle.
+    - [X] Replay normal Power from a ready checkpoint; verify readiness, selection, presentation, and the settled active-power byte.
+    - [X] Add a typed normal-power action to the shared contract and capability surface, and route it through HTTP, SDK, and MCP.
+    - [ ] Add an executor that checks active player, ready boundary, known CO/power state, sufficient meter using that CO's normal Power cost, and unused activation before input; verify the power becomes active after effects settle.
     - [ ] Add the human-client control and show pending, completed, and failed command status.
     - [ ] Cover insufficient meter, already active/used power, wrong turn, stale revision, observer uncertainty, and navigation timeout/recovery.
     - [ ] Verify normal Power live in headless and windowed mGBA; record ROM/build/checkpoint identities, effects, final boundary, and evidence hashes.
 
 *** TODO Research Super Power activation
     - [X] Find a supported-ROM checkpoint with a ready Super Power meter without editing game RAM.
-    - [ ] Independently replay and record the menu choice, activation inputs, presentation phases, meter debit, active-power byte, effects, and settled turn boundary.
+    - [ ] Independently replay and record the menu choice, activation inputs, presentation phases, CO-specific Super Power cost and meter debit, active-power byte, effects, and settled turn boundary.
     - [ ] Repeat or independently confirm the sequence, then document the limits and evidence in the lifecycle research log.
 
 *** TODO Implement Super Power activation
     - [ ] Extend typed actions and capabilities to distinguish Super Power from normal Power.
+    - [ ] Check sufficient meter against the active CO's Super Power cost; do not assume costs are shared across COs or between normal and Super Power.
     - [ ] Reuse the guarded executor only where observed behavior is shared; encode and test any distinct navigation or postconditions.
     - [ ] Add Super Power controls to HTTP/SDK/MCP-backed clients and the human client, with pending/completed/failed status.
     - [ ] Cover insufficient meter, already active/used power, wrong turn, stale revision, unknown activation state, and timeout/recovery.

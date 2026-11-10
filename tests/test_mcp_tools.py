@@ -548,6 +548,31 @@ async def test_authorized_state_command_resources_and_coherent_screenshot(
             assert initial["settled"] is True
             assert "observation" in initial
             assert payload(await call("get_state", {"match_id": str(match_id)})) == initial
+            power_receipt = payload(
+                await call(
+                    "activate_normal_power",
+                    {
+                        "match_id": str(match_id),
+                        "expected_revision": initial["summary"]["revision"],
+                        "request_id": str(uuid4()),
+                    },
+                )
+            )
+            await runtime.controller.wait_for_command(
+                match_id, UUID(power_receipt["command_id"]), timeout=2
+            )
+            power_result = payload(
+                await call(
+                    "wait_for_command",
+                    {
+                        "match_id": str(match_id),
+                        "command_id": power_receipt["command_id"],
+                        "timeout_seconds": 2,
+                    },
+                )
+            )
+            assert power_result["command"]["status"] == "rejected"
+            assert power_result["command"]["error"]["code"] == "unsupported_feature"
             actions_before = bridge.frame
             request_id = str(uuid4())
             receipt = payload(

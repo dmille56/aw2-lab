@@ -317,6 +317,18 @@ def test_stationary_attack_action_contract() -> None:
     assert "attack" in Capabilities().supported_actions
 
 
+def test_normal_power_action_contract() -> None:
+    request = GameplayCommandRequest.model_validate(
+        {
+            "request_id": uuid4(),
+            "expected_revision": 0,
+            "action": {"kind": "activate_normal_power"},
+        }
+    )
+    assert request.action.kind == "activate_normal_power"
+    assert "activate_normal_power" in Capabilities().supported_actions
+
+
 def test_transport_load_and_unload_action_contracts_are_bounded() -> None:
     load = GameplayCommandRequest.model_validate(
         {
