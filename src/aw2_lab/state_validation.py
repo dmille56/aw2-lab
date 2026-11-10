@@ -66,6 +66,7 @@ class BattleLayout:
     player_base: int
     terrain_by_tile: bytes
     menu_rules_by_map: tuple[int, ...]
+    co_power_stars: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
         if self.profile != AW2_US_REVISION_0:
@@ -80,6 +81,8 @@ class BattleLayout:
             raise ValueError("The ROM tile lookup must contain 1024 bytes")
         if len(self.menu_rules_by_map) != 256:
             raise ValueError("Menu eligibility metadata must cover every byte-sized map ID")
+        if self.co_power_stars and len(self.co_power_stars) != 19:
+            raise ValueError("CO power metadata must cover all 19 supported CO IDs")
 
 
 def load_battle_layout(rom_path: Path) -> BattleLayout:
@@ -96,6 +99,10 @@ def load_battle_layout(rom_path: Path) -> BattleLayout:
         terrain_by_tile=raw[0x0C1BC4:0x0C1FC4],
         menu_rules_by_map=tuple(
             unpack_from("<I", raw, 0x5C77A0 + map_id * 0x5C + 4)[0] for map_id in range(256)
+        ),
+        co_power_stars=tuple(
+            unpack_from("<H", raw, 0x5D3DD0 - 0x08000000 + 0x104 * co_id + 0x0C)[0]
+            for co_id in range(19)
         ),
     )
 

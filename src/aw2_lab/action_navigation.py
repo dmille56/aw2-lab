@@ -991,13 +991,21 @@ class ActionNavigator:
             MenuFamily.OPTIONS: MenuItem.OPTIONS,
         }.get(family)
 
-    async def confirm(self, postcondition: Postcondition, *, label: str) -> GameState:
+    async def confirm(
+        self,
+        postcondition: Postcondition,
+        *,
+        label: str,
+        frame_budget: int | None = None,
+        poll_frames: int | None = None,
+        wall_timeout: float | None = None,
+    ) -> GameState:
         """Confirm an actionable menu choice and require its caller-defined result.
 
         The postcondition can recognize an opened submenu; callers then use
         ``navigate_menu`` with that submenu's observed family.
         """
-        async with self._bounded_operation():
+        async with self._bounded_operation(timeout=wall_timeout):
             self._begin("confirm")
             state = await self._observe()
             if (
@@ -1006,7 +1014,12 @@ class ActionNavigator:
             ):
                 raise await self._fail("Confirmation requires a recognized actionable menu", state)
             await self._tap(f"confirm-{label}", _KEY_A)
-            return await self._wait_for(postcondition, description=f"postcondition {label}")
+            return await self._wait_for(
+                postcondition,
+                description=f"postcondition {label}",
+                frame_budget=frame_budget,
+                poll_frames=poll_frames,
+            )
 
     def _begin(self, operation: str) -> None:
         self._operation, self._frames_used = operation, 0

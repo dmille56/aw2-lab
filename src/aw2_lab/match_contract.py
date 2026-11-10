@@ -124,7 +124,7 @@ class Capabilities(ContractModel):
         "multiple_active_matches",
         "configurable_maps_cos_rules_weather_or_teams",
         "fog_of_war",
-        "co_power_activation",
+        "super_power_activation",
         "resupply",
         "campaign_or_multiplayer_modes_other_than_versus",
         "competitive_player_visibility_isolation",

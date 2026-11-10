@@ -313,12 +313,8 @@ async def capabilities(request: Request) -> CapabilitiesResponse:
             feature(
                 name,
                 True,
-                configured and controller.runtime_available and name != "activate_normal_power",
-                (
-                    "Normal CO Power execution is not implemented yet"
-                    if name == "activate_normal_power"
-                    else "A configured playable runtime is required"
-                ),
+                configured and controller.runtime_available,
+                "A configured playable runtime is required",
             )
             for name in (
                 "move_wait",

@@ -16,13 +16,7 @@ from aw2_lab.cold_boot import ColdBootResult, boot_fixed_versus_match
 from aw2_lab.command_journal import JsonlCommandJournal
 from aw2_lab.end_turn_executor import EndTurnActionExecutor
 from aw2_lab.match_checkpoint import CheckpointRuntime, CheckpointSession, MatchCheckpointService
-from aw2_lab.match_contract import (
-    ActivateNormalPowerAction,
-    CommandRequest,
-    ErrorBody,
-    ErrorCode,
-    MatchLifecycle,
-)
+from aw2_lab.match_contract import CommandRequest, ErrorBody, ErrorCode, MatchLifecycle
 from aw2_lab.match_controller import (
     ActionExecutor,
     CommandRejected,
@@ -33,6 +27,7 @@ from aw2_lab.match_observation import ActionReadiness, MatchObservation, MatchOb
 from aw2_lab.move_attack_executor import MoveAttackActionExecutor
 from aw2_lab.move_capture_executor import MoveCaptureActionExecutor
 from aw2_lab.move_wait_executor import MoveWaitActionExecutor
+from aw2_lab.power_executor import ActivateNormalPowerActionExecutor
 from aw2_lab.purchase_executor import PurchaseActionExecutor
 from aw2_lab.state_decoder import capture_game_state
 from aw2_lab.state_model import GameState
@@ -144,11 +139,6 @@ class PlayableRuntime:
                 ErrorCode.OBSERVATION_UNAVAILABLE,
                 "Runtime session does not match the committed state",
             )
-        if isinstance(request.action, ActivateNormalPowerAction):
-            raise CommandRejected(
-                ErrorCode.UNSUPPORTED_FEATURE,
-                "Normal CO Power execution is not implemented yet",
-            )
         # Restores replace session.tracker. Never retain it in long-lived executors.
         executors: dict[
             str, Callable[[ActionNavigator, MatchObservationTracker], ActionExecutor]
@@ -163,7 +153,13 @@ class PlayableRuntime:
             "end_turn": EndTurnActionExecutor,
             "surrender": SurrenderActionExecutor,
         }
-        executor = executors[request.action.kind](self.navigator, service.session.tracker)
+        executor: ActionExecutor
+        if request.action.kind == "activate_normal_power":
+            executor = ActivateNormalPowerActionExecutor(
+                self.navigator, service.session.tracker, self.rom_path
+            )
+        else:
+            executor = executors[request.action.kind](self.navigator, service.session.tracker)
         outcome = await executor.execute(request, observation)
         if outcome.observation is None or outcome.lifecycle not in {
             MatchLifecycle.PLAYABLE,

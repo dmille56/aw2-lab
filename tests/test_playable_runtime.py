@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
@@ -11,7 +12,7 @@ from test_match_checkpoint import MemoryBridge
 from test_match_controller import run_async_test
 from test_state_validation import memory as memory  # noqa: PLC0414
 
-from aw2_lab.action_navigation import InputEvent
+from aw2_lab.action_navigation import ActionNavigator, InputEvent
 from aw2_lab.api_contract import (
     CreateMatchRequest,
     GameplayCommandRequest,
@@ -34,6 +35,7 @@ from aw2_lab.match_contract import (
 )
 from aw2_lab.match_controller import MatchController, MutationOutcome
 from aw2_lab.playable_runtime import PlayableRuntime
+from aw2_lab.ui_state import MenuFamily, MenuItem
 
 
 class RuntimeBridge(MemoryBridge):
@@ -281,8 +283,68 @@ async def test_dispatch_uses_current_tracker_after_restore_and_commits_boundary(
 
 
 @run_async_test
-async def test_normal_power_is_safely_rejected_until_executor_exists(memory, tmp_path):
-    runtime, public, match_id, operator, _bridge = await setup(memory, tmp_path)
+async def test_normal_power_executor_activates_and_verifies_the_settled_state(
+    memory, tmp_path, monkeypatch
+):
+    _layout, ewram, iwram = memory
+    player_offset = 0x23284 + 0x3C
+    ewram[player_offset + 0x20 : player_offset + 0x24] = (54000).to_bytes(4, "little")
+    iwram[0x3FC8] = 1
+    runtime, public, match_id, operator, bridge = await setup(memory, tmp_path)
+    from aw2_lab import power_executor
+
+    stars = [0] * 19
+    stars[1] = 3
+    fixture_layout = replace(memory[0], co_power_stars=tuple(stars))
+    monkeypatch.setattr(power_executor, "load_battle_layout", lambda _path: fixture_layout)
+
+    async def command_state():
+        current = await runtime._observe()
+        menu = replace(
+            current.ui.menu,
+            family=MenuFamily.COMMAND,
+            selected_item=MenuItem.CO,
+            actionable=True,
+            items=(MenuItem.CO, MenuItem.POWER, MenuItem.SUPER_POWER),
+        )
+        return replace(
+            current,
+            ui=replace(current.ui, menu=menu),
+        )
+
+    async def open_command_menu(_navigator):
+        return await command_state()
+
+    async def navigate_menu(_navigator, item):
+        assert item is MenuItem.POWER
+        state = await command_state()
+        menu = replace(state.ui.menu, selected_item=MenuItem.POWER)
+        return replace(state, ui=replace(state.ui, menu=menu))
+
+    async def confirm(
+        _navigator,
+        postcondition,
+        *,
+        label,
+        frame_budget,
+        poll_frames,
+        wall_timeout,
+    ):
+        assert label == "normal-power"
+        assert frame_budget == runtime.navigator.limits.resolution_frame_budget
+        assert poll_frames == runtime.navigator.limits.resolution_poll_frames
+        assert wall_timeout == runtime.navigator.limits.resolution_wall_timeout
+        ewram[player_offset + 0x20 : player_offset + 0x24] = (21600).to_bytes(4, "little")
+        ewram[player_offset + 0x25] = 1
+        ewram[player_offset + 0x1E] = 1
+        bridge.frame += 500
+        settled = await runtime._observe()
+        assert postcondition(settled)
+        return settled
+
+    monkeypatch.setattr(ActionNavigator, "open_command_menu", open_command_menu)
+    monkeypatch.setattr(ActionNavigator, "navigate_menu", navigate_menu)
+    monkeypatch.setattr(ActionNavigator, "confirm", confirm)
     try:
         start = await public.start(operator, match_id, start_request())
         started = await public.wait_for_command(operator, match_id, start.command_id, timeout=2)
@@ -297,10 +359,16 @@ async def test_normal_power_is_safely_rejected_until_executor_exists(memory, tmp
             ),
         )
         result = await public.wait_for_command(player, match_id, receipt.command_id, timeout=2)
-        assert result.status is CommandStatus.REJECTED
-        assert result.error is not None
-        assert result.error.code is ErrorCode.UNSUPPORTED_FEATURE
-        assert result.error.message == "Normal CO Power execution is not implemented yet"
+        assert result.status is CommandStatus.COMPLETED
+        assert result.resulting_revision == started.resulting_revision + 1
+        final_player = next(
+            item
+            for item in runtime.checkpoints.session.tracker.read().game_state.battle.value.players
+            if item.slot == 1
+        )
+        assert final_player.active_power == 1
+        assert final_player.power_meter.value == 21600
+        assert final_player.power_use_counter.value == 1
     finally:
         await runtime.controller.stop()
 
