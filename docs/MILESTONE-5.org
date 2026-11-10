@@ -62,10 +62,10 @@ actions must remain distinguishable at the public boundary.
     - [X] Cover insufficient meter, already active/used power, wrong turn, stale revision, observer uncertainty, and navigation timeout/recovery.
     - [X] Verify normal Power live in headless and windowed mGBA; record ROM/build/checkpoint identities, effects, final boundary, and evidence hashes in [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 normal CO Power action (2026-11-09)][the live acceptance log]].
 
-*** TODO Research Super Power activation
+*** DONE Research Super Power activation
     - [X] Find a supported-ROM checkpoint with a ready Super Power meter without editing game RAM.
-    - [ ] Independently replay and record the menu choice, activation inputs, presentation phases, CO-specific Super Power cost and meter debit, active-power byte, effects, and settled turn boundary.
-    - [ ] Repeat or independently confirm the sequence, then document the limits and evidence in the lifecycle research log.
+    - [X] Independently replay and record the menu choice, activation inputs, presentation phases, CO-specific Super Power cost and meter debit, active-power byte, effects, and settled turn boundary.
+    - [X] Repeat or independently confirm the sequence, then document the limits and evidence in the lifecycle research log.
 
 *** TODO Implement Super Power activation
     - [ ] Extend typed actions and capabilities to distinguish Super Power from normal Power.

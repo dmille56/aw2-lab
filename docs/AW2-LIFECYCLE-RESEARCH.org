@@ -568,6 +568,65 @@ controlled observations above; other definitions remain leads.
 | =verification-results.json= | =f625051219edac969e49941fe4fdc4942f61a42eb2028bab6f64c5f42bd39388= |
 | =evidence-manifest.json= | =6aaad5660e7bb8aedbcd7f655e14f7b5d549c294be61228ad4c9e5e40420bec8= |
 
+** Controlled Super Power activation and independent repeat (2026-11-09)
+
+Two independent headless mGBA sessions restored the supplied pre-activation
+=/home/dono/Downloads/aw2/aw2.ss1= checkpoint. The supported ROM SHA-256 is
+=ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=, the
+checkpoint SHA-256 is
+=19eec5b8576e77ea1ec38ec071413383f8226a1e9747419b880c46427e33a0a1=, and the
+mGBA executable identity is
+=sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22=.
+Both began at frame =12924= with Andy (CO ID 1), meter =54000=, readiness =2=,
+use counter =0=, active-Power byte =0=, and selected kind =0=. No RAM fields
+were edited.
+
+The observed input sequence was Select =1= frame, Down =1= frame three times,
+A =1= frame, then =740= neutral frames in 10-frame steps. The selector showed
+the distinct Super row selected before A. The event frames were identical in
+both restores:
+
+| Frame | Observation | Meter | Ready / uses | Active / selected kind | Evidence |
+|-------+-------------+-------+--------------+------------------------+----------|
+| 12924 | Settled map input, before command | 54000 | 2 / 0 | 0 / 0 | Supplied checkpoint |
+| 12927 | Command menu opened by Select | 54000 | 2 / 0 | 0 / 0 | Menu navigation observation |
+| 12946 | Separate Super row selected | 54000 | 2 / 0 | 0 / 0 | Selected-menu screenshot/state |
+| 12957 | Power presentation starts | 0 | 0 / 1 | 0 / 0 | Script =0x0849D77C= |
+| 13117 | Presentation with child script | 0 | 0 / 1 | 0 / 0 | Adds =0x08616844= |
+| 13217–13587 | Intermediate presentation samples | 0 | 0 / 1 | 0 / 0 | Classifier reports unknown for several transient script combinations; raw fields remain coherent |
+| 13607 | Selected power kind changes | 0 | 0 / 1 | 0 / 2 | Scripts include =0x0849D82C=, =0x0849D874=, =0x084A0818= |
+| 13667 | Active Super flag appears | 0 | 0 / 1 | 2 / 2 | Presentation still running |
+| 13687 | Settled player turn / map input | 0 | 0 / 1 | 2 / 2 | No active process scripts |
+
+The ROM CO table gives Andy six Super stars at the record's =+0x10= field.
+At use counter zero, the measured formula is 9,000 raw meter units per star,
+so the expected cost is =6 * 9000 = 54000=. Both replays observed exactly
+=54000 -> 0=, use count =0 -> 1=, readiness =2 -> 0=, and active status
+=0 -> 2=. The active byte stayed zero during sampled presentation phases and
+became 2 before the settled boundary.
+
+The settled effect observation showed four damaged Andy units' decoder health
+values change =73 -> 100=, =33 -> 90=, =87 -> 100=, and =80 -> 100=; the other
+three already-full units remained at =100=. This is consistent with Andy's
+Hyper Upgrade healing effect. This observation is limited to this CO, this
+checkpoint, and these units; it does not establish all Super effects, duration
+or resets, availability rules during an active Power, or other CO costs. The
+intermediate lifecycle classifier also remains unknown for some presentation
+script combinations, even though the raw Power fields were coherent.
+
+Both independent runs reached the same settled frame =13687= and produced the
+same inputs, meter debit, selected kind, active byte, and unit health values.
+Evidence JSON SHA-256 values are replay 1
+=e0b686ef3573ec3421714d0bdac72202293b58fbbe1f8d0e7fc53766db28f6c1= and
+replay 2 =1ae8e3b68c5d55b7b06b769c05561d84ccc76ba9489e7653449b1ace6d5a091c=.
+Selected-menu screenshot SHA-256 is
+=7400b2636124a3e68ba8d0d3812f3eaa83124e2595b827b3c0c35439e4d43453= and
+settled screenshot SHA-256 is
+=1f30eee9cb5903a46eedac416272f188e914e75e0b82d32176388bcde0ec2a36= for both.
+Per-file manifests and all screenshots/states are external under
+=/tmp/aw2-super-power-replay/{replay-1,replay-2}/=; the combined manifest SHA-256
+is =5da5a2daf8e4665fc115e01c48ec27fd187054319cf7b5d7a0b1ada0ea335a2f=.
+
 Verification passed for 107 focused observations: 27 restored-state controls and
 80 continuation samples, plus nine full RAM baselines and five final-checkpoint
 RAM recaptures. Checks cover original-ROM literals/accesses, result/prompt/menu
@@ -578,8 +637,9 @@ manually against screenshots.
 ** Remaining gaps
 - Generalize results to three/four armies, teams, reassigned colors, draws, and
   other loss mechanisms. A per-army defeat field is not a global winner field.
-- Recreate Super Power activation from its menu and verify more CO effects,
-  durations/resets, power-meter scaling, and command availability during powers.
+- Verify additional Super Power effects, durations/resets, power-meter scaling,
+  and command availability during powers; the controlled Andy activation is now
+  reproduced and independently repeated above.
 - Establish field availability and finer UI phases across additional entry,
   combat, dialogue, resumed-battle, and Campaign paths. There is no missing Ready
   confirmation after Rules; these are memory/UI interpretation questions.

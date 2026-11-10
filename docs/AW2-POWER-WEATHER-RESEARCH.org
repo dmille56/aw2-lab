@@ -76,9 +76,9 @@ in the presentation with the same power fields. At frame =14552=, =aw2.ss8=
 =dc8243f7fa3751027758449f1868de3b16401c7338b421fe6d4a124a47fecf48=) is a
 settled player turn with meter 0, use counter 1, ready value 0, active-Power
 byte 2, and selected power kind 2. These samples show a 54,000-unit Super
-debit and the delayed active-power update. The transition timing and full
-Super-specific effects still need controlled replay and independent
-confirmation.
+debit and the delayed active-power update. The transition timing and Andy's
+observed healing effect were independently reproduced twice on 2026-11-09; see
+the [[file:AW2-LIFECYCLE-RESEARCH.org::*Controlled Super Power activation and independent repeat (2026-11-09)][controlled replay log]]. Other CO costs and effects remain unverified.
 
 * Controlled normal Power replay
 
