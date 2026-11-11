@@ -49,16 +49,27 @@ def validate_configuration(configuration: MatchConfiguration) -> MatchConfigurat
         raise ContractValidationError(
             ErrorCode.INVALID_REQUEST, "Unknown CO identifier", field="configuration.players.co_id"
         )
-    expected_players = tuple(
-        player.model_copy(update={"co_id": requested.co_id})
-        for player, requested in zip(
-            VERIFIED_CONFIGURATION.players, configuration.players, strict=False
+    colors = ("red", "blue", "green", "yellow")
+    if (
+        len(configuration.players) != MAPS_BY_ID[configuration.map_id].player_count
+        or any(
+            player.color != colors[index] or player.control != "external"
+            for index, player in enumerate(configuration.players)
         )
-    )
-    if configuration.players != expected_players or configuration.rules.fog is not False:
+        or any(
+            player.team_id not in "abcd"[: len(configuration.players)]
+            for player in configuration.players
+        )
+        or len({player.team_id for player in configuration.players}) < 2
+        or (
+            len(configuration.players) == 2
+            and tuple(p.team_id for p in configuration.players) != ("a", "b")
+        )
+        or configuration.rules.fog is not False
+    ):
         raise ContractValidationError(
             ErrorCode.UNSUPPORTED_FEATURE,
-            "Configuration uses unsupported player assignments or fog",
+            "Configuration requires matching map player count, fixed slot colors, external controls, at least two teams, and fog off",
             field="configuration",
         )
     return configuration
@@ -71,6 +82,16 @@ def configuration_to_controller(configuration: MatchConfiguration) -> FixedMatch
         map_id=MAPS_BY_ID[configuration.map_id].id,
         player_1_co=cast(CoId, configuration.players[0].co_id),
         player_2_co=cast(CoId, configuration.players[1].co_id),
+        player_1_team=configuration.players[0].team_id,
+        player_2_team=configuration.players[1].team_id,
+        player_3_co=cast(CoId, configuration.players[2].co_id)
+        if len(configuration.players) > 2
+        else None,
+        player_4_co=cast(CoId, configuration.players[3].co_id)
+        if len(configuration.players) > 3
+        else None,
+        player_3_team=configuration.players[2].team_id if len(configuration.players) > 2 else "c",
+        player_4_team=configuration.players[3].team_id if len(configuration.players) > 3 else "d",
         rules=MatchRules(
             day_limit=configuration.rules.day_limit,
             starting_funds=configuration.rules.income_per_property,

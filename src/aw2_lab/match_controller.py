@@ -588,7 +588,10 @@ class MatchController:
             summary.lifecycle not in {MatchLifecycle.PLAYABLE, MatchLifecycle.FINISHED}
             or observation.match_id != summary.match_id
             or observation.revision != summary.revision
-            or (self.authorization is None and len(credential_hashes) != 2)
+            or (
+                self.authorization is None
+                and set(credential_hashes) != set(summary.configuration.player_slots)
+            )
         ):
             raise ValueError("Recovered match metadata is incomplete or inconsistent")
         credentials = {slot: bytes.fromhex(digest) for slot, digest in credential_hashes.items()}
@@ -629,6 +632,10 @@ class MatchController:
             if record.summary.lifecycle is not MatchLifecycle.SETUP:
                 raise MatchControllerError(
                     ErrorCode.SLOT_UNAVAILABLE, "Player slots are locked after setup"
+                )
+            if slot not in record.summary.configuration.player_slots:
+                raise MatchControllerError(
+                    ErrorCode.SLOT_UNAVAILABLE, "Player slot is not configured"
                 )
             if slot in record.credentials:
                 raise MatchControllerError(ErrorCode.SLOT_UNAVAILABLE, "The player slot is taken")
@@ -695,12 +702,12 @@ class MatchController:
                     raise CommandRejected(
                         ErrorCode.INVALID_REQUEST, "Only a setup match can be activated"
                     )
-                if (
-                    sum(slot.status is SlotStatus.JOINED for slot in self._summary(record).slots)
-                    != 2
-                ):
+                if sum(
+                    slot.status is SlotStatus.JOINED for slot in self._summary(record).slots
+                ) != len(record.summary.configuration.player_slots):
                     raise CommandRejected(
-                        ErrorCode.SLOT_UNAVAILABLE, "Both player slots must join before activation"
+                        ErrorCode.SLOT_UNAVAILABLE,
+                        "All configured player slots must join before activation",
                     )
                 self._validate_observation(record, observation, require_advance=False)
                 if observation.action_readiness is not ActionReadiness.READY:
@@ -1192,7 +1199,7 @@ class MatchController:
                 raise MatchControllerError(
                     ErrorCode.OBSERVATION_UNAVAILABLE, "Live battle data is unavailable"
                 )
-            expected_slot = 1 if request.player_slot is PlayerSlot.SLOT_1 else 2
+            expected_slot = list(PlayerSlot).index(request.player_slot) + 1
             if battle.active_player_slot != expected_slot:
                 raise MatchControllerError(ErrorCode.NOT_YOUR_TURN, "It is not this player's turn")
             match.summary = summary.model_copy(update={"lifecycle": MatchLifecycle.EXECUTING})
@@ -1250,7 +1257,7 @@ class MatchController:
                     )
                 if any(slot.status is not SlotStatus.JOINED for slot in self._summary(match).slots):
                     raise MatchControllerError(
-                        ErrorCode.SLOT_UNAVAILABLE, "Both players must join before start"
+                        ErrorCode.SLOT_UNAVAILABLE, "All configured players must join before start"
                     )
             if record.mutates_emulator:
                 match.summary = match.summary.model_copy(

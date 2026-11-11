@@ -250,6 +250,28 @@ class StateResponse(ContractModel):
         return self
 
 
+def default_players(count: int) -> tuple[PlayerConfiguration, ...]:
+    return tuple(
+        PlayerConfiguration.model_validate(
+            {
+                "slot": f"slot_{i + 1}",
+                "co_id": co,
+                "color": color,
+                "team_id": team,
+                "control": "external",
+            }
+        )
+        for i, (co, color, team) in enumerate(
+            zip(
+                ("andy", "max", "sami", "flak")[:count],
+                ("red", "blue", "green", "yellow"),
+                "abcd",
+                strict=False,
+            )
+        )
+    )
+
+
 class ConfigurationProfile(ContractModel):
     profile_id: Identifier = "bean_island_v1"
     configuration: MatchConfiguration = VERIFIED_CONFIGURATION
@@ -263,7 +285,8 @@ class ConfigurationProfile(ContractModel):
             or self.profile_id != f"{self.configuration.map_id}_v1"
             or self.map_category != MAPS_BY_ID[self.configuration.map_id].category
             or self.requires_unlock != MAPS_BY_ID[self.configuration.map_id].requires_unlock
-            or self.configuration.players != VERIFIED_CONFIGURATION.players
+            or self.configuration.players
+            != default_players(MAPS_BY_ID[self.configuration.map_id].player_count)
             or self.configuration.rules != VERIFIED_CONFIGURATION.rules
         ):
             raise ValueError(
@@ -280,6 +303,9 @@ class ConfigurationOptions(ContractModel):
     players: tuple[PlayerConfiguration, ...] = VERIFIED_CONFIGURATION.players
     rules: RuleConfiguration = VERIFIED_CONFIGURATION.rules
     rule_options: RuleOptions = RuleOptions()
+    player_counts: tuple[Literal[2], Literal[3], Literal[4]] = (2, 3, 4)
+    team_ids: tuple[Literal["a"], Literal["b"], Literal["c"], Literal["d"]] = ("a", "b", "c", "d")
+    minimum_teams: Literal[2] = 2
     combination_constraint: Literal["verified_options"] = "verified_options"
 
     @model_validator(mode="after")
@@ -368,13 +394,15 @@ class CapabilitiesResponse(ContractModel):
         MATCH_OBSERVATION_SCHEMA_VERSION,
     )
     supported_game_state_schema_versions: tuple[int, ...] = (GAME_STATE_SCHEMA_VERSION,)
-    supported_player_counts: tuple[Literal[2]] = (2,)
+    supported_player_counts: tuple[Literal[2], Literal[3], Literal[4]] = (2, 3, 4)
     supported_control_modes: tuple[Literal["external"]] = ("external",)
     default_profile_id: Literal["bean_island_v1"] = "bean_island_v1"
     configuration_profiles: tuple[ConfigurationProfile, ...] = tuple(
         ConfigurationProfile(
             profile_id=f"{entry.id}_v1",
-            configuration=VERIFIED_CONFIGURATION.model_copy(update={"map_id": entry.id}),
+            configuration=VERIFIED_CONFIGURATION.model_copy(
+                update={"map_id": entry.id, "players": default_players(entry.player_count)}
+            ),
             map_category=entry.category,
             requires_unlock=entry.requires_unlock,
         )
@@ -425,10 +453,11 @@ def configuration_from_controller(configuration: FixedMatchConfiguration) -> Mat
         update={
             "map_id": configuration.map_id,
             "players": tuple(
-                player.model_copy(update={"co_id": co_id})
-                for player, co_id in zip(
-                    VERIFIED_CONFIGURATION.players,
-                    (configuration.player_1_co, configuration.player_2_co),
+                player.model_copy(update={"co_id": co_id, "team_id": "abcd"[team]})
+                for player, co_id, team in zip(
+                    default_players(len(configuration.co_ids)),
+                    configuration.co_ids,
+                    configuration.team_ids,
                     strict=True,
                 )
             ),

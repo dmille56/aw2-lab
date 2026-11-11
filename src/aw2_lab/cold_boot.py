@@ -1,4 +1,4 @@
-"""Bounded cold boot into a selected two-player Versus map with fixed COs/rules."""
+"""Bounded cold boot into a selected Versus map with configurable players and rules."""
 
 from __future__ import annotations
 
@@ -111,6 +111,7 @@ class _FrontendState:
     capture_rule: int
     powers_rule: int
     map_category: int = 2
+    player_controls: bytes = b"\x01\x01"
 
 
 async def boot_fixed_versus_match(
@@ -119,9 +120,10 @@ async def boot_fixed_versus_match(
     rom_path: Path,
     save_mode: Literal["fresh", "existing"] = "fresh",
     map_id: MapId = "bean_island",
-    co_ids: tuple[CoId, CoId] = ("andy", "max"),
+    co_ids: tuple[CoId, ...] = ("andy", "max"),
     match_rules: MatchRules = _DEFAULT_MATCH_RULES,
     checkpoint_recorder: CheckpointRecorder | None = None,
+    team_ids: tuple[int, ...] | None = None,
 ) -> ColdBootResult:
     """Navigate from cartridge boot and verify the selected map at the first turn.
 
@@ -131,10 +133,19 @@ async def boot_fixed_versus_match(
     copy. Every wait is bounded and the final playable state is verified.
     """
     selected_map = MAPS_BY_ID[map_id]
+    team_ids = tuple(range(len(co_ids))) if team_ids is None else team_ids
+    if (
+        len(co_ids) != selected_map.player_count
+        or len(team_ids) != len(co_ids)
+        or len(set(team_ids)) < 2
+        or any(team not in range(len(co_ids)) for team in team_ids)
+    ):
+        raise ColdBootError("Invalid map player count or team assignments")
     if any(co_id not in _CO_SETUP_INDEX for co_id in co_ids):
         raise ColdBootError("Requested CO selection is not recognized")
     select_rom_profile(rom_path)
     events: list[ColdBootEvent] = []
+    rule_addresses = tuple(_FOG_RULE[0] + index * 0x60 for index in range(6))
 
     async def observe() -> _FrontendState:
         ranges = [
@@ -148,9 +159,10 @@ async def boot_fixed_versus_match(
             _INPUT_GATE,
             _INPUT_STATE,
             _FRONTEND_SELECTOR,
-            _FOG_RULE,
+            (rule_addresses[0], 1),
             _MAP_CATEGORY,
-            *((_FOG_RULE[0] + index * 0x60, 1) for index in range(1, 6)),
+            (0x02017C59, 4),
+            *((address, 1) for address in rule_addresses[1:]),
         ]
         snapshot = await bridge.read_memory_snapshot(ranges)
         (
@@ -166,6 +178,7 @@ async def boot_fixed_versus_match(
             selector,
             fog_rule,
             map_category,
+            player_controls,
             weather_rule,
             income_rule,
             day_rule,
@@ -197,6 +210,7 @@ async def boot_fixed_versus_match(
             yes_no_selection=selector[0x7E],
             fog_rule=fog_rule[0],
             map_category=map_category[0],
+            player_controls=player_controls,
             weather_rule=weather_rule[0],
             income_rule=income_rule[0],
             day_rule=day_rule[0],
@@ -468,41 +482,69 @@ async def boot_fixed_versus_match(
                 f"Expected {selected_map.name} ID {selected_map.rom_id}; "
                 f"map confirmation loaded ID {teams.map_id}"
             )
-        for label, keys in (
-            ("select-team-player", _KEY_LEFT),
-            ("select-player-control", _KEY_UP),
-            ("select-co-entry", _KEY_LEFT),
-            ("select-player-entry", _KEY_LEFT),
-            ("select-co-confirmation", _KEY_LEFT),
-        ):
-            await tap(label, keys)
-            await settle()
+        teams = await settle()
 
-        teams = await observe()
-        if teams.phase is not LifecyclePhase.VERSUS_SETUP or teams.setup_subphase != 0:
-            raise ColdBootError(
-                f"Unexpected phase after team/CO setup: {teams.phase.value}/{teams.setup_subphase}"
-            )
-        _verify_setup(teams, co_ids=None)
-        teams = await _select_setup_co(teams, tap, settle, slot=1, co_id=co_ids[0])
-        for expected_focus in (1, 2):
-            await tap(f"focus-co-slot-2-{expected_focus}", _KEY_RIGHT)
-            teams = await settle()
-            if teams.setup_focus != expected_focus:
-                raise ColdBootError(
-                    f"CO selector focus expected {expected_focus}, observed {teams.setup_focus}"
+        async def focus_setup(target: int, subphase: int = 0) -> _FrontendState:
+            state = await observe()
+            if not 0 <= state.setup_focus <= 3 * len(co_ids):
+                raise ColdBootError("Unrecognized Teams cursor")
+            for step in range(abs(target - state.setup_focus)):
+                expected = state.setup_focus + (1 if target > state.setup_focus else -1)
+                await tap(
+                    f"focus-setup-{target}-{step}",
+                    _KEY_RIGHT if target > state.setup_focus else _KEY_LEFT,
                 )
-        teams = await _select_setup_co(teams, tap, settle, slot=2, co_id=co_ids[1])
-        _verify_setup(teams, co_ids)
+                state = await settle()
+                if (
+                    state.phase is not LifecyclePhase.VERSUS_SETUP
+                    or state.setup_focus != expected
+                    or (subphase == 0 and state.setup_subphase != 0)
+                ):
+                    raise ColdBootError(
+                        f"Teams cursor expected {expected}; observed {state.setup_focus}, target {target}"
+                    )
+            return state
+
+        for index, co_id in enumerate(co_ids):
+            teams = await focus_setup(index * 2 + 1)
+            if teams.player_controls[index] != 1:
+                if teams.player_controls[index] != 2:
+                    raise ColdBootError("Unrecognized player control selector")
+                await tap(f"set-player-{index + 1}-external", _KEY_UP)
+                teams = await settle()
+                if teams.player_controls[index] != 1:
+                    raise ColdBootError("External player control was not selected")
+            teams = await focus_setup(index * 2)
+            teams = await _select_setup_co(teams, tap, settle, slot=index + 1, co_id=co_id)
+        await checkpoint("players-configured", teams)
+        if len(co_ids) > 2:
+            await tap("open-team-assignments", _KEY_A)
+            teams = await wait_for(LifecyclePhase.VERSUS_SETUP)
+            teams = await settle(180)
+            for index, team in enumerate(team_ids):
+                teams = await focus_setup(index, subphase=1)
+                for step in range((team - teams.setup[index]) % len(co_ids)):
+                    expected = (teams.setup[index] + 1) % len(co_ids)
+                    await tap(f"set-player-{index + 1}-team-{step}", _KEY_DOWN)
+                    teams = await settle()
+                    if (
+                        teams.phase is not LifecyclePhase.VERSUS_SETUP
+                        or teams.setup[index] != expected
+                    ):
+                        raise ColdBootError("Team selector did not reach the expected team")
+        _verify_setup(teams, co_ids, team_ids)
         await checkpoint("teams-co-setup", teams)
 
         await tap("open-rules", _KEY_A)
-        rules = await wait_for(LifecyclePhase.VERSUS_SETUP, setup_subphase=2)
-        rules = await settle()
-        if rules.phase is not LifecyclePhase.VERSUS_SETUP or rules.setup_subphase != 2:
+        rules = await wait_for(LifecyclePhase.VERSUS_SETUP)
+        rules = await settle(180)
+        if rules.phase is not LifecyclePhase.VERSUS_SETUP:
             raise ColdBootError(
                 f"Rules screen did not settle: {rules.phase.value}/{rules.setup_subphase}"
             )
+        selector_memory = await bridge.read_memory_snapshot([(0x03001400, 0x1000)])
+        rule_addresses = _locate_rule_selectors(selector_memory.ranges[0])
+        rules = await observe()
         if rules.fog_rule != 0:
             raise ColdBootError(f"Unexpected initial Fog selector: {rules.fog_rule}")
         await checkpoint("rules-before-fog-change", rules)
@@ -548,7 +590,7 @@ async def boot_fixed_versus_match(
         ):
             await tap(f"focus-{label}-rule", _KEY_RIGHT)
             rules = await settle()
-            if rules.phase is not LifecyclePhase.VERSUS_SETUP or rules.setup_subphase != 2:
+            if rules.phase is not LifecyclePhase.VERSUS_SETUP:
                 raise ColdBootError(f"Left the Rules screen while focusing {label}")
             rules = await _select_rule_value(rules, tap, settle, field_name, target, maximum, label)
         _verify_rules(rules, match_rules)
@@ -560,7 +602,7 @@ async def boot_fixed_versus_match(
         loaded_map_id = startup_memory.ranges[0][0]
         weather_mode = startup_memory.ranges[1][0]
         _verify_playable_state(
-            game_state, loaded_map_id, selected_map, co_ids, match_rules, weather_mode
+            game_state, loaded_map_id, selected_map, co_ids, match_rules, weather_mode, team_ids
         )
         ready = await observe()
         await checkpoint("player-one-ready", ready)
@@ -577,7 +619,7 @@ async def _select_setup_co(
     co_id: CoId,
 ) -> _FrontendState:
     """Cycle the focused Teams-screen CO and verify each Down/Up input in RAM."""
-    expected_focus = 0 if slot == 1 else 2
+    expected_focus = 2 * (slot - 1)
     if (
         state.phase is not LifecyclePhase.VERSUS_SETUP
         or state.setup_subphase != 0
@@ -617,15 +659,17 @@ async def _select_setup_co(
 
 
 def _verify_setup(
-    state: _FrontendState, co_ids: tuple[CoId, CoId] | None = ("andy", "max")
+    state: _FrontendState,
+    co_ids: tuple[CoId, ...] | None = ("andy", "max"),
+    team_ids: tuple[int, ...] = (0, 1),
 ) -> None:
     teams = state.setup[0:4]
-    if teams[:2] != bytes((0, 1)):
+    if teams[: len(team_ids)] != bytes(team_ids):
         raise ColdBootError(
-            f"Expected players 1/2 on separate teams A/B; observed {teams[:2].hex()}"
+            f"Expected team IDs {team_ids}; observed {teams[: len(team_ids)].hex()}"
         )
     if co_ids is not None:
-        observed_cos = state.setup[0x0B:0x0D]
+        observed_cos = state.setup[0x0B : 0x0B + len(co_ids)]
         expected_cos = bytes(_CO_SETUP_INDEX[co_id] for co_id in co_ids)
         if observed_cos != expected_cos:
             raise ColdBootError(
@@ -651,11 +695,7 @@ async def _select_rule_value(
         state = await settle()
         observed = getattr(state, field_name)
         expected = current + (index + 1) * (1 if direction == _KEY_DOWN else -1)
-        if (
-            state.phase is not LifecyclePhase.VERSUS_SETUP
-            or state.setup_subphase != 2
-            or observed != expected
-        ):
+        if state.phase is not LifecyclePhase.VERSUS_SETUP or observed != expected:
             raise ColdBootError(f"{label} selector expected {expected}; observed {observed}")
     if getattr(state, field_name) != target:
         raise ColdBootError(
@@ -688,14 +728,18 @@ def _verify_playable_state(
     state: GameState,
     map_id: int,
     selected_map: VersusMap = MAPS_BY_ID["bean_island"],
-    co_ids: tuple[CoId, CoId] = ("andy", "max"),
+    co_ids: tuple[CoId, ...] = ("andy", "max"),
     match_rules: MatchRules = _DEFAULT_MATCH_RULES,
     weather_mode: int = 0,
+    team_ids: tuple[int, ...] = (0, 1),
 ) -> None:
     if state.lifecycle.phase is not LifecyclePhase.BATTLE_PLAYER_TURN:
         raise ColdBootError(f"Expected a human player turn; observed {state.lifecycle.phase.value}")
     if state.battle.status is not ValueStatus.AVAILABLE or state.battle.value is None:
-        raise ColdBootError("Battle state is not validated and available at the first turn")
+        raise ColdBootError(
+            "Battle state is not validated and available at the first turn: "
+            + "; ".join(state.battle.reasons)
+        )
     battle = state.battle.value
     if map_id != selected_map.rom_id or (battle.map.width, battle.map.height) != (
         selected_map.width,
@@ -707,11 +751,11 @@ def _verify_playable_state(
             f"{battle.map.width}x{battle.map.height}"
         )
     players = {player.slot: player for player in battle.players}
-    if set(players) != {1, 2}:
-        raise ColdBootError(f"Expected active slots 1 and 2; observed {sorted(players)}")
+    if set(players) != set(range(1, len(co_ids) + 1)):
+        raise ColdBootError(f"Expected {len(co_ids)} active slots; observed {sorted(players)}")
     expected = {
-        1: (1, _CO_BATTLE_ID[co_ids[0]], 0),
-        2: (1, _CO_BATTLE_ID[co_ids[1]], 1),
+        index: (1, _CO_BATTLE_ID[co], team)
+        for index, (co, team) in enumerate(zip(co_ids, team_ids, strict=True), 1)
     }
     for slot, (control, co, team) in expected.items():
         player = players[slot]
@@ -766,3 +810,19 @@ def _verify_playable_state(
             f"{match_rules.starting_funds}: expected {expected_funds}, "
             f"observed {(players[1].funds, players[2].funds)}"
         )
+
+
+def _locate_rule_selectors(data: bytes) -> tuple[int, ...]:
+    """Locate live Rules selector objects by their pinned-ROM callbacks and headers."""
+    callbacks = (0x08064739, 0x08064775, 0x080647BD, 0x0806486D, 0x08064919)
+    found: dict[int, list[int]] = {callback: [] for callback in callbacks}
+    for offset in range(0x48, len(data) - 4, 4):
+        callback = unpack_from("<I", data, offset + 4)[0]
+        if callback in found and data[offset - 0x48 : offset - 0x40] == bytes.fromhex(
+            "6c09580884095808"
+        ):
+            found[callback].append(0x03001400 + offset)
+    if tuple(len(found[callback]) for callback in callbacks) != (2, 1, 1, 1, 1):
+        raise ColdBootError("Rules selector object signatures are not recognized")
+    shared = sorted(found[callbacks[0]])
+    return (shared[0], *(found[callback][0] for callback in callbacks[1:]), shared[1])

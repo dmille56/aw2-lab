@@ -67,7 +67,7 @@ def test_playable_runtime_start_turn_restore_and_continue(tmp_path, monkeypatch,
                 ),
             )
             players = []
-            for slot in PlayerSlot:
+            for slot in tuple(PlayerSlot)[:2]:
                 invitation, credential = SecretStr(token_urlsafe(32)), SecretStr(token_urlsafe(32))
                 await public.invite(
                     operator,

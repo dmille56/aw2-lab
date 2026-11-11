@@ -160,3 +160,31 @@ The selector arithmetic used by automation is: weather Random/Clear/Rain/Snow
 at indexes 0/1/2/3; income 1000–5000 in 500 steps; day Off or 5–99 (index 0 is
 Off, then 5 upward by one); capture Off or 12–27 (index 0 is Off, then 12
 upward by one); CO Powers On/Off at indexes 0/1. Fog remains Off.
+
+## Multiplayer setup and Rules objects (2026-11-10)
+
+CO/control focus alternates at indexes `2*(slot-1)` and `2*(slot-1)+1`.
+External/computer controls occupy `0x02017C59..0x02017C5C` (1/2).
+After confirming CO/control setup, three/four-player matches have a separate
+team-assignment screen, with focus indexes 0 through player-count minus one.
+Down cycles A–C or A–D; two-player setup skips this screen and retains A/B.
+Every focus and selection transition is checked against the setup arrays.
+
+Rules objects move in multiplayer setup. The observed four-player Fog selector
+is at `0x03001758`, while Weather is at `0x03001938`. A constant offset for the
+whole rule array is incorrect. Startup now locates the six selector objects in
+`0x03001400..0x030023FF` using their object headers (`0x0858096C`,
+`0x08580984`) and rule callback pointers: Fog/Power `0x08064739`, Weather
+`0x08064775`, Funds `0x080647BD`, Day `0x0806486D`, Capture `0x08064919`.
+Exactly two Fog/Power objects and one of each other rule object are required;
+the shared callback's earlier/later objects are Fog/Power. Default values and
+each subsequent change are verified. The old setup byte alone is insufficient
+to distinguish all multiplayer setup screens. Final battle verification checks
+all requested controls, CO IDs, teams, weather, map geometry, and opening income.
+
+The full 133-map ROM scan also extends the supported graphical tile envelope
+from 470 to 472. Tiles 471 and 472 map to encoded terrain `0x8A` and `0x8B`
+(Yellow airports and ports). Thirteen new four-player maps contain one or both
+IDs. Crop River's cells 731 and 825 use tile 471; the live lookup agreed with
+the decompressed ROM. Validation still requires the exact ROM tile/terrain
+mapping, valid owner bits and terrain classes, and bounded geometry.

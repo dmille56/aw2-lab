@@ -14,17 +14,20 @@ Contract version 1 supports exactly one active local Versus match:
 
 | Setting | Supported value |
 | --- | --- |
-| Map | Selectable two-player built-in Versus map; Bean Island (`bean_island`) by default |
-| Slot 1 | Red, selected CO, Team A (Andy by default) |
-| Slot 2 | Blue, selected CO, Team B (Max by default) |
-| Control | Both armies controlled by the server for their external players |
+| Map | Selectable two-through-four-player built-in Versus map; Bean Island (`bean_island`) by default |
+| Slot 1 | Red, selected CO and team (Andy/A by default) |
+| Slot 2 | Blue, selected CO and team (Max/B by default) |
+| Slot 3 | Green, selected CO and team when the map has at least three players (Sami/C by default) |
+| Slot 4 | Yellow, selected CO and team on four-player maps (Flak/D by default) |
+| Control | All armies controlled by the server for their external players |
 | Rules | Selectable income (1,000–5,000), day limit (Off or 5–99), capture limit (Off or 12–27), CO Powers, and Clear/Rain/Snow/Random weather |
 | Fog | Disabled |
 
-Map selection is caller-selectable through the 72 advertised two-player Versus
-profiles, and each slot can select any of the 19 verified COs. Income, day,
-capture, CO-power, and starting-weather rules are configurable; fog remains fixed
-Off. Colors, teams, and controls stay fixed. Match creation validates a complete
+Map selection uses 133 built-in Versus profiles. Each profile fixes its player
+count and colors (Red/Blue/Green/Yellow in slot order). Each slot selects any
+of 19 COs. Three/four-player matches select teams A–C/D with at least two teams;
+two-player matches use A/B. All controls are external. Supported rules are
+configurable and fog remains Off. Match creation validates a complete
 configuration before allocation; unsupported rules or player assignments fail
 with `unsupported_feature`. AW2 remains
 authoritative for legal actions, combat, randomness, upkeep, and outcomes.
@@ -252,17 +255,11 @@ status reads available for reconciliation. HTTP and MCP adapters share the same
 controller events and services. MCP resource notifications inform clients of
 changes; the agent host owns model invocation and action selection. An optional
 bounded MCP wait-for-turn tool is described in the proposal.
-The proposal also records future 2–4 player matches: use an extensible slot
-collection and per-slot permissions/subscriptions while initially advertising
-only the fixed two-player configuration. The current Python contract and
-executors require explicit extension before three or four players are supported.
-The creation design accepts an explicit map/player/rule configuration, restricted
-to the advertised two-player Versus profiles and verified CO roster. Other player
-assignments, teams, fog/weather, and rule combinations use that same creation
-shape after validation and runtime verification. Adopting this proposed schema requires
-explicit conversion between the legacy `FixedMatchConfiguration` and new
-collection-based transport models. `api_validation.py` validates the complete
-profile before conversion; map selection now preserves the requested supported map.
+Two-through-four-player matches now use ordered slot collections and per-slot
+authorization. The durable `FixedMatchConfiguration` retains its legacy fields
+and adds optional third/fourth COs and team assignments; adapters convert these
+to the public collection-based configuration. Legacy two-player records retain
+their defaults when loaded.
 MCP protocol revisions and AW2 game contracts are versioned independently. The
 proposed MCP application payloads share HTTP's `contract_version: 1`, resources
 use `aw2://v1/...` URIs, and breaking game contracts require a separate MCP

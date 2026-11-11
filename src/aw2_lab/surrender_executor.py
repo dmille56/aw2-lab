@@ -44,5 +44,17 @@ class SurrenderActionExecutor:
         await self.navigator.navigate_menu(MenuItem.YIELD)
         await self.navigator.open_yield_confirmation()
         result = await self.navigator.confirm_yield()
+        if result.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN:
+            before = observation.game_state.battle.value
+            after = result.battle.value
+            if (
+                before is None
+                or after is None
+                or after.active_player_slot == before.active_player_slot
+            ):
+                raise RuntimeError("Yield did not advance to another player")
+            return MutationOutcome(
+                observation=self.tracker.commit_boundary(result), lifecycle=MatchLifecycle.PLAYABLE
+            )
         terminal = self.tracker.commit_terminal_boundary(result)
         return MutationOutcome(observation=terminal, lifecycle=MatchLifecycle.FINISHED)

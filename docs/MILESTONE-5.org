@@ -11,8 +11,7 @@ do not cover all of Milestone 5 in [[file:PLAN.md][PLAN.md]].
 The current [[file:../src/aw2_lab/match_contract.py][gameplay contract]] advertises
 =attack=, =join=, =supply=, =load=, =unload=, and separate normal/Super Power
 actions alongside the accepted playable-slice actions. Diving/surfacing and
-=silo_launch= are implemented. Match creation still fixes fog off, clear
-weather, and two slots. Capability reporting excludes gameplay and
+=silo_launch= are implemented. Match creation supports two through four external slots and teams, with fog Off. Capability reporting excludes gameplay and
 configuration features that remain unimplemented. Map and CO selection are
 implemented and advertised.
 
@@ -26,11 +25,11 @@ implemented and advertised.
 | Resupplying | Implemented and verified | [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 APC Supply action (2026-11-10)][APC Supply and automatic allied-property upkeep; headless and windowed mGBA]] |
 | Diving/surfacing | Implemented and verified | Sub action selector: Dive row =0x0B=, Rise row =0x0C=; guarded typed actions and headless/windowed acceptance in [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 Sub Dive and Rise (2026-11-10)][the live acceptance log]] |
 | Missile silos | Implemented and verified | Infantry/Mech Launch row, target prompt/cursor, silo consumption, and 3x3 blast in both live frontends; [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 missile silo launch (2026-11-10)][live evidence]] |
-| Map selection | Accepted | 72 two-player profiles across Classic, Vs. Maps, Pre-Deployed, and War Room, with category guards and local unlock requirements |
+| Map selection | Implemented | 133 profiles across the six built-in Versus categories; map player counts, category guards, and local unlock requirements |
 | CO selection | Implemented and verified | All 19 COs selected in both slots across the headless matrix; representative non-default pair in windowed mGBA; setup and battle IDs checked ([[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 CO selection (2026-11-10)][live evidence]]) |
 | Configurable match rules | Implemented and verified | Non-default income, day, capture, CO-power, and starting-weather values in headless/windowed mGBA; fog remains separate ([[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 starting weather selection (2026-11-10)][live evidence]]) |
 | Starting weather selection | Implemented and verified | Random, Clear, Rain, and Snow in headless/windowed mGBA; Fog remains Off |
-| Two to four players/teams | Open | Two fixed external player slots |
+| Two to four players/teams | Implemented and verified | Ordered slots, durable per-slot authorization, guarded CO/control/team setup; [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 two through four players and teams (2026-11-10)][live evidence]] |
 | Fog-enabled matches | Open | Fog off contract; explicitly unsupported |
 
 Existing live evidence retains its stated limits: Lander/Transport Copter
@@ -134,8 +133,10 @@ actions must remain distinguishable at the public boundary.
    - [X] Preserve the selected weather in public/durable configuration and advertise supported choices.
    - [X] Verify the settled weather and mode at the playable boundary; capture Rules and first-turn screenshots in headless and windowed mGBA.
    - [X] Record ROM/build identities and per-weather evidence in [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 starting weather selection (2026-11-10)][the live acceptance log]].
-** TODO Expand match setup and authorization to two through four players and teams
-   - [ ] Enable 3P Maps, 4P Maps, and the three/four-player entries in Pre-Deployed and War Room after expanding the match contract and player authorization.
+** DONE Expand match setup and authorization to two through four players and teams
+   - [X] Enable 3P Maps, 4P Maps, and the three/four-player entries in Pre-Deployed and War Room after expanding the match contract and player authorization.
+   - [X] Preserve configured slots, COs, and teams in durable metadata, invitation credentials, checkpoints, and public summaries.
+   - [X] Verify representative multiplayer setup and full turn cycles in headless/windowed mGBA; see the live acceptance log.
 ** TODO Add fog-enabled matches with explicitly omniscient trusted-client observations
 ** TODO Investigate how to handle locked Versus maps
    - [ ] Determine whether map availability can be read reliably from the local cartridge save before match creation.

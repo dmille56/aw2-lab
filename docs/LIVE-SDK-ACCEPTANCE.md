@@ -720,3 +720,86 @@ AW2_RUN_RULE_SELECTION_TESTS=1 AW2_ROM_PATH=/private/aw2.gba \
 ```
 
 Fog remains off and is not covered by this acceptance run.
+
+## Milestone 5 two through four players and teams (2026-11-10)
+
+The public configuration, durable match metadata, authorization ledger, and
+checkpoint archives now preserve two through four ordered player slots.
+Each configured slot has an independent invitation, credential, authorization
+generation, and revocation state. Unconfigured slots fail with a safe slot error.
+Start requires every configured slot to join. Legacy two-player metadata retains
+its defaults. Contract tests cover durable reload, credential scope, invalid
+player-count/team combinations, and three/four-player checkpoint archive round trips.
+
+The supported ROM's built-in Versus catalog has 133 entries: the existing 72
+two-player entries plus 61 three/four-player entries. Map profiles contain the
+correct player count. Slots retain Red/Blue/Green/Yellow color order and external
+control. Three-player teams use A–C, four-player teams A–D, and at least two
+teams are required. Two-player matches retain A/B.
+
+Twelve representative cases passed (each row in both headless and windowed mGBA):
+
+| Map | Slots | Teams |
+| --- | --- | --- |
+| Bean Island | 2 | A/B |
+| Pyramid Cape | 3 | A/B/B |
+| Four Corners | 4 | A/A/B/B |
+| Delta Heights | 3 | A/B/B |
+| Coil Range | 4 | A/A/B/B |
+| Stamp Islands | 3 | A/B/B |
+
+Each run verified all settled COs, external controls, team IDs, map identity,
+geometry, rules, day, active slot, and opening funds. Pyramid Cape and Four
+Corners also completed a full round through every external player to day 2.
+Four Corners continued as a playable match after player one's surrender.
+The tests locate Rules selectors by their live object signatures because the
+multiplayer setup allocates different selector layouts; see
+[COLD-BOOT-RESEARCH.md](COLD-BOOT-RESEARCH.md).
+
+ROM SHA-256: `ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`.
+Headless build: `sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22`.
+Windowed build: `sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810`.
+The source save remained SHA-256
+`f596b04b096de3a3b89615cf0ea2c3b6d2904bee26ff7b84fcbd0215e483e42a`.
+The representative runs used `/tmp/pytest-of-dono/pytest-1401/`; raw pytest
+artifacts follow pytest temporary-directory retention.
+The twelve-case aggregate `/tmp/aw2-multiplayer-acceptance.json` has SHA-256
+`84c2bc1371a42c051fe281e24c674deac3edffb524816f8733ed005bfc5c9ad1`.
+Headless and windowed first-turn screenshots match for each map; Four Corners
+has SHA-256 `078ff781845527dd09cf5969e11d39583f659646575e77b1bcc2298f8a477cad`.
+
+Run the representative matrix with:
+
+```sh
+AW2_RUN_MULTIPLAYER_TESTS=1 AW2_ROM_PATH=/private/aw2.gba \
+  pytest -q tests/test_multiplayer_live_acceptance.py
+```
+
+Live emulator checks must run sequentially: the bridge uses localhost port 43128.
+Fog, visibility restrictions, locked-map discovery, and the final Milestone 5
+acceptance audit remain separate tasks.
+
+The full 61-map headless sweep passed 48 entries and exposed a previous tile-ID
+limit on the other 13. The pinned ROM catalog and live memory confirmed tiles
+471/472 as Yellow airports/ports; raising the supported limit from 470 to 472
+fixed all 13 on rerun. The original sweep log `/tmp/multi-catalog-live.log` has
+SHA-256 `bb45641c39073b0090bd0ccdd3d48b0213391598f4e367080e75846036f5866c`;
+the thirteen-case successful rerun `/tmp/multi-tiles-live.log` has SHA-256
+`cfc14fd2dc11c362cccf5421245ca5ab0e9d286b54a604a80bd2dd5522f6feb9`.
+Together they verify startup for every newly enabled map. Run the complete new
+catalog check sequentially with:
+
+```sh
+AW2_ADDITIONAL_MAPS_ONLY=1 AW2_RUN_MAP_SELECTION_TESTS=1 AW2_ROM_PATH=/private/aw2.gba \
+  pytest -q tests/test_map_selection_live_acceptance.py -k headless
+```
+
+A final Four Corners run passed in both frontends after player one's surrender:
+players 2, 3, and 4 each ended their turns, player 1 was skipped, and player 2
+received day 3. This verifies continuation through a defeated army even when
+its player record remains allocated. First-turn screenshots and per-case JSON
+are preserved externally under `/tmp/aw2-multiplayer-continuation-evidence/`;
+its aggregate JSON has SHA-256
+`19505fdba038b9280a73c4875a25af06420845695a3257c1f70a0cd575cf5ddb`.
+The successful two-case log `/tmp/multi-surrender-live.log` has SHA-256
+`99db33d5c94c6f7da021687c7391181685cc33299c5435b1c861e2db3be3ec87`.

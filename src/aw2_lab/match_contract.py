@@ -10,7 +10,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 
-from aw2_lab.map_catalog import MapId
+from aw2_lab.map_catalog import MAPS_BY_ID, MapId
 
 CONTRACT_VERSION = 1
 MAX_SAFE_REVISION = (1 << 53) - 1
@@ -45,6 +45,8 @@ class MatchLifecycle(StrEnum):
 class PlayerSlot(StrEnum):
     SLOT_1 = "slot_1"
     SLOT_2 = "slot_2"
+    SLOT_3 = "slot_3"
+    SLOT_4 = "slot_4"
 
 
 class SlotStatus(StrEnum):
@@ -112,17 +114,59 @@ class MatchRules(ContractModel):
 
 
 class FixedMatchConfiguration(ContractModel):
-    """Two-player configuration with selectable maps, COs, and supported rules."""
+    """Durable Versus configuration; absent extra CO fields retain two-player defaults."""
 
     map_id: MapId = "bean_island"
     player_1_co: CoId = "andy"
     player_2_co: CoId = "max"
     player_1_color: Literal["red"] = "red"
     player_2_color: Literal["blue"] = "blue"
-    player_1_team: Literal["a"] = "a"
-    player_2_team: Literal["b"] = "b"
+    player_1_team: Literal["a", "b", "c", "d"] = "a"
+    player_2_team: Literal["a", "b", "c", "d"] = "b"
+    player_3_co: CoId | None = None
+    player_4_co: CoId | None = None
+    player_3_team: Literal["a", "b", "c", "d"] = "c"
+    player_4_team: Literal["a", "b", "c", "d"] = "d"
     control: Literal["external_both"] = "external_both"
     rules: MatchRules = MatchRules()
+
+    @property
+    def co_ids(self) -> tuple[CoId, ...]:
+        return tuple(
+            co
+            for co in (self.player_1_co, self.player_2_co, self.player_3_co, self.player_4_co)
+            if co is not None
+        )
+
+    @property
+    def player_slots(self) -> tuple[PlayerSlot, ...]:
+        return tuple(PlayerSlot)[: len(self.co_ids)]
+
+    @property
+    def team_ids(self) -> tuple[int, ...]:
+        return tuple(
+            "abcd".index(team)
+            for team in (
+                self.player_1_team,
+                self.player_2_team,
+                self.player_3_team,
+                self.player_4_team,
+            )[: len(self.co_ids)]
+        )
+
+    @model_validator(mode="after")
+    def validate_players(self) -> FixedMatchConfiguration:
+        if len(self.co_ids) != MAPS_BY_ID[self.map_id].player_count:
+            raise ValueError("Player count must match the selected map")
+        if self.player_4_co is not None and self.player_3_co is None:
+            raise ValueError("Player 4 requires player 3")
+        if any(team >= len(self.co_ids) for team in self.team_ids) or (
+            len(self.co_ids) == 2 and self.team_ids != (0, 1)
+        ):
+            raise ValueError("Teams must be selectable for the configured player count")
+        if len(set(self.team_ids)) < 2:
+            raise ValueError("A match requires at least two teams")
+        return self
 
 
 class PlayerSlotState(ContractModel):
@@ -136,13 +180,13 @@ class MatchSummary(ContractModel):
     revision: Revision
     lifecycle: MatchLifecycle
     configuration: FixedMatchConfiguration
-    slots: tuple[PlayerSlotState, PlayerSlotState]
+    slots: tuple[PlayerSlotState, ...]
     created_at: datetime
 
     @model_validator(mode="after")
     def validate_slot_order(self) -> MatchSummary:
-        if tuple(slot.slot for slot in self.slots) != (PlayerSlot.SLOT_1, PlayerSlot.SLOT_2):
-            raise ValueError("A fixed match summary must list slot 1 followed by slot 2")
+        if tuple(slot.slot for slot in self.slots) != self.configuration.player_slots:
+            raise ValueError("Match slots must match the configured players")
         return self
 
 
@@ -183,7 +227,7 @@ class Capabilities(ContractModel):
     unsupported_features: tuple[str, ...] = (
         "multiple_active_matches",
         "fog_of_war",
-        "maps_outside_two_player_versus_catalog",
+        "maps_outside_builtin_versus_catalog",
         "campaign_or_multiplayer_modes_other_than_versus",
         "competitive_player_visibility_isolation",
         "arbitrary_memory_writes_as_gameplay",

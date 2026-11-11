@@ -12,7 +12,7 @@ frame matches the observation before and after capture. The controller publishes
 the cached PNG and observation together; HTTP reads during execution use that
 cache. An image failure leaves the game state committed with no new image.
 
-Start requires an operator, expected revision zero, and both slots joined. Its
+Start requires an operator, expected revision zero, and all configured slots joined. Its
 navigation executes in the same FIFO lane as gameplay. Permissions, lifecycle,
 revision, and current claims are rechecked before input. Retrying the same request
 returns its receipt; a distinct queued start becomes stale after the first start
@@ -124,7 +124,7 @@ regained it at Red's next turn. The subsequent
 actual process restart, and controlled post-input timeout/rollback recovery in
 both modes on 2026-11-03.
 
-Map selection now accepts the 72 two-player built-in Versus maps in
+Map selection now accepts the 133 built-in Versus maps for two through four players in
 `src/aw2_lab/map_catalog.py`. Bean Island remains the default. The public profile
 selection is preserved through authorization, startup, and checkpoint restore.
 Navigation starts from the default Classic entry, selects the required category
@@ -137,8 +137,8 @@ before CO/team setup. Safe menu diagnostics survive in command error details;
 failed startup retains recovery-required semantics. Opening income is computed
 from Red's observed cities, HQ, bases, airports, and ports, rather than assuming
 Bean Island's 11,000 funds on every map. CO choices are set on the Teams screen
-and checked against the settled battle records. Team/color/control assignments
-and fog remain fixed. Income, day limit, capture limit, CO powers, and starting
+and checked against the settled battle records. Colors and external controls remain fixed; three/four-player teams are configurable.
+Fog remains Off. Income, day limit, capture limit, CO powers, and starting
 weather are set through guarded Rules-screen selectors. The selected values are
 confirmed in setup RAM; first-turn income, CO effects, and weather mode are
 checked against settled battle state.

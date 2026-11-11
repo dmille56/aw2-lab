@@ -240,7 +240,7 @@ remain open. No support claim extends beyond the linked checks and live evidence
 **Status (2026-11-10): incomplete.** The [Milestone 5 audit and checklist](MILESTONE-5.org)
 records accepted stationary attacks, transport actions, powers, joining,
 resupplying, diving/surfacing, missile silo use, and selection across the 72
-built-in two-player Versus maps and all 19 COs, and configurable income,
+built-in Versus maps and all 19 COs, two through four external players and teams, and configurable income,
 day-limit, capture-limit, CO-power, and starting-weather rules.
 
 **Dependencies:** stable playable slice and MCP adapter.
@@ -253,7 +253,7 @@ Add features in this order:
 4. CO selection (implemented and verified).
 5. Configurable match rules (implemented).
 6. Starting weather selection (implemented and verified).
-7. Two to four players and teams.
+7. Two to four players and teams (implemented; see the Milestone 5 acceptance log).
 8. Fog-enabled matches with explicitly omniscient observations for trusted research clients.
 9. Investigate how to detect and handle Versus maps that are locked in the local cartridge save.
 

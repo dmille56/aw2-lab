@@ -104,6 +104,14 @@ class MoveAttackActionExecutor:
                 for unit in battle.units
                 if (unit.x, unit.y) == target_coordinate
                 and unit.army_slot != battle.active_player_slot
+                and next(
+                    player.team_id for player in battle.players if player.slot == unit.army_slot
+                )
+                != next(
+                    player.team_id
+                    for player in battle.players
+                    if player.slot == battle.active_player_slot
+                )
                 and not unit.embarked
             ),
             None,

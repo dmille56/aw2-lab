@@ -53,7 +53,8 @@ server advertises AW2 `contract_version: 1` on tool schemas/results and supports
 versioned endpoint such as `/mcp/v2`. After initialization, call
 `get_capabilities` and `tools/list`. Use the returned profile, action
 availability, operation limits, and runtime status as authoritative. Advertised
-profiles cover 72 two-player built-in Versus maps and two external players.
+profiles cover 133 built-in Versus maps with two through four external players.
+Three/four-player teams are configurable; each credential controls its own slot.
 Match configuration also accepts the listed income, day-limit, capture-limit,
 CO-power, and starting-weather choices; fog remains Off. A valid tool
 schema does not mean an action is legal in the current game state.
@@ -65,6 +66,7 @@ tracked host):
 ```python
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
+
 
 async def run_host(token: str) -> None:
     async with streamablehttp_client(

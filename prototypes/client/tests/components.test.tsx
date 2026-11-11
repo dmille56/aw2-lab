@@ -375,3 +375,52 @@ describe("React viewer", () => {
     ).toBeDisabled();
   });
 });
+
+it.each([3, 4] as const)(
+  "allows player slot %s to act with its own units",
+  (slot) => {
+    const selected = structuredClone(snapshot);
+    const selectedBattle = selected.observation!.game_state.battle.value!;
+    selectedBattle.active_player_slot = slot;
+    selectedBattle.units[0].army_slot = slot;
+    selectedBattle.units[0].used_this_turn = false;
+    selectedBattle.units[0].embarked = false;
+    selectedBattle.players = [1, 2, 3, 4].map((number) => ({
+      ...selectedBattle.players[0],
+      slot: number,
+      team_id: number === 2 ? 1 : 0,
+    }));
+    const view: ViewState = {
+      ...new MatchSession().getSnapshot(),
+      snapshot: selected,
+      connected: true,
+      ready: true,
+      identity: {
+        contract_version: 1,
+        role: "player",
+        player_slot: slot === 3 ? "slot_3" : "slot_4",
+        match_id: selected.summary.match_id,
+      },
+    };
+    function Harness() {
+      const model = useGameplay(view, vi.fn());
+      return (
+        <div data-testid="multiplayer">
+          {JSON.stringify({
+            ready: model.ready,
+            ownsUnit: model.units.some(({ unit }) => unit.army_slot === slot),
+            alliedTarget: model.targets.some((unit) => unit.army_slot === 1),
+          })}
+        </div>
+      );
+    }
+    render(<Harness />);
+    expect(screen.getByTestId("multiplayer")).toHaveTextContent('"ready":true');
+    expect(screen.getByTestId("multiplayer")).toHaveTextContent(
+      '"ownsUnit":true',
+    );
+    expect(screen.getByTestId("multiplayer")).toHaveTextContent(
+      '"alliedTarget":false',
+    );
+  },
+);

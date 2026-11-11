@@ -12,10 +12,11 @@ from aw2_lab.api_contract import (
     CreateMatchRequest,
     FeatureAvailability,
     configuration_from_controller,
+    default_players,
 )
 from aw2_lab.api_validation import configuration_to_controller, validate_configuration
 from aw2_lab.authorization import AuthorizationError, AuthorizationService
-from aw2_lab.map_catalog import ALL_MAPS, MAP_IDS
+from aw2_lab.map_catalog import ALL_MAPS, MAP_IDS, MAPS_BY_ID
 from aw2_lab.match_contract import ErrorCode
 
 
@@ -23,7 +24,9 @@ from aw2_lab.match_contract import ErrorCode
 def test_selected_map_survives_durable_creation_and_retries(map_id, tmp_path):
     secret = SecretStr("o" * 43)
     auth = AuthorizationService(tmp_path / "auth.json", secret)
-    configuration = VERIFIED_CONFIGURATION.model_copy(update={"map_id": map_id})
+    configuration = VERIFIED_CONFIGURATION.model_copy(
+        update={"map_id": map_id, "players": default_players(MAPS_BY_ID[map_id].player_count)}
+    )
     request = CreateMatchRequest(request_id=uuid4(), configuration=configuration)
     created = auth.create_match(auth.authenticate(secret), request)
     assert created.configuration.map_id == map_id
@@ -66,7 +69,7 @@ def test_advertised_profiles_and_options_describe_the_same_supported_maps():
         tuple(p.configuration.map_id for p in profiles)
         == capabilities.configuration_options.map_ids
     )
-    assert len(profiles) == len(MAP_IDS) == 72
+    assert len(profiles) == len(MAP_IDS) == 133
     assert profiles[0].profile_id == capabilities.default_profile_id
     for profile, entry in zip(profiles, ALL_MAPS, strict=True):
         assert profile.map_category == entry.category

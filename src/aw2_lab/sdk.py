@@ -717,8 +717,7 @@ class AsyncAW2Client:
                                 state.settled
                                 and state.summary.lifecycle is MatchLifecycle.PLAYABLE
                                 and battle
-                                and battle.active_player_slot
-                                == (1 if slot is PlayerSlot.SLOT_1 else 2)
+                                and battle.active_player_slot == (list(PlayerSlot).index(slot) + 1)
                             ):
                                 return state
                 finally:

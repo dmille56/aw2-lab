@@ -90,18 +90,14 @@ player receives the same authoritative updates during active and inactive turns;
 subscriptions, resources, event payloads, and command routes are shared across
 player counts. Commands continue to identify one acting slot and revision.
 
-Turn execution must use the configured army mapping, observed active player,
-and AW2's turn order and outcomes. Future executors must handle eliminated armies,
-day wrap, and teams; they must not assume the next player is `3 - current_slot`
-or that one player's elimination ends a match. Current two-player executor
-postconditions and the `external_both` configuration need explicit extension.
+Turn execution uses each slot's numeric army ID and the observed turn order.
+End Turn supports larger player collections and day wrap. Yield can publish a
+new playable boundary when armies remain, instead of requiring a terminal result.
+`PlayerSlot` includes slots 1–4, and summaries require exactly the configured
+ordered slots. The durable configuration keeps legacy two-player fields and adds
+optional third/fourth CO fields plus team choices. Missing fields preserve legacy
+two-player defaults; the public configuration remains collection-based.
 
-The existing Python contract fixes `PlayerSlot`, `MatchSummary.slots`, and the
-configuration to two players. Generalizing those models is future implementation
-work, with a documented compatibility/versioning decision and generated-client
-checks before additional player counts are advertised. Keep the proposed HTTP
-collection shape extensible now; do not claim that current models already
-accept three or four players.
 
 ## Future AW2-controlled CPU players, outside v1
 
@@ -705,8 +701,8 @@ It does not issue a bridge probe while a command may own emulator execution.
 Capabilities distinguish `implemented`, `available` for this server run, and
 verification scope. Advertise the fixed configuration, supported operation/action
 names, debug enablement, production unit subset, limits, and unavailable reasons.
-Expose supported player counts and the configured slot collection; initially only
-two-player matches are available, with 3–4 player support reserved for later work.
+Expose supported player counts (2, 3, 4) and the configured ordered slot collection.
+Map player counts and fixed slot colors constrain accepted configurations.
 Include event-stream support, event schema, heartbeat and buffer/replay limits;
 report MCP subscription support separately from HTTP SSE availability.
 Report the shared game contract versions independently of MCP protocol support,
@@ -730,7 +726,7 @@ they do not implement routes or authenticate callers.
 
 The supported map profiles accept any two CO choices from the verified 19-CO
 roster and the advertised income, day-limit, capture-limit, CO-power, and
-starting-weather rule values. Colors, teams, control, and fog remain fixed.
+starting-weather rule values. Colors, external controls, and fog remain fixed; three/four-player teams are configurable.
 Unregistered map/CO IDs are invalid, while recognized but unsupported
 assignments or player counts are unsupported. Capabilities describe accepted profiles and options
 separately from recognition. Feature availability must be supplied by runtime

@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from aw2_lab.api_contract import default_players
 from aw2_lab.cold_boot import boot_fixed_versus_match
 from aw2_lab.emulator import EmulatorLauncher, EmulatorMode, EmulatorSettings
 from aw2_lab.map_catalog import ALL_MAPS, VersusMap
@@ -22,7 +23,15 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.mark.parametrize("entry", ALL_MAPS, ids=lambda entry: entry.id)
+@pytest.mark.parametrize(
+    "entry",
+    tuple(
+        entry
+        for entry in ALL_MAPS
+        if os.environ.get("AW2_ADDITIONAL_MAPS_ONLY") != "1" or entry.player_count > 2
+    ),
+    ids=lambda entry: entry.id,
+)
 @pytest.mark.parametrize("mode", ["headless", "windowed"])
 def test_live_selected_map(entry: VersusMap, mode: str, tmp_path: Path) -> None:
     rom = Path(os.environ.get("AW2_ROM_PATH", "")).expanduser()
@@ -44,7 +53,13 @@ def test_live_selected_map(entry: VersusMap, mode: str, tmp_path: Path) -> None:
             await launcher.start()
             bridge = launcher.bridge
             assert bridge is not None
-            result = await boot_fixed_versus_match(bridge, rom_path=rom, map_id=entry.id)
+            result = await boot_fixed_versus_match(
+                bridge,
+                rom_path=rom,
+                map_id=entry.id,
+                save_mode="existing",
+                co_ids=tuple(p.co_id for p in default_players(entry.player_count)),
+            )
             battle = result.game_state.battle.value
             assert battle is not None
             assert result.map_id == entry.rom_id
@@ -52,6 +67,8 @@ def test_live_selected_map(entry: VersusMap, mode: str, tmp_path: Path) -> None:
             assert [(p.slot, p.co_id, p.control_type, p.team_id) for p in battle.players] == [
                 (1, 1, 1, 0),
                 (2, 2, 1, 1),
+                *([(3, 4, 1, 2)] if entry.player_count >= 3 else []),
+                *([(4, 11, 1, 3)] if entry.player_count == 4 else []),
             ]
             screenshot = await bridge.screenshot()
             (tmp_path / "ready.png").write_bytes(screenshot)

@@ -67,26 +67,22 @@ capabilities. Select a complete entry from `configuration_profiles` using
 independently configurable field. Profile selection does not depend on emulator
 availability; Start reports whether the runtime is available.
 
-The default profile uses Bean Island. Map selection supports 72 two-player maps across
-Classic (17), Vs. Maps (21), Pre-Deployed (12), and War Room (22), each advertised as
-`<map_id>_v1`. These profiles use external Andy/Red/team A and Max/Blue/team
-B, fog Off, Clear weather, income 1,000 per property, a 30-day limit,
-capture limit Off, and CO powers On. Any pair from the 19 advertised COs is
-selectable; player colors, teams, and controls remain fixed. Income, day limit,
-capture limit, CO power availability, and starting weather are configurable.
-Fog remains fixed Off. Creation validates before allocating a match or touching
-the emulator. Unsupported assignments, fog, internal CPU control, and
-the future three/four-player shape return
-`422 unsupported_feature`. Unknown map/CO IDs, duplicate colors, invalid slot
-ordering, incomplete configurations, and malformed values return
-`422 invalid_request`. Map IDs outside the advertised two-player Versus catalog
-are rejected. Failed validation allocates no
-match and does not reserve the request ID.
+The default profile uses Bean Island. The built-in Versus catalog contains 133
+maps across Classic, Vs. Maps, Pre-Deployed, 3P Maps, 4P Maps, and War Room.
+Each `<map_id>_v1` profile contains the correct two, three, or four players.
+All slots use external control and fixed colors in order: Red, Blue, Green,
+Yellow. Each slot can select any advertised CO. Three/four-player matches can
+assign teams A through C/D respectively, with at least two distinct teams;
+two-player matches retain teams A/B. Fog remains Off. Income, day/capture
+limits, CO powers, and starting weather are configurable.
 
-The shared schema retains two to four ordered slots with explicit CO, color,
-team, and control fields for future expansion; current capabilities advertise
-only two external players. Expanded support requires setup and gameplay
-verification before adding a profile.
+Creation validates the map player count, ordered slots, fixed colors, controls,
+and team assignments before allocation. Unsupported assignments or fog return
+`422 unsupported_feature`; unknown map/CO identifiers and malformed values
+return `422 invalid_request`. Failed validation allocates no match and does
+not reserve the request ID. Invitations, credentials, subscriptions, and
+revocation apply independently to every configured slot. Start requires all
+configured slots to join.
 
 The rule field `weather` accepts `clear`, `rain`, `snow`, and `random`.
 Clear/Rain/Snow select weather for the entire match; Random allows weather to
@@ -125,7 +121,7 @@ field translate to Off. New records preserve the selected numeric limit.
 
 Preserve `request_id` and the exact request when retrying a lost
 response. Creating, issuing invitations, joining, revoking, and closing use the
-shared durable retry semantics. Start requires both slots to be claimed and
+shared durable retry semantics. Start requires all configured slots to be claimed and
 `{request_id, expected_revision}`; close uses `{request_id}`. A `202` receipt means
 accepted work: read its command-status route to learn completion or rejection.
 
@@ -148,31 +144,49 @@ with httpx.Client(
     response.raise_for_status()
     capabilities = response.json()
     profile = next(
-        entry for entry in capabilities["configuration_profiles"]
+        entry
+        for entry in capabilities["configuration_profiles"]
         if entry["profile_id"] == capabilities["default_profile_id"]
     )
-    response = operator.post("/v1/matches", json={
-        "request_id": str(uuid4()), "configuration": profile["configuration"],
-    })
+    response = operator.post(
+        "/v1/matches",
+        json={
+            "request_id": str(uuid4()),
+            "configuration": profile["configuration"],
+        },
+    )
     response.raise_for_status()
     match = response.json()["match_id"]
     player_tokens = {}
     for slot in ("slot_1", "slot_2"):
         invitation, credential = token_urlsafe(32), token_urlsafe(32)
         slot_url = f"/v1/matches/{match}/slots/{slot}"
-        operator.post(slot_url + "/invitations", json={
-            "request_id": str(uuid4()), "invitation_token": invitation,
-        }).raise_for_status()
-        operator.post(slot_url + "/join", headers={
-            "Authorization": f"Bearer {credential}",
-        }, json={
-            "request_id": str(uuid4()), "display_name": slot,
-            "invitation_token": invitation,
-        }).raise_for_status()
+        operator.post(
+            slot_url + "/invitations",
+            json={
+                "request_id": str(uuid4()),
+                "invitation_token": invitation,
+            },
+        ).raise_for_status()
+        operator.post(
+            slot_url + "/join",
+            headers={
+                "Authorization": f"Bearer {credential}",
+            },
+            json={
+                "request_id": str(uuid4()),
+                "display_name": slot,
+                "invitation_token": invitation,
+            },
+        ).raise_for_status()
         player_tokens[slot] = credential
-    response = operator.post(f"/v1/matches/{match}/start", json={
-        "request_id": str(uuid4()), "expected_revision": 0,
-    })
+    response = operator.post(
+        f"/v1/matches/{match}/start",
+        json={
+            "request_id": str(uuid4()),
+            "expected_revision": 0,
+        },
+    )
     response.raise_for_status()
     command_id = response.json()["command_id"]
     result = operator.get(f"/v1/matches/{match}/commands/{command_id}")

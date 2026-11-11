@@ -121,10 +121,9 @@ class MatchCheckpointService:
             )
         if self.controller.authorization is not None:
             self.controller.authorization.overlay(manifest.match, recovering=True)
-        if self.controller.authorization is None and set(manifest.slot_credential_hashes) != {
-            PlayerSlot.SLOT_1,
-            PlayerSlot.SLOT_2,
-        }:
+        if self.controller.authorization is None and set(manifest.slot_credential_hashes) != set(
+            manifest.match.configuration.player_slots
+        ):
             raise CheckpointError(
                 ErrorCode.CHECKPOINT_INCOMPATIBLE,
                 "Checkpoint lacks player credential verifiers required for restart adoption",

@@ -500,7 +500,7 @@ def test_live_input_timeout_rollback_and_explicit_recovery(mode, tmp_path, monke
                     AsyncAW2Client(url, credential=player) as red,
                 ):
                     match = await admin.create_match()
-                    for slot in PlayerSlot:
+                    for slot in tuple(PlayerSlot)[:2]:
                         invite = SecretStr(token_urlsafe(32))
                         cred = player if slot is PlayerSlot.SLOT_1 else SecretStr(token_urlsafe(32))
                         await admin.invite(match.match_id, slot, invite)
@@ -605,7 +605,7 @@ def test_live_debug_operations_restore_ready_boundary(mode, tmp_path):
             ) as raw,
         ):
             match = await admin.create_match()
-            for slot in PlayerSlot:
+            for slot in tuple(PlayerSlot)[:2]:
                 invite = SecretStr(token_urlsafe(32))
                 cred = player if slot is PlayerSlot.SLOT_1 else SecretStr(token_urlsafe(32))
                 await admin.invite(match.match_id, slot, invite)

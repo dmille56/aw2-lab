@@ -60,14 +60,18 @@ class EndTurnActionExecutor:
             return MutationOutcome(observation=committed, lifecycle=MatchLifecycle.FINISHED)
 
         next_battle = final_state.battle.value
-        expected_player = 2 if battle.active_player_slot == 1 else 1
-        expected_day = battle.day + (1 if battle.active_player_slot == 2 else 0)
+        # Defeated armies may retain player records. Use the observed next army
+        # and verify its circular day transition instead of assuming contiguous turns.
+        expected_player = next_battle.active_player_slot if next_battle is not None else None
+        expected_day = battle.day + int(
+            expected_player is not None and expected_player <= battle.active_player_slot
+        )
         if (
             final_state.lifecycle.phase is not LifecyclePhase.BATTLE_PLAYER_TURN
             or final_state.ui.menu.family is not MenuFamily.MAP_INPUT
             or final_state.battle.status is not ValueStatus.AVAILABLE
             or next_battle is None
-            or next_battle.active_player_slot != expected_player
+            or expected_player == battle.active_player_slot
             or next_battle.day != expected_day
             or not any(player.slot == expected_player for player in next_battle.players)
         ):

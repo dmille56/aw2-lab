@@ -133,10 +133,8 @@ class PlayableRuntime:
                 rom_path=self.rom_path,
                 save_mode="existing",
                 map_id=summary.configuration.map_id,
-                co_ids=(
-                    summary.configuration.player_1_co,
-                    summary.configuration.player_2_co,
-                ),
+                co_ids=summary.configuration.co_ids,
+                team_ids=summary.configuration.team_ids,
                 match_rules=summary.configuration.rules,
             )
         except ColdBootError as error:

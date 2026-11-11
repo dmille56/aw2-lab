@@ -33,7 +33,7 @@ async def main() -> None:
     parser.add_argument("--map-id", help="select an advertised map ID when creating a match")
     parser.add_argument(
         "--co-ids",
-        metavar="CO1,CO2",
+        metavar="CO1,CO2,...",
         help="select one advertised CO for each player, for example sami,nell",
     )
     parser.add_argument(
@@ -43,6 +43,7 @@ async def main() -> None:
     )
     parser.add_argument("--day-limit", help="select an advertised day limit or 'off'")
     parser.add_argument("--capture-limit", help="select an advertised capture limit or 'off'")
+    parser.add_argument("--teams", help="team letters per player, for example a,a,b,b")
     parser.add_argument("--weather", help="select an advertised starting weather")
     parser.add_argument("--co-powers", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--checkpoint", type=UUID)
@@ -64,15 +65,33 @@ async def main() -> None:
             configuration = profile.configuration
             if args.co_ids:
                 co_ids = tuple(co_id.strip() for co_id in args.co_ids.split(","))
-                if len(co_ids) != 2 or any(
+                if len(co_ids) != len(configuration.players) or any(
                     co_id not in capabilities.configuration_options.co_ids for co_id in co_ids
                 ):
-                    parser.error("--co-ids must contain two CO IDs advertised by this server")
+                    parser.error("--co-ids must contain one advertised CO ID per map player")
                 players = tuple(
                     player.model_copy(update={"co_id": co_id})
                     for player, co_id in zip(configuration.players, co_ids, strict=True)
                 )
                 configuration = configuration.model_copy(update={"players": players})
+            if args.teams:
+                teams = tuple(team.strip() for team in args.teams.split(","))
+                if (
+                    len(teams) != len(configuration.players)
+                    or any(team not in ("a", "b", "c", "d") for team in teams)
+                    or len(set(teams)) < 2
+                ):
+                    parser.error(
+                        "--teams requires one a/b/c/d team per player and at least two distinct teams"
+                    )
+                configuration = configuration.model_copy(
+                    update={
+                        "players": tuple(
+                            player.model_copy(update={"team_id": team})
+                            for player, team in zip(configuration.players, teams, strict=True)
+                        )
+                    }
+                )
             rules = configuration.rules
             rule_options = capabilities.configuration_options.rule_options
             rule_updates = {}
@@ -113,11 +132,12 @@ async def main() -> None:
             directory.mkdir(mode=0o700, parents=True)
             match = await client.create_match(configuration)
             private_file(directory / "match-id", str(match.match_id))
-            for slot in PlayerSlot:
+            for player in configuration.players:
+                slot = PlayerSlot(player.slot)
                 invitation = SecretStr(token_urlsafe(32))
                 await client.invite(match.match_id, slot, invitation)
                 private_file(directory / f"{slot.value}.invitation", invitation.get_secret_value())
-            print("Match:", match.match_id, "— join both slots, then run start")
+            print("Match:", match.match_id, "— join all slots, then run start")
             return
         match_id = UUID((directory / "match-id").read_text().strip())
         state = await client.state(match_id)

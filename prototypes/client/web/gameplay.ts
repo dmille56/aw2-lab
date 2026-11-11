@@ -199,11 +199,17 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
       ? observation.game_state.battle.value
       : null;
   const slot =
-    view.identity?.role === "player"
-      ? view.identity.player_slot === "slot_1"
-        ? 1
-        : 2
+    view.identity?.role === "player" && view.identity.player_slot
+      ? { slot_1: 1, slot_2: 2, slot_3: 3, slot_4: 4 }[
+          view.identity.player_slot
+        ]
       : null;
+  const team = battle?.players.find((player) => player.slot === slot)?.team_id;
+  const allied = (army: number) =>
+    army === slot ||
+    battle?.players.some(
+      (player) => player.slot === army && player.team_id === team,
+    ) === true;
   const boundary = `${view.connected}:${snapshot?.summary.match_id}:${snapshot?.summary.revision}:${slot}`;
   const [draft, dispatch] = useReducer(draftReducer, boundary, emptyDraft);
   useEffect(() => {
@@ -258,7 +264,7 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
       (facility) => facility.terrain_class === selectedBase?.terrain_class,
     )?.unit_types ?? [];
   const targets = (battle?.units ?? []).filter(
-    (unit) => unit.army_slot !== slot && !unit.embarked,
+    (unit) => !allied(unit.army_slot) && !unit.embarked,
   );
   const selectedUnit = units.find((item) => item.id === draft.unitId)?.unit;
   const feature = (kind: ActionKind) =>
@@ -458,7 +464,7 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     !!battle?.properties.some(
       (p) =>
         sameTile(p, destination) &&
-        p.owner_slot !== slot &&
+        !allied(p.owner_slot) &&
         [6, 8, 10, 11, 14, 20].includes(p.terrain_class),
     );
   const loadUnavailableReason = !transportAtDestination

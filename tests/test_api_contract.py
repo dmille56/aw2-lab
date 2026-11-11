@@ -71,7 +71,9 @@ def summary() -> MatchSummary:
         revision=0,
         lifecycle=MatchLifecycle.SETUP,
         configuration=FixedMatchConfiguration(),
-        slots=tuple(PlayerSlotState(slot=slot, status=SlotStatus.OPEN) for slot in PlayerSlot),
+        slots=tuple(
+            PlayerSlotState(slot=slot, status=SlotStatus.OPEN) for slot in tuple(PlayerSlot)[:2]
+        ),
         created_at=datetime.now(UTC),
     )
 

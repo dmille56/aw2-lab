@@ -40,7 +40,7 @@ def turn_reason(state: StateResponse, slot: PlayerSlot, after_revision: int) -> 
         and observation.identity_status is IdentityStatus.AVAILABLE
         and observation.action_readiness is ActionReadiness.READY
         and battle is not None
-        and battle.active_player_slot == (1 if slot is PlayerSlot.SLOT_1 else 2)
+        and battle.active_player_slot == (list(PlayerSlot).index(slot) + 1)
     ):
         return "turn_ready"
     return None

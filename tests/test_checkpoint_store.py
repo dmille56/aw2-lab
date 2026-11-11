@@ -44,7 +44,8 @@ def make_checkpoint(memory, *, match_id=None):
             lifecycle=MatchLifecycle.PLAYABLE,
             configuration=FixedMatchConfiguration(),
             slots=tuple(
-                PlayerSlotState(slot=slot, status=SlotStatus.JOINED) for slot in PlayerSlot
+                PlayerSlotState(slot=slot, status=SlotStatus.JOINED)
+                for slot in tuple(PlayerSlot)[:2]
             ),
             created_at=datetime.now(UTC),
         ),
@@ -206,3 +207,36 @@ def test_export_cannot_follow_a_stored_artifact_symlink(memory, tmp_path):
         store.export_archive(manifest.checkpoint_id)
     assert failure.value.body.code is ErrorCode.CHECKPOINT_CORRUPT
     assert "private sentinel" not in failure.value.body.model_dump_json()
+
+
+@pytest.mark.parametrize("map_id,count", [("pyramid_cape", 3), ("four_corners", 4)])
+def test_multiplayer_configuration_and_credentials_survive_archive(memory, tmp_path, map_id, count):
+    from aw2_lab.api_contract import VERIFIED_CONFIGURATION, default_players
+    from aw2_lab.api_validation import configuration_to_controller
+
+    manifest, state = make_checkpoint(memory)
+    configuration = configuration_to_controller(
+        VERIFIED_CONFIGURATION.model_copy(
+            update={"map_id": map_id, "players": default_players(count)}
+        )
+    )
+    slots = tuple(
+        PlayerSlotState(slot=slot, status=SlotStatus.JOINED) for slot in configuration.player_slots
+    )
+    manifest = manifest.model_copy(
+        update={
+            "match": manifest.match.model_copy(
+                update={"configuration": configuration, "slots": slots}
+            ),
+            "slot_credential_hashes": {
+                slot: hashlib.sha256(slot.value.encode()).hexdigest()
+                for slot in configuration.player_slots
+            },
+        }
+    )
+    store = CheckpointStore(tmp_path / "source")
+    reference = store.save(manifest, state)
+    store.commit(reference.checkpoint_id)
+    restored = CheckpointStore(tmp_path / "imported")
+    restored.import_archive(store.export_archive(reference.checkpoint_id))
+    assert restored.load(reference.checkpoint_id) == (manifest, state)

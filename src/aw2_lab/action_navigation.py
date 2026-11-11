@@ -315,8 +315,15 @@ class ActionNavigator:
             await self._tap("confirm-yield", _KEY_A)
             return await self._wait_for(
                 lambda value: (
-                    value.lifecycle.phase in _TERMINAL_PHASES
-                    and value.battle.status is not ValueStatus.AVAILABLE
+                    (
+                        value.lifecycle.phase in _TERMINAL_PHASES
+                        and value.battle.status is not ValueStatus.AVAILABLE
+                    )
+                    or (
+                        value.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN
+                        and value.ui.menu.family is MenuFamily.MAP_INPUT
+                        and value.battle.status is ValueStatus.AVAILABLE
+                    )
                 ),
                 description="the recognized terminal result after Yield",
                 frame_budget=self.limits.resolution_frame_budget,

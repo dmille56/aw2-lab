@@ -327,7 +327,74 @@ export interface components {
              *         "nest_egg",
              *         "the_trident",
              *         "banker_hills",
-             *         "missile_plains"
+             *         "missile_plains",
+             *         "delta_heights",
+             *         "poem_cape",
+             *         "blue_lake",
+             *         "coil_range",
+             *         "leaf_haven",
+             *         "battle_cube",
+             *         "grid_assault",
+             *         "crossroad",
+             *         "pyramid_cape",
+             *         "bead_islands",
+             *         "clover_keys",
+             *         "keyhole_cove",
+             *         "fork_river",
+             *         "mantis_river",
+             *         "channel_city",
+             *         "ink_canal",
+             *         "shield_hills",
+             *         "peril_maze",
+             *         "gem_creek",
+             *         "glass_heights",
+             *         "devils_inlet",
+             *         "shear_port",
+             *         "liars_cove",
+             *         "nail_canal",
+             *         "atlas_river",
+             *         "eel_channels",
+             *         "jab_peninsula",
+             *         "thorn_islands",
+             *         "portsmouth",
+             *         "archipelagos",
+             *         "wyrms_eye",
+             *         "knotted_keys",
+             *         "four_corners",
+             *         "rocket_cape",
+             *         "crop_river",
+             *         "tween_isle",
+             *         "rival_islands",
+             *         "loop_road",
+             *         "plus_canal",
+             *         "islas_five",
+             *         "patriot_cove",
+             *         "web_river",
+             *         "cap_narrows",
+             *         "jay_islands",
+             *         "chain_canal",
+             *         "spring_lakes",
+             *         "tatter_river",
+             *         "island_x",
+             *         "alakule",
+             *         "traitor_river",
+             *         "fable_hills",
+             *         "south_cape",
+             *         "glory_islands",
+             *         "pipe_maze",
+             *         "lock_ridge",
+             *         "heartland",
+             *         "badlands",
+             *         "stamp_islands",
+             *         "rivers_four",
+             *         "ring_islands",
+             *         "last_mission"
+             *       ],
+             *       "minimum_teams": 2,
+             *       "player_counts": [
+             *         2,
+             *         3,
+             *         4
              *       ],
              *       "players": [
              *         {
@@ -496,7 +563,13 @@ export interface components {
              *         "fog": false,
              *         "income_per_property": 1000,
              *         "weather": "clear"
-             *       }
+             *       },
+             *       "team_ids": [
+             *         "a",
+             *         "b",
+             *         "c",
+             *         "d"
+             *       ]
              *     }
              */
             configuration_options: components["schemas"]["ConfigurationOptions"];
@@ -3166,6 +3239,2991 @@ export interface components {
              *         "map_category": "war_room",
              *         "profile_id": "missile_plains_v1",
              *         "requires_unlock": true
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "delta_heights",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "pre_deployed",
+             *         "profile_id": "delta_heights_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "poem_cape",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "pre_deployed",
+             *         "profile_id": "poem_cape_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "blue_lake",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "pre_deployed",
+             *         "profile_id": "blue_lake_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "coil_range",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "pre_deployed",
+             *         "profile_id": "coil_range_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "leaf_haven",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "pre_deployed",
+             *         "profile_id": "leaf_haven_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "battle_cube",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "pre_deployed",
+             *         "profile_id": "battle_cube_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "grid_assault",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "pre_deployed",
+             *         "profile_id": "grid_assault_v1",
+             *         "requires_unlock": true
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "crossroad",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "pre_deployed",
+             *         "profile_id": "crossroad_v1",
+             *         "requires_unlock": true
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "pyramid_cape",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "pyramid_cape_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "bead_islands",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "bead_islands_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "clover_keys",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "clover_keys_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "keyhole_cove",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "keyhole_cove_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "fork_river",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "fork_river_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "mantis_river",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "mantis_river_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "channel_city",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "channel_city_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "ink_canal",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "ink_canal_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "shield_hills",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "shield_hills_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "peril_maze",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "peril_maze_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "gem_creek",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "gem_creek_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "glass_heights",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "glass_heights_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "devils_inlet",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "devils_inlet_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "shear_port",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "shear_port_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "liars_cove",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "liars_cove_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "nail_canal",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "nail_canal_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "atlas_river",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "atlas_river_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "eel_channels",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "eel_channels_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "jab_peninsula",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "jab_peninsula_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "thorn_islands",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "thorn_islands_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "portsmouth",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "portsmouth_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "archipelagos",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "archipelagos_v1",
+             *         "requires_unlock": true
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "wyrms_eye",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "wyrms_eye_v1",
+             *         "requires_unlock": true
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "knotted_keys",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "three_player",
+             *         "profile_id": "knotted_keys_v1",
+             *         "requires_unlock": true
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "four_corners",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "four_corners_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "rocket_cape",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "rocket_cape_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "crop_river",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "crop_river_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "tween_isle",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "tween_isle_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "rival_islands",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "rival_islands_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "loop_road",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "loop_road_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "plus_canal",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "plus_canal_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "islas_five",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "islas_five_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "patriot_cove",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "patriot_cove_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "web_river",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "web_river_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "cap_narrows",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "cap_narrows_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "jay_islands",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "jay_islands_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "chain_canal",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "chain_canal_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "spring_lakes",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "spring_lakes_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "tatter_river",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "tatter_river_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "island_x",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "island_x_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "alakule",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "alakule_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "traitor_river",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "traitor_river_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "fable_hills",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "fable_hills_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "south_cape",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "south_cape_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "glory_islands",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "glory_islands_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "pipe_maze",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "pipe_maze_v1",
+             *         "requires_unlock": true
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "lock_ridge",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "lock_ridge_v1",
+             *         "requires_unlock": true
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "heartland",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "heartland_v1",
+             *         "requires_unlock": true
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "badlands",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             },
+             *             {
+             *               "co_id": "flak",
+             *               "color": "yellow",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_4",
+             *               "team_id": "d"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "four_player",
+             *         "profile_id": "badlands_v1",
+             *         "requires_unlock": true
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "stamp_islands",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "war_room",
+             *         "profile_id": "stamp_islands_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "rivers_four",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "war_room",
+             *         "profile_id": "rivers_four_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "ring_islands",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "war_room",
+             *         "profile_id": "ring_islands_v1",
+             *         "requires_unlock": false
+             *       },
+             *       {
+             *         "configuration": {
+             *           "contract_version": 1,
+             *           "map_id": "last_mission",
+             *           "players": [
+             *             {
+             *               "co_id": "andy",
+             *               "color": "red",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_1",
+             *               "team_id": "a"
+             *             },
+             *             {
+             *               "co_id": "max",
+             *               "color": "blue",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_2",
+             *               "team_id": "b"
+             *             },
+             *             {
+             *               "co_id": "sami",
+             *               "color": "green",
+             *               "contract_version": 1,
+             *               "control": "external",
+             *               "slot": "slot_3",
+             *               "team_id": "c"
+             *             }
+             *           ],
+             *           "rules": {
+             *             "capture_limit": null,
+             *             "co_powers": true,
+             *             "contract_version": 1,
+             *             "day_limit": 30,
+             *             "fog": false,
+             *             "income_per_property": 1000,
+             *             "weather": "clear"
+             *           }
+             *         },
+             *         "contract_version": 1,
+             *         "map_category": "war_room",
+             *         "profile_id": "last_mission_v1",
+             *         "requires_unlock": false
              *       }
              *     ]
              */
@@ -3286,11 +6344,15 @@ export interface components {
             /**
              * Supported Player Counts
              * @default [
-             *       2
+             *       2,
+             *       3,
+             *       4
              *     ]
              */
             supported_player_counts: [
-                2
+                2,
+                3,
+                4
             ];
         };
         /** CargoDrop */
@@ -3582,10 +6644,90 @@ export interface components {
              *       "nest_egg",
              *       "the_trident",
              *       "banker_hills",
-             *       "missile_plains"
+             *       "missile_plains",
+             *       "delta_heights",
+             *       "poem_cape",
+             *       "blue_lake",
+             *       "coil_range",
+             *       "leaf_haven",
+             *       "battle_cube",
+             *       "grid_assault",
+             *       "crossroad",
+             *       "pyramid_cape",
+             *       "bead_islands",
+             *       "clover_keys",
+             *       "keyhole_cove",
+             *       "fork_river",
+             *       "mantis_river",
+             *       "channel_city",
+             *       "ink_canal",
+             *       "shield_hills",
+             *       "peril_maze",
+             *       "gem_creek",
+             *       "glass_heights",
+             *       "devils_inlet",
+             *       "shear_port",
+             *       "liars_cove",
+             *       "nail_canal",
+             *       "atlas_river",
+             *       "eel_channels",
+             *       "jab_peninsula",
+             *       "thorn_islands",
+             *       "portsmouth",
+             *       "archipelagos",
+             *       "wyrms_eye",
+             *       "knotted_keys",
+             *       "four_corners",
+             *       "rocket_cape",
+             *       "crop_river",
+             *       "tween_isle",
+             *       "rival_islands",
+             *       "loop_road",
+             *       "plus_canal",
+             *       "islas_five",
+             *       "patriot_cove",
+             *       "web_river",
+             *       "cap_narrows",
+             *       "jay_islands",
+             *       "chain_canal",
+             *       "spring_lakes",
+             *       "tatter_river",
+             *       "island_x",
+             *       "alakule",
+             *       "traitor_river",
+             *       "fable_hills",
+             *       "south_cape",
+             *       "glory_islands",
+             *       "pipe_maze",
+             *       "lock_ridge",
+             *       "heartland",
+             *       "badlands",
+             *       "stamp_islands",
+             *       "rivers_four",
+             *       "ring_islands",
+             *       "last_mission"
              *     ]
              */
-            map_ids: ("bean_island" | "crater_isle" | "triangles" | "ball_islands" | "coral_lagoon" | "puzzle_trio" | "fist_peninsula" | "deer_harbor" | "alara_range" | "lost_river" | "volcano_isle" | "turtle_atoll" | "squash_island" | "cube_keys" | "mirror_islands" | "shark_strait" | "royal_channel" | "little_island" | "sun_canal" | "beaker_river" | "star_islands" | "eon_springs" | "portal_bridge" | "sabre_range" | "asphalt_maze" | "cog_isle" | "zero_wood" | "switchback" | "ruby_keys" | "rainy_haven" | "rail_strait" | "tribe_islands" | "vision_bridge" | "piston_dam" | "hat_harbor" | "swan_cove" | "go_islands" | "hourglass_isle" | "brace_range" | "river_range" | "moon_isle" | "mint_plateau" | "jewel_canal" | "wrench_island" | "rapid_ferry" | "bundle_city" | "scarab_road" | "pointing_river" | "liaison_wood" | "big_daddy" | "spann_island" | "moji_island" | "duo_falls" | "sole_harbor" | "pivot_isle" | "lands_end" | "kita_straight" | "point_stormy" | "ridge_island" | "mials_hope" | "bounty_river" | "toil_ferry" | "twin_isle" | "dire_range" | "egg_islands" | "terra_maw" | "pay_dirt" | "long_road" | "nest_egg" | "the_trident" | "banker_hills" | "missile_plains")[];
+            map_ids: ("delta_heights" | "poem_cape" | "blue_lake" | "coil_range" | "leaf_haven" | "battle_cube" | "grid_assault" | "crossroad" | "pyramid_cape" | "bead_islands" | "clover_keys" | "keyhole_cove" | "fork_river" | "mantis_river" | "channel_city" | "ink_canal" | "shield_hills" | "peril_maze" | "gem_creek" | "glass_heights" | "devils_inlet" | "shear_port" | "liars_cove" | "nail_canal" | "atlas_river" | "eel_channels" | "jab_peninsula" | "thorn_islands" | "portsmouth" | "archipelagos" | "wyrms_eye" | "knotted_keys" | "four_corners" | "rocket_cape" | "crop_river" | "tween_isle" | "rival_islands" | "loop_road" | "plus_canal" | "islas_five" | "patriot_cove" | "web_river" | "cap_narrows" | "jay_islands" | "chain_canal" | "spring_lakes" | "tatter_river" | "island_x" | "alakule" | "traitor_river" | "fable_hills" | "south_cape" | "glory_islands" | "pipe_maze" | "lock_ridge" | "heartland" | "badlands" | "stamp_islands" | "rivers_four" | "ring_islands" | "last_mission" | "bean_island" | "crater_isle" | "triangles" | "ball_islands" | "coral_lagoon" | "puzzle_trio" | "fist_peninsula" | "deer_harbor" | "alara_range" | "lost_river" | "volcano_isle" | "turtle_atoll" | "squash_island" | "cube_keys" | "mirror_islands" | "shark_strait" | "royal_channel" | "little_island" | "sun_canal" | "beaker_river" | "star_islands" | "eon_springs" | "portal_bridge" | "sabre_range" | "asphalt_maze" | "cog_isle" | "zero_wood" | "switchback" | "ruby_keys" | "rainy_haven" | "rail_strait" | "tribe_islands" | "vision_bridge" | "piston_dam" | "hat_harbor" | "swan_cove" | "go_islands" | "hourglass_isle" | "brace_range" | "river_range" | "moon_isle" | "mint_plateau" | "jewel_canal" | "wrench_island" | "rapid_ferry" | "bundle_city" | "scarab_road" | "pointing_river" | "liaison_wood" | "big_daddy" | "spann_island" | "moji_island" | "duo_falls" | "sole_harbor" | "pivot_isle" | "lands_end" | "kita_straight" | "point_stormy" | "ridge_island" | "mials_hope" | "bounty_river" | "toil_ferry" | "twin_isle" | "dire_range" | "egg_islands" | "terra_maw" | "pay_dirt" | "long_road" | "nest_egg" | "the_trident" | "banker_hills" | "missile_plains")[];
+            /**
+             * Minimum Teams
+             * @default 2
+             * @constant
+             */
+            minimum_teams: 2;
+            /**
+             * Player Counts
+             * @default [
+             *       2,
+             *       3,
+             *       4
+             *     ]
+             */
+            player_counts: [
+                2,
+                3,
+                4
+            ];
             /**
              * Players
              * @default [
@@ -3764,6 +6906,21 @@ export interface components {
              *     }
              */
             rules: components["schemas"]["RuleConfiguration"];
+            /**
+             * Team Ids
+             * @default [
+             *       "a",
+             *       "b",
+             *       "c",
+             *       "d"
+             *     ]
+             */
+            team_ids: [
+                "a",
+                "b",
+                "c",
+                "d"
+            ];
         };
         /** ConfigurationProfile */
         ConfigurationProfile: {
@@ -4348,7 +7505,7 @@ export interface components {
          * MapCategory
          * @enum {string}
          */
-        MapCategory: "classic" | "versus" | "pre_deployed" | "war_room";
+        MapCategory: "classic" | "versus" | "pre_deployed" | "three_player" | "four_player" | "war_room";
         /**
          * MapCursorObservation
          * @description Map cursor coordinates, distinct from menu selection and input readiness.
@@ -4744,7 +7901,7 @@ export interface components {
          * PlayerSlot
          * @enum {string}
          */
-        PlayerSlot: "slot_1" | "slot_2";
+        PlayerSlot: "slot_1" | "slot_2" | "slot_3" | "slot_4";
         /** PlayerSlotState */
         PlayerSlotState: {
             /**

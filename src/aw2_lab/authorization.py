@@ -105,7 +105,7 @@ class _Match(_PrivateModel):
     @model_validator(mode="after")
     def consistent(self) -> _Match:
         validate_configuration(configuration_from_controller(self.summary.configuration))
-        if set(self.slots) != set(PlayerSlot):
+        if set(self.slots) != set(self.summary.configuration.player_slots):
             raise ValueError("Authorization slots are incomplete")
         for public in self.summary.slots:
             private = self.slots[public.slot]
@@ -367,6 +367,8 @@ class AuthorizationService:
                     )
                 return
             match = self._match(self._state, principal.match_id)
+            if principal.player_slot not in match.slots:
+                raise AuthorizationError(ErrorCode.INVALID_CREDENTIAL, "Invalid credential")
             slot = match.slots[principal.player_slot]
             if (
                 slot.status is not SlotStatus.JOINED
@@ -450,14 +452,14 @@ class AuthorizationService:
                 revision=0,
                 lifecycle=MatchLifecycle.SETUP,
                 configuration=configuration,
-                slots=(
-                    PlayerSlotState(slot=PlayerSlot.SLOT_1, status=SlotStatus.OPEN),
-                    PlayerSlotState(slot=PlayerSlot.SLOT_2, status=SlotStatus.OPEN),
+                slots=tuple(
+                    PlayerSlotState(slot=slot, status=SlotStatus.OPEN)
+                    for slot in configuration.player_slots
                 ),
                 created_at=self._clock(),
             )
             state.matches[summary.match_id] = _Match(
-                summary=summary, slots={slot: _Slot() for slot in PlayerSlot}
+                summary=summary, slots={slot: _Slot() for slot in configuration.player_slots}
             )
             state.requests[request.request_id] = _Retry(
                 operation="create", fingerprint=fingerprint, match_id=summary.match_id
@@ -484,6 +486,10 @@ class AuthorizationService:
 
         def issue(state: _Ledger) -> InvitationReference:
             match = self._match(state, match_id)
+            if slot not in match.slots:
+                raise AuthorizationError(
+                    ErrorCode.SLOT_UNAVAILABLE, "Player slot is not configured"
+                )
             retry = self._retry(state, request.request_id, fingerprint)
             if retry:
                 assert retry.invitation_id is not None
@@ -534,6 +540,10 @@ class AuthorizationService:
 
         def claim(state: _Ledger) -> PlayerPrincipal:
             match = self._match(state, match_id)
+            if slot not in match.slots:
+                raise AuthorizationError(
+                    ErrorCode.SLOT_UNAVAILABLE, "Player slot is not configured"
+                )
             current = match.slots[slot]
             prior = state.requests.get(request.request_id)
             if (
@@ -608,6 +618,10 @@ class AuthorizationService:
 
         def revoke(state: _Ledger) -> SlotAuthorization:
             match = self._match(state, match_id)
+            if slot not in match.slots:
+                raise AuthorizationError(
+                    ErrorCode.SLOT_UNAVAILABLE, "Player slot is not configured"
+                )
             retry = self._retry(state, request_id, fingerprint)
             if retry:
                 assert retry.authorization is not None
@@ -684,7 +698,7 @@ class AuthorizationService:
                         status=match.slots[slot].status,
                         display_name=match.slots[slot].display_name,
                     )
-                    for slot in PlayerSlot
+                    for slot in match.slots
                 )
             }
         )

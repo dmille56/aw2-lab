@@ -101,7 +101,12 @@ class MoveCaptureActionExecutor:
             )
         # The fixed public match maps slot 1 to Red (owner code 1) and slot 2 to
         # Blue (owner code 2), as established by the supported ROM profile.
-        if prop.owner_slot == unit.army_slot:
+        if prop.owner_slot == unit.army_slot or any(
+            player.slot == prop.owner_slot
+            and player.team_id
+            == next(p.team_id for p in battle.players if p.slot == unit.army_slot)
+            for player in battle.players
+        ):
             raise CommandRejected(ErrorCode.INVALID_REQUEST, "Property is already owned")
 
         # All caller-controlled rejection happens before the first emulator input.

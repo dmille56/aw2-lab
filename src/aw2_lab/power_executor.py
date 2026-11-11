@@ -27,7 +27,7 @@ from aw2_lab.state_model import GameState, ValueStatus
 from aw2_lab.state_validation import BattleLayout, load_battle_layout
 from aw2_lab.ui_state import CursorStatus, MenuFamily, MenuItem
 
-_PLAYER_SLOT_NUMBER = {"slot_1": 1, "slot_2": 2}
+_PLAYER_SLOT_NUMBER = {f"slot_{index}": index for index in range(1, 5)}
 _VERIFIED_MAX_USE_COUNTER = 9
 _COST_FUNCTION = Callable[[tuple[int, ...], int, int], int]
 

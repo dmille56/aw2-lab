@@ -1224,3 +1224,16 @@ def test_fire_target_mode_rejects_ambiguous_initialized_cursor_slots(memory):
         observe_menu(current, validate_battle_snapshot(current)).family
         is not MenuFamily.UNIT_TARGETING
     )
+
+
+@pytest.mark.parametrize("tile,terrain", [(471, 0x8A), (472, 0x8B)])
+def test_yellow_airport_and_port_tiles_are_supported(memory, tile, terrain):
+    from dataclasses import replace
+
+    table = bytearray(memory[0].terrain_by_tile)
+    table[tile] = terrain
+    layout = replace(memory[0], terrain_by_tile=bytes(table))
+    pack_into("<H", memory[1], 0x1EE72, tile)
+    memory[1][0x1F882] = terrain
+    updated = (layout, memory[1], memory[2])
+    assert validate_battle_snapshot(snapshot(updated)).geometry.status is ValidationStatus.VALID

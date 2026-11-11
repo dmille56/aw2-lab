@@ -1,4 +1,4 @@
-# Python SDK and two-player sessions
+# Python SDK and player sessions
 
 `aw2_lab.sdk.AsyncAW2Client` is an async HTTPX client for contract v1. It is
 included in the Python package and uses the same typed models as the server.
@@ -13,13 +13,17 @@ from pydantic import SecretStr
 from aw2_lab.match_contract import EndTurnAction
 from aw2_lab.sdk import AsyncAW2Client, WaitTimeout
 
+
 async def end_turn(match_id: UUID):
-    credential = SecretStr(Path('player-token').read_text().strip())
+    credential = SecretStr(Path("player-token").read_text().strip())
     async with AsyncAW2Client(credential=credential) as player:
         state = await player.state(match_id)
         request_id = uuid4()  # Persist with the exact operation before submission.
         receipt = await player.submit(
-            match_id, state.summary.revision, EndTurnAction(), request_id=request_id,
+            match_id,
+            state.summary.revision,
+            EndTurnAction(),
+            request_id=request_id,
         )
         try:
             result = await player.wait_for_command(match_id, receipt.command_id, timeout=30)
@@ -148,7 +152,7 @@ Nix-provided Python/dependencies. Full live two-player runs in headless/windowed
 mGBA and a listening server remain Milestone 3 acceptance work; these examples
 do not constitute live verification.
 
-Map selection covers Classic, Vs. Maps, Pre-Deployed, and War Room two-player
+Map selection covers Classic, Vs. Maps, Pre-Deployed, 3P Maps, 4P Maps, and War Room
 profiles. Use, for example, `--map-id brace_range` for a Pre-Deployed match or
 `--map-id spann_island` for War Room. Read `map_category` and `requires_unlock`
 in each advertised configuration profile. Unlock-dependent maps use the local
@@ -170,3 +174,7 @@ python examples/manage_match.py create --map-id bean_island --weather rain
 
 The rule flags are checked against `configuration_options.rule_options` before
 match creation; omitting them uses the advertised defaults.
+
+For a four-player team match, create with `--map-id four_corners --teams a,a,b,b`.
+`--co-ids` accepts one CO per map player. Join every invitation produced by
+`manage_match.py` before starting; credentials authorize only their own slot.
