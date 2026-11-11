@@ -12,6 +12,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from aw2_lab.bridge import BridgeError, LuaBridgeClient
+from aw2_lab.save_profile import decode_sharkport_save
 
 
 class EmulatorMode(StrEnum):
@@ -33,6 +34,7 @@ class EmulatorSettings:
     show_scripting_console: bool = False
     suppress_emulator_output: bool = False
     bridge_ready_timeout: float = 15.0
+    save_profile_path: Path | None = None
 
 
 class EmulatorLaunchError(RuntimeError):
@@ -99,16 +101,31 @@ class EmulatorLauncher:
             "1" if self.settings.mode is EmulatorMode.WINDOWED else "0"
         )
         rom_path = self.settings.rom_path
+        profile_path = self.settings.save_profile_path
         try:
-            if self._isolate_saves:
+            if profile_path is not None:
+                profile_path = profile_path.expanduser().resolve()
+                if not profile_path.is_file():
+                    raise EmulatorLaunchError(
+                        f"Configured save profile is not a file: {profile_path}"
+                    )
+                if profile_path.suffix.lower() not in {".sav", ".sps"}:
+                    raise EmulatorLaunchError(
+                        "Configured save profile must be an mGBA .sav or .sps"
+                    )
+
+            if self._isolate_saves or profile_path is not None:
                 self._workspace = tempfile.TemporaryDirectory(prefix="aw2-runtime-")
                 root = Path(self._workspace.name)
                 local_rom = root / rom_path.name
                 shutil.copyfile(rom_path, local_rom)
-                source_save = rom_path.with_suffix(".sav")
+                source_save = profile_path or rom_path.with_suffix(".sav")
                 if source_save.is_file():
                     local_save = local_rom.with_suffix(".sav")
-                    shutil.copyfile(source_save, local_save)
+                    if source_save.suffix.lower() == ".sps":
+                        local_save.write_bytes(decode_sharkport_save(source_save, rom_path))
+                    else:
+                        shutil.copyfile(source_save, local_save)
                     # The headless frontend does not reliably autoload this copy.
                     # Bind the core to the isolated save before exposing the bridge.
                     bootstrap = root / "bootstrap.lua"
@@ -131,8 +148,15 @@ class EmulatorLauncher:
                 environment["XDG_DATA_HOME"] = str(root / "data")
                 environment["XDG_CACHE_HOME"] = str(root / "cache")
                 rom_path = local_rom
-        except OSError as error:
+        except EmulatorLaunchError:
             self._cleanup_workspace()
+            raise
+        except (OSError, ValueError) as error:
+            self._cleanup_workspace()
+            if profile_path is not None and profile_path.suffix.lower() == ".sps":
+                raise EmulatorLaunchError(
+                    f"Cannot load configured GameShark save: {error}"
+                ) from error
             raise EmulatorLaunchError("Cannot prepare the isolated emulator files") from error
         try:
             process = await asyncio.create_subprocess_exec(

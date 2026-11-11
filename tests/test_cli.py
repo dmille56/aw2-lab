@@ -14,6 +14,7 @@ def invoke_cli(
     env_rom: str | None = None,
     env_mode: str | None = None,
     env_console: str | None = None,
+    env_save_profile: str | None = None,
 ) -> tuple[object, dict[str, object]]:
     captured: dict[str, object] = {}
     monkeypatch.setattr("sys.argv", ["aw2-lab", *args])
@@ -26,6 +27,10 @@ def invoke_cli(
         monkeypatch.delenv("AW2_MGBA_SCRIPTING_CONSOLE", raising=False)
     else:
         monkeypatch.setenv("AW2_MGBA_SCRIPTING_CONSOLE", env_console)
+    if env_save_profile is None:
+        monkeypatch.delenv("AW2_SAVE_PROFILE_PATH", raising=False)
+    else:
+        monkeypatch.setenv("AW2_SAVE_PROFILE_PATH", env_save_profile)
     monkeypatch.setattr(
         cli.uvicorn, "run", lambda application, **kwargs: captured.update(app=application, **kwargs)
     )
@@ -61,6 +66,40 @@ def test_rom_environment_variable_is_used(
     assert "windowed_executable: None" in output
     assert "bridge_script: None" in output
     assert "show_scripting_console: False" in output
+
+
+def test_save_profile_environment_variable_is_used(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rom = tmp_path / "aw2.gba"
+    rom.touch()
+    profile = tmp_path / "all-unlocked.sps"
+    profile.touch()
+
+    application, _ = invoke_cli(monkeypatch, rom, env_save_profile=str(profile))
+
+    assert application.state.emulator_settings.save_profile_path == profile.resolve()
+
+
+def test_cli_save_profile_overrides_environment(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rom = tmp_path / "aw2.gba"
+    rom.touch()
+    cli_profile = tmp_path / "cli.sps"
+    env_profile = tmp_path / "env.sps"
+    cli_profile.touch()
+    env_profile.touch()
+
+    application, _ = invoke_cli(
+        monkeypatch,
+        rom,
+        "--save-profile",
+        str(cli_profile),
+        env_save_profile=str(env_profile),
+    )
+
+    assert application.state.emulator_settings.save_profile_path == cli_profile.resolve()
 
 
 def test_cli_rom_overrides_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

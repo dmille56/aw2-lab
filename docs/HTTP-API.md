@@ -315,5 +315,17 @@ publishing a playable observation; close that match before choosing another map.
 
 The launcher explicitly loads an isolated copy of the ROM's companion `.sav`;
 source saves are never changed. Unlocks are not granted or patched by the server.
+Set `AW2_SAVE_PROFILE_PATH` to a verified GameShark `.sps` profile (or pass
+`--save-profile`) to use it as the emulator's starting save. Startup validates
+the SPS ROM identity, converts it to a temporary `.sav`, and discards that
+working copy when mGBA stops; the source profile, adjacent save, and ROM remain
+untouched.
+To provision maps safely, use the manual isolated-save procedure in
+[COLD-BOOT-RESEARCH.md](COLD-BOOT-RESEARCH.md): navigate Battle Maps in a
+windowed copy, save in game, then use that prepared ROM/save pair. The recorder
+can verify a requested map with `--automate-fixed-match --map-id`; it reports
+the last reached step and failure reason when the game still considers the map
+locked. No capability claim changes until the game loads the requested map and
+the runtime verifies it.
 3P Maps, 4P Maps, and maps with three/four armies in Pre-Deployed or War Room
 remain tied to the player-count expansion. Custom maps remain deferred.

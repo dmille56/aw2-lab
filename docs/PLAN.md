@@ -244,8 +244,10 @@ transport actions, powers, joining, resupplying, diving/surfacing, missile silo
 use, all 133 built-in Versus maps and all 19 COs, two through four external
 players and teams, configurable rules/weather, and Fog On with omniscient
 trusted-client observations. Fresh-save rejection and fully unlocked-save
-acceptance are recorded; partial-save verification and automatic map unlocking
-remain deferred as requested.
+acceptance are recorded. Safe manual provisioning in a reusable isolated
+ROM/save copy is now documented; automatic progression remains a player action,
+and partial-save verification is tracked in the follow-up TODO. The follow-up
+acceptance record is in [LIVE-SDK-ACCEPTANCE.md](LIVE-SDK-ACCEPTANCE.md).
 
 **Dependencies:** stable playable slice and MCP adapter.
 

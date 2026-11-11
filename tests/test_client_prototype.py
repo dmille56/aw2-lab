@@ -70,6 +70,7 @@ def test_rom_path_configuration(
     rom = tmp_path / "aw2.gba"
     rom.write_bytes(b"ROM contents are not inspected in this configuration test")
     monkeypatch.setenv("AW2_ROM_PATH", "missing.gba" if use_cli else str(rom))
+    monkeypatch.delenv("AW2_SAVE_PROFILE_PATH", raising=False)
     monkeypatch.setattr(
         "sys.argv", ["serve.py", "--rom-path", str(rom)] if use_cli else ["serve.py"]
     )
@@ -89,8 +90,31 @@ def test_rom_path_configuration(
     prototype.main()
 
     assert observed["settings"].rom_path == rom.resolve()
+    assert observed["settings"].save_profile_path is None
     assert observed["application"] is app
     assert observed["options"] == {"host": "127.0.0.1", "port": 43127}
+
+
+def test_save_profile_environment_configures_runtime(
+    prototype: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rom = tmp_path / "aw2.gba"
+    rom.write_bytes(b"test rom")
+    profile = tmp_path / "all-unlocked.sps"
+    profile.write_bytes(b"test profile")
+    monkeypatch.setenv("AW2_ROM_PATH", str(rom))
+    monkeypatch.setenv("AW2_SAVE_PROFILE_PATH", str(profile))
+    monkeypatch.setattr("sys.argv", ["serve.py"])
+    observed = {}
+    app = FastAPI()
+    monkeypatch.setattr(
+        prototype, "create_app", lambda *, settings: observed.update(settings=settings) or app
+    )
+    monkeypatch.setattr(prototype.uvicorn, "run", lambda *_args, **_kwargs: None)
+
+    prototype.main()
+
+    assert observed["settings"].save_profile_path == profile.resolve()
 
 
 @pytest.mark.parametrize("env_value", [None, "", "missing.gba", "."])

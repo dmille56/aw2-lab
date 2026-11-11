@@ -20,7 +20,9 @@ from aw2_lab.bridge import BridgeError, LuaBridgeClient
 from aw2_lab.cold_boot import ColdBootError, boot_fixed_versus_match
 from aw2_lab.emulator import EmulatorLauncher, EmulatorMode, EmulatorSettings
 from aw2_lab.lifecycle import BattleControlObservation, classify_lifecycle
+from aw2_lab.map_catalog import MAP_IDS, MAPS_BY_ID
 from aw2_lab.rom_profile import select_rom_profile
+from aw2_lab.save_profile import decode_sharkport_save as _decode_sharkport_save
 
 _PROCESS_POOL = (0x0200D610, 32 * 0x6C)
 _CONTROL = (0x03003F3C, 0xC4)
@@ -68,7 +70,10 @@ def recorder_main(arguments: list[str]) -> None:
         "--existing-save",
         type=Path,
         metavar="PATH",
-        help="copy this save into the isolated run (required with --save-mode existing)",
+        help=(
+            "copy this .sav or convert this GameShark SP .sps into the isolated run "
+            "(required with --save-mode existing)"
+        ),
     )
     parser.add_argument("--mgba-headless", metavar="PATH")
     parser.add_argument("--mgba-windowed", metavar="PATH")
@@ -81,7 +86,13 @@ def recorder_main(arguments: list[str]) -> None:
     parser.add_argument(
         "--automate-fixed-match",
         action="store_true",
-        help="run the recognized fresh or existing-save path to the first player turn",
+        help="run the recognized save path to the first player turn and verify --map-id",
+    )
+    parser.add_argument(
+        "--map-id",
+        choices=MAP_IDS,
+        default="bean_island",
+        help="Versus map to verify when using --automate-fixed-match",
     )
     args = parser.parse_args(arguments)
 
@@ -94,22 +105,33 @@ def recorder_main(arguments: list[str]) -> None:
         parser.error("--existing-save is required when --save-mode is existing")
     if args.save_mode == "fresh" and args.existing_save is not None:
         parser.error("--existing-save cannot be used with --save-mode fresh")
-    if args.existing_save is not None and not args.existing_save.expanduser().is_file():
-        parser.error(f"existing save is not a file: {args.existing_save}")
+    source_save = args.existing_save.expanduser().resolve() if args.existing_save else None
+    if source_save is not None and not source_save.is_file():
+        parser.error(f"existing save is not a file: {source_save}")
+    if source_save is not None and source_save.suffix.lower() not in {".sav", ".sps"}:
+        parser.error("--existing-save must be an mGBA .sav or GameShark SP .sps file")
 
     try:
         profile = select_rom_profile(rom_path)
+        sharkport_save = (
+            _decode_sharkport_save(source_save, rom_path)
+            if source_save is not None and source_save.suffix.lower() == ".sps"
+            else None
+        )
         output = _create_output_directory(args.output)
     except (OSError, ValueError) as error:
         parser.error(str(error))
 
     save_directory = output / "save-data"
     save_directory.mkdir()
-    if args.existing_save is not None:
-        source = args.existing_save.expanduser().resolve()
-        if source.suffix.lower() != ".sav":
-            parser.error("--existing-save must be an mGBA .sav file")
-        shutil.copy2(source, save_directory / f"{rom_path.stem}.sav")
+    prepared_rom = save_directory / rom_path.name
+    shutil.copyfile(rom_path, prepared_rom)
+    if source_save is not None:
+        isolated_save = save_directory / f"{rom_path.stem}.sav"
+        if sharkport_save is not None:
+            isolated_save.write_bytes(sharkport_save)
+        else:
+            shutil.copy2(source_save, isolated_save)
 
     config_root = output / "mgba-config"
     data_root = output / "mgba-data"
@@ -127,37 +149,59 @@ def recorder_main(arguments: list[str]) -> None:
         encoding="utf-8",
     )
 
+    if args.lua_bridge:
+        bridge_script = args.lua_bridge.expanduser().resolve()
+    else:
+        bridge_script = Path(__file__).resolve().parent / "lua" / "bridge.lua"
+        if not bridge_script.is_file():
+            bridge_script = Path(__file__).resolve().parents[2] / "lua" / "bridge.lua"
+    if not bridge_script.is_file():
+        parser.error(f"Lua bridge script does not exist: {bridge_script}")
+    isolated_save = save_directory / f"{rom_path.stem}.sav"
+    bootstrap: Path | None = None
+    if isolated_save.is_file():
+        bootstrap = output / "load-save.lua"
+        bootstrap.write_text(
+            f"assert(emu:loadSaveFile({_lua_string(str(isolated_save))}, false), "
+            "'Cannot load isolated cartridge save')\n"
+            "emu:reset()\n"
+            f"dofile({_lua_string(str(bridge_script))})\n",
+            encoding="utf-8",
+        )
     settings = EmulatorSettings(
-        rom_path=rom_path,
+        rom_path=prepared_rom,
         mode=args.mode,
         headless_executable=args.mgba_headless,
         windowed_executable=args.mgba_windowed,
-        bridge_script=args.lua_bridge.expanduser().resolve() if args.lua_bridge else None,
+        bridge_script=bootstrap or bridge_script,
         suppress_emulator_output=True,
     )
     launcher = EmulatorLauncher(settings)
     bridge = LuaBridgeClient(timeout=2)
-    _write_json(
-        output / "manifest.json",
-        {
-            "schema_version": 1,
-            "tool_version": __version__,
-            "rom_profile": profile.__dict__
-            if hasattr(profile, "__dict__")
-            else {field: getattr(profile, field) for field in profile.__dataclass_fields__},
-            "rom_path": str(rom_path),
-            "rom_sha256": profile.sha256,
-            "mode": args.mode.value,
-            "save_mode": args.save_mode,
-            "existing_save_sha256": (
-                _sha256_file(args.existing_save.expanduser())
-                if args.existing_save is not None
-                else None
-            ),
-            "full_ram": args.full_ram,
-            "started_at": datetime.now(UTC).isoformat(),
-        },
-    )
+    manifest: dict[str, object] = {
+        "schema_version": 1,
+        "tool_version": __version__,
+        "rom_profile": profile.__dict__
+        if hasattr(profile, "__dict__")
+        else {field: getattr(profile, field) for field in profile.__dataclass_fields__},
+        "rom_path": str(rom_path),
+        "rom_sha256": profile.sha256,
+        "mode": args.mode.value,
+        "save_mode": args.save_mode,
+        "requested_map_id": args.map_id,
+        "prepared_rom": str(prepared_rom.relative_to(output)),
+        "existing_save_sha256": (_sha256_file(source_save) if source_save is not None else None),
+        "existing_save_format": (
+            "gameshark_sp_sps"
+            if source_save is not None and source_save.suffix.lower() == ".sps"
+            else "mgba_sav"
+            if source_save is not None
+            else None
+        ),
+        "full_ram": args.full_ram,
+        "started_at": datetime.now(UTC).isoformat(),
+    }
+    _write_json(output / "manifest.json", manifest)
 
     async def run() -> None:
         with _isolated_xdg(config_root, data_root, cache_root):
@@ -205,12 +249,30 @@ def recorder_main(arguments: list[str]) -> None:
                     print(f"Captured {label} at frame {frame}.")
                     index += 1
 
-                result = await boot_fixed_versus_match(
-                    bridge,
-                    rom_path=rom_path,
-                    save_mode=args.save_mode,
-                    checkpoint_recorder=record_checkpoint,
-                )
+                try:
+                    result = await boot_fixed_versus_match(
+                        bridge,
+                        rom_path=rom_path,
+                        save_mode=args.save_mode,
+                        map_id=args.map_id,
+                        checkpoint_recorder=record_checkpoint,
+                    )
+                except ColdBootError as error:
+                    _write_json(
+                        output / "automation-result.json",
+                        {
+                            "status": "failed",
+                            "requested_map_id": args.map_id,
+                            "requested_map_name": MAPS_BY_ID[args.map_id].name,
+                            "reason": str(error),
+                            "progress": [
+                                event["label"]
+                                for event in _read_trace_events(output)
+                                if isinstance(event.get("label"), str)
+                            ],
+                        },
+                    )
+                    raise
                 battle = result.game_state.battle.value
                 if battle is None:
                     raise ColdBootError("Verified cold boot returned no battle state")
@@ -218,6 +280,7 @@ def recorder_main(arguments: list[str]) -> None:
                     output / "automation-result.json",
                     {
                         "status": "verified",
+                        "requested_map_id": args.map_id,
                         "final_frame": result.game_state.frame,
                         "map_id": result.map_id,
                         "phase": result.game_state.lifecycle.phase.value,
@@ -284,6 +347,23 @@ def recorder_main(arguments: list[str]) -> None:
                 index += 1
         finally:
             await launcher.stop()
+            isolated_save = save_directory / f"{rom_path.stem}.sav"
+            source_unchanged = _record_save_copy_result(
+                output,
+                manifest,
+                prepared_rom,
+                isolated_save,
+                source_save,
+            )
+            if isolated_save.is_file():
+                print(
+                    "Isolated save copy: "
+                    f"{isolated_save.relative_to(output)} "
+                    f"(SHA-256 {_sha256_file(isolated_save)})"
+                )
+                print(f"Prepared ROM/save pair: {prepared_rom}")
+            if not source_unchanged:
+                print("Warning: source save changed during the isolated run.", file=sys.stderr)
             _append_trace(
                 output,
                 {"event": "emulator_stopped", "at": datetime.now(UTC).isoformat()},
@@ -443,8 +523,42 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _lua_string(value: str) -> str:
+    separator = ""
+    while f"]{separator}]" in value or value.endswith(f"]{separator}"):
+        separator += "="
+    return f"[{separator}[{value}]{separator}]"
+
+
 def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def _record_save_copy_result(
+    output: Path,
+    manifest: dict[str, object],
+    prepared_rom: Path,
+    isolated_save: Path,
+    source_save: Path | None,
+) -> bool:
+    source_hash_before = manifest["existing_save_sha256"]
+    source_hash_after = _sha256_file(source_save) if source_save is not None else None
+    source_unchanged = source_hash_before is None or source_hash_before == source_hash_after
+    manifest["prepared_rom"] = str(prepared_rom.relative_to(output))
+    manifest["isolated_save"] = {
+        "path": str(isolated_save.relative_to(output)) if isolated_save.is_file() else None,
+        "sha256": _sha256_file(isolated_save) if isolated_save.is_file() else None,
+        "source_save_unchanged": source_unchanged,
+    }
+    _write_json(output / "manifest.json", manifest)
+    return source_unchanged
+
+
+def _read_trace_events(output: Path) -> list[dict[str, object]]:
+    trace = output / "trace.jsonl"
+    if not trace.is_file():
+        return []
+    return [json.loads(line) for line in trace.read_text(encoding="utf-8").splitlines()]
 
 
 def _append_trace(output: Path, payload: dict[str, object]) -> None:

@@ -44,6 +44,27 @@ class FakeProcess:
         return self.returncode or 0
 
 
+def sharkport_save(rom_identity: bytes, payload: bytes) -> bytes:
+    def field(value: bytes) -> bytes:
+        return len(value).to_bytes(4, "little") + value
+
+    header = rom_identity + bytes(0x1C - len(rom_identity))
+    record = header + payload
+    return b"".join(
+        (
+            len(b"SharkPortSave").to_bytes(4, "little"),
+            b"SharkPortSave",
+            (0x000F0000).to_bytes(4, "little"),
+            field(b"Advance Wars 2"),
+            field(b"2002-01-01"),
+            field(b"all unlocks"),
+            len(record).to_bytes(4, "little"),
+            record,
+            bytes(4),
+        )
+    )
+
+
 @pytest.mark.anyio
 @pytest.mark.parametrize(
     ("mode", "executable_override", "expected_executable"),
@@ -323,3 +344,70 @@ async def test_server_isolates_rom_and_save_copy_and_cleans_up(monkeypatch, tmp_
     await launcher.stop()
     assert save.read_bytes() == b"original save"
     assert not copied[0].parent.exists()
+
+
+@pytest.mark.anyio
+async def test_launcher_converts_sps_into_temporary_save_profile(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr("aw2_lab.emulator.LuaBridgeClient.connect", bridge_ready)
+    rom_identity = b"ADVANCEWARS2AW2E"
+    rom = tmp_path / "aw2.gba"
+    rom.write_bytes(bytes(0xA0) + rom_identity + bytes(0x100))
+    adjacent_save = rom.with_suffix(".sav")
+    adjacent_save.write_bytes(b"user's existing save")
+    payload = bytes(index % 251 for index in range(0x10000))
+    profile = tmp_path / "all-unlocked.sps"
+    profile.write_bytes(sharkport_save(rom_identity, payload))
+    original_profile = profile.read_bytes()
+    script = tmp_path / "bridge.lua"
+    script.touch()
+    copied: dict[str, object] = {}
+
+    async def create_process(*args, **kwargs):
+        local_rom = Path(args[-1])
+        local_save = local_rom.with_suffix(".sav")
+        bootstrap = Path(args[2])
+        copied.update(
+            rom=local_rom,
+            save=local_save,
+            bootstrap=bootstrap,
+            save_bytes=local_save.read_bytes(),
+            script=bootstrap.read_text(),
+        )
+        assert local_rom != rom
+        assert local_save.read_bytes() == payload
+        assert str(profile) not in bootstrap.read_text()
+        assert str(local_save) in bootstrap.read_text()
+        return FakeProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", create_process)
+    launcher = EmulatorLauncher(
+        EmulatorSettings(rom_path=rom, save_profile_path=profile, bridge_script=script)
+    )
+
+    await launcher.start()
+    await launcher.stop()
+
+    assert profile.read_bytes() == original_profile
+    assert adjacent_save.read_bytes() == b"user's existing save"
+    assert not Path(copied["rom"].parent).exists()
+
+
+@pytest.mark.anyio
+async def test_launcher_rejects_sps_for_different_rom_without_launching(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rom = tmp_path / "aw2.gba"
+    rom.write_bytes(bytes(0xA0) + b"ADVANCEWARS2AW2E" + bytes(0x100))
+    profile = tmp_path / "other-game.sps"
+    profile.write_bytes(sharkport_save(b"OTHER-GAME-ROM!!", bytes(0x10000)))
+
+    async def should_not_launch(*args, **kwargs):
+        raise AssertionError("mGBA should not start with a mismatched save profile")
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", should_not_launch)
+    launcher = EmulatorLauncher(EmulatorSettings(rom_path=rom, save_profile_path=profile))
+
+    with pytest.raises(EmulatorLaunchError, match="belongs to a different ROM"):
+        await launcher.start()

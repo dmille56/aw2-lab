@@ -39,6 +39,12 @@ def main() -> None:
         metavar="PATH",
         help="path to your AW2 ROM (required; default: AW2_ROM_PATH)",
     )
+    parser.add_argument(
+        "--save-profile",
+        default=os.environ.get("AW2_SAVE_PROFILE_PATH"),
+        metavar="PATH",
+        help="isolated starting save profile (.sps or .sav; default: AW2_SAVE_PROFILE_PATH)",
+    )
     parser.add_argument("--operator-secret-file", type=Path)
     parser.add_argument("--storage-dir", type=Path)
     parser.add_argument("--emulator-mode", choices=list(EmulatorMode), default="headless")
@@ -48,6 +54,13 @@ def main() -> None:
     rom_path = Path(args.rom_path).expanduser()
     if not rom_path.is_file():
         parser.error(f"ROM path is not a file: {rom_path}")
+    save_profile_path = None
+    if args.save_profile:
+        save_profile_path = Path(args.save_profile).expanduser()
+        if not save_profile_path.is_file():
+            parser.error(f"save profile path is not a file: {save_profile_path}")
+        if save_profile_path.suffix.lower() not in {".sav", ".sps"}:
+            parser.error("save profile must be an mGBA .sav or GameShark SP .sps file")
     options = {}
     if args.operator_secret_file is not None:
         options["operator_secret_file"] = args.operator_secret_file.expanduser()
@@ -55,7 +68,9 @@ def main() -> None:
         options["storage_root"] = args.storage_dir.expanduser()
     app = create_app(
         settings=EmulatorSettings(
-            rom_path=rom_path.resolve(), mode=EmulatorMode(args.emulator_mode)
+            rom_path=rom_path.resolve(),
+            save_profile_path=save_profile_path.resolve() if save_profile_path else None,
+            mode=EmulatorMode(args.emulator_mode),
         ),
         **options,
     )

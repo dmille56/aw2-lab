@@ -64,10 +64,143 @@ The manual trace remains the source evidence for the automated cold-boot
 sequence. Without `--automate-fixed-match`, the recorder does not navigate menus
 or claim that a particular setup is correct.
 
+## Provision a save copy for a locked Versus map
+
+Unlocking remains a player action in AW2. Use this recorder to do it in a
+dedicated copy: the ROM and source `.sav` are copied under the output directory,
+and mGBA writes only to that copy. In the windowed recorder, navigate the game's
+own modes and Battle Maps, complete any required progress or purchase, save in
+game, and quit. The output `save-data/aw2.sav` is kept alongside
+`save-data/aw2.gba`; `manifest.json` records its final hash and whether the
+source save stayed unchanged. The original save is never used as mGBA's writable
+save file.
+
+```sh
+nix develop -c python -m aw2_lab record-cold-boot \
+  --rom /absolute/path/to/aw2.gba --mode windowed --save-mode existing \
+  --existing-save /absolute/path/to/aw2.sav \
+  --output /tmp/aw2-map-save-provision
+```
+
+The recorder accepts either an mGBA `.sav` or the supplied GameShark SP `.sps`.
+For `.sps`, it validates the SharkPort container and embedded ROM identity, then
+extracts the 64 KiB SRAM payload into the isolated `.sav` copy. The original
+container remains untouched. For example, to prepare from the all-unlocked
+profile:
+
+```sh
+nix develop -c python -m aw2_lab record-cold-boot \
+  --rom /absolute/path/to/aw2.gba --mode windowed --save-mode existing \
+  --existing-save /absolute/path/to/advance-wars-2-black-hole-rising.5719.sps \
+  --output /tmp/aw2-all-unlocked-profile
+```
+
+Quit the recorder after it opens. The pair in `save-data` is a standalone
+profile. Point the local runtime at
+`/tmp/aw2-all-unlocked-profile/save-data/aw2.gba` to use its companion save; keep
+the output directory intact. To verify a requested map before creating a normal
+match, use the automated path in a separate output directory:
+
+```sh
+nix develop -c python -m aw2_lab record-cold-boot \
+  --rom /tmp/aw2-map-save-provision/save-data/aw2.gba \
+  --mode headless --save-mode existing \
+  --existing-save /tmp/aw2-map-save-provision/save-data/aw2.sav \
+  --automate-fixed-match --map-id hourglass_isle \
+  --output /tmp/aw2-map-save-verify
+```
+
+The verifier reports the requested map, last reached navigation checkpoints,
+and a concrete failure reason in `automation-result.json`; successful
+verification records the settled playable map ID. A locked map remains a
+failure and does not change the source profile. This flow does not patch SRAM
+or earn game progress automatically.
+
+### Cheat-code investigation
+
+An initial mGBA test used the published CodeBreaker “Have All Battle Maps”
+code (`42028040 FFFF / 0000000D 0002`) with its enable code on a disposable ROM
+copy. It changed bytes at `0x02028040`, but Hourglass Isle remained unavailable
+in the Versus selector. This code therefore does not solve the Versus-map
+provisioning case in our setup. A separate published “All Vs Maps” code is
+Action Replay MAX encrypted (`E8999409 0322EA64`); it has not been validated or
+converted to a format accepted by our mGBA build. The next useful experiment is
+to convert that exact code (or identify its underlying save flag), then repeat
+the unlock and persistence checks on a disposable save. Do not apply unverified
+codes to a user's source save.
+
+A second source gives a direct Versus unlock write at `0x02028046` (`FFFF`)
+([GameHacking.org](https://gamehacking.org/game/3803)). Loading that write as a
+startup cheat also failed to unlock Hourglass Isle, even though EWRAM later
+showed the value. A timing probe on a disposable ROM copy wrote the same two
+bytes through the bridge at the `hourglass-isle-selected` checkpoint, after the
+map menu had opened and immediately before confirming it. That run passed map
+confirmation and reached Hourglass Isle (map ID 38, 16x24, frame 7041). It is
+promising evidence that the write needs to happen after the game has initialized
+its map selector. That first attempt used the full CO roster indices and failed
+CO identity verification. A follow-up used fresh-save roster indices Andy=0
+and Max=1, while keeping all playable-state assertions enabled; it verified
+Hourglass Isle through the first player turn at frame 6948 with battle CO IDs
+`[1, 2]`. This confirms a complete experimental match path when the write
+happens after the map selector initializes and the fresh roster is indexed
+correctly. The repo's regular cold-boot path still assumes full-roster CO
+indices, so it does not yet reproduce this result automatically. No in-game
+save was made, so persistence remains unverified. The next step is to add a
+clearly opt-in late write and fresh-roster mapping to the isolated recorder,
+then check whether an in-game save retains the unlock after restart.
+
+### CO unlock status
+
+The [published “All COs Unlocked” GameShark Advance code](https://gamehacking.org/game/3803)
+is `81D67E78 B20B1BE0`; the same source lists a “Must Be On” code for the
+supported US ROM. The CodeBreaker write `0x0202805A = 0xFFFF` changes the EWRAM
+save block but does not expand the fresh-save selector beyond its 16 entries.
+Loading the published GameShark code through mGBA's cheat file did not change
+the CO data in our probe. The supplied
+`all-unlocked-saves/advance-wars-2-black-hole-rising.5719.sps` is a SharkPort
+export whose 64 KiB payload matches `~/Downloads/aw2/aw2.sav` exactly (SHA-256
+`f596b04b096de3a3b89615cf0ea2c3b6d2904bee26ff7b84fcbd0215e483e42a`). The
+`gameshark-all-unlock/` directory was empty during this check. On an isolated
+ROM/save copy, the imported profile passed complete playable-state verification
+on Pipe Maze (map ID 104, 22x22) with Nell, Hachi, Sturm, and Hawke (battle CO
+IDs 0, 15, 10, and 14) at frame 8450. It also passed with Hourglass Isle, Nell,
+and Sturm at frame 7073. Use this profile for runs that need all maps and
+campaign-locked COs. Generating that profile from a fresh save with cheat codes
+remains unverified.
+
+### Fresh-save unlock generation probe (2026-11-11)
+
+The supplied profile was compared with a new, isolated fresh-save boot at the
+same Versus/Teams boundary. At `0x02028030`, the fresh session read `00 00` and
+the all-unlocked profile read `7f 01`. Other differences appeared at
+`0x02028046`, `0x0202804b..4c`, `0x0202804f`, `0x02028052..53`, and
+`0x0202805a..76`. These are observations only; copying the full observed block
+`0x02028030..77` into fresh-session EWRAM did not expose the campaign-locked COs.
+
+Additional disposable tests tried the published CodeBreaker repeat-write
+codes for all COs (`4202C630 0101 0000000E 0002`) and maps
+(`4202C6B0 0101 00000030 0002`) both as direct RAM writes at menu checkpoints
+and through mGBA's continuously applied cheat file. Hourglass Isle remained
+locked. A late write of `0xFFFF` at `0x02028046` still loaded the map as in the
+earlier timing probe, but writing `0xFFFF` at `0x0202805A`, the published
+repeat-write CO array, campaign-completion byte `0x02028030 = 0x77`, or the
+observed all-unlocked profile block did not extend the fresh CO selector past
+its first 16 entries. Attempts to select Sturm stopped at the fresh roster's
+last available entry. These codes and writes therefore do not generate an
+all-unlocked persistent save in this mGBA/US-ROM setup.
+
+All experiments used ROM copies and temporary emulator RAM under `/tmp`; the
+source `.sps` and `.sav` were read-only and remain unchanged. No save was
+written or persisted by the failed fresh-save probes. The exact unlock fields
+and a safe way to generate a persistent all-unlocked save from blank SRAM
+remain unresolved. For working sessions, seed the isolated runtime from the
+verified GameShark `.sps` profile described above.
+
 To run the fixed-match path automatically and record its recognized screen
 boundaries, add `--automate-fixed-match`. Fresh saves use `--save-mode fresh`;
-existing saves must also specify the source `.sav` file, which is copied into
-the isolated output directory before mGBA starts:
+existing saves must also specify a source `.sav` or GameShark SP `.sps` file,
+which is copied or converted into the isolated output directory before mGBA
+starts:
 
 ```sh
 nix develop -c python -m aw2_lab record-cold-boot \

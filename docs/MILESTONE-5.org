@@ -162,10 +162,18 @@ Milestone 5 is complete, as requested. Keep the Pi bubblewrap investigation
 deferred until the same point. Both are tracked in
 [[file:MILESTONE-4.org][the Milestone 4 deferred work]].
 
-** TODO Support unlocking save-dependent Versus maps from fresh or partially unlocked saves
-   Decide how to unlock/provision a requested map when the configured save does
-   not have it unlocked. Keep the source save unchanged and avoid implying that
-   the current capabilities status has changed until the game confirms access.
-   - [ ] Choose a safe flow, such as guiding the user through Battle Maps or using an explicitly authorized isolated save copy.
-   - [ ] Report progress and failure clearly when a requested unlock cannot be completed.
-   - [ ] Verify fresh and partially unlocked saves in headless/windowed mGBA; confirm fully unlocked saves remain unchanged.
+** IN-PROGRESS Support provisioning save-dependent Versus maps safely
+   Use the explicit isolated-save workflow in [[file:COLD-BOOT-RESEARCH.md::*Provision a save copy for a locked Versus map][the cold-boot guide]]. The recorder keeps the writable copy and requested-map verification reports progress/failure without changing the source save. A late write at map confirmation can load the requested map; automate and validate this safely before treating provisioning as complete.
+   - [X] Choose a safe Battle Maps flow on an isolated, reusable ROM/save copy; leave source saves unchanged.
+   - [X] Report the requested map, navigation progress, and failure reason when verification cannot load it.
+   - [X] Verify a fresh save rejects the requested map and a fully unlocked save loads it in headless/windowed mGBA; confirm the fully unlocked source save remains unchanged. See [[file:LIVE-SDK-ACCEPTANCE.md::*Follow-up isolated map-save provisioning (2026-11-11)][the follow-up acceptance record]].
+   - [X] Test the published CodeBreaker “Have All Battle Maps” code on a disposable copy; it changes the expected RAM region but does not unlock Hourglass Isle in Versus.
+   - [X] Test the published direct “All Vs Maps” write (`0x02028046 = 0xFFFF`) as a startup cheat; the map remains unavailable.
+   - [X] Apply that write at the selected-map checkpoint on a disposable copy; with fresh-save CO indexes Andy=0 and Max=1, the complete match state passed verification at Hourglass Isle (ID 38, 16x24), frame 6948.
+   - [X] Accept the supplied GameShark SharkPort `.sps` directly in the recorder; validate container/ROM identity and extract it to a writable isolated `.sav`. Verify the all-unlocked profile in an isolated run: Pipe Maze with Nell, Hachi, Sturm, and Hawke passed at frame 8450; Hourglass Isle with Nell and Sturm passed at frame 7073; recorder run reached Hourglass Isle at frame 6949. The source `.sps` hash remained unchanged.
+   - [X] Allow normal emulator startup to use `--save-profile` or `AW2_SAVE_PROFILE_PATH`; convert the configured `.sps` to an explicitly loaded temporary `.sav` and remove it at shutdown. A startup-path run loaded Pipe Maze with all four tested campaign COs while preserving both the source `.sps` and a blank adjacent `.sav`; see [[file:LIVE-SDK-ACCEPTANCE.md::*Follow-up isolated map-save provisioning (2026-11-11)][the runtime acceptance record]].
+   - [X] Test the published all-CO flag (`0x0202805A = 0xFFFF`) and GameShark Advance code; neither enabled the campaign-locked COs in a fresh save under the tested mGBA setup.
+   - [X] Document and use the supplied all-unlocked save profile for runs that need all maps and campaign-locked COs.
+   - [ ] Generate a persistent all-unlocked profile from blank SRAM. The published repeat-write CO/map codes, direct flag writes, and copying the observed `0x02028030..77` profile block did not unlock a fresh save; see [[file:COLD-BOOT-RESEARCH.md::*Fresh-save unlock generation probe (2026-11-11)][the failed fresh-save probes]]. The supplied GameShark profile remains the working isolated seed.
+   - [ ] Add an opt-in late write and fresh-roster mapping to the isolated recorder; check whether an in-game save retains the unlock after restart.
+   - [ ] Verify a partially unlocked save in headless/windowed mGBA; this awaits a partially unlocked `.sav`.

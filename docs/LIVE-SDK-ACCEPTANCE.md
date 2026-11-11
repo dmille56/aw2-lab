@@ -647,6 +647,83 @@ Accepted-map evidence is external under `/tmp/aw2-map-unlock-final/`. Fresh-save
 selector traces are under `/tmp/pytest-of-dono/pytest-1433/`; they end at each
 map's confirmation label and contain no CO setup input.
 
+## Follow-up isolated map-save provisioning (2026-11-11)
+
+`record-cold-boot` now builds a reusable ROM/save pair in its external output
+directory. It explicitly loads the copied save before resetting the core,
+records the final isolated-save hash and source-save unchanged status, and never
+opens the source `.sav` as a writable file. Manual windowed input can be used to
+earn/purchase map unlocks through AW2 itself. The automated verifier accepts
+`--map-id`, records the requested map and navigation progress, and writes a
+failure reason if the game rejects the map. A successful result records the
+settled playable map ID. This does not patch RAM or automate unlock progress.
+
+The supplied save remained unchanged at SHA-256
+`f596b04b096de3a3b89615cf0ea2c3b6d2904bee26ff7b84fcbd0215e483e42a`. With the
+supported ROM SHA-256 `ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`,
+Hourglass Isle loaded as map ID 38 at 16x24 in both headless build
+`sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22` and
+windowed build
+`sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810`.
+The verifier completed at frame 6949. A fresh save rejected the same request
+before Teams setup in both frontends, with the reason “Hourglass Isle is not
+selectable in this save; unlock it in Battle Maps.”
+
+Recorder evidence is in `/tmp/aw2-map-save-verify-1111-headless-v2/` (verified
+existing save) and `/tmp/aw2-map-save-verify-fresh-1111/` (fresh-save rejection).
+The separate headless/windowed acceptance traces are under
+`/tmp/pytest-of-dono/pytest-1450/`, `pytest-1451/`, and `pytest-1452/`. No
+partially unlocked `.sav` was available, so verification of mixed unlock states
+remains open.
+
+### Cheat-code provisioning probe (2026-11-11)
+
+On a disposable ROM copy, mGBA loaded the published CodeBreaker “Have All
+Battle Maps” code together with its enable code and wrote the expected unlock
+pattern into EWRAM at `0x02028040`. The automated Versus selector still rejected
+Hourglass Isle. This establishes that the code was being applied, but that it
+does not provide the Versus unlock needed by this workflow. The separate
+published “All Vs Maps” code is Action Replay MAX encrypted and remains
+unvalidated. A startup cheat containing the direct write `0x02028046 = 0xFFFF`
+also left the map unavailable. However, writing the same value at the selected
+map checkpoint immediately before confirmation loaded Hourglass Isle (ID 38,
+16x24) at frame 7041. That first run had a CO-index mismatch. A repeat using the
+fresh-save roster indices Andy=0 and Max=1 passed the complete playable-state
+checks at Hourglass Isle, map ID 38, 16x24, frame 6948, with battle CO IDs
+`[1, 2]`. The application still needs an explicit fresh-roster mapping and an
+opt-in late write to reproduce this path automatically. No in-game save was
+made, so persistence is unverified. See
+[[file:COLD-BOOT-RESEARCH.md::*Cheat-code investigation][the provisioning research note]].
+
+The published all-CO GameShark Advance code and direct `0x0202805A = 0xFFFF`
+write did not expose the campaign-locked COs in a fresh save under the tested
+mGBA setup. The supplied SharkPort `.sps` was extracted to a disposable `.sav`;
+its payload hash matches the existing `aw2.sav` exactly. With this profile, the
+isolated launcher passed Hourglass Isle with Nell and Sturm at frame 7073, and
+Pipe Maze with Nell, Hachi, Sturm, and Hawke at frame 8450 (battle CO IDs 0, 15,
+10, and 14). The original `.sps` and `.sav` were not modified. The named
+`gameshark-all-unlock/` directory was empty; the `.sps` was in
+`all-unlocked-saves/`.
+
+The recorder now accepts that `.sps` directly, validates its SharkPort
+container and ROM identity, and extracts its 64 KiB payload to the disposable
+profile's `save-data/aw2.sav`. A headless recorder run using the supplied `.sps`
+reached Hourglass Isle (map ID 38) at the first player turn, frame 6949. The
+source `.sps` remained unchanged (SHA-256
+`b7cff54d1e06baaf79bf4a416f2e080243ba31d514e48d1d0d29be1d83ecedea`); the
+manifest reports `source_save_unchanged: true`. The prepared pair is under
+`/tmp/aw2-sps-profile-validation-hourglass2/`. This profile can be used for
+local runs while the source GameShark save remains read-only; launcher runs also
+copy companion saves into their own temporary workspace.
+
+Normal runtime startup now accepts `--save-profile /path/to/profile.sps` or
+`AW2_SAVE_PROFILE_PATH=/path/to/profile.sps`. The launcher creates an isolated
+ROM/save pair, validates and converts the SPS before launch, explicitly loads
+the temporary `.sav`, and removes the workspace at shutdown. A startup-path
+probe used that setting with a blank adjacent `.sav`; Pipe Maze loaded at map ID
+104 (22x22) with Nell, Hachi, Sturm, and Hawke (battle CO IDs 0, 15, 10, 14) at
+frame 8450. The adjacent blank save and source SPS were unchanged.
+
 ```sh
 AW2_RUN_RUNTIME_TESTS=1 AW2_ROM_PATH=/private/aw2.gba \
   AW2_RUNTIME_MAP_IDS=little_island,big_daddy,pay_dirt AW2_RUNTIME_MODE=headless \
