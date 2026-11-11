@@ -60,6 +60,8 @@ _CO_BATTLE_ID: dict[CoId, int] = {
     "sensei": 18,
 }
 _DEFAULT_MATCH_RULES = MatchRules()
+_WEATHER_SELECTOR_INDEX = {"random": 0, "clear": 1, "rain": 2, "snow": 3}
+_WEATHER_MODE = {"clear": 0, "rain": 3, "snow": 3, "random": 1}
 # Main-menu and Continue/New selector tables identified in the manual traces.
 _VERSUS_MODE_TABLE = 0x086076DF
 _CONTINUE_CHOICE_TABLE = 0x0860770A
@@ -518,7 +520,12 @@ async def boot_fixed_versus_match(
         ) != (0, 0, 0, 0, 0):
             raise ColdBootError("Unexpected default rule selectors")
         for field_name, target, maximum, label in (
-            ("weather_rule", 1, 1, "weather"),
+            (
+                "weather_rule",
+                _WEATHER_SELECTOR_INDEX[match_rules.starting_weather],
+                3,
+                "weather",
+            ),
             (
                 "income_rule",
                 match_rules.starting_funds // 500 - 2,
@@ -549,8 +556,12 @@ async def boot_fixed_versus_match(
         await tap("start-battle", _KEY_A)
         await wait_for(LifecyclePhase.BATTLE_PLAYER_TURN, budget=1800)
         game_state = await capture_game_state(bridge, rom_path=rom_path)
-        loaded_map_id = (await bridge.read_memory_snapshot([(0x03003FC2, 1)])).ranges[0][0]
-        _verify_playable_state(game_state, loaded_map_id, selected_map, co_ids, match_rules)
+        startup_memory = await bridge.read_memory_snapshot([(0x03003FC2, 1), (0x03003FED, 1)])
+        loaded_map_id = startup_memory.ranges[0][0]
+        weather_mode = startup_memory.ranges[1][0]
+        _verify_playable_state(
+            game_state, loaded_map_id, selected_map, co_ids, match_rules, weather_mode
+        )
         ready = await observe()
         await checkpoint("player-one-ready", ready)
 
@@ -656,7 +667,7 @@ async def _select_rule_value(
 def _verify_rules(state: _FrontendState, rules: MatchRules = _DEFAULT_MATCH_RULES) -> None:
     expected = (
         int(rules.fog is False),
-        1,  # Clear; selectable starting weather is tracked separately.
+        _WEATHER_SELECTOR_INDEX[rules.starting_weather],
         rules.starting_funds // 500 - 2,
         0 if rules.day_limit is None else rules.day_limit - 4,
         0 if rules.capture_limit is None else rules.capture_limit - 11,
@@ -679,6 +690,7 @@ def _verify_playable_state(
     selected_map: VersusMap = MAPS_BY_ID["bean_island"],
     co_ids: tuple[CoId, CoId] = ("andy", "max"),
     match_rules: MatchRules = _DEFAULT_MATCH_RULES,
+    weather_mode: int = 0,
 ) -> None:
     if state.lifecycle.phase is not LifecyclePhase.BATTLE_PLAYER_TURN:
         raise ColdBootError(f"Expected a human player turn; observed {state.lifecycle.phase.value}")
@@ -713,11 +725,23 @@ def _verify_playable_state(
             f"Expected player 1 on day 1; observed player {battle.active_player_slot}, "
             f"day {battle.day}"
         )
-    if (
-        battle.weather.status is not ValueStatus.AVAILABLE
-        or battle.weather.value is not Weather.CLEAR
+    if battle.weather.status is not ValueStatus.AVAILABLE or battle.weather.value is None:
+        raise ColdBootError("Starting weather is unavailable at the first player turn")
+    weather = match_rules.starting_weather
+    expected_weather = {"clear": Weather.CLEAR, "rain": Weather.RAIN, "snow": Weather.SNOW}
+    if weather == "random":
+        if weather_mode != _WEATHER_MODE[weather]:
+            raise ColdBootError(
+                f"Random weather expected mode {_WEATHER_MODE[weather]}, observed {weather_mode}"
+            )
+    elif (
+        battle.weather.value is not expected_weather[weather]
+        or weather_mode != _WEATHER_MODE[weather]
     ):
-        raise ColdBootError("Expected clear weather at the first player turn")
+        raise ColdBootError(
+            f"Expected {weather} weather/mode {_WEATHER_MODE[weather]}, observed "
+            f"{battle.weather.value.value}/{weather_mode}"
+        )
 
     if (
         battle.fog_enabled.status is not ValueStatus.AVAILABLE

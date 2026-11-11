@@ -68,6 +68,7 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
         assert advertised["rules"]["capture_limit"] is None
         assert options["rule_options"]["income_per_property"] == list(range(1000, 5001, 500))
         assert options["rule_options"]["co_powers"] == [True, False]
+        assert options["rule_options"]["weather"] == ["clear", "rain", "snow", "random"]
         assert len(options["co_ids"]) == 19
         assert "starting_weather" not in advertised["rules"]
         assert len(advertised["players"]) in caps["supported_player_counts"]
@@ -76,12 +77,7 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
             assert player["control"] in caps["supported_control_modes"]
 
         alternatives = []
-        for field, value in (
-            ("fog", True),
-            ("weather", "rain"),
-            ("weather", "snow"),
-            ("weather", "random"),
-        ):
+        for field, value in (("fog", True),):
             changed = deepcopy(advertised)
             changed["rules"][field] = value
             alternatives.append((changed, "unsupported_feature"))
@@ -155,6 +151,7 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
             day_limit=20,
             capture_limit=20,
             co_powers=False,
+            weather="rain",
         )
         body = {"request_id": request_id, "configuration": selected}
         created = await client.post("/v1/matches", json=body, headers=headers())

@@ -156,8 +156,7 @@ were visible in the Rules-screen screenshot. CO effects were Off at the first
 playable boundary. The headless and windowed captures were visually identical
 for the selected Rules screen.
 
-The selector arithmetic used by automation is: income 1000–5000 in 500 steps;
-day Off or 5–99 (index 0 is Off, then 5 upward by one); capture Off or 12–27
-(index 0 is Off, then 12 upward by one); CO Powers On/Off at indexes 0/1.
-The starting weather selector remains at Clear, and Fog remains Off; those
-configuration extensions have their own Milestone 5 tasks.
+The selector arithmetic used by automation is: weather Random/Clear/Rain/Snow
+at indexes 0/1/2/3; income 1000–5000 in 500 steps; day Off or 5–99 (index 0 is
+Off, then 5 upward by one); capture Off or 12–27 (index 0 is Off, then 12
+upward by one); CO Powers On/Off at indexes 0/1. Fog remains Off.

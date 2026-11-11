@@ -175,9 +175,9 @@ of display labels and emulator memory values. Player count is derived from the
 player collection; each configured slot gets its own invitation and identity.
 
 `rules.weather` accepts `clear`, `rain`, `snow`, or `random`. Clear, Rain, and Snow
-apply throughout the match; Random allows weather changes during play. Only Clear
-belongs to the verified executable profile; the other valid choices remain
-unsupported. The public schema uses `weather`, with no `starting_weather` alias.
+apply throughout the match; Random allows weather changes during play. All four
+choices are advertised and executable. The public schema uses `weather`, with no
+`starting_weather` alias.
 Legacy controller/checkpoint and ledger configurations retain their original
 stored spelling, translated explicitly at the public boundary.
 
@@ -196,8 +196,8 @@ booleans, floats, strings, and omission from an explicit configuration return
 field and translate to Off; their stored format remains unchanged.
 
 Accept the advertised maps, any two COs from the verified roster, and the listed
-income, day-limit, capture-limit, and CO-power values in combination. Fog, starting
-weather, player count, team layout, colors, and controls remain fixed. Do not
+income, day-limit, capture-limit, CO-power, and starting-weather values in
+combination. Fog, player count, team layout, colors, and controls remain fixed. Do not
 silently replace caller choices with defaults. Unknown identifiers or malformed
 values return `invalid_request`; recognized unsupported settings return
 `unsupported_feature`. Both use `422`, with bounded field-specific details and no
@@ -729,8 +729,8 @@ statuses and headers. These modules are shared by future HTTP, SDK, and MCP adap
 they do not implement routes or authenticate callers.
 
 The supported map profiles accept any two CO choices from the verified 19-CO
-roster and the advertised income, day-limit, capture-limit, and CO-power rule
-values. Colors, teams, control, fog, and starting weather remain fixed.
+roster and the advertised income, day-limit, capture-limit, CO-power, and
+starting-weather rule values. Colors, teams, control, and fog remain fixed.
 Unregistered map/CO IDs are invalid, while recognized but unsupported
 assignments or player counts are unsupported. Capabilities describe accepted profiles and options
 separately from recognition. Feature availability must be supplied by runtime

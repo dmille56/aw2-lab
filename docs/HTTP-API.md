@@ -73,9 +73,9 @@ Classic (17), Vs. Maps (21), Pre-Deployed (12), and War Room (22), each advertis
 B, fog Off, Clear weather, income 1,000 per property, a 30-day limit,
 capture limit Off, and CO powers On. Any pair from the 19 advertised COs is
 selectable; player colors, teams, and controls remain fixed. Income, day limit,
-capture limit, and CO power availability are configurable. Fog and starting
-weather remain fixed. Creation validates before allocating a match or touching
-the emulator. Unsupported assignments, fog/weather, internal CPU control, and
+capture limit, CO power availability, and starting weather are configurable.
+Fog remains fixed Off. Creation validates before allocating a match or touching
+the emulator. Unsupported assignments, fog, internal CPU control, and
 the future three/four-player shape return
 `422 unsupported_feature`. Unknown map/CO IDs, duplicate colors, invalid slot
 ordering, incomplete configurations, and malformed values return
@@ -90,9 +90,8 @@ verification before adding a profile.
 
 The rule field `weather` accepts `clear`, `rain`, `snow`, and `random`.
 Clear/Rain/Snow select weather for the entire match; Random allows weather to
-change during play. Only `clear` is currently advertised and executable;
-the other three values return `422 unsupported_feature`. Unknown values return
-`422 invalid_request`. The former public spelling `starting_weather` is rejected,
+change during play. All four values are advertised and executable. Unknown values
+return `422 invalid_request`. The former public spelling `starting_weather` is rejected,
 including when supplied alongside `weather`. Existing controller checkpoints and
 authorization ledgers retain their stored `starting_weather` field; the adapter
 exposes it as `weather` in capabilities and match responses without rewriting
@@ -258,10 +257,11 @@ python examples/manage_match.py create --token-file /path/to/operator-token --ma
 ```
 
 Select advertised rule values at creation with `--income-per-property`,
-`--day-limit`, `--capture-limit`, and `--co-powers`/`--no-co-powers`. For example:
+`--day-limit`, `--capture-limit`, `--weather`, and `--co-powers`/`--no-co-powers`.
+For example:
 
 ```sh
-python examples/manage_match.py create --token-file /path/to/operator-token --map-id crater_isle --income-per-property 2000 --day-limit off --capture-limit 20 --no-co-powers
+python examples/manage_match.py create --token-file /path/to/operator-token --map-id crater_isle --income-per-property 2000 --day-limit off --capture-limit 20 --weather rain --no-co-powers
 ```
 
 The selected map is persisted in match metadata and checkpoints. Start verifies

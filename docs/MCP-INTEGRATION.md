@@ -55,7 +55,7 @@ versioned endpoint such as `/mcp/v2`. After initialization, call
 availability, operation limits, and runtime status as authoritative. Advertised
 profiles cover 72 two-player built-in Versus maps and two external players.
 Match configuration also accepts the listed income, day-limit, capture-limit,
-and CO-power choices; fog is Off and starting weather is Clear. A valid tool
+CO-power, and starting-weather choices; fog remains Off. A valid tool
 schema does not mean an action is legal in the current game state.
 
 With the pinned Python SDK, a client session can be opened like this (load the

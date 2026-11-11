@@ -480,6 +480,12 @@ export interface components {
              *           4000,
              *           4500,
              *           5000
+             *         ],
+             *         "weather": [
+             *           "clear",
+             *           "rain",
+             *           "snow",
+             *           "random"
              *         ]
              *       },
              *       "rules": {
@@ -3736,6 +3742,12 @@ export interface components {
              *         4000,
              *         4500,
              *         5000
+             *       ],
+             *       "weather": [
+             *         "clear",
+             *         "rain",
+             *         "snow",
+             *         "random"
              *       ]
              *     }
              */
@@ -5141,6 +5153,16 @@ export interface components {
              *     ]
              */
             income_per_property: number[];
+            /**
+             * Weather
+             * @default [
+             *       "clear",
+             *       "rain",
+             *       "snow",
+             *       "random"
+             *     ]
+             */
+            weather: ("clear" | "rain" | "snow" | "random")[];
         };
         /**
          * SelectedUnitObservation

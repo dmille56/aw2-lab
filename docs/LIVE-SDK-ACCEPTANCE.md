@@ -679,4 +679,44 @@ AW2_RUN_RULE_SELECTION_TESTS=1 AW2_ROM_PATH=/private/aw2.gba \
 
 This run verifies one non-default combination in both frontends. The unit and
 contract tests cover each selector mapping and advertised range. Fog-enabled
-matches and non-Clear starting weather remain separate TODOs.
+matches remain a separate TODO.
+
+## Milestone 5 starting weather selection (2026-11-10)
+
+The Rules screen Weather selector order is Random, Clear, Rain, and Snow at
+indexes 0, 1, 2, and 3. Match setup now selects each value with RAM-guarded
+inputs. At the playable boundary, fixed weather is checked against the settled
+weather byte at `0x03003FC2` and fixed mode at `0x03003FED`; Random is checked
+for random mode. The API and durable match configuration advertise and retain
+all four choices.
+
+All four choices passed in headless and windowed mGBA using the supported US
+revision-0 ROM (SHA-256
+`ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`). The
+headless and windowed builds were
+`sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22` and
+`sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810`.
+For each weather, the Rules screenshot SHA-256 was Clear
+`69fbbd4d43cedb125a1c735aa6ca923ba6ba4ee7663f7371d2b33e1d5960d898`, Random
+`7ee6434e72f4c0c15562cbccdc902cbd6a51037a895e17324eee9c1df574622a`, Rain
+`c1419e41a155c4929e1bd86910b562e404e79138c6cd3462a505f84cc1709035`, and
+Snow `98172a7acb4960e14b59cca029590316f1e675d2e8db0d9804b7528f8408ceac`.
+First-turn screenshot SHA-256 values were Clear
+`00663b7db141912bd3e24bf5e8a2bcd71fdae6f6bd5c262f6602480cddd6041c`, Random
+`0f7ca9b75e36b639649e0f14602d88a20172677ca3d6d434623ad1b3abcbd15a`, Rain
+`08cf45138a9adb9e4e800639b0cc98f0834352310ad989e37226cd2b0fd012de`, and
+Snow `a94199cb62dbd809357a30fec9875ab4576111e9d59bbceae6230f29b2377e43`.
+Screenshots matched between the two frontends for each weather. All runs used
+the unchanged source cartridge save SHA-256
+`f596b04b096de3a3b89615cf0ea2c3b6d2904bee26ff7b84fcbd0215e483e42a`.
+Per-case `evidence.json` and screenshots are retained externally under
+`/tmp/nix-shell.VclHA9/pytest-of-dono/pytest-0/`.
+
+The opt-in check is:
+
+```sh
+AW2_RUN_RULE_SELECTION_TESTS=1 AW2_ROM_PATH=/private/aw2.gba \
+  pytest -q tests/test_rule_selection_live_acceptance.py
+```
+
+Fog remains off and is not covered by this acceptance run.

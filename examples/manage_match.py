@@ -43,6 +43,7 @@ async def main() -> None:
     )
     parser.add_argument("--day-limit", help="select an advertised day limit or 'off'")
     parser.add_argument("--capture-limit", help="select an advertised capture limit or 'off'")
+    parser.add_argument("--weather", help="select an advertised starting weather")
     parser.add_argument("--co-powers", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--checkpoint", type=UUID)
     parser.add_argument("--archive", type=Path)
@@ -97,6 +98,10 @@ async def main() -> None:
                 if capture_limit not in rule_options.capture_limit:
                     parser.error("capture limit is not advertised by this server")
                 rule_updates["capture_limit"] = capture_limit
+            if args.weather is not None:
+                if args.weather not in rule_options.weather:
+                    parser.error("starting weather is not advertised by this server")
+                rule_updates["weather"] = args.weather
             if args.co_powers is not None:
                 if args.co_powers not in rule_options.co_powers:
                     parser.error("CO-power setting is not advertised by this server")

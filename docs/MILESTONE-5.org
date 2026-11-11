@@ -28,8 +28,8 @@ implemented and advertised.
 | Missile silos | Implemented and verified | Infantry/Mech Launch row, target prompt/cursor, silo consumption, and 3x3 blast in both live frontends; [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 missile silo launch (2026-11-10)][live evidence]] |
 | Map selection | Accepted | 72 two-player profiles across Classic, Vs. Maps, Pre-Deployed, and War Room, with category guards and local unlock requirements |
 | CO selection | Implemented and verified | All 19 COs selected in both slots across the headless matrix; representative non-default pair in windowed mGBA; setup and battle IDs checked ([[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 CO selection (2026-11-10)][live evidence]]) |
-| Configurable match rules | Implemented and verified | Non-default income, day, capture, and CO-power values in headless/windowed mGBA; fog and starting weather remain separate ([[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 configurable match rules (2026-11-10)][live evidence]]) |
-| Starting weather selection | Open | Fixed to clear; explicitly unsupported |
+| Configurable match rules | Implemented and verified | Non-default income, day, capture, CO-power, and starting-weather values in headless/windowed mGBA; fog remains separate ([[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 starting weather selection (2026-11-10)][live evidence]]) |
+| Starting weather selection | Implemented and verified | Random, Clear, Rain, and Snow in headless/windowed mGBA; Fog remains Off |
 | Two to four players/teams | Open | Two fixed external player slots |
 | Fog-enabled matches | Open | Fog off contract; explicitly unsupported |
 
@@ -129,7 +129,11 @@ actions must remain distinguishable at the public boundary.
    - [X] Advertise supported rule values through capabilities and preserve rule choices across creation, retries, recovery, and summaries.
    - [X] Keep fog-enabled play and starting-weather selection as separate follow-up items.
    - [X] Run headless/windowed live acceptance and record ROM/build evidence in [[file:LIVE-SDK-ACCEPTANCE.md][the live acceptance log]].
-** TODO Add starting weather selection
+** DONE Add starting weather selection
+   - [X] Map Random, Clear, Rain, and Snow to the Rules-screen selector and guard each transition with observed RAM.
+   - [X] Preserve the selected weather in public/durable configuration and advertise supported choices.
+   - [X] Verify the settled weather and mode at the playable boundary; capture Rules and first-turn screenshots in headless and windowed mGBA.
+   - [X] Record ROM/build identities and per-weather evidence in [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 starting weather selection (2026-11-10)][the live acceptance log]].
 ** TODO Expand match setup and authorization to two through four players and teams
    - [ ] Enable 3P Maps, 4P Maps, and the three/four-player entries in Pre-Deployed and War Room after expanding the match contract and player authorization.
 ** TODO Add fog-enabled matches with explicitly omniscient trusted-client observations

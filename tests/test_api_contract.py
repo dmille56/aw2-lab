@@ -167,18 +167,16 @@ def test_legacy_short_day_limits_are_not_silently_changed(day_limit: int) -> Non
 
 
 @pytest.mark.parametrize("weather", ["clear", "rain", "snow", "random"])
-def test_weather_modes_are_valid_but_only_clear_is_executable(weather: str) -> None:
+def test_weather_modes_round_trip_through_controller(weather: str) -> None:
     data = profile()
     data["rules"]["weather"] = weather
     configuration = MatchConfiguration.model_validate(data)
     assert configuration.rules.weather == weather
     assert MatchConfiguration.model_validate_json(configuration.model_dump_json()) == configuration
-    if weather == "clear":
-        assert configuration_to_controller(configuration) == FixedMatchConfiguration()
-    else:
-        with pytest.raises(ContractValidationError) as caught:
-            configuration_to_controller(configuration)
-        assert caught.value.body.code is ErrorCode.UNSUPPORTED_FEATURE
+    assert configuration_to_controller(configuration).rules.starting_weather == weather
+    assert (
+        configuration_from_controller(configuration_to_controller(configuration)) == configuration
+    )
 
 
 @pytest.mark.parametrize("weather", ["Random", "storm", "", None, True, 0])
@@ -207,13 +205,11 @@ def test_public_weather_rename_preserves_stored_controller_rules() -> None:
             RuleConfiguration.model_validate(data)
 
 
-@pytest.mark.parametrize("change", ["fog", "weather", "team", "cpu", "count"])
+@pytest.mark.parametrize("change", ["fog", "team", "cpu", "count"])
 def test_known_unverified_combinations_are_unsupported(change: str) -> None:
     data = profile()
     if change == "fog":
         data["rules"]["fog"] = True
-    elif change == "weather":
-        data["rules"]["weather"] = "rain"
     elif change == "team":
         data["players"][1]["team_id"] = "a"
     elif change == "cpu":
@@ -571,6 +567,7 @@ def test_rule_options_advertise_supported_selector_values() -> None:
     assert options.day_limit == (None, *range(5, 100))
     assert options.capture_limit == (None, *range(12, 28))
     assert options.co_powers == (True, False)
+    assert options.weather == ("clear", "rain", "snow", "random")
 
 
 @pytest.mark.parametrize("income", [0, 999, 1250, 5500, 6000, True, "2000"])

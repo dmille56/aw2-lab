@@ -74,6 +74,8 @@ CoId = Literal[
     "hawke",
     "sturm",
 ]
+StartingWeather = Literal["clear", "rain", "snow", "random"]
+STARTING_WEATHER_VALUES: tuple[StartingWeather, ...] = ("clear", "rain", "snow", "random")
 
 CO_ID_VALUES: tuple[CoId, ...] = (
     "nell",
@@ -99,14 +101,14 @@ CO_ID_VALUES: tuple[CoId, ...] = (
 
 
 class MatchRules(ContractModel):
-    # Rules accepted by the public setup flow; fog and starting weather remain fixed.
+    # Fog remains fixed; weather is selected on the Versus Rules screen.
     day_limit: Annotated[int, Field(ge=1, le=99)] | None = 30
     starting_funds: Annotated[int, Field(ge=1000, le=5000, multiple_of=500)] = 1000
     capture_limit: Annotated[int, Field(ge=12, le=27)] | None = None
     fog: Literal[False] = False
     co_powers: bool = True
     # Durable controller/checkpoint spelling; the public API adapter exposes `weather`.
-    starting_weather: Literal["clear"] = "clear"
+    starting_weather: StartingWeather = "clear"
 
 
 class FixedMatchConfiguration(ContractModel):
@@ -180,7 +182,7 @@ class Capabilities(ContractModel):
     )
     unsupported_features: tuple[str, ...] = (
         "multiple_active_matches",
-        "configurable_starting_weather_or_fog",
+        "fog_of_war",
         "maps_outside_two_player_versus_catalog",
         "campaign_or_multiplayer_modes_other_than_versus",
         "competitive_player_visibility_isolation",

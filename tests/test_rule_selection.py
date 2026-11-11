@@ -8,12 +8,13 @@ import pytest
 from aw2_lab.cold_boot import (
     _KEY_DOWN,
     _KEY_UP,
+    _WEATHER_SELECTOR_INDEX,
     _FrontendState,
     _select_rule_value,
     _verify_rules,
 )
 from aw2_lab.lifecycle import LifecyclePhase
-from aw2_lab.match_contract import MatchRules
+from aw2_lab.match_contract import MatchRules, StartingWeather
 
 
 def rules_state(**changes: int) -> _FrontendState:
@@ -45,6 +46,15 @@ def test_rules_verifier_matches_selected_values():
         co_powers=False,
     )
     _verify_rules(rules_state(income_rule=4, day_rule=0, capture_rule=9, powers_rule=1), rules)
+
+
+@pytest.mark.parametrize("weather", ("random", "clear", "rain", "snow"))
+def test_weather_selector_indexes_match_the_advertised_choices(weather: StartingWeather):
+    rules = MatchRules(starting_weather=weather)
+    _verify_rules(
+        rules_state(weather_rule=_WEATHER_SELECTOR_INDEX[weather]),
+        rules,
+    )
 
 
 @pytest.mark.parametrize(

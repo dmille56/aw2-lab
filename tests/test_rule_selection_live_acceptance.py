@@ -22,7 +22,8 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.mark.parametrize("mode", ("headless", "windowed"))
-def test_live_configurable_rules(mode: str, tmp_path: Path) -> None:
+@pytest.mark.parametrize("weather", ("random", "clear", "rain", "snow"))
+def test_live_configurable_rules(mode: str, weather: str, tmp_path: Path) -> None:
     rom = Path(os.environ.get("AW2_ROM_PATH", "")).expanduser()
     assert rom.is_file(), "AW2_ROM_PATH must name the supported ROM"
     if mode == "windowed" and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
@@ -34,6 +35,7 @@ def test_live_configurable_rules(mode: str, tmp_path: Path) -> None:
         starting_funds=2000,
         capture_limit=20,
         co_powers=False,
+        starting_weather=weather,
     )
 
     async def check() -> None:

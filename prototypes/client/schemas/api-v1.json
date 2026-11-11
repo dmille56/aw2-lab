@@ -594,6 +594,12 @@
                   4000,
                   4500,
                   5000
+                ],
+                "weather": [
+                  "clear",
+                  "rain",
+                  "snow",
+                  "random"
                 ]
               },
               "rules": {
@@ -4158,6 +4164,12 @@
                 4000,
                 4500,
                 5000
+              ],
+              "weather": [
+                "clear",
+                "rain",
+                "snow",
+                "random"
               ]
             }
           },
@@ -6882,6 +6894,25 @@
               "type": "integer"
             },
             "title": "Income Per Property",
+            "type": "array"
+          },
+          "weather": {
+            "default": [
+              "clear",
+              "rain",
+              "snow",
+              "random"
+            ],
+            "items": {
+              "enum": [
+                "clear",
+                "rain",
+                "snow",
+                "random"
+              ],
+              "type": "string"
+            },
+            "title": "Weather",
             "type": "array"
           }
         },

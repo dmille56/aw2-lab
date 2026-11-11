@@ -18,13 +18,13 @@ Contract version 1 supports exactly one active local Versus match:
 | Slot 1 | Red, selected CO, Team A (Andy by default) |
 | Slot 2 | Blue, selected CO, Team B (Max by default) |
 | Control | Both armies controlled by the server for their external players |
-| Rules | Selectable income (1,000–5,000), day limit (Off or 5–99), capture limit (Off or 12–27), and CO Powers; clear starting weather |
+| Rules | Selectable income (1,000–5,000), day limit (Off or 5–99), capture limit (Off or 12–27), CO Powers, and Clear/Rain/Snow/Random weather |
 | Fog | Disabled |
 
 Map selection is caller-selectable through the 72 advertised two-player Versus
 profiles, and each slot can select any of the 19 verified COs. Income, day,
-capture, and CO-power rules are configurable; fog and starting weather remain
-fixed. Colors, teams, and controls stay fixed. Match creation validates a complete
+capture, CO-power, and starting-weather rules are configurable; fog remains fixed
+Off. Colors, teams, and controls stay fixed. Match creation validates a complete
 configuration before allocation; unsupported rules or player assignments fail
 with `unsupported_feature`. AW2 remains
 authoritative for legal actions, combat, randomness, upkeep, and outcomes.

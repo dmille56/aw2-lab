@@ -193,6 +193,7 @@
       "income_per_property": [
         1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000
       ],
+      "weather": ["clear", "rain", "snow", "random"],
       "day_limit": [
         null,
         5,

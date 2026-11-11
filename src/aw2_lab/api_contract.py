@@ -18,6 +18,7 @@ from pydantic import AwareDatetime, Field, SecretStr, StringConstraints, model_v
 from aw2_lab.map_catalog import ALL_MAPS, MAP_IDS, MAPS_BY_ID, MapCategory, MapId
 from aw2_lab.match_contract import (
     CO_ID_VALUES,
+    STARTING_WEATHER_VALUES,
     CheckpointReference,
     CoId,
     ContractModel,
@@ -28,6 +29,7 @@ from aw2_lab.match_contract import (
     PlayerSlotState,
     Revision,
     SlotStatus,
+    StartingWeather,
 )
 from aw2_lab.match_contract import (
     MatchSummary as ControllerMatchSummary,
@@ -53,7 +55,7 @@ class PlayerConfiguration(ContractModel):
 class RuleConfiguration(ContractModel):
     fog: bool = Field(strict=True)
     # Fixed choices apply throughout play; Random allows weather changes during play.
-    weather: Literal["clear", "rain", "snow", "random"]
+    weather: StartingWeather
     income_per_property: Annotated[int, Field(strict=True, ge=1000, le=5000, multiple_of=500)]
     day_limit: Annotated[int, Field(strict=True, ge=5, le=99)] | None
     capture_limit: Annotated[int, Field(strict=True, ge=12, le=27)] | None
@@ -64,6 +66,7 @@ class RuleOptions(ContractModel):
     """Independently selectable rule values accepted by the verified setup flow."""
 
     income_per_property: tuple[int, ...] = tuple(range(1000, 5001, 500))
+    weather: tuple[StartingWeather, ...] = STARTING_WEATHER_VALUES
     day_limit: tuple[int | None, ...] = (None, *range(5, 100))
     capture_limit: tuple[int | None, ...] = (None, *range(12, 28))
     co_powers: tuple[bool, ...] = (True, False)
@@ -294,7 +297,7 @@ class ConfigurationOptions(ContractModel):
             or self.rules != VERIFIED_CONFIGURATION.rules
             or self.rule_options != RuleOptions()
         ):
-            raise ValueError("Only verified player assignments and rules can be advertised")
+            raise ValueError("Only verified player assignments and rule options can be advertised")
         return self
 
 

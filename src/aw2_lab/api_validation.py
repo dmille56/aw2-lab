@@ -55,14 +55,10 @@ def validate_configuration(configuration: MatchConfiguration) -> MatchConfigurat
             VERIFIED_CONFIGURATION.players, configuration.players, strict=False
         )
     )
-    if (
-        configuration.players != expected_players
-        or configuration.rules.fog is not False
-        or configuration.rules.weather != "clear"
-    ):
+    if configuration.players != expected_players or configuration.rules.fog is not False:
         raise ContractValidationError(
             ErrorCode.UNSUPPORTED_FEATURE,
-            "Configuration uses unsupported player assignments, fog, or starting weather",
+            "Configuration uses unsupported player assignments or fog",
             field="configuration",
         )
     return configuration
@@ -80,6 +76,7 @@ def configuration_to_controller(configuration: MatchConfiguration) -> FixedMatch
             starting_funds=configuration.rules.income_per_property,
             capture_limit=configuration.rules.capture_limit,
             co_powers=configuration.rules.co_powers,
+            starting_weather=configuration.rules.weather,
         ),
     )
 
