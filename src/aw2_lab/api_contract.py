@@ -32,6 +32,9 @@ from aw2_lab.match_contract import (
     StartingWeather,
 )
 from aw2_lab.match_contract import (
+    Capabilities as MatchCapabilities,
+)
+from aw2_lab.match_contract import (
     MatchSummary as ControllerMatchSummary,
 )
 from aw2_lab.match_observation import MATCH_OBSERVATION_SCHEMA_VERSION, MatchObservation
@@ -404,6 +407,7 @@ class CapabilitiesResponse(ContractModel):
         MATCH_OBSERVATION_SCHEMA_VERSION,
     )
     supported_game_state_schema_versions: tuple[int, ...] = (GAME_STATE_SCHEMA_VERSION,)
+    unsupported_features: tuple[str, ...] = MatchCapabilities().unsupported_features
     supported_player_counts: tuple[Literal[2], Literal[3], Literal[4]] = (2, 3, 4)
     supported_control_modes: tuple[Literal["external"]] = ("external",)
     default_profile_id: Literal["bean_island_v1"] = "bean_island_v1"

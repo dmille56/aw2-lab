@@ -11,6 +11,12 @@ gameplay remains unavailable.
 Capabilities report the supported game-contract, match-observation, and nested
 game-state schema versions. Clients should check these before using match routes;
 each response must still validate its own contract and schema versions.
+The response's `actions` array is the exhaustive gameplay-action allowlist, and
+`unsupported_features` names unavailable gameplay and configuration categories.
+An action absent from the allowlist is unsupported; a rejected advertised action
+can instead be illegal for the current game state. Configuration must use
+advertised profiles/options and valid combinations; unsupported selections are
+rejected before match allocation.
 
 Start the normal server with your local ROM and the operator file described in
 [AUTHORIZATION.md](AUTHORIZATION.md). With no operator file configured, match

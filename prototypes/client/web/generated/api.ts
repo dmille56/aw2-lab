@@ -6497,6 +6497,27 @@ export interface components {
                 3,
                 4
             ];
+            /**
+             * Unsupported Features
+             * @default [
+             *       "multiple_active_matches",
+             *       "gameplay_actions_outside_advertised_action_allowlist",
+             *       "unresolved_unit_menu_actions",
+             *       "custom_maps",
+             *       "campaign_or_non_versus_modes",
+             *       "built_in_cpu_control",
+             *       "unverified_player_assignments",
+             *       "rule_values_or_combinations_outside_advertised_options",
+             *       "automatic_unlocking_of_save_dependent_maps",
+             *       "competitive_player_visibility_isolation",
+             *       "arbitrary_memory_writes_as_gameplay",
+             *       "automated_strategy",
+             *       "legal_move_enumeration",
+             *       "speculative_rollouts",
+             *       "remote_public_hosting"
+             *     ]
+             */
+            unsupported_features: string[];
         };
         /** CargoDrop */
         CargoDrop: {

@@ -59,10 +59,17 @@ inspect the same complete decoded board state, including units hidden by the
 game's fog. The server does not provide competitive player-specific visibility
 isolation; clients must be trusted with omniscient match data.
 
-The following are explicitly unsupported in version 1: multiple active matches;
-campaign or other non-Versus modes; player-specific visibility isolation; and
-arbitrary memory writes as gameplay. Unsupported features are distinct from
-actions that AW2 rejects as illegal.
+`Capabilities.supported_actions` is an exhaustive allowlist. An action absent
+from it is unsupported; AW2 rejecting an advertised action for the current game
+state is instead an illegal action. Unknown or unresolved unit-menu rows do not
+create supported actions. `Capabilities.unsupported_features` explicitly lists
+the remaining unsupported feature categories, including actions outside that
+allowlist, unverified configuration values/combinations and player assignments,
+custom maps, campaign/non-Versus modes, built-in CPU control, automatic
+save-dependent map unlocking, competitive visibility isolation, and
+multi-match/public-hosting/strategy features. The HTTP capabilities response
+publishes the same identifiers. Selecting a save-dependent map does not perform
+an unlock; fresh/partial-save unlock support remains deferred.
 
 ## Typed documents and versioning
 

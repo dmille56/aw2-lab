@@ -211,8 +211,8 @@ class Capabilities(ContractModel):
     )
     supported_features: tuple[str, ...] = (
         "single_active_match",
-        "two_external_players",
-        "fixed_versus_configuration",
+        "two_to_four_external_players",
+        "verified_versus_configuration_profiles",
         "map_selection",
         "structured_observation",
         "screenshots",
@@ -228,10 +228,20 @@ class Capabilities(ContractModel):
     )
     unsupported_features: tuple[str, ...] = (
         "multiple_active_matches",
-        "maps_outside_builtin_versus_catalog",
-        "campaign_or_multiplayer_modes_other_than_versus",
+        "gameplay_actions_outside_advertised_action_allowlist",
+        "unresolved_unit_menu_actions",
+        "custom_maps",
+        "campaign_or_non_versus_modes",
+        "built_in_cpu_control",
+        "unverified_player_assignments",
+        "rule_values_or_combinations_outside_advertised_options",
+        "automatic_unlocking_of_save_dependent_maps",
         "competitive_player_visibility_isolation",
         "arbitrary_memory_writes_as_gameplay",
+        "automated_strategy",
+        "legal_move_enumeration",
+        "speculative_rollouts",
+        "remote_public_hosting",
     )
 
 

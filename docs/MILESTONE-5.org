@@ -3,17 +3,18 @@
 
 * Completion audit (2026-11-10)
 
-Status: INCOMPLETE. The three completed entries in
-[[file:MILESTONE-3.org::*Expand gameplay command coverage in Milestone 5][the earlier gameplay checklist]]
-cover stationary attacks, transports, and a production navigation fix. They
-do not cover all of Milestone 5 in [[file:PLAN.md][PLAN.md]].
+Status: COMPLETE for the accepted local Versus scope. The implementation and
+live acceptance evidence below cover the planned gameplay actions, all 133
+built-in Versus profiles, CO selection, configurable rules and weather, two to
+four external players/teams, and Fog On with explicitly omniscient trusted
+clients. See [[file:LIVE-SDK-ACCEPTANCE.md][the live acceptance log]] for ROM/build identities and
+the limits attached to each run.
 
-The current [[file:../src/aw2_lab/match_contract.py][gameplay contract]] advertises
-=attack=, =join=, =supply=, =load=, =unload=, and separate normal/Super Power
-actions alongside the accepted playable-slice actions. Diving/surfacing and
-=silo_launch= are implemented. Match creation supports two through four external slots and teams, with fog Off. Capability reporting excludes gameplay and
-configuration features that remain unimplemented. Map and CO selection are
-implemented and advertised.
+The [[file:../src/aw2_lab/match_contract.py][gameplay contract]] advertises its
+supported action allowlist and explicitly declares unsupported feature
+categories. The HTTP capabilities response exposes the same unsupported
+feature identifiers. Unknown menu actions remain unresolved and unavailable;
+they are not reported as illegal gameplay actions.
 
 | Planned coverage | Audit result | Evidence or remaining work |
 |------------------+--------------+----------------------------|
@@ -25,7 +26,7 @@ implemented and advertised.
 | Resupplying | Implemented and verified | [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 APC Supply action (2026-11-10)][APC Supply and automatic allied-property upkeep; headless and windowed mGBA]] |
 | Diving/surfacing | Implemented and verified | Sub action selector: Dive row =0x0B=, Rise row =0x0C=; guarded typed actions and headless/windowed acceptance in [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 Sub Dive and Rise (2026-11-10)][the live acceptance log]] |
 | Missile silos | Implemented and verified | Infantry/Mech Launch row, target prompt/cursor, silo consumption, and 3x3 blast in both live frontends; [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 missile silo launch (2026-11-10)][live evidence]] |
-| Map selection | Implemented | 133 profiles across the six built-in Versus categories; map player counts, category guards, and local unlock requirements |
+| Map selection | Implemented and verified | 133 profiles across the six built-in Versus categories; map player counts, category guards, and local unlock requirements ([[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 map selection (2026-11-10)][map evidence]], [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 additional Versus map categories (2026-11-10)][category evidence]]) |
 | CO selection | Implemented and verified | All 19 COs selected in both slots across the headless matrix; representative non-default pair in windowed mGBA; setup and battle IDs checked ([[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 CO selection (2026-11-10)][live evidence]]) |
 | Configurable match rules | Implemented and verified | Non-default income, day, capture, CO-power, starting weather, and fog values in headless/windowed mGBA; observations remain omniscient for trusted clients ([[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 starting weather selection (2026-11-10)][weather evidence]], [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 fog-enabled matches (2026-11-10)][fog evidence]]) |
 | Starting weather selection | Implemented and verified | Random, Clear, Rain, and Snow in headless/windowed mGBA; fog behavior is covered separately |
@@ -147,12 +148,12 @@ actions must remain distinguishable at the public boundary.
    - [X] Capabilities classify profiles as =always_available= or =save_dependent= without claiming current-save access. Document Battle Maps unlock guidance and that a missing companion save starts fresh.
    - [X] Verify representative fresh-save rejection across all five map categories and all 17 save-dependent profiles with the supplied unlocked save in headless/windowed mGBA. Partial-save verification was omitted by project direction; see [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 locked Versus map availability (2026-11-10)][the acceptance evidence]].
 
-** TODO Complete the final Milestone 5 acceptance audit
-   - [ ] Map each planned feature to implementation and checks, including error/recovery and public capability behavior.
-   - [ ] Ensure unsupported feature declarations explicitly cover remaining unavailable gameplay actions and match-configuration options.
-   - [ ] Record supported ROM/build identities and live evidence with limits for every implemented feature.
-   - [ ] Run =pre-commit run --all-files= and require every hook to pass.
-   - [ ] Mark the milestone complete only when all planned coverage above is accepted.
+** DONE Complete the final Milestone 5 acceptance audit
+   - [X] Map each planned feature to implementation and checks, including error/recovery and public capability behavior.
+   - [X] Ensure unsupported feature declarations explicitly cover remaining unavailable gameplay actions and match-configuration options.
+   - [X] Record supported ROM/build identities and live evidence with limits for every implemented feature.
+   - [X] Run =pre-commit run --all-files= and require every hook to pass.
+   - [X] Mark the milestone complete only when all planned coverage above is accepted.
 
 * Work deferred until milestone completion
 

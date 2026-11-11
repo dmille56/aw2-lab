@@ -532,6 +532,9 @@ def test_capabilities_do_not_claim_runtime_actions_by_default() -> None:
     )
     caps = CapabilitiesResponse(http_sse=unavailable, mcp_subscriptions=unavailable)
     assert caps.actions == ()
+    assert caps.unsupported_features == Capabilities().unsupported_features
+    assert "gameplay_actions_outside_advertised_action_allowlist" in caps.unsupported_features
+    assert "rule_values_or_combinations_outside_advertised_options" in caps.unsupported_features
     assert caps.supported_game_contract_versions == (1,)
     assert caps.supported_match_observation_schema_versions == (1,)
     assert caps.supported_game_state_schema_versions == (5,)

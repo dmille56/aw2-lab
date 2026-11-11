@@ -237,11 +237,15 @@ remain open. No support claim extends beyond the linked checks and live evidence
 
 ### 5. Expand local Versus coverage
 
-**Status (2026-11-10): incomplete.** The [Milestone 5 audit and checklist](MILESTONE-5.org)
-records accepted stationary attacks, transport actions, powers, joining,
-resupplying, diving/surfacing, missile silo use, and selection across the 72
-built-in Versus maps and all 19 COs, two through four external players and teams, and configurable income,
-day-limit, capture-limit, CO-power, and starting-weather rules.
+**Status (2026-11-10): complete for the accepted local Versus scope.** The
+[Milestone 5 audit and checklist](MILESTONE-5.org) records implementation,
+contract behavior, and live acceptance evidence for stationary attacks,
+transport actions, powers, joining, resupplying, diving/surfacing, missile silo
+use, all 133 built-in Versus maps and all 19 COs, two through four external
+players and teams, configurable rules/weather, and Fog On with omniscient
+trusted-client observations. Fresh-save rejection and fully unlocked-save
+acceptance are recorded; partial-save verification and automatic map unlocking
+remain deferred as requested.
 
 **Dependencies:** stable playable slice and MCP adapter.
 
