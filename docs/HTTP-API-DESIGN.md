@@ -225,8 +225,9 @@ and creating another. Restore must validate the stored configuration against
 runtime support and preserve it, rather than substituting current defaults.
 
 New choices require corresponding verified setup navigation, observations,
-executors, and recovery behavior before advertisement. In particular, fog needs
-explicit supported observation/visibility semantics, and different COs can alter
+executors, and recovery behavior before advertisement. Fog is supported with
+explicit omniscient trusted-client observation semantics; it does not imply
+player-specific visibility isolation. Different COs can alter
 costs, movement, and other preflight assumptions. Advertising a rule such as CO
 powers does not by itself advertise a new CO-power activation action. Future
 extensions must follow the compatibility policy for enums, fields, and generated

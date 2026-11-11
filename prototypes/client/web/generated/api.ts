@@ -537,6 +537,10 @@ export interface components {
              *           98,
              *           99
              *         ],
+             *         "fog": [
+             *           false,
+             *           true
+             *         ],
              *         "income_per_property": [
              *           1000,
              *           1500,
@@ -6297,6 +6301,12 @@ export interface components {
             mcp_resources: components["schemas"]["FeatureAvailability"];
             mcp_subscriptions: components["schemas"]["FeatureAvailability"];
             /**
+             * Observation Visibility
+             * @default omniscient_trusted_clients
+             * @constant
+             */
+            observation_visibility: "omniscient_trusted_clients";
+            /**
              * Operations
              * @default []
              */
@@ -6873,6 +6883,10 @@ export interface components {
              *         97,
              *         98,
              *         99
+             *       ],
+             *       "fog": [
+             *         false,
+             *         true
              *       ],
              *       "income_per_property": [
              *         1000,
@@ -8295,6 +8309,14 @@ export interface components {
              *     ]
              */
             day_limit: (number | null)[];
+            /**
+             * Fog
+             * @default [
+             *       false,
+             *       true
+             *     ]
+             */
+            fog: boolean[];
             /**
              * Income Per Property
              * @default [

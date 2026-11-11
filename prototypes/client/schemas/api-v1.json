@@ -651,6 +651,10 @@
                   98,
                   99
                 ],
+                "fog": [
+                  false,
+                  true
+                ],
                 "income_per_property": [
                   1000,
                   1500,
@@ -6428,6 +6432,12 @@
           "mcp_subscriptions": {
             "$ref": "#/components/schemas/FeatureAvailability"
           },
+          "observation_visibility": {
+            "const": "omniscient_trusted_clients",
+            "default": "omniscient_trusted_clients",
+            "title": "Observation Visibility",
+            "type": "string"
+          },
           "operations": {
             "default": [],
             "items": {
@@ -7374,6 +7384,10 @@
                 97,
                 98,
                 99
+              ],
+              "fog": [
+                false,
+                true
               ],
               "income_per_property": [
                 1000,
@@ -10131,6 +10145,17 @@
               ]
             },
             "title": "Day Limit",
+            "type": "array"
+          },
+          "fog": {
+            "default": [
+              false,
+              true
+            ],
+            "items": {
+              "type": "boolean"
+            },
+            "title": "Fog",
             "type": "array"
           },
           "income_per_property": {

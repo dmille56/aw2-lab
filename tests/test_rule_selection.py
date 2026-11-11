@@ -48,6 +48,11 @@ def test_rules_verifier_matches_selected_values():
     _verify_rules(rules_state(income_rule=4, day_rule=0, capture_rule=9, powers_rule=1), rules)
 
 
+@pytest.mark.parametrize(("fog", "selector"), [(True, 0), (False, 1)])
+def test_fog_selector_indexes_match_the_selected_visibility_rule(fog: bool, selector: int):
+    _verify_rules(rules_state(fog_rule=selector), MatchRules(fog=fog))
+
+
 @pytest.mark.parametrize("weather", ("random", "clear", "rain", "snow"))
 def test_weather_selector_indexes_match_the_advertised_choices(weather: StartingWeather):
     rules = MatchRules(starting_weather=weather)

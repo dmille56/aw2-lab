@@ -27,10 +27,10 @@ implemented and advertised.
 | Missile silos | Implemented and verified | Infantry/Mech Launch row, target prompt/cursor, silo consumption, and 3x3 blast in both live frontends; [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 missile silo launch (2026-11-10)][live evidence]] |
 | Map selection | Implemented | 133 profiles across the six built-in Versus categories; map player counts, category guards, and local unlock requirements |
 | CO selection | Implemented and verified | All 19 COs selected in both slots across the headless matrix; representative non-default pair in windowed mGBA; setup and battle IDs checked ([[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 CO selection (2026-11-10)][live evidence]]) |
-| Configurable match rules | Implemented and verified | Non-default income, day, capture, CO-power, and starting-weather values in headless/windowed mGBA; fog remains separate ([[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 starting weather selection (2026-11-10)][live evidence]]) |
-| Starting weather selection | Implemented and verified | Random, Clear, Rain, and Snow in headless/windowed mGBA; Fog remains Off |
+| Configurable match rules | Implemented and verified | Non-default income, day, capture, CO-power, starting weather, and fog values in headless/windowed mGBA; observations remain omniscient for trusted clients ([[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 starting weather selection (2026-11-10)][weather evidence]], [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 fog-enabled matches (2026-11-10)][fog evidence]]) |
+| Starting weather selection | Implemented and verified | Random, Clear, Rain, and Snow in headless/windowed mGBA; fog behavior is covered separately |
 | Two to four players/teams | Implemented and verified | Ordered slots, durable per-slot authorization, guarded CO/control/team setup; [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 two through four players and teams (2026-11-10)][live evidence]] |
-| Fog-enabled matches | Open | Fog off contract; explicitly unsupported |
+| Fog-enabled matches | Implemented and verified | Rules-screen Fog On selection and settled battle state verified; authenticated trusted clients receive the same omniscient observation, without player-specific visibility filtering ([[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 fog-enabled matches (2026-11-10)][live evidence]]) |
 
 Existing live evidence retains its stated limits: Lander/Transport Copter
 acceptance uses standalone restored checkpoints, and the new stationary
@@ -137,7 +137,11 @@ actions must remain distinguishable at the public boundary.
    - [X] Enable 3P Maps, 4P Maps, and the three/four-player entries in Pre-Deployed and War Room after expanding the match contract and player authorization.
    - [X] Preserve configured slots, COs, and teams in durable metadata, invitation credentials, checkpoints, and public summaries.
    - [X] Verify representative multiplayer setup and full turn cycles in headless/windowed mGBA; see the live acceptance log.
-** TODO Add fog-enabled matches with explicitly omniscient trusted-client observations
+** DONE Add fog-enabled matches with explicitly omniscient trusted-client observations
+   - [X] Advertise and accept both fog selector values in the public and durable configuration.
+   - [X] Select and verify Fog On at setup and the playable boundary; preserve the setting through match summaries and checkpoints.
+   - [X] Explicitly advertise that trusted clients receive omniscient observations; do not claim player-specific visibility isolation.
+   - [X] Verify Fog On at the playable boundary in headless and windowed mGBA; record ROM/build identities and visibility-policy evidence in [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 fog-enabled matches (2026-11-10)][the live acceptance log]].
 ** TODO Investigate how to handle locked Versus maps
    - [ ] Determine whether map availability can be read reliably from the local cartridge save before match creation.
    - [ ] Decide how to show unavailable maps in capabilities and explain how to unlock them, including when no companion save is present.

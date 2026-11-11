@@ -160,7 +160,9 @@ ROM's companion `.sav`, loaded from an isolated copy; they require the relevant
 purchases/unlocks in that save. Each external slot may choose any of the 19
 verified COs. Income, day limit, capture limit, and CO powers can be selected
 from the advertised rule options, along with Clear, Rain, Snow, or Random
-starting weather. Fog remains Off.
+starting weather, and fog. The capability field
+`observation_visibility: "omniscient_trusted_clients"` means each authorized
+client receives the complete decoded board state even when Fog is On.
 
 To choose COs at creation, pass `--co-ids sami,nell`; each value must appear in
 the server's `configuration_options.co_ids`. Omitting this option uses the

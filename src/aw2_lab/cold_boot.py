@@ -60,6 +60,7 @@ _CO_BATTLE_ID: dict[CoId, int] = {
     "sensei": 18,
 }
 _DEFAULT_MATCH_RULES = MatchRules()
+_FOG_SELECTOR_INDEX = {True: 0, False: 1}
 _WEATHER_SELECTOR_INDEX = {"random": 0, "clear": 1, "rain": 2, "snow": 3}
 _WEATHER_MODE = {"clear": 0, "rain": 3, "snow": 3, "random": 1}
 # Main-menu and Continue/New selector tables identified in the manual traces.
@@ -549,9 +550,9 @@ async def boot_fixed_versus_match(
             raise ColdBootError(f"Unexpected initial Fog selector: {rules.fog_rule}")
         await checkpoint("rules-before-fog-change", rules)
         rules = await _select_rule_value(
-            rules, tap, settle, "fog_rule", int(match_rules.fog is False), 1, "fog"
+            rules, tap, settle, "fog_rule", _FOG_SELECTOR_INDEX[match_rules.fog], 1, "fog"
         )
-        await checkpoint("rules-fog-off", rules)
+        await checkpoint("rules-fog-on" if match_rules.fog else "rules-fog-off", rules)
 
         if (
             rules.weather_rule,
@@ -706,7 +707,7 @@ async def _select_rule_value(
 
 def _verify_rules(state: _FrontendState, rules: MatchRules = _DEFAULT_MATCH_RULES) -> None:
     expected = (
-        int(rules.fog is False),
+        _FOG_SELECTOR_INDEX[rules.fog],
         _WEATHER_SELECTOR_INDEX[rules.starting_weather],
         rules.starting_funds // 500 - 2,
         0 if rules.day_limit is None else rules.day_limit - 4,
@@ -789,9 +790,11 @@ def _verify_playable_state(
 
     if (
         battle.fog_enabled.status is not ValueStatus.AVAILABLE
-        or battle.fog_enabled.value is not False
+        or battle.fog_enabled.value is not match_rules.fog
     ):
-        raise ColdBootError("Fog Off was not observed at the playable boundary")
+        raise ColdBootError(
+            f"Fog {'On' if match_rules.fog else 'Off'} was not observed at the playable boundary"
+        )
     if (
         battle.co_effects_enabled.status is not ValueStatus.AVAILABLE
         or battle.co_effects_enabled.value is not match_rules.co_powers

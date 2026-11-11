@@ -21,13 +21,13 @@ Contract version 1 supports exactly one active local Versus match:
 | Slot 4 | Yellow, selected CO and team on four-player maps (Flak/D by default) |
 | Control | All armies controlled by the server for their external players |
 | Rules | Selectable income (1,000–5,000), day limit (Off or 5–99), capture limit (Off or 12–27), CO Powers, and Clear/Rain/Snow/Random weather |
-| Fog | Disabled |
+| Fog | Selectable Off/On |
 
 Map selection uses 133 built-in Versus profiles. Each profile fixes its player
 count and colors (Red/Blue/Green/Yellow in slot order). Each slot selects any
 of 19 COs. Three/four-player matches select teams A–C/D with at least two teams;
 two-player matches use A/B. All controls are external. Supported rules are
-configurable and fog remains Off. Match creation validates a complete
+configurable, including fog. Match creation validates a complete
 configuration before allocation; unsupported rules or player assignments fail
 with `unsupported_feature`. AW2 remains
 authoritative for legal actions, combat, randomness, upkeep, and outcomes.
@@ -53,11 +53,16 @@ decimal string assigned by the server for one unit lifetime, not an AW2 RAM slot
 Map-bound checks and game legality are decided during command execution; invalid
 requests may be rejected earlier when their shape or known state is invalid.
 
+Capabilities declare `observation_visibility: "omniscient_trusted_clients"`.
+Fog changes AW2 gameplay visibility, but every authorized client in a match can
+inspect the same complete decoded board state, including units hidden by the
+game's fog. The server does not provide competitive player-specific visibility
+isolation; clients must be trusted with omniscient match data.
+
 The following are explicitly unsupported in version 1: multiple active matches;
-selectable map, CO, rules, weather, or teams; fog; activating CO Powers; transport
-resupply; campaign or other non-Versus modes; player-specific
-visibility isolation; and arbitrary memory writes as gameplay. Unsupported
-features are distinct from actions that AW2 rejects as illegal.
+campaign or other non-Versus modes; player-specific visibility isolation; and
+arbitrary memory writes as gameplay. Unsupported features are distinct from
+actions that AW2 rejects as illegal.
 
 ## Typed documents and versioning
 

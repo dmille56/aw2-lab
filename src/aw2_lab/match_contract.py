@@ -103,11 +103,11 @@ CO_ID_VALUES: tuple[CoId, ...] = (
 
 
 class MatchRules(ContractModel):
-    # Fog remains fixed; weather is selected on the Versus Rules screen.
+    # Fog and weather are selected on the Versus Rules screen.
     day_limit: Annotated[int, Field(ge=1, le=99)] | None = 30
     starting_funds: Annotated[int, Field(ge=1000, le=5000, multiple_of=500)] = 1000
     capture_limit: Annotated[int, Field(ge=12, le=27)] | None = None
-    fog: Literal[False] = False
+    fog: bool = False
     co_powers: bool = True
     # Durable controller/checkpoint spelling; the public API adapter exposes `weather`.
     starting_weather: StartingWeather = "clear"
@@ -223,10 +223,11 @@ class Capabilities(ContractModel):
         "apc_resupply",
         "diving_and_surfacing",
         "missile_silo_use",
+        "fog_enabled_matches",
+        "omniscient_trusted_client_observations",
     )
     unsupported_features: tuple[str, ...] = (
         "multiple_active_matches",
-        "fog_of_war",
         "maps_outside_builtin_versus_catalog",
         "campaign_or_multiplayer_modes_other_than_versus",
         "competitive_player_visibility_isolation",

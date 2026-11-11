@@ -70,6 +70,7 @@ class RuleOptions(ContractModel):
     day_limit: tuple[int | None, ...] = (None, *range(5, 100))
     capture_limit: tuple[int | None, ...] = (None, *range(12, 28))
     co_powers: tuple[bool, ...] = (True, False)
+    fog: tuple[bool, ...] = (False, True)
 
 
 class MatchConfiguration(ContractModel):
@@ -381,6 +382,8 @@ class ProductionFacilityCapabilities(ContractModel):
 
 
 class CapabilitiesResponse(ContractModel):
+    # Fog changes in-game visibility only; observations are full-state for trusted clients.
+    observation_visibility: Literal["omniscient_trusted_clients"] = "omniscient_trusted_clients"
     mcp_compatibility: MCPCompatibility = Field(default_factory=MCPCompatibility)
     mcp_resources: FeatureAvailability = FeatureAvailability(
         name="mcp_resources",

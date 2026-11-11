@@ -65,11 +65,10 @@ def validate_configuration(configuration: MatchConfiguration) -> MatchConfigurat
             len(configuration.players) == 2
             and tuple(p.team_id for p in configuration.players) != ("a", "b")
         )
-        or configuration.rules.fog is not False
     ):
         raise ContractValidationError(
             ErrorCode.UNSUPPORTED_FEATURE,
-            "Configuration requires matching map player count, fixed slot colors, external controls, at least two teams, and fog off",
+            "Configuration requires matching map player count, fixed slot colors, external controls, and at least two teams",
             field="configuration",
         )
     return configuration
@@ -96,6 +95,7 @@ def configuration_to_controller(configuration: MatchConfiguration) -> FixedMatch
             day_limit=configuration.rules.day_limit,
             starting_funds=configuration.rules.income_per_property,
             capture_limit=configuration.rules.capture_limit,
+            fog=configuration.rules.fog,
             co_powers=configuration.rules.co_powers,
             starting_weather=configuration.rules.weather,
         ),

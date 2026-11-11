@@ -92,3 +92,60 @@ def test_live_configurable_rules(mode: str, weather: str, tmp_path: Path) -> Non
 
     asyncio.run(check())
     assert hashlib.sha256(source_save.read_bytes()).hexdigest() == source_hash
+
+
+@pytest.mark.parametrize("mode", ("headless", "windowed"))
+def test_live_fog_enabled_match_is_omniscient_for_trusted_clients(
+    mode: str, tmp_path: Path
+) -> None:
+    rom = Path(os.environ.get("AW2_ROM_PATH", "~/Downloads/aw2/aw2.gba")).expanduser()
+    assert rom.is_file(), "AW2_ROM_PATH must name the supported ROM"
+    if mode == "windowed" and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+        pytest.skip("windowed acceptance requires a display")
+    source_save = rom.with_suffix(".sav")
+    source_hash = hashlib.sha256(source_save.read_bytes()).hexdigest()
+
+    async def check() -> None:
+        launcher = EmulatorLauncher(
+            EmulatorSettings(rom_path=rom, mode=EmulatorMode(mode), suppress_emulator_output=True),
+            isolate_saves=True,
+        )
+        try:
+            await launcher.start()
+            bridge = launcher.bridge
+            assert bridge is not None
+            result = await boot_fixed_versus_match(
+                bridge,
+                rom_path=rom,
+                save_mode="existing",
+                match_rules=MatchRules(fog=True),
+            )
+            battle = result.game_state.battle.value
+            assert battle is not None
+            assert battle.fog_enabled.value is True
+            (tmp_path / "fog-on.png").write_bytes(await bridge.screenshot())
+            (tmp_path / "evidence.json").write_text(
+                json.dumps(
+                    {
+                        "fog": True,
+                        "observation_visibility": "omniscient_trusted_clients",
+                        "decoded_unit_count": len(battle.units),
+                        "rom_sha256": select_rom_profile(rom).sha256,
+                        "build": launcher.build_identity,
+                        "mode": mode,
+                        "frame": result.game_state.frame,
+                        "screenshot_sha256": hashlib.sha256(
+                            (tmp_path / "fog-on.png").read_bytes()
+                        ).hexdigest(),
+                        "source_save_sha256": source_hash,
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n"
+            )
+        finally:
+            await launcher.stop()
+
+    asyncio.run(check())
+    assert hashlib.sha256(source_save.read_bytes()).hexdigest() == source_hash

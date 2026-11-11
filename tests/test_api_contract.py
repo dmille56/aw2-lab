@@ -207,12 +207,10 @@ def test_public_weather_rename_preserves_stored_controller_rules() -> None:
             RuleConfiguration.model_validate(data)
 
 
-@pytest.mark.parametrize("change", ["fog", "team", "cpu", "count"])
+@pytest.mark.parametrize("change", ["team", "cpu", "count"])
 def test_known_unverified_combinations_are_unsupported(change: str) -> None:
     data = profile()
-    if change == "fog":
-        data["rules"]["fog"] = True
-    elif change == "team":
+    if change == "team":
         data["players"][1]["team_id"] = "a"
     elif change == "cpu":
         data["players"][0]["control"] = "computer"
@@ -570,6 +568,24 @@ def test_rule_options_advertise_supported_selector_values() -> None:
     assert options.capture_limit == (None, *range(12, 28))
     assert options.co_powers == (True, False)
     assert options.weather == ("clear", "rain", "snow", "random")
+    assert options.fog == (False, True)
+
+
+def test_fog_configuration_round_trips_and_observations_are_omniscient() -> None:
+    data = profile()
+    data["rules"]["fog"] = True
+    configuration = MatchConfiguration.model_validate(data)
+    assert validate_configuration(configuration) == configuration
+    durable = configuration_to_controller(configuration)
+    assert durable.rules.fog is True
+    assert configuration_from_controller(durable).rules.fog is True
+    assert (
+        CapabilitiesResponse.model_fields["observation_visibility"].default
+        == "omniscient_trusted_clients"
+    )
+    assert "fog_enabled_matches" in Capabilities().supported_features
+    assert "omniscient_trusted_client_observations" in Capabilities().supported_features
+    assert "fog_of_war" not in Capabilities().unsupported_features
 
 
 @pytest.mark.parametrize("income", [0, 999, 1250, 5500, 6000, True, "2000"])

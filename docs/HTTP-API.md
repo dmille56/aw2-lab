@@ -73,11 +73,15 @@ Each `<map_id>_v1` profile contains the correct two, three, or four players.
 All slots use external control and fixed colors in order: Red, Blue, Green,
 Yellow. Each slot can select any advertised CO. Three/four-player matches can
 assign teams A through C/D respectively, with at least two distinct teams;
-two-player matches retain teams A/B. Fog remains Off. Income, day/capture
-limits, CO powers, and starting weather are configurable.
+two-player matches retain teams A/B. Fog, income, day/capture limits, CO powers,
+and starting weather are configurable. Capabilities declare
+`observation_visibility: "omniscient_trusted_clients"`: fog affects the game,
+but authorized clients receive the full decoded board state. Do not use this
+mode for adversarial competitive play; player-specific visibility isolation is
+unsupported.
 
 Creation validates the map player count, ordered slots, fixed colors, controls,
-and team assignments before allocation. Unsupported assignments or fog return
+and team assignments before allocation. Unsupported assignments return
 `422 unsupported_feature`; unknown map/CO identifiers and malformed values
 return `422 invalid_request`. Failed validation allocates no match and does
 not reserve the request ID. Invitations, credentials, subscriptions, and
@@ -92,6 +96,13 @@ including when supplied alongside `weather`. Existing controller checkpoints and
 authorization ledgers retain their stored `starting_weather` field; the adapter
 exposes it as `weather` in capabilities and match responses without rewriting
 stored documents.
+
+The rule field `fog` accepts `false` or `true` and both values are advertised.
+Fog On is selected and checked at the Rules screen and at the first playable
+boundary. It changes the game's visibility rules, while the trusted service
+continues to send the same complete decoded board observation to every
+authorized client. `observation_visibility` in capabilities identifies this
+policy as `omniscient_trusted_clients`.
 
 The rule field `day_limit` is required and accepts Off as JSON `null`, or an
 integer from 5 through 99 inclusive. All these limits are advertised and

@@ -59,6 +59,7 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
             if profile["profile_id"] == caps["default_profile_id"]
         )
         options = caps["configuration_options"]
+        assert caps["observation_visibility"] == "omniscient_trusted_clients"
         assert options["combination_constraint"] == "verified_options"
         assert advertised["map_id"] in options["map_ids"]
         assert advertised["players"] == options["players"]
@@ -69,6 +70,7 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
         assert options["rule_options"]["income_per_property"] == list(range(1000, 5001, 500))
         assert options["rule_options"]["co_powers"] == [True, False]
         assert options["rule_options"]["weather"] == ["clear", "rain", "snow", "random"]
+        assert options["rule_options"]["fog"] == [False, True]
         assert len(options["co_ids"]) == 19
         assert "starting_weather" not in advertised["rules"]
         assert len(advertised["players"]) in caps["supported_player_counts"]
@@ -77,10 +79,6 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
             assert player["control"] in caps["supported_control_modes"]
 
         alternatives = []
-        for field, value in (("fog", True),):
-            changed = deepcopy(advertised)
-            changed["rules"][field] = value
-            alternatives.append((changed, "unsupported_feature"))
         for field, value in (
             ("color", "green"),
             ("team_id", "b"),
@@ -152,6 +150,7 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
             capture_limit=20,
             co_powers=False,
             weather="rain",
+            fog=True,
         )
         body = {"request_id": request_id, "configuration": selected}
         created = await client.post("/v1/matches", json=body, headers=headers())

@@ -138,10 +138,13 @@ failed startup retains recovery-required semantics. Opening income is computed
 from Red's observed cities, HQ, bases, airports, and ports, rather than assuming
 Bean Island's 11,000 funds on every map. CO choices are set on the Teams screen
 and checked against the settled battle records. Colors and external controls remain fixed; three/four-player teams are configurable.
-Fog remains Off. Income, day limit, capture limit, CO powers, and starting
-weather are set through guarded Rules-screen selectors. The selected values are
-confirmed in setup RAM; first-turn income, CO effects, and weather mode are
-checked against settled battle state.
+Fog, income, day limit, capture limit, CO powers, and starting weather are set
+through guarded Rules-screen selectors. The selected values are confirmed in
+setup RAM; fog, first-turn income, CO effects, and weather mode are checked
+against settled battle state. Fog does not filter observations: capabilities
+declare `omniscient_trusted_clients`, and all authorized match clients receive
+the same complete decoded board state. Player-specific visibility isolation is
+unsupported.
 
 The isolated launcher explicitly loads the copied `.sav` with mGBA's
 `loadSaveFile`, then resets before starting the bridge. Copying the file alone

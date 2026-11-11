@@ -107,9 +107,10 @@ Recovery and parity checks write their own evidence indexes. Credentials and
 authorization verifiers remain only in private external run storage; the tracked
 results summarize safe observations and artifact hashes.
 
-A live acceptance pass verifies these scenarios on the pinned frontends and
-supported ROM/profile. It does not broaden supported maps, CO/rule combinations,
-unit production menus, fog, gameplay actions, or MCP support.
+The original 2026-11-03 live acceptance pass verified the scenarios below on
+the pinned frontends and supported ROM/profile. It did not broaden supported
+maps, CO/rule combinations, unit production menus, fog, gameplay actions, or
+MCP support; later Milestone 5 follow-up scenarios are recorded separately.
 
 ## Current results (2026-11-03)
 
@@ -719,7 +720,31 @@ AW2_RUN_RULE_SELECTION_TESTS=1 AW2_ROM_PATH=/private/aw2.gba \
   pytest -q tests/test_rule_selection_live_acceptance.py
 ```
 
-Fog remains off and is not covered by this acceptance run.
+This weather matrix uses Fog Off; fog has separate live coverage below.
+
+## Milestone 5 fog-enabled matches (2026-11-10)
+
+Fog On was selected through the guarded Versus Rules selector and observed as
+enabled at the first playable boundary in both mGBA frontends. The public
+capabilities document declares
+`observation_visibility: "omniscient_trusted_clients"`; all authorized clients
+can read the same full decoded board state, including during Fog matches.
+Player-specific visibility filtering is intentionally not implemented, so
+clients must be trusted with omniscient match data. The initial map boundary
+contains no units; this run verifies the fog rule and observation policy, not
+visibility of a particular hidden unit.
+
+ROM SHA-256: `ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`.
+The isolated headless mGBA build is
+`sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22`; the
+windowed build is
+`sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810`.
+Both reached frame 4257 with Fog On and produced the same screenshot SHA-256:
+`bb500a932876f9e8e6db022131a15c65c3b36d7ce61e2b6384e207e29cfa3dd2`.
+The source save stayed unchanged at SHA-256
+`f596b04b096de3a3b89615cf0ea2c3b6d2904bee26ff7b84fcbd0215e483e42a`.
+Per-run `evidence.json` and `fog-on.png` are retained outside Git under
+`/tmp/pytest-of-dono/pytest-1426/test_live_fog_enabled_match_is{0,1}/`.
 
 ## Milestone 5 two through four players and teams (2026-11-10)
 

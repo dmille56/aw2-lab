@@ -111,7 +111,10 @@ the named shared models unless a representation is explicitly defined below.
 
 Use `MatchConfiguration` restricted to an advertised two-player built-in Versus map
 profile, external players selected from the 19-CO roster (Andy/Max by default),
-and fog off. Coordinates are zero-based
+with Fog On or Off. Capabilities declare
+`observation_visibility: "omniscient_trusted_clients"`: authorized MCP clients
+receive full decoded observations, with no player-specific visibility filtering.
+Coordinates are zero-based
 `{x, y}`. Paths explicitly list successive destination tiles, excluding the
 starting tile; an empty path acts at the current tile. Unit IDs identify a
 tracked lifetime, not a type or coordinate; refresh observations after restore

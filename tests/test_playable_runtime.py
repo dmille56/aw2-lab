@@ -1082,6 +1082,7 @@ def test_first_turn_verification_checks_actual_roster_weather_fog_and_income(mem
 
     from aw2_lab.cold_boot import ColdBootError, _verify_playable_state
     from aw2_lab.map_catalog import MAPS_BY_ID
+    from aw2_lab.match_contract import MatchRules
     from aw2_lab.state_decoder import decode_snapshot
     from aw2_lab.state_model import ObservedValue, PropertyState, ValueStatus, Weather
 
@@ -1108,6 +1109,10 @@ def test_first_turn_verification_checks_actual_roster_weather_fog_and_income(mem
     )
     state = replace(state, battle=ObservedValue(ValueStatus.AVAILABLE, battle))
     _verify_playable_state(state, 1)
+    fog_rules = MatchRules(fog=True)
+    fog_battle = replace(battle, fog_enabled=ObservedValue(ValueStatus.AVAILABLE, True))
+    fog_state = replace(state, battle=ObservedValue(ValueStatus.AVAILABLE, fog_battle))
+    _verify_playable_state(fog_state, 1, match_rules=fog_rules)
 
     crater = MAPS_BY_ID["crater_isle"]
     _verify_playable_state(state, 2, crater)
