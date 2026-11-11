@@ -296,6 +296,11 @@ textarea:focus-visible,
   box-shadow: inset 0 0 0 4px #e87512;
 }
 
+.tile.unload-drop-target {
+  box-shadow: inset 0 0 0 4px #16834a;
+  z-index: 2;
+}
+
 .tile.threatened {
   background-image: repeating-linear-gradient(
     135deg,
@@ -311,6 +316,18 @@ textarea:focus-visible,
   box-shadow:
     inset 0 0 0 4px #e87512,
     inset 0 0 0 7px #f4f0e8;
+}
+
+.unload-passenger {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+}
+
+.unload-passenger > span {
+  color: var(--muted);
 }
 
 .tile:focus-visible,

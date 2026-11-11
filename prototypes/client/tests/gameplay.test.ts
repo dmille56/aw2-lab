@@ -587,13 +587,12 @@ it("plans a legal transport unload and includes the carrier route and cargo iden
   const options = result.current.unloadDropOptions[0].destinations;
   expect(options).toContainEqual({ x: 0, y: 0 });
   expect(options).not.toContainEqual({ x: 1, y: 1 });
-  act(() =>
-    result.current.dispatch({
-      type: "drop_destination",
-      unitId: "4",
-      point: { x: 0, y: 0 },
-    }),
+  act(() => result.current.dispatch({ type: "unload_passenger", unitId: "4" }));
+  expect(result.current.unloadTargets).toEqual(
+    new Set(options.map((point) => `${point.x},${point.y}`)),
   );
+  act(() => result.current.activate({ x: 0, y: 0 }));
+  expect(result.current.draft.dropDestinations["4"]).toEqual({ x: 0, y: 0 });
   expect(result.current.action).toEqual({
     contract_version: 1,
     kind: "unload",

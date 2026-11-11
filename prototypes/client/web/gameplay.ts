@@ -20,6 +20,7 @@ export interface Draft {
   phase: "select" | "unit" | "route" | "target" | "review";
   notice: string;
   dropDestinations: Record<string, Position>;
+  unloadPassengerId: string | null;
 }
 export const sameTile = (a: Position, b: Position) =>
   a.x === b.x && a.y === b.y;
@@ -50,6 +51,7 @@ export const emptyDraft = (boundary: string, notice = ""): Draft => ({
   phase: "select",
   notice,
   dropDestinations: {},
+  unloadPassengerId: null,
 });
 export type DraftEvent =
   | { type: "reset"; boundary: string; notice: string }
@@ -60,6 +62,7 @@ export type DraftEvent =
   | { type: "choose"; kind: ActionKind }
   | { type: "target"; point: Position }
   | { type: "drop_destination"; unitId: string; point: Position | null }
+  | { type: "unload_passenger"; unitId: string | null }
   | { type: "purchase"; unitType: string }
   | { type: "notice"; notice: string };
 
@@ -155,6 +158,8 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
           : draft),
         kind: event.kind,
         target: null,
+        dropDestinations: {},
+        unloadPassengerId: null,
         phase:
           event.kind === "move_attack" ||
           event.kind === "attack" ||
@@ -181,6 +186,14 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
       else delete dropDestinations[event.unitId];
       return { ...draft, dropDestinations };
     }
+    case "unload_passenger":
+      return {
+        ...draft,
+        unloadPassengerId: event.unitId,
+        notice: event.unitId
+          ? "Choose a highlighted adjacent tile for this passenger."
+          : "Passenger selection cleared.",
+      };
     case "purchase":
       return {
         ...draft,
@@ -543,6 +556,28 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
         });
       return;
     }
+    if (
+      draft.phase === "review" &&
+      draft.kind === "unload" &&
+      draft.unloadPassengerId
+    ) {
+      const passenger = unloadDropOptions.find(
+        (item) => item.id === draft.unloadPassengerId,
+      );
+      if (passenger?.destinations.some((tile) => sameTile(tile, point))) {
+        dispatch({
+          type: "drop_destination",
+          unitId: draft.unloadPassengerId,
+          point,
+        });
+        return;
+      }
+      dispatch({
+        type: "notice",
+        notice: "Choose a highlighted empty tile adjacent to the carrier.",
+      });
+      return;
+    }
     const item = units.find((item) => sameTile(item.unit, point));
     if (item) selectUnit(item.id);
     else if (bases.some((p) => sameTile(p, point))) selectBase(point);
@@ -764,6 +799,11 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     loadUnavailableReason,
     selectedTransportCargo,
     unloadDropOptions,
+    unloadTargets: new Set(
+      unloadDropOptions
+        .find((item) => item.id === draft.unloadPassengerId)
+        ?.destinations.map((point) => `${point.x},${point.y}`) ?? [],
+    ),
     unloadError,
     unloadUnavailableReason,
     canUnload: !unloadError,

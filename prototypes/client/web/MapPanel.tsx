@@ -29,6 +29,7 @@ export function MapPanel({
   selectedUnit = null,
   selectedUnitKey = null,
   plannedRoute = [],
+  dropTargets = new Set<string>(),
 }: {
   battle: BattleState | null;
   selected: Position | null;
@@ -42,6 +43,7 @@ export function MapPanel({
   selectedUnit?: UnitState | null;
   selectedUnitKey?: string | null;
   plannedRoute?: Position[];
+  dropTargets?: Set<string>;
 }) {
   const [size, setSize] = useState(58);
   const [fit, setFit] = useState(true);
@@ -225,6 +227,7 @@ export function MapPanel({
           cancel={cancel}
           route={route}
           target={target}
+          dropTargets={dropTargets}
           reachable={reach.destinations}
           transit={reach.alliedTransit}
           attackable={showAttackRange ? attacks : new Set<string>()}

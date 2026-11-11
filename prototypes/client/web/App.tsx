@@ -388,6 +388,13 @@ export function App() {
                 ? gameplay.draft.target
                 : null
             }
+            dropTargets={
+              gameplay.draft.boundary === gameplay.boundary &&
+              gameplay.draft.phase === "review" &&
+              gameplay.draft.kind === "unload"
+                ? gameplay.unloadTargets
+                : new Set<string>()
+            }
             selectedUnit={
               gameplay.draft.boundary === gameplay.boundary
                 ? gameplay.selectedUnit

@@ -570,48 +570,72 @@ export function CommandPanel({
               <p>
                 Move {unitName(selectedUnit)} to{" "}
                 {destination && positionLabel(destination)} and drop selected
-                cargo on adjacent legal tiles. The server checks the final route
-                and drop positions before execution.
+                cargo on adjacent legal tiles. Select a passenger, then choose
+                one of the highlighted tiles on the board. The server checks the
+                final route and drop positions before execution.
               </p>
               <fieldset className="unload-drops">
-                <legend>Choose cargo and drop tiles</legend>
+                <legend>Choose passengers to unload</legend>
                 {model.unloadDropOptions.map(
-                  ({ unit, id, destinations: dropTiles }) => (
-                    <label key={id}>
-                      Drop {unitName(unit)} ({unit.internal_health}/100 HP)
-                      <select
-                        aria-label={`Drop ${unitName(unit)} at`}
-                        value={
-                          draft.dropDestinations[id]
-                            ? `${draft.dropDestinations[id].x},${draft.dropDestinations[id].y}`
-                            : ""
-                        }
-                        disabled={!editable || !dropTiles.length}
-                        onChange={(event) => {
-                          const tile = dropTiles.find(
-                            (point) =>
-                              `${point.x},${point.y}` ===
-                              event.currentTarget.value,
-                          );
-                          dispatch({
-                            type: "drop_destination",
-                            unitId: id,
-                            point: tile ?? null,
-                          });
-                        }}
-                      >
-                        <option value="">Keep aboard</option>
-                        {dropTiles.map((point) => (
-                          <option
-                            key={`${point.x},${point.y}`}
-                            value={`${point.x},${point.y}`}
+                  ({ unit, id, destinations: dropTiles }) => {
+                    const point = draft.dropDestinations[id];
+                    return (
+                      <div className="unload-passenger" key={id}>
+                        <button
+                          type="button"
+                          aria-pressed={draft.unloadPassengerId === id}
+                          disabled={!editable || !dropTiles.length}
+                          onClick={() =>
+                            dispatch({
+                              type: "unload_passenger",
+                              unitId:
+                                draft.unloadPassengerId === id ? null : id,
+                            })
+                          }
+                        >
+                          {draft.unloadPassengerId === id
+                            ? `Choose ${unitName(unit)} drop tile`
+                            : unitName(unit)}
+                          {` · ${unit.internal_health}/100 HP`}
+                        </button>
+                        <span>
+                          {point
+                            ? `Drop at ${positionLabel(point)}`
+                            : dropTiles.length
+                              ? "Staying aboard"
+                              : "No legal adjacent tile"}
+                        </span>
+                        {point && (
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            disabled={!editable}
+                            onClick={() =>
+                              dispatch({
+                                type: "drop_destination",
+                                unitId: id,
+                                point: null,
+                              })
+                            }
                           >
-                            {positionLabel(point)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ),
+                            Keep aboard
+                          </button>
+                        )}
+                      </div>
+                    );
+                  },
+                )}
+                {draft.unloadPassengerId && (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={!editable}
+                    onClick={() =>
+                      dispatch({ type: "unload_passenger", unitId: null })
+                    }
+                  >
+                    Cancel tile selection
+                  </button>
                 )}
               </fieldset>
               {model.unloadError && (

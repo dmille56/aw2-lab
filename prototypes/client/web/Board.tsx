@@ -109,6 +109,7 @@ export function Board({
   transit = new Set<string>(),
   attackable = new Set<string>(),
   threatened = new Set<string>(),
+  dropTargets = new Set<string>(),
 }: {
   battle: BattleState | null;
   selected: Position | null;
@@ -123,6 +124,7 @@ export function Board({
   transit?: Set<string>;
   attackable?: Set<string>;
   threatened?: Set<string>;
+  dropTargets?: Set<string>;
 }) {
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const occupancy = new Map(
@@ -153,6 +155,7 @@ export function Board({
             const isTransit = transit.has(tileKey);
             const isAttackable = attackable.has(tileKey);
             const isThreatened = threatened.has(tileKey);
+            const isDropTarget = dropTargets.has(tileKey);
             return (
               <button
                 key={`${tile.x},${tile.y}`}
@@ -164,14 +167,15 @@ export function Board({
                 type="button"
                 data-x={tile.x}
                 data-y={tile.y}
-                className={`tile terrain-${tile.terrain_class} owner-${unit?.army_slot ?? tile.owner_slot}${match ? " selected" : ""}${isReachable ? " reachable" : ""}${isTransit ? " allied-transit" : ""}${isAttackable ? " attackable" : ""}${isThreatened ? " threatened" : ""}`}
+                className={`tile terrain-${tile.terrain_class} owner-${unit?.army_slot ?? tile.owner_slot}${match ? " selected" : ""}${isReachable ? " reachable" : ""}${isTransit ? " allied-transit" : ""}${isAttackable ? " attackable" : ""}${isThreatened ? " threatened" : ""}${isDropTarget ? " unload-drop-target" : ""}`}
                 data-route-step={step >= 0 ? step : undefined}
                 data-destination={destination || undefined}
                 data-target={isTarget || undefined}
+                data-drop-target={isDropTarget || undefined}
                 data-your-unit={!!unit && unit.army_slot === yourSlot}
                 title={`${terrainName(tile.terrain_class)}${unit ? ` · ${unitName(unit)}` : ""}`}
                 aria-pressed={match}
-                aria-label={`${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}` : ""}`}
+                aria-label={`${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}` : ""}`}
                 onClick={() => (activate ?? select)(tile)}
                 onKeyDown={(event) => {
                   if (event.key === "Escape") {
