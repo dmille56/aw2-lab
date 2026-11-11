@@ -5,6 +5,7 @@ import type { GameplayAction } from "./command_input";
 import { supportedProductionProperties } from "./command_input";
 import catalog from "./catalog.json";
 import { unloadDropTiles, validateMovement } from "./movement";
+import { attackTargets } from "./combat_overlay";
 
 export type ActionKind = GameplayAction["kind"];
 export interface Draft {
@@ -263,28 +264,16 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     view.capabilities?.production_facilities?.find(
       (facility) => facility.terrain_class === selectedBase?.terrain_class,
     )?.unit_types ?? [];
-  const targets = (battle?.units ?? []).filter(
-    (unit) => !allied(unit.army_slot) && !unit.embarked,
-  );
   const selectedUnit = units.find((item) => item.id === draft.unitId)?.unit;
   const feature = (kind: ActionKind) =>
     view.capabilities?.actions.find((item) => item.name === kind);
   const available = (kind: ActionKind) =>
     !!feature(kind)?.implemented && !!feature(kind)?.available;
-  const profile = selectedUnit
-    ? (
-        catalog.units as Record<
-          number,
-          {
-            name: string;
-            minimum_range: number;
-            maximum_range: number;
-            cost: number;
-          }
-        >
-      )[selectedUnit.unit_type]
-    : undefined;
   const destination = draft.path.at(-1) ?? draft.origin;
+  const targets =
+    battle && selectedUnit
+      ? attackTargets(battle, selectedUnit, draft.path)
+      : [];
   const movement =
     battle && selectedUnit
       ? validateMovement(battle, selectedUnit, draft.path)
@@ -447,10 +436,7 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     !!battle?.units.some(
       (unit) => !unit.embarked && sameTile(unit, draft.base!),
     );
-  const canAttack =
-    !!profile &&
-    profile.maximum_range > 0 &&
-    !(profile.minimum_range > 1 && draft.path.length > 0);
+  const canAttack = targets.length > 0;
   const canCapture =
     !!selectedUnit &&
     [1, 2].includes(selectedUnit.unit_type) &&
@@ -553,7 +539,7 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
       else
         dispatch({
           type: "notice",
-          notice: "Choose an observed enemy unit as the attack target.",
+          notice: "Choose an enemy within range that this unit can attack.",
         });
       return;
     }

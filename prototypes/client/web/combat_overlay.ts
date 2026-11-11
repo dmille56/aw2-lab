@@ -16,6 +16,61 @@ const catalog: {
   >;
 } = catalogData;
 const key = (position: Position) => `${position.x},${position.y}`;
+export function attackTargets(
+  battle: BattleState,
+  unit: UnitState,
+  route: Position[],
+): UnitState[] {
+  const profile = catalog.units[unit.unit_type];
+  if (
+    !profile ||
+    unit.used_this_turn ||
+    unit.embarked ||
+    profile.maximum_range < 1 ||
+    (profile.minimum_range > 1 && route.length)
+  )
+    return [];
+  const player = battle.players.find((item) => item.slot === unit.army_slot);
+  const contexts: Record<string, { range_bonuses: Record<number, number> }> =
+    catalogData.movement.contexts;
+  const context =
+    battle.co_effects_enabled.status === "available"
+      ? contexts[
+          battle.co_effects_enabled.value === false
+            ? "baseline"
+            : `${player?.co_id}:${player?.active_power}`
+        ]
+      : undefined;
+  const bonus = context
+    ? (context.range_bonuses[unit.unit_type] ?? 0)
+    : Math.max(
+        0,
+        ...Object.values(contexts).map(
+          (item) => item.range_bonuses[unit.unit_type] ?? 0,
+        ),
+      );
+  const origin = route.at(-1) ?? unit;
+  return battle.units.filter((target) => {
+    const owner = battle.players.find((item) => item.slot === target.army_slot);
+    if (
+      target.embarked ||
+      target.army_slot === unit.army_slot ||
+      (player && owner && player.team_id === owner.team_id)
+    )
+      return false;
+    const distance =
+      Math.abs(target.x - origin.x) + Math.abs(target.y - origin.y);
+    const targetType =
+      target.unit_type === 24 && target.submerged ? 25 : target.unit_type;
+    return (
+      distance >= profile.minimum_range &&
+      distance <= profile.maximum_range + bonus &&
+      ((unit.ammo > 0 && profile.primary_targets.includes(targetType)) ||
+        profile.secondary_targets.includes(targetType))
+    );
+  });
+}
+
 const canFire = (unit: UnitState) => {
   const profile = catalog.units[unit.unit_type];
   if (!profile || profile.maximum_range < 1) return false;

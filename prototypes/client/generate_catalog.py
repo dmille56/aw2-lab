@@ -38,6 +38,11 @@ def catalog_text() -> str:
                         for kind, profile in UNIT_PROFILES.items()
                         if RuleContext(co, power).unit_limits(kind)[0] != profile.movement
                     },
+                    "range_bonuses": {
+                        kind: RuleContext(co, power).unit_limits(kind)[1] - profile.maximum_range
+                        for kind, profile in UNIT_PROFILES.items()
+                        if RuleContext(co, power).unit_limits(kind)[1] != profile.maximum_range
+                    },
                 }
                 for co, power in [
                     (None, 0),

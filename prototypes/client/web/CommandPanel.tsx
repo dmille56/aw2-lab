@@ -436,8 +436,8 @@ export function CommandPanel({
               ) : null}
               {!model.canAttack && (
                 <p>
-                  Attack requires an attacking unit; indirect units must remain
-                  in place.
+                  No compatible enemy target is within range from this tile.
+                  Indirect units must remain in place to attack.
                 </p>
               )}
               {!model.canCapture && (
@@ -486,8 +486,8 @@ export function CommandPanel({
                 ))}
               </select>
               <p>
-                Targets are observed enemies; weapon compatibility and attack
-                range are checked by the server.
+                Targets match this unit's available weapons and range from its
+                final tile. The server validates the attack when submitted.
               </p>
             </>
           )}

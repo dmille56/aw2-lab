@@ -2104,7 +2104,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "0:0": {
         "weather_variants": {
@@ -2112,7 +2113,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "0:1": {
         "weather_variants": {
@@ -2120,7 +2122,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "0:2": {
         "weather_variants": {
@@ -2128,7 +2131,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "1:0": {
         "weather_variants": {
@@ -2136,7 +2140,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "1:1": {
         "weather_variants": {
@@ -2144,7 +2149,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "1:2": {
         "weather_variants": {
@@ -2172,7 +2178,8 @@
           "22": 1,
           "23": 1,
           "24": 1
-        }
+        },
+        "range_bonuses": {}
       },
       "2:0": {
         "weather_variants": {
@@ -2180,7 +2187,13 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {
+          "10": -1,
+          "11": -1,
+          "15": -1,
+          "21": -1
+        }
       },
       "2:1": {
         "weather_variants": {
@@ -2199,6 +2212,12 @@
           "19": 1,
           "22": 1,
           "24": 1
+        },
+        "range_bonuses": {
+          "10": -1,
+          "11": -1,
+          "15": -1,
+          "21": -1
         }
       },
       "2:2": {
@@ -2218,6 +2237,12 @@
           "19": 2,
           "22": 2,
           "24": 2
+        },
+        "range_bonuses": {
+          "10": -1,
+          "11": -1,
+          "15": -1,
+          "21": -1
         }
       },
       "3:0": {
@@ -2226,7 +2251,8 @@
           "snow": "clear",
           "rain": "snow"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "3:1": {
         "weather_variants": {
@@ -2234,7 +2260,8 @@
           "snow": "clear",
           "rain": "snow"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "3:2": {
         "weather_variants": {
@@ -2242,7 +2269,8 @@
           "snow": "clear",
           "rain": "snow"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "4:0": {
         "weather_variants": {
@@ -2254,7 +2282,8 @@
           "7": 1,
           "20": 1,
           "23": 1
-        }
+        },
+        "range_bonuses": {}
       },
       "4:1": {
         "weather_variants": {
@@ -2268,7 +2297,8 @@
           "7": 1,
           "20": 1,
           "23": 1
-        }
+        },
+        "range_bonuses": {}
       },
       "4:2": {
         "weather_variants": {
@@ -2282,7 +2312,8 @@
           "7": 1,
           "20": 1,
           "23": 1
-        }
+        },
+        "range_bonuses": {}
       },
       "5:0": {
         "weather_variants": {
@@ -2290,7 +2321,13 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {
+          "10": 1,
+          "11": 1,
+          "15": 1,
+          "21": 1
+        }
       },
       "5:1": {
         "weather_variants": {
@@ -2298,7 +2335,13 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {
+          "10": 2,
+          "11": 2,
+          "15": 2,
+          "21": 2
+        }
       },
       "5:2": {
         "weather_variants": {
@@ -2306,7 +2349,13 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {
+          "10": 3,
+          "11": 3,
+          "15": 3,
+          "21": 3
+        }
       },
       "6:0": {
         "weather_variants": {
@@ -2314,7 +2363,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "6:1": {
         "weather_variants": {
@@ -2322,7 +2372,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "6:2": {
         "weather_variants": {
@@ -2330,7 +2381,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "7:0": {
         "weather_variants": {
@@ -2338,7 +2390,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "7:1": {
         "weather_variants": {
@@ -2346,7 +2399,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "7:2": {
         "weather_variants": {
@@ -2354,7 +2408,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "8:0": {
         "weather_variants": {
@@ -2362,7 +2417,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "8:1": {
         "weather_variants": {
@@ -2370,7 +2426,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "8:2": {
         "weather_variants": {
@@ -2378,7 +2435,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "9:0": {
         "weather_variants": {
@@ -2391,7 +2449,8 @@
           "22": 1,
           "23": 1,
           "24": 1
-        }
+        },
+        "range_bonuses": {}
       },
       "9:1": {
         "weather_variants": {
@@ -2404,7 +2463,8 @@
           "22": 1,
           "23": 1,
           "24": 1
-        }
+        },
+        "range_bonuses": {}
       },
       "9:2": {
         "weather_variants": {
@@ -2417,7 +2477,8 @@
           "22": 1,
           "23": 1,
           "24": 1
-        }
+        },
+        "range_bonuses": {}
       },
       "10:0": {
         "weather_variants": {
@@ -2425,7 +2486,8 @@
           "snow": "snow",
           "rain": "cost_one"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "10:1": {
         "weather_variants": {
@@ -2433,7 +2495,8 @@
           "snow": "snow",
           "rain": "cost_one"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "10:2": {
         "weather_variants": {
@@ -2441,7 +2504,8 @@
           "snow": "snow",
           "rain": "cost_one"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "11:0": {
         "weather_variants": {
@@ -2449,7 +2513,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "11:1": {
         "weather_variants": {
@@ -2457,7 +2522,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "11:2": {
         "weather_variants": {
@@ -2465,7 +2531,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "12:0": {
         "weather_variants": {
@@ -2473,7 +2540,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "12:1": {
         "weather_variants": {
@@ -2481,7 +2549,8 @@
           "snow": "snow",
           "rain": "cost_one"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "12:2": {
         "weather_variants": {
@@ -2489,7 +2558,8 @@
           "snow": "snow",
           "rain": "cost_one"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "13:0": {
         "weather_variants": {
@@ -2497,7 +2567,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "13:1": {
         "weather_variants": {
@@ -2525,7 +2596,8 @@
           "22": 1,
           "23": 1,
           "24": 1
-        }
+        },
+        "range_bonuses": {}
       },
       "13:2": {
         "weather_variants": {
@@ -2553,7 +2625,8 @@
           "22": 2,
           "23": 2,
           "24": 2
-        }
+        },
+        "range_bonuses": {}
       },
       "14:0": {
         "weather_variants": {
@@ -2561,7 +2634,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "14:1": {
         "weather_variants": {
@@ -2569,7 +2643,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "14:2": {
         "weather_variants": {
@@ -2577,7 +2652,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "15:0": {
         "weather_variants": {
@@ -2585,7 +2661,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "15:1": {
         "weather_variants": {
@@ -2593,7 +2670,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "15:2": {
         "weather_variants": {
@@ -2601,7 +2679,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "16:0": {
         "weather_variants": {
@@ -2609,7 +2688,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "16:1": {
         "weather_variants": {
@@ -2617,7 +2697,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "16:2": {
         "weather_variants": {
@@ -2625,7 +2706,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "17:0": {
         "weather_variants": {
@@ -2633,7 +2715,8 @@
           "snow": "snow",
           "rain": "rain"
         },
-        "movement_bonuses": {}
+        "movement_bonuses": {},
+        "range_bonuses": {}
       },
       "17:1": {
         "weather_variants": {
@@ -2651,7 +2734,8 @@
           "11": 1,
           "14": 1,
           "15": 1
-        }
+        },
+        "range_bonuses": {}
       },
       "17:2": {
         "weather_variants": {
@@ -2669,7 +2753,8 @@
           "11": 2,
           "14": 2,
           "15": 2
-        }
+        },
+        "range_bonuses": {}
       },
       "18:0": {
         "weather_variants": {
@@ -2681,7 +2766,8 @@
           "7": 1,
           "20": 1,
           "23": 1
-        }
+        },
+        "range_bonuses": {}
       },
       "18:1": {
         "weather_variants": {
@@ -2693,7 +2779,8 @@
           "7": 1,
           "20": 1,
           "23": 1
-        }
+        },
+        "range_bonuses": {}
       },
       "18:2": {
         "weather_variants": {
@@ -2705,7 +2792,8 @@
           "7": 1,
           "20": 1,
           "23": 1
-        }
+        },
+        "range_bonuses": {}
       }
     }
   },

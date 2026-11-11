@@ -24,6 +24,41 @@ const selected = () =>
     { type: "plan" },
   );
 
+it("refreshes attack availability as routes and committed observations change", () => {
+  const snapshot = validateState(structuredClone(stateFixture));
+  const view: ViewState = {
+    ...new MatchSession().getSnapshot(),
+    snapshot,
+    connected: true,
+    ready: true,
+    identity: {
+      contract_version: 1,
+      match_id: snapshot.summary.match_id,
+      role: "player",
+      player_slot: "slot_1",
+    },
+    capabilities: validateCapabilitiesResponse(capabilityFixture),
+  };
+  const { result, rerender } = renderHook(
+    ({ view }) => useGameplay(view, vi.fn()),
+    { initialProps: { view } },
+  );
+  act(() => result.current.selectUnit("1"));
+  expect(result.current.canAttack).toBe(false);
+  act(() => result.current.dispatch({ type: "plan" }));
+  act(() => result.current.activate({ x: 1, y: 0 }));
+  expect(result.current.canAttack).toBe(true);
+  expect(result.current.targets).toHaveLength(1);
+  act(() => result.current.dispatch({ type: "undo" }));
+  expect(result.current.canAttack).toBe(false);
+  const updated = structuredClone(snapshot);
+  updated.summary.revision += 1;
+  updated.observation!.game_state.battle.value!.units[1].y = 0;
+  rerender({ view: { ...view, snapshot: updated } });
+  act(() => result.current.selectUnit("1"));
+  expect(result.current.canAttack).toBe(true);
+});
+
 it("matches APC, Transport Copter, and Lander cargo rules", () => {
   for (const carrier of [7, 20]) {
     expect(transportCanCarry(carrier, 1)).toBe(true);

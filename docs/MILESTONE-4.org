@@ -234,7 +234,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    Use human playtesting feedback to improve layout, navigation, selection and
    cancellation behavior, gameplay controls, feedback, and visual clarity across
    mouse, keyboard, and touch interaction.
-   - [ ] Enable =Choose attack target= only when the selected unit has an actual attackable enemy target from its current position, or from the planned movement endpoint while planning a move. Respect weapon/target compatibility, attack range, and the rule that indirect units cannot move then attack; update availability whenever the unit, route, or committed state changes.
+   - [X] Enable =Choose attack target= only when the selected unit has an actual attackable enemy target from its current position, or from the planned movement endpoint while planning a move. Respect weapon/target compatibility, attack range, and the rule that indirect units cannot move then attack; update availability whenever the unit, route, or committed state changes.
    - [ ] Improve unloading ergonomics by letting the player select the destination tile directly on the board instead of choosing from a list of positions. Highlight valid adjacent unload tiles at the carrier's current or planned destination, support choosing a passenger and its drop tile for multi-cargo carriers, and provide clear cancellation and keyboard/touch interaction.
 
 ** DEFERRED Investigate bubblewrap sandboxing for the Pi game host after Milestone 5
