@@ -12,7 +12,7 @@ from typing import Literal, Protocol
 from aw2_lab.bridge import LuaBridgeClient
 from aw2_lab.lifecycle import BattleControlObservation, LifecyclePhase, classify_lifecycle
 from aw2_lab.map_catalog import MAPS_BY_ID, MapId, VersusMap
-from aw2_lab.match_contract import CO_ID_VALUES, CoId
+from aw2_lab.match_contract import CO_ID_VALUES, CoId, MatchRules
 from aw2_lab.rom_profile import select_rom_profile
 from aw2_lab.state_decoder import capture_game_state
 from aw2_lab.state_model import GameState, ValueStatus, Weather
@@ -59,6 +59,7 @@ _CO_BATTLE_ID: dict[CoId, int] = {
     "jess": 17,
     "sensei": 18,
 }
+_DEFAULT_MATCH_RULES = MatchRules()
 # Main-menu and Continue/New selector tables identified in the manual traces.
 _VERSUS_MODE_TABLE = 0x086076DF
 _CONTINUE_CHOICE_TABLE = 0x0860770A
@@ -117,6 +118,7 @@ async def boot_fixed_versus_match(
     save_mode: Literal["fresh", "existing"] = "fresh",
     map_id: MapId = "bean_island",
     co_ids: tuple[CoId, CoId] = ("andy", "max"),
+    match_rules: MatchRules = _DEFAULT_MATCH_RULES,
     checkpoint_recorder: CheckpointRecorder | None = None,
 ) -> ColdBootResult:
     """Navigate from cartridge boot and verify the selected map at the first turn.
@@ -500,29 +502,13 @@ async def boot_fixed_versus_match(
                 f"Rules screen did not settle: {rules.phase.value}/{rules.setup_subphase}"
             )
         if rules.fog_rule != 0:
-            raise ColdBootError(
-                "Expected Fog to be ON before changing the default; "
-                f"observed runtime flag {rules.fog_rule}"
-            )
+            raise ColdBootError(f"Unexpected initial Fog selector: {rules.fog_rule}")
         await checkpoint("rules-before-fog-change", rules)
-
-        await tap("disable-fog", _KEY_DOWN)
-        rules = await settle()
-        if rules.phase is not LifecyclePhase.VERSUS_SETUP or rules.setup_subphase != 2:
-            raise ColdBootError(
-                f"Unexpected phase after selecting Fog Off: {rules.phase.value}/"
-                f"{rules.setup_subphase}"
-            )
-        if rules.fog_rule != 1:
-            raise ColdBootError(
-                "Fog Off input did not set the verified Rules flag; "
-                f"observed runtime flag {rules.fog_rule}"
-            )
+        rules = await _select_rule_value(
+            rules, tap, settle, "fog_rule", int(match_rules.fog is False), 1, "fog"
+        )
         await checkpoint("rules-fog-off", rules)
 
-        # The stock defaults are Random weather and no turn limit. The runtime
-        # profile requires Clear and 30 days. These selectors were correlated
-        # with their on-screen values in the pinned ROM (see runtime evidence).
         if (
             rules.weather_rule,
             rules.income_rule,
@@ -531,28 +517,40 @@ async def boot_fixed_versus_match(
             rules.powers_rule,
         ) != (0, 0, 0, 0, 0):
             raise ColdBootError("Unexpected default rule selectors")
-        await tap("select-weather-rule", _KEY_RIGHT)
-        await settle()
-        await tap("set-clear-weather", _KEY_DOWN)
-        rules = await settle()
-        if rules.weather_rule != 1:
-            raise ColdBootError("Clear weather selector was not verified")
-        await tap("select-income-rule", _KEY_RIGHT)
-        await settle()
-        await tap("select-day-limit-rule", _KEY_RIGHT)
-        await settle()
-        for index in range(1, 27):  # OFF -> 5, then one day per Down, ending at 30.
-            await tap("increase-day-limit", _KEY_DOWN)
+        for field_name, target, maximum, label in (
+            ("weather_rule", 1, 1, "weather"),
+            (
+                "income_rule",
+                match_rules.starting_funds // 500 - 2,
+                8,
+                "income",
+            ),
+            (
+                "day_rule",
+                0 if match_rules.day_limit is None else match_rules.day_limit - 4,
+                95,
+                "day-limit",
+            ),
+            (
+                "capture_rule",
+                0 if match_rules.capture_limit is None else match_rules.capture_limit - 11,
+                16,
+                "capture-limit",
+            ),
+            ("powers_rule", 0 if match_rules.co_powers else 1, 1, "co-powers"),
+        ):
+            await tap(f"focus-{label}-rule", _KEY_RIGHT)
             rules = await settle()
-            if rules.day_rule != index:
-                raise ColdBootError("Day limit selector did not advance as expected")
-        _verify_rules(rules)
-        await checkpoint("verified-fixed-rules", rules)
+            if rules.phase is not LifecyclePhase.VERSUS_SETUP or rules.setup_subphase != 2:
+                raise ColdBootError(f"Left the Rules screen while focusing {label}")
+            rules = await _select_rule_value(rules, tap, settle, field_name, target, maximum, label)
+        _verify_rules(rules, match_rules)
+        await checkpoint("verified-configurable-rules", rules)
         await tap("start-battle", _KEY_A)
         await wait_for(LifecyclePhase.BATTLE_PLAYER_TURN, budget=1800)
         game_state = await capture_game_state(bridge, rom_path=rom_path)
         loaded_map_id = (await bridge.read_memory_snapshot([(0x03003FC2, 1)])).ranges[0][0]
-        _verify_playable_state(game_state, loaded_map_id, selected_map, co_ids)
+        _verify_playable_state(game_state, loaded_map_id, selected_map, co_ids, match_rules)
         ready = await observe()
         await checkpoint("player-one-ready", ready)
 
@@ -624,7 +622,46 @@ def _verify_setup(
             )
 
 
-def _verify_rules(state: _FrontendState) -> None:
+async def _select_rule_value(
+    state: _FrontendState,
+    tap: Callable[[str, int], Awaitable[_FrontendState]],
+    settle: Callable[[], Awaitable[_FrontendState]],
+    field_name: str,
+    target: int,
+    maximum: int,
+    label: str,
+) -> _FrontendState:
+    current = getattr(state, field_name)
+    if not isinstance(current, int) or not 0 <= current <= maximum:
+        raise ColdBootError(f"Unrecognized {label} selector value: {current}")
+    direction = _KEY_DOWN if target >= current else _KEY_UP
+    for index in range(abs(target - current)):
+        state = await tap(f"set-{label}-{index + 1}", direction)
+        state = await settle()
+        observed = getattr(state, field_name)
+        expected = current + (index + 1) * (1 if direction == _KEY_DOWN else -1)
+        if (
+            state.phase is not LifecyclePhase.VERSUS_SETUP
+            or state.setup_subphase != 2
+            or observed != expected
+        ):
+            raise ColdBootError(f"{label} selector expected {expected}; observed {observed}")
+    if getattr(state, field_name) != target:
+        raise ColdBootError(
+            f"{label} selector did not reach {target}; observed {getattr(state, field_name)}"
+        )
+    return state
+
+
+def _verify_rules(state: _FrontendState, rules: MatchRules = _DEFAULT_MATCH_RULES) -> None:
+    expected = (
+        int(rules.fog is False),
+        1,  # Clear; selectable starting weather is tracked separately.
+        rules.starting_funds // 500 - 2,
+        0 if rules.day_limit is None else rules.day_limit - 4,
+        0 if rules.capture_limit is None else rules.capture_limit - 11,
+        0 if rules.co_powers else 1,
+    )
     if (
         state.fog_rule,
         state.weather_rule,
@@ -632,10 +669,8 @@ def _verify_rules(state: _FrontendState) -> None:
         state.day_rule,
         state.capture_rule,
         state.powers_rule,
-    ) != (1, 1, 0, 26, 0, 0):
-        raise ColdBootError(
-            "Rule selectors do not match fog Off, Clear, income 1000, 30 days, capture Off and powers On"
-        )
+    ) != expected:
+        raise ColdBootError(f"Rule selectors do not match the requested configuration: {expected}")
 
 
 def _verify_playable_state(
@@ -643,6 +678,7 @@ def _verify_playable_state(
     map_id: int,
     selected_map: VersusMap = MAPS_BY_ID["bean_island"],
     co_ids: tuple[CoId, CoId] = ("andy", "max"),
+    match_rules: MatchRules = _DEFAULT_MATCH_RULES,
 ) -> None:
     if state.lifecycle.phase is not LifecyclePhase.BATTLE_PLAYER_TURN:
         raise ColdBootError(f"Expected a human player turn; observed {state.lifecycle.phase.value}")
@@ -690,17 +726,19 @@ def _verify_playable_state(
         raise ColdBootError("Fog Off was not observed at the playable boundary")
     if (
         battle.co_effects_enabled.status is not ValueStatus.AVAILABLE
-        or battle.co_effects_enabled.value is not True
+        or battle.co_effects_enabled.value is not match_rules.co_powers
     ):
-        raise ColdBootError("CO effects On was not observed at the playable boundary")
+        raise ColdBootError("CO power rule did not match the playable boundary")
     # At day one Red has received one income payment. Count actual owned
     # properties rather than carrying Bean Island's opening balance to other maps.
     income_properties = sum(
         prop.owner_slot == 1 and prop.terrain_class in (6, 8, 10, 11, 14)
         for prop in battle.properties
     )
-    expected_funds = (income_properties * 1000, 0)
+    expected_funds = (income_properties * match_rules.starting_funds, 0)
     if (players[1].funds, players[2].funds) != expected_funds:
         raise ColdBootError(
-            f"Initial funds do not match {selected_map.name} income 1000: {expected_funds}"
+            f"Initial funds do not match {selected_map.name} income "
+            f"{match_rules.starting_funds}: expected {expected_funds}, "
+            f"observed {(players[1].funds, players[2].funds)}"
         )

@@ -1,8 +1,8 @@
 # Live SDK and emulator acceptance
 
 The opt-in checks in [test_sdk_live_integration.py](../tests/test_sdk_live_integration.py)
-exercise the fixed Bean Island profile with Andy/Red and Max/Blue under external
-control, fog disabled, Clear weather, and the verified rules. The main scenario
+exercise the default Bean Island profile with Andy/Red and Max/Blue under external
+control, fog disabled, Clear weather, and the default rules. The main scenario
 starts actual CLI server processes, connects separate operator/Red/Blue SDK
 clients over loopback TCP, and uses real SSE for command completion and turn
 wakeups. The CLI's normal authorization, storage, emulator isolation, and MCP
@@ -648,3 +648,35 @@ are external under `/tmp/pytest-of-dono/`; the aggregate
 Limits: the complete roster matrix ran headless; windowed coverage is one
 non-default pair. Other map, rule, weather, fog, and player-count settings remain
 outside the accepted configuration.
+
+## Milestone 5 configurable match rules (2026-11-10)
+
+Selected income, day-limit, capture-limit, and CO-power values are set on the
+Versus Rules screen. The live scenario requested income 2,000, day limit Off,
+capture limit 20, and CO powers Off, with fog Off and Clear starting weather.
+The Rules-screen screenshot shows `Funds 2000`, `Day OFF`, `Capt 20`, and
+`Power OFF`. The selector bytes were checked after each input; the first player
+turn confirmed CO effects Off and Red's funds matched 2,000 per owned property.
+
+The same configuration passed headless and windowed mGBA on the supported US
+revision-0 ROM (SHA-256
+`ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`). The
+headless and windowed builds were `sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22` and
+`sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810`.
+Both Rules-screen screenshots had SHA-256
+`69fbbd4d43cedb125a1c735aa6ca923ba6ba4ee7663f7371d2b33e1d5960d898`; the
+first-turn screenshots had SHA-256
+`00663b7db141912bd3e24bf5e8a2bcd71fdae6f6bd5c262f6602480cddd6041c`. The
+source cartridge save remained SHA-256
+`f596b04b096de3a3b89615cf0ea2c3b6d2904bee26ff7b84fcbd0215e483e42a`.
+
+The opt-in check is:
+
+```sh
+AW2_RUN_RULE_SELECTION_TESTS=1 AW2_ROM_PATH=/private/aw2.gba \
+  pytest -q tests/test_rule_selection_live_acceptance.py
+```
+
+This run verifies one non-default combination in both frontends. The unit and
+contract tests cover each selector mapping and advertised range. Fog-enabled
+matches and non-Clear starting weather remain separate TODOs.

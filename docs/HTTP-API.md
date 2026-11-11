@@ -63,8 +63,8 @@ Creation accepts an omitted configuration or the complete verified profile from
 capabilities. Select a complete entry from `configuration_profiles` using
 `default_profile_id`; its `configuration` can be submitted unchanged. The
 `configuration_options` descriptors summarize those verified choices, with
-`combination_constraint: verified_profiles_only`: do not assemble arbitrary
-combinations from the option lists. Profile selection does not depend on emulator
+`combination_constraint: verified_options`: select advertised values for each
+independently configurable field. Profile selection does not depend on emulator
 availability; Start reports whether the runtime is available.
 
 The default profile uses Bean Island. Map selection supports 72 two-player maps across
@@ -72,9 +72,11 @@ Classic (17), Vs. Maps (21), Pre-Deployed (12), and War Room (22), each advertis
 `<map_id>_v1`. These profiles use external Andy/Red/team A and Max/Blue/team
 B, fog Off, Clear weather, income 1,000 per property, a 30-day limit,
 capture limit Off, and CO powers On. Any pair from the 19 advertised COs is
-selectable; player colors, teams, controls, and rules remain fixed. Creation
-validates before allocating a match or touching the emulator. Valid alternative
-assignments/rules, internal CPU control, and the future three/four-player shape return
+selectable; player colors, teams, and controls remain fixed. Income, day limit,
+capture limit, and CO power availability are configurable. Fog and starting
+weather remain fixed. Creation validates before allocating a match or touching
+the emulator. Unsupported assignments, fog/weather, internal CPU control, and
+the future three/four-player shape return
 `422 unsupported_feature`. Unknown map/CO IDs, duplicate colors, invalid slot
 ordering, incomplete configurations, and malformed values return
 `422 invalid_request`. Map IDs outside the advertised two-player Versus catalog
@@ -97,26 +99,30 @@ exposes it as `weather` in capabilities and match responses without rewriting
 stored documents.
 
 The rule field `day_limit` is required and accepts Off as JSON `null`, or an
-integer from 5 through 99 inclusive. Only `30` is currently advertised and
-executable; Off and other valid limits return `422 unsupported_feature`.
+integer from 5 through 99 inclusive. All these limits are advertised and
+executable.
 Integers 1–4, out-of-range numbers, booleans, floats, and strings return
 `422 invalid_request`. Existing controller/checkpoint and authorization-ledger
-schemas remain unchanged: stored 30-day profiles round-trip without migration,
-and other representable stored limits retain their value when translated.
+schemas retain their original field spelling; selected values are carried in
+the durable match configuration.
 Legacy limits of 1–4 cannot be converted to the public schema and are rejected
-without silently changing them. Off never reaches the fixed-profile controller
-adapter, so it is not converted into a numeric sentinel or a default limit.
+without silently changing them. Off is stored as `null` and selected directly;
+it is not converted to a numeric sentinel or replaced with the default limit.
+
+`income_per_property` accepts the advertised values 1,000 through 5,000 in
+500 increments. `co_powers` accepts `true` or `false`. Capabilities enumerate
+these values alongside day and capture limits. First-turn funds are verified
+against the selected income and each map's observed owned properties.
 
 The rule field `capture_limit` is required in an explicit configuration and
 represents the Capture Properties victory rule. Use JSON `null` for Off, or an
 integer from 12 through 27 inclusive for the number of properties needed to win.
-Only Off is advertised and executable. Valid numeric limits return
-`422 unsupported_feature`; out-of-range values, booleans, floats, strings, and
-missing fields return `422 invalid_request`. Omitting the entire configuration
+Off and limits from 12 through 27 are advertised and executable. Out-of-range
+values, booleans, floats, strings, and missing fields return `422 invalid_request`.
+Omitting the entire configuration
 still selects the default profile, including capture limit Off. Legacy
-controller/checkpoint and authorization-ledger records have no capture-limit
-field: the adapter exposes those fixed-profile records as `capture_limit: null`
-without rewriting storage. Numeric limits never reach the controller adapter.
+controller/checkpoint and authorization-ledger records without a capture-limit
+field translate to Off. New records preserve the selected numeric limit.
 
 Preserve `request_id` and the exact request when retrying a lost
 response. Creating, issuing invitations, joining, revoking, and closing use the
@@ -251,8 +257,15 @@ The operator example accepts `--map-id crater_isle` on `create`:
 python examples/manage_match.py create --token-file /path/to/operator-token --map-id crater_isle
 ```
 
+Select advertised rule values at creation with `--income-per-property`,
+`--day-limit`, `--capture-limit`, and `--co-powers`/`--no-co-powers`. For example:
+
+```sh
+python examples/manage_match.py create --token-file /path/to/operator-token --map-id crater_isle --income-per-property 2000 --day-limit off --capture-limit 20 --no-co-powers
+```
+
 The selected map is persisted in match metadata and checkpoints. Start verifies
-its numeric ROM ID, dimensions, two external armies, fixed rules, and opening
+its numeric ROM ID, dimensions, two external armies, selected rules, and opening
 property income before publishing a playable boundary. A wrong loaded map fails
 startup. Profiles include `map_category` (`classic`, `versus`, `pre_deployed`, or
 `war_room`) and `requires_unlock`. Eight entries require purchases/unlocks in the

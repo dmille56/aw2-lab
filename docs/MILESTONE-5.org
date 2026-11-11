@@ -28,7 +28,7 @@ implemented and advertised.
 | Missile silos | Implemented and verified | Infantry/Mech Launch row, target prompt/cursor, silo consumption, and 3x3 blast in both live frontends; [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 missile silo launch (2026-11-10)][live evidence]] |
 | Map selection | Accepted | 72 two-player profiles across Classic, Vs. Maps, Pre-Deployed, and War Room, with category guards and local unlock requirements |
 | CO selection | Implemented and verified | All 19 COs selected in both slots across the headless matrix; representative non-default pair in windowed mGBA; setup and battle IDs checked ([[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 CO selection (2026-11-10)][live evidence]]) |
-| Configurable match rules | Open | Fixed verified versus rules; explicitly unsupported |
+| Configurable match rules | Implemented and verified | Non-default income, day, capture, and CO-power values in headless/windowed mGBA; fog and starting weather remain separate ([[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 configurable match rules (2026-11-10)][live evidence]]) |
 | Starting weather selection | Open | Fixed to clear; explicitly unsupported |
 | Two to four players/teams | Open | Two fixed external player slots |
 | Fog-enabled matches | Open | Fog off contract; explicitly unsupported |
@@ -123,7 +123,12 @@ actions must remain distinguishable at the public boundary.
    - [X] Use Down/Up on the focused CO field, navigate to slot 2 with two Right inputs, and guard every candidate/focus transition with setup RAM observations.
    - [X] Advertise all CO choices, preserve each selection in durable configuration, and verify the corresponding settled battle IDs before play.
    - [X] Verify all 19 COs in both player slots in headless mGBA and a non-default pair in windowed mGBA; see [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 CO selection (2026-11-10)][the live acceptance evidence]].
-** TODO Add configurable match rules
+** DONE Add configurable match rules
+   - [X] Accept supported income, day-limit, capture-limit, and CO-power settings in public and durable configuration.
+   - [X] Navigate the Rules screen selectors with observed RAM checks after each input; verify the settled first-turn income and CO-power state.
+   - [X] Advertise supported rule values through capabilities and preserve rule choices across creation, retries, recovery, and summaries.
+   - [X] Keep fog-enabled play and starting-weather selection as separate follow-up items.
+   - [X] Run headless/windowed live acceptance and record ROM/build evidence in [[file:LIVE-SDK-ACCEPTANCE.md][the live acceptance log]].
 ** TODO Add starting weather selection
 ** TODO Expand match setup and authorization to two through four players and teams
    - [ ] Enable 3P Maps, 4P Maps, and the three/four-player entries in Pre-Deployed and War Room after expanding the match contract and player authorization.

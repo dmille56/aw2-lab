@@ -130,7 +130,7 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
     async def create_match(
         request_id: UUID, configuration: MatchConfiguration | None = None, contract_version: int = 1
     ) -> MatchSummary:
-        """Operator: create an advertised map profile. Reuse request_id for identical retries."""
+        """Operator: create a match from advertised map, CO, and rule options. Reuse request_id for retries."""
         async with client(Permission.ADMIN) as sdk:
             return await sdk.create_match(configuration, request_id=request_id)
 

@@ -59,13 +59,15 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
             if profile["profile_id"] == caps["default_profile_id"]
         )
         options = caps["configuration_options"]
-        assert options["combination_constraint"] == "verified_profiles_only"
+        assert options["combination_constraint"] == "verified_options"
         assert advertised["map_id"] in options["map_ids"]
         assert advertised["players"] == options["players"]
         assert advertised["rules"] == options["rules"]
         assert advertised["rules"]["weather"] == "clear"
         assert advertised["rules"]["day_limit"] == 30
         assert advertised["rules"]["capture_limit"] is None
+        assert options["rule_options"]["income_per_property"] == list(range(1000, 5001, 500))
+        assert options["rule_options"]["co_powers"] == [True, False]
         assert len(options["co_ids"]) == 19
         assert "starting_weather" not in advertised["rules"]
         assert len(advertised["players"]) in caps["supported_player_counts"]
@@ -79,12 +81,6 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
             ("weather", "rain"),
             ("weather", "snow"),
             ("weather", "random"),
-            ("income_per_property", 2000),
-            ("day_limit", None),
-            ("day_limit", 5),
-            ("day_limit", 20),
-            ("day_limit", 99),
-            ("co_powers", False),
         ):
             changed = deepcopy(advertised)
             changed["rules"][field] = value
@@ -121,14 +117,10 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
             changed = deepcopy(advertised)
             changed["rules"]["day_limit"] = day_limit
             alternatives.append((changed, "invalid_request"))
-        for capture_limit in (12, 20, 27, 0, 11, 28, True, False, "12", 12.0):
+        for capture_limit in (0, 11, 28, True, False, "12", 12.0):
             changed = deepcopy(advertised)
             changed["rules"]["capture_limit"] = capture_limit
-            code = (
-                "unsupported_feature"
-                if type(capture_limit) is int and 12 <= capture_limit <= 27
-                else "invalid_request"
-            )
+            code = "invalid_request"
             alternatives.append((changed, code))
         changed = deepcopy(advertised)
         del changed["rules"]["capture_limit"]
@@ -153,11 +145,17 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
             assert rejected.json()["request_id"] == request_id
             assert (await client.get("/v1/matches", headers=headers())).json()["matches"] == []
 
-        # Rejections must not reserve the request ID. CO selections are supported
-        # and remain durable across retries and metadata recovery.
+        # Rejections must not reserve the request ID. CO and rule selections are
+        # supported and remain durable across retries and metadata recovery.
         selected = deepcopy(advertised)
         selected["players"][0]["co_id"] = "sami"
         selected["players"][1]["co_id"] = "nell"
+        selected["rules"].update(
+            income_per_property=2000,
+            day_limit=20,
+            capture_limit=20,
+            co_powers=False,
+        )
         body = {"request_id": request_id, "configuration": selected}
         created = await client.post("/v1/matches", json=body, headers=headers())
         assert created.status_code == 201, created.text

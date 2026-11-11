@@ -168,7 +168,7 @@ a complete configuration with a map ID, an ordered player collection, and rules:
 }
 ```
 
-This example represents the initial fixed configuration through the extensible
+This example represents the default configuration through the extensible
 creation shape. HTTP, SDK, and MCP use the same configuration schema and shared
 validation service. Map and CO identifiers are stable catalog IDs, independent
 of display labels and emulator memory values. Player count is derived from the
@@ -183,36 +183,32 @@ stored spelling, translated explicitly at the public boundary.
 
 `rules.day_limit` is required and accepts Off as `null` or an integer from 5–99
 inclusive. Values 1–4 are invalid, as are booleans, floats, strings, and numbers
-outside that range. The verified profile remains 30 days; Off and other valid
-limits return `unsupported_feature`. Stored controller/checkpoint and ledger
-schemas retain their numeric day limit. The adapter preserves representable
-stored values, rejects legacy 1–4 values instead of coercing them, and never
-converts Off to a numeric sentinel or silently substitutes 30.
+outside that range. These options are executable; the default is 30 days. Stored
+controller/checkpoint and ledger schemas retain their numeric day limit. The
+adapter preserves representable stored values and rejects legacy 1–4 values
+instead of coercing them.
 
 `rules.capture_limit` is required and represents the Capture Properties victory
 rule: Off is `null`, and an integer from 12–27 inclusive is the property count
-needed to win. Only Off belongs to the verified profile. Numeric limits in that
-range return `unsupported_feature`; other numbers, booleans, floats, strings,
-and omission from an explicit configuration return `invalid_request`. Legacy
-fixed-profile controller/checkpoint and ledger documents omit this field and
-translate to Off; their stored format remains unchanged. Numeric limits are
-rejected before reaching the fixed-profile controller adapter.
+needed to win. These choices are executable; the default is Off. Other numbers,
+booleans, floats, strings, and omission from an explicit configuration return
+`invalid_request`. Older controller/checkpoint and ledger documents omit this
+field and translate to Off; their stored format remains unchanged.
 
-Initially accept only configurations matching that verified profile. Other
-known maps, CO selections, player counts, fog/weather settings, team layouts, or
-rule values return `unsupported_feature` until supported. Do not silently replace
-caller choices with defaults. Unknown identifiers or malformed values return
-`invalid_request`. JSON/schema failures and unsupported choices use `422`, with
-bounded field-specific details and no credential echoes.
+Accept the advertised maps, any two COs from the verified roster, and the listed
+income, day-limit, capture-limit, and CO-power values in combination. Fog, starting
+weather, player count, team layout, colors, and controls remain fixed. Do not
+silently replace caller choices with defaults. Unknown identifiers or malformed
+values return `invalid_request`; recognized unsupported settings return
+`unsupported_feature`. Both use `422`, with bounded field-specific details and no
+credential echoes.
 
-Capabilities expose the default configuration profile, available verified
-profiles with their complete configurations, supported player counts, and map,
-CO, player-assignment, and rule-option descriptors. In the initial release these
-describe only the fixed profile. A client can construct the example above from
-capabilities without hard-coding Bean Island, Andy, Max, or the rule values.
-Future releases expand the advertised catalog/options and verified combinations.
-Lists of individually supported values do not imply their Cartesian product is
-supported: creation validates the entire combination against verified profiles
+Capabilities expose the default configuration profile, available map profiles,
+supported player counts, and map, CO, player-assignment, and rule-option
+descriptors. The `verified_options` combination constraint means the advertised
+map, CO, and configurable rule values can be selected together. A client can
+construct the example above from capabilities without hard-coding Bean Island,
+Andy, Max, or the rule values.
 or explicitly advertised combination constraints.
 
 Before allocating a match or touching the emulator, validate map/player-count
@@ -733,9 +729,10 @@ statuses and headers. These modules are shared by future HTTP, SDK, and MCP adap
 they do not implement routes or authenticate callers.
 
 The supported map profiles accept any two CO choices from the verified 19-CO
-roster while colors, teams, control, and rules remain fixed. Unregistered map/CO
-IDs are invalid, while recognized but unsupported assignments, rules, or player
-counts are unsupported. Capabilities describe accepted profiles and options
+roster and the advertised income, day-limit, capture-limit, and CO-power rule
+values. Colors, teams, control, fog, and starting weather remain fixed.
+Unregistered map/CO IDs are invalid, while recognized but unsupported
+assignments or player counts are unsupported. Capabilities describe accepted profiles and options
 separately from recognition. Feature availability must be supplied by runtime
 wiring; no gameplay actions or event transport are marked available by default.
 
@@ -763,8 +760,9 @@ file; controller/checkpoint recovery validates current ledger records independen
 of imported verifiers. See [the implementation and verification notes](AUTHORIZATION.md).
 Queued startup, runtime dispatch, durable boundary checkpoints, and shared-session
 recovery are now wired; see [runtime verification](PLAYABLE-RUNTIME.md). The cash
-rule is correctly named `income_per_property`; startup explicitly configures 30 days
-and Clear instead of accepting the old OFF/Random defaults. Boundary screenshots
+rule is correctly named `income_per_property`; startup configures selected income
+and day-limit choices, with 1,000 and 30 as defaults, and Clear instead of accepting
+the old Random weather default. Boundary screenshots
 and lifecycle/read routers are implemented in [HTTP-API.md](HTTP-API.md). Shared
 event publication and authenticated SSE now implement atomic snapshots, bounded
 replay/resynchronization, state-before-terminal-command ordering, and revocation

@@ -36,6 +36,14 @@ async def main() -> None:
         metavar="CO1,CO2",
         help="select one advertised CO for each player, for example sami,nell",
     )
+    parser.add_argument(
+        "--income-per-property",
+        type=int,
+        help="select an advertised income amount when creating a match",
+    )
+    parser.add_argument("--day-limit", help="select an advertised day limit or 'off'")
+    parser.add_argument("--capture-limit", help="select an advertised capture limit or 'off'")
+    parser.add_argument("--co-powers", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--checkpoint", type=UUID)
     parser.add_argument("--archive", type=Path)
     args = parser.parse_args()
@@ -64,6 +72,39 @@ async def main() -> None:
                     for player, co_id in zip(configuration.players, co_ids, strict=True)
                 )
                 configuration = configuration.model_copy(update={"players": players})
+            rules = configuration.rules
+            rule_options = capabilities.configuration_options.rule_options
+            rule_updates = {}
+            if args.income_per_property is not None:
+                if args.income_per_property not in rule_options.income_per_property:
+                    parser.error("income is not advertised by this server")
+                rule_updates["income_per_property"] = args.income_per_property
+            if args.day_limit is not None:
+                try:
+                    day_limit = None if args.day_limit.lower() == "off" else int(args.day_limit)
+                except ValueError:
+                    parser.error("--day-limit must be an integer or 'off'")
+                if day_limit not in rule_options.day_limit:
+                    parser.error("day limit is not advertised by this server")
+                rule_updates["day_limit"] = day_limit
+            if args.capture_limit is not None:
+                try:
+                    capture_limit = (
+                        None if args.capture_limit.lower() == "off" else int(args.capture_limit)
+                    )
+                except ValueError:
+                    parser.error("--capture-limit must be an integer or 'off'")
+                if capture_limit not in rule_options.capture_limit:
+                    parser.error("capture limit is not advertised by this server")
+                rule_updates["capture_limit"] = capture_limit
+            if args.co_powers is not None:
+                if args.co_powers not in rule_options.co_powers:
+                    parser.error("CO-power setting is not advertised by this server")
+                rule_updates["co_powers"] = args.co_powers
+            if rule_updates:
+                configuration = configuration.model_copy(
+                    update={"rules": rules.model_copy(update=rule_updates)}
+                )
             directory.mkdir(mode=0o700, parents=True)
             match = await client.create_match(configuration)
             private_file(directory / "match-id", str(match.match_id))

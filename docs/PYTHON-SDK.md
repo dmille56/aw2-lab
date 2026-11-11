@@ -154,7 +154,9 @@ profiles. Use, for example, `--map-id brace_range` for a Pre-Deployed match or
 in each advertised configuration profile. Unlock-dependent maps use the local
 ROM's companion `.sav`, loaded from an isolated copy; they require the relevant
 purchases/unlocks in that save. Each external slot may choose any of the 19
-verified COs. Rules and the two external slots remain fixed.
+verified COs. Income, day limit, capture limit, and CO powers can be selected
+from the advertised rule options. Fog remains Off and starting weather remains
+Clear.
 
 To choose COs at creation, pass `--co-ids sami,nell`; each value must appear in
 the server's `configuration_options.co_ids`. Omitting this option uses the
@@ -162,4 +164,8 @@ advertised default pair Andy/Max. For example:
 
 ```sh
 python examples/manage_match.py create --map-id bean_island --co-ids sami,nell
+python examples/manage_match.py create --map-id bean_island --income-per-property 2000 --day-limit off --capture-limit 20 --no-co-powers
 ```
+
+The rule flags are checked against `configuration_options.rule_options` before
+match creation; omitting them uses the advertised defaults.

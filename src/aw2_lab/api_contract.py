@@ -54,10 +54,19 @@ class RuleConfiguration(ContractModel):
     fog: bool = Field(strict=True)
     # Fixed choices apply throughout play; Random allows weather changes during play.
     weather: Literal["clear", "rain", "snow", "random"]
-    income_per_property: Annotated[int, Field(strict=True, ge=0, le=999999)]
+    income_per_property: Annotated[int, Field(strict=True, ge=1000, le=5000, multiple_of=500)]
     day_limit: Annotated[int, Field(strict=True, ge=5, le=99)] | None
     capture_limit: Annotated[int, Field(strict=True, ge=12, le=27)] | None
     co_powers: bool = Field(strict=True)
+
+
+class RuleOptions(ContractModel):
+    """Independently selectable rule values accepted by the verified setup flow."""
+
+    income_per_property: tuple[int, ...] = tuple(range(1000, 5001, 500))
+    day_limit: tuple[int | None, ...] = (None, *range(5, 100))
+    capture_limit: tuple[int | None, ...] = (None, *range(12, 28))
+    co_powers: tuple[bool, ...] = (True, False)
 
 
 class MatchConfiguration(ContractModel):
@@ -267,7 +276,8 @@ class ConfigurationOptions(ContractModel):
     co_ids: tuple[CoId, ...] = CO_ID_VALUES
     players: tuple[PlayerConfiguration, ...] = VERIFIED_CONFIGURATION.players
     rules: RuleConfiguration = VERIFIED_CONFIGURATION.rules
-    combination_constraint: Literal["verified_profiles_only"] = "verified_profiles_only"
+    rule_options: RuleOptions = RuleOptions()
+    combination_constraint: Literal["verified_options"] = "verified_options"
 
     @model_validator(mode="after")
     def validate_verified_options(self) -> ConfigurationOptions:
@@ -282,6 +292,7 @@ class ConfigurationOptions(ContractModel):
                 )
             )
             or self.rules != VERIFIED_CONFIGURATION.rules
+            or self.rule_options != RuleOptions()
         ):
             raise ValueError("Only verified player assignments and rules can be advertised")
         return self
@@ -407,7 +418,6 @@ def configuration_from_controller(configuration: FixedMatchConfiguration) -> Mat
     # Keep durable controller/checkpoint documents compatible with their original schema.
     rules["weather"] = rules.pop("starting_weather")
     # Legacy fixed-profile documents have no capture-limit field; their rule is Off.
-    rules["capture_limit"] = None
     return VERIFIED_CONFIGURATION.model_copy(
         update={
             "map_id": configuration.map_id,

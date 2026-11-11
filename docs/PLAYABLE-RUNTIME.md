@@ -137,7 +137,11 @@ before CO/team setup. Safe menu diagnostics survive in command error details;
 failed startup retains recovery-required semantics. Opening income is computed
 from Red's observed cities, HQ, bases, airports, and ports, rather than assuming
 Bean Island's 11,000 funds on every map. CO choices are set on the Teams screen
-and checked against the settled battle records. Teams and rules remain fixed.
+and checked against the settled battle records. Team/color/control assignments,
+fog, and starting weather remain fixed. Income, day limit, capture limit, and the
+CO-power toggle are set through guarded Rules-screen selectors. The selected
+values are confirmed in setup RAM, and first-turn income and CO effects are
+checked against settled battle state.
 
 The isolated launcher explicitly loads the copied `.sav` with mGBA's
 `loadSaveFile`, then resets before starting the bridge. Copying the file alone

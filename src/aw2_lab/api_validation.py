@@ -18,9 +18,10 @@ from aw2_lab.match_contract import (
     ErrorCode,
     ErrorResponse,
     FixedMatchConfiguration,
+    MatchRules,
 )
 
-# The supported two-player match shape is fixed except for the two CO choices.
+# The supported two-player shape fixes assignments while accepting advertised COs and rules.
 KNOWN_CO_IDS = frozenset(CO_ID_VALUES)
 KNOWN_MAP_IDS = frozenset(MAP_IDS)
 
@@ -56,11 +57,12 @@ def validate_configuration(configuration: MatchConfiguration) -> MatchConfigurat
     )
     if (
         configuration.players != expected_players
-        or configuration.rules != VERIFIED_CONFIGURATION.rules
+        or configuration.rules.fog is not False
+        or configuration.rules.weather != "clear"
     ):
         raise ContractValidationError(
             ErrorCode.UNSUPPORTED_FEATURE,
-            "Configuration does not match a verified profile",
+            "Configuration uses unsupported player assignments, fog, or starting weather",
             field="configuration",
         )
     return configuration
@@ -73,6 +75,12 @@ def configuration_to_controller(configuration: MatchConfiguration) -> FixedMatch
         map_id=MAPS_BY_ID[configuration.map_id].id,
         player_1_co=cast(CoId, configuration.players[0].co_id),
         player_2_co=cast(CoId, configuration.players[1].co_id),
+        rules=MatchRules(
+            day_limit=configuration.rules.day_limit,
+            starting_funds=configuration.rules.income_per_property,
+            capture_limit=configuration.rules.capture_limit,
+            co_powers=configuration.rules.co_powers,
+        ),
     )
 
 

@@ -1,6 +1,7 @@
 """ROM-independent checks for the proposed shared v1 transport boundary."""
 
 import base64
+import json
 from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -28,6 +29,7 @@ from aw2_lab.api_contract import (
     PlayerPrincipal,
     Principal,
     RuleConfiguration,
+    RuleOptions,
     SlotAuthorization,
     StateResponse,
     configuration_from_controller,
@@ -83,23 +85,28 @@ def test_profile_round_trip_and_explicit_legacy_adapter() -> None:
     old = FixedMatchConfiguration(rules=MatchRules(day_limit=20))
     converted = configuration_from_controller(old)
     assert converted.rules.day_limit == 20
-    with pytest.raises(ContractValidationError, match="verified profile"):
-        configuration_to_controller(converted)
+    assert configuration_to_controller(converted).rules.day_limit == 20
 
 
 @pytest.mark.parametrize("capture_limit", [None, *range(12, 28)])
-def test_capture_limits_are_valid_but_only_off_is_executable(capture_limit: int | None) -> None:
+def test_capture_limits_round_trip_through_controller(capture_limit: int | None) -> None:
     configuration = MatchConfiguration.model_validate(
         dict(profile(), rules=dict(profile()["rules"], capture_limit=capture_limit))
     )
     assert configuration.rules.capture_limit == capture_limit
     assert MatchConfiguration.model_validate_json(configuration.model_dump_json()) == configuration
-    if capture_limit is None:
-        assert configuration_to_controller(configuration) == FixedMatchConfiguration()
-    else:
-        with pytest.raises(ContractValidationError) as caught:
-            configuration_to_controller(configuration)
-        assert caught.value.body.code is ErrorCode.UNSUPPORTED_FEATURE
+    assert configuration_to_controller(configuration).rules.capture_limit == capture_limit
+
+
+@pytest.mark.parametrize("income", range(1000, 5001, 500))
+@pytest.mark.parametrize("co_powers", [True, False])
+def test_configurable_rule_values_round_trip(income: int, co_powers: bool) -> None:
+    rules = dict(profile()["rules"], income_per_property=income, co_powers=co_powers)
+    configuration = MatchConfiguration.model_validate(dict(profile(), rules=rules))
+    durable = configuration_to_controller(configuration)
+    assert durable.rules.starting_funds == income
+    assert durable.rules.co_powers is co_powers
+    assert configuration_from_controller(durable) == configuration
 
 
 @pytest.mark.parametrize("capture_limit", [-1, 0, 1, 11, 28, 100, True, False, 12.0, "12", "off"])
@@ -116,27 +123,23 @@ def test_capture_limit_is_required_and_legacy_storage_implies_off() -> None:
     del rules["capture_limit"]
     with pytest.raises(ValidationError):
         RuleConfiguration.model_validate(rules)
-    stored = FixedMatchConfiguration().model_dump_json()
-    assert "capture_limit" not in stored
+    stored_data = FixedMatchConfiguration().model_dump(mode="json")
+    del stored_data["rules"]["capture_limit"]
+    stored = json.dumps(stored_data)
     legacy = FixedMatchConfiguration.model_validate_json(stored)
     converted = configuration_from_controller(legacy)
     assert converted.model_dump(mode="json")["rules"]["capture_limit"] is None
-    assert configuration_to_controller(converted).model_dump_json() == stored
+    assert configuration_to_controller(converted).rules.capture_limit is None
 
 
 @pytest.mark.parametrize("day_limit", [None, 5, 20, 30, 99])
-def test_day_limit_values_are_valid_but_only_thirty_is_executable(day_limit: int | None) -> None:
+def test_day_limit_values_round_trip_through_controller(day_limit: int | None) -> None:
     configuration = MatchConfiguration.model_validate(
         dict(profile(), rules=dict(profile()["rules"], day_limit=day_limit))
     )
     assert configuration.rules.day_limit == day_limit
     assert MatchConfiguration.model_validate_json(configuration.model_dump_json()) == configuration
-    if day_limit == 30:
-        assert configuration_to_controller(configuration) == FixedMatchConfiguration()
-    else:
-        with pytest.raises(ContractValidationError) as caught:
-            configuration_to_controller(configuration)
-        assert caught.value.body.code is ErrorCode.UNSUPPORTED_FEATURE
+    assert configuration_to_controller(configuration).rules.day_limit == day_limit
 
 
 @pytest.mark.parametrize("day_limit", [-1, 0, 1, 2, 3, 4, 100, True, False, 30.0, "30", "off"])
@@ -152,11 +155,7 @@ def test_stored_day_limits_translate_without_changing_their_values(day_limit: in
     configuration = configuration_from_controller(legacy)
     assert configuration.rules.day_limit == day_limit
     assert legacy.model_dump_json() == stored
-    if day_limit == 30:
-        assert configuration_to_controller(configuration).model_dump_json() == stored
-    else:
-        with pytest.raises(ContractValidationError):
-            configuration_to_controller(configuration)
+    assert configuration_to_controller(configuration).model_dump_json() == stored
 
 
 @pytest.mark.parametrize("day_limit", [1, 2, 3, 4])
@@ -208,13 +207,11 @@ def test_public_weather_rename_preserves_stored_controller_rules() -> None:
             RuleConfiguration.model_validate(data)
 
 
-@pytest.mark.parametrize("change", ["fog", "funds", "weather", "team", "cpu", "count"])
+@pytest.mark.parametrize("change", ["fog", "weather", "team", "cpu", "count"])
 def test_known_unverified_combinations_are_unsupported(change: str) -> None:
     data = profile()
     if change == "fog":
         data["rules"]["fog"] = True
-    elif change == "funds":
-        data["rules"]["income_per_property"] = 2000
     elif change == "weather":
         data["rules"]["weather"] = "rain"
     elif change == "team":
@@ -566,6 +563,20 @@ def test_capabilities_cannot_advertise_unverified_configuration_options(field: s
         options[field]["fog"] = True
     with pytest.raises(ValidationError, match="Only verified"):
         ConfigurationOptions.model_validate(options)
+
+
+def test_rule_options_advertise_supported_selector_values() -> None:
+    options = RuleOptions()
+    assert options.income_per_property == tuple(range(1000, 5001, 500))
+    assert options.day_limit == (None, *range(5, 100))
+    assert options.capture_limit == (None, *range(12, 28))
+    assert options.co_powers == (True, False)
+
+
+@pytest.mark.parametrize("income", [0, 999, 1250, 5500, 6000, True, "2000"])
+def test_unsupported_income_values_are_invalid(income: object) -> None:
+    with pytest.raises(ValidationError):
+        RuleConfiguration.model_validate(dict(profile()["rules"], income_per_property=income))
 
 
 def test_co_selection_round_trips_into_durable_configuration() -> None:

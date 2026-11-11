@@ -140,3 +140,24 @@ are preserved at `/tmp/aw2-coldboot-fog-existing-windowed` and
 `/tmp/aw2-coldboot-fog-fresh-headless`. Automation supports either observed
 branch and confirms an overwrite only for the recognized prompt inside its
 isolated copy. The different frontend paths remain a research note.
+
+## Configurable Versus rules (2026-11-10)
+
+On the Rules screen, the selector bytes begin at `0x03001698`; the next five
+selector bytes are spaced by `0x60` bytes. Observed order is Fog, Weather,
+Funds, Day, Capture, and CO Power. The default values are `(0, 0, 0, 0, 0, 0)`.
+The configured choice sequence is guarded with an observed phase/subphase and a
+RAM read after every Up/Down input.
+
+The live non-default setup displayed Fog Off, Clear, Funds 2000, Day Off,
+Capture 20, and Power Off. Funds required two Down inputs from 1000; the settled
+first-turn funds matched 2,000 for each owned property. Capture 20 and Day Off
+were visible in the Rules-screen screenshot. CO effects were Off at the first
+playable boundary. The headless and windowed captures were visually identical
+for the selected Rules screen.
+
+The selector arithmetic used by automation is: income 1000–5000 in 500 steps;
+day Off or 5–99 (index 0 is Off, then 5 upward by one); capture Off or 12–27
+(index 0 is Off, then 12 upward by one); CO Powers On/Off at indexes 0/1.
+The starting weather selector remains at Clear, and Fog remains Off; those
+configuration extensions have their own Milestone 5 tasks.

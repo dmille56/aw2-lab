@@ -52,10 +52,11 @@ server advertises AW2 `contract_version: 1` on tool schemas/results and supports
 `initialize`; AW2's breaking application contract would use a separately
 versioned endpoint such as `/mcp/v2`. After initialization, call
 `get_capabilities` and `tools/list`. Use the returned profile, action
-availability, operation limits, and runtime status as authoritative. The only
-advertised match profiles support 72 two-player built-in Versus maps, two external players, fog Off,
-Clear weather, and the documented fixed rules. A valid tool schema does not
-mean an action is legal in the current game state.
+availability, operation limits, and runtime status as authoritative. Advertised
+profiles cover 72 two-player built-in Versus maps and two external players.
+Match configuration also accepts the listed income, day-limit, capture-limit,
+and CO-power choices; fog is Off and starting weather is Clear. A valid tool
+schema does not mean an action is legal in the current game state.
 
 With the pinned Python SDK, a client session can be opened like this (load the
 credential from a private file or secret manager; do not hardcode it in a

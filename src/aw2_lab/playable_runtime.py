@@ -137,6 +137,7 @@ class PlayableRuntime:
                     summary.configuration.player_1_co,
                     summary.configuration.player_2_co,
                 ),
+                match_rules=summary.configuration.rules,
             )
         except ColdBootError as error:
             # Startup has already mutated the emulator. Preserve the safe menu

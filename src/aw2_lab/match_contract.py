@@ -99,18 +99,18 @@ CO_ID_VALUES: tuple[CoId, ...] = (
 
 
 class MatchRules(ContractModel):
-    # Retain the stored controller/checkpoint schema. Public rules validate 5–99
-    # or Off; only the verified 30-day profile can reach the controller adapter.
-    day_limit: Annotated[int, Field(ge=1, le=99)] = 30
-    starting_funds: Annotated[int, Field(ge=0)] = 1000
+    # Rules accepted by the public setup flow; fog and starting weather remain fixed.
+    day_limit: Annotated[int, Field(ge=1, le=99)] | None = 30
+    starting_funds: Annotated[int, Field(ge=1000, le=5000, multiple_of=500)] = 1000
+    capture_limit: Annotated[int, Field(ge=12, le=27)] | None = None
     fog: Literal[False] = False
-    co_powers: Literal[True] = True
+    co_powers: bool = True
     # Durable controller/checkpoint spelling; the public API adapter exposes `weather`.
     starting_weather: Literal["clear"] = "clear"
 
 
 class FixedMatchConfiguration(ContractModel):
-    """Two-player configuration with selectable maps and COs, and fixed rules."""
+    """Two-player configuration with selectable maps, COs, and supported rules."""
 
     map_id: MapId = "bean_island"
     player_1_co: CoId = "andy"
@@ -180,9 +180,8 @@ class Capabilities(ContractModel):
     )
     unsupported_features: tuple[str, ...] = (
         "multiple_active_matches",
-        "configurable_cos_rules_weather_or_teams",
+        "configurable_starting_weather_or_fog",
         "maps_outside_two_player_versus_catalog",
-        "fog_of_war",
         "campaign_or_multiplayer_modes_other_than_versus",
         "competitive_player_visibility_isolation",
         "arbitrary_memory_writes_as_gameplay",
