@@ -233,8 +233,25 @@ export interface components {
             /**
              * @default {
              *       "co_ids": [
+             *         "nell",
              *         "andy",
-             *         "max"
+             *         "max",
+             *         "sami",
+             *         "hachi",
+             *         "olaf",
+             *         "grit",
+             *         "colin",
+             *         "kanbei",
+             *         "sonja",
+             *         "sensei",
+             *         "eagle",
+             *         "drake",
+             *         "jess",
+             *         "flak",
+             *         "lash",
+             *         "adder",
+             *         "hawke",
+             *         "sturm"
              *       ],
              *       "combination_constraint": "verified_profiles_only",
              *       "contract_version": 1,
@@ -3316,14 +3333,28 @@ export interface components {
             /**
              * Co Ids
              * @default [
+             *       "nell",
              *       "andy",
-             *       "max"
+             *       "max",
+             *       "sami",
+             *       "hachi",
+             *       "olaf",
+             *       "grit",
+             *       "colin",
+             *       "kanbei",
+             *       "sonja",
+             *       "sensei",
+             *       "eagle",
+             *       "drake",
+             *       "jess",
+             *       "flak",
+             *       "lash",
+             *       "adder",
+             *       "hawke",
+             *       "sturm"
              *     ]
              */
-            co_ids: [
-                "andy",
-                "max"
-            ];
+            co_ids: ("nell" | "andy" | "max" | "sami" | "hachi" | "olaf" | "grit" | "colin" | "kanbei" | "sonja" | "sensei" | "eagle" | "drake" | "jess" | "flak" | "lash" | "adder" | "hawke" | "sturm")[];
             /**
              * Combination Constraint
              * @default verified_profiles_only

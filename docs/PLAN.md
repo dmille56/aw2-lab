@@ -240,8 +240,8 @@ remain open. No support claim extends beyond the linked checks and live evidence
 **Status (2026-11-10): incomplete.** The [Milestone 5 audit and checklist](MILESTONE-5.org)
 records accepted stationary attacks, transport actions, powers, joining,
 resupplying, diving/surfacing, missile silo use, and selection across the 72
-built-in two-player Versus maps. CO selection is the next implementation task,
-followed by configurable match rules and starting weather.
+built-in two-player Versus maps and all 19 COs. Configurable match rules and
+starting weather are the next implementation tasks.
 
 **Dependencies:** stable playable slice and MCP adapter.
 
@@ -250,7 +250,7 @@ Add features in this order:
 1. CO power/super power, joining units, transport loading/unloading, resupplying, diving/surfacing, and missile silos.
 2. Map selection.
 3. Other built-in Versus map categories.
-4. CO selection.
+4. CO selection (implemented and verified).
 5. Configurable match rules.
 6. Starting weather selection.
 7. Two to four players and teams.

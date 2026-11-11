@@ -732,10 +732,11 @@ models, checkpoint references, and error envelopes are reused from `match_contra
 statuses and headers. These modules are shared by future HTTP, SDK, and MCP adapters;
 they do not implement routes or authenticate callers.
 
-Only `bean_island_v1` is accepted. The recognition catalog contains Bean Island and
-AW2 CO IDs; a recognized CO outside the verified assignment is unsupported, whereas
-unregistered map/CO IDs are invalid. Capabilities describe the accepted profile and
-options separately from recognition. Feature availability must be supplied by runtime
+The supported map profiles accept any two CO choices from the verified 19-CO
+roster while colors, teams, control, and rules remain fixed. Unregistered map/CO
+IDs are invalid, while recognized but unsupported assignments, rules, or player
+counts are unsupported. Capabilities describe accepted profiles and options
+separately from recognition. Feature availability must be supplied by runtime
 wiring; no gameplay actions or event transport are marked available by default.
 
 `resolve_configuration` resolves an omitted configuration for first creation. The

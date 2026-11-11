@@ -71,9 +71,10 @@ The default profile uses Bean Island. Map selection supports 72 two-player maps 
 Classic (17), Vs. Maps (21), Pre-Deployed (12), and War Room (22), each advertised as
 `<map_id>_v1`. These profiles use external Andy/Red/team A and Max/Blue/team
 B, fog Off, Clear weather, income 1,000 per property, a 30-day limit,
-capture limit Off, and CO powers On. Creation validates before allocating a match
-or touching the emulator. Known alternative COs, valid alternative assignments/rules, internal
-CPU control, and the future three/four-player shape return
+capture limit Off, and CO powers On. Any pair from the 19 advertised COs is
+selectable; player colors, teams, controls, and rules remain fixed. Creation
+validates before allocating a match or touching the emulator. Valid alternative
+assignments/rules, internal CPU control, and the future three/four-player shape return
 `422 unsupported_feature`. Unknown map/CO IDs, duplicate colors, invalid slot
 ordering, incomplete configurations, and malformed values return
 `422 invalid_request`. Map IDs outside the advertised two-player Versus catalog

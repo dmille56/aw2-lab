@@ -13,7 +13,8 @@ The current [[file:../src/aw2_lab/match_contract.py][gameplay contract]] adverti
 actions alongside the accepted playable-slice actions. Diving/surfacing and
 =silo_launch= are implemented. Match creation still fixes fog off, clear
 weather, and two slots. Capability reporting excludes gameplay and
-configuration features that remain unimplemented.
+configuration features that remain unimplemented. Map and CO selection are
+implemented and advertised.
 
 | Planned coverage | Audit result | Evidence or remaining work |
 |------------------+--------------+----------------------------|
@@ -26,7 +27,7 @@ configuration features that remain unimplemented.
 | Diving/surfacing | Implemented and verified | Sub action selector: Dive row =0x0B=, Rise row =0x0C=; guarded typed actions and headless/windowed acceptance in [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 Sub Dive and Rise (2026-11-10)][the live acceptance log]] |
 | Missile silos | Implemented and verified | Infantry/Mech Launch row, target prompt/cursor, silo consumption, and 3x3 blast in both live frontends; [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 missile silo launch (2026-11-10)][live evidence]] |
 | Map selection | Accepted | 72 two-player profiles across Classic, Vs. Maps, Pre-Deployed, and War Room, with category guards and local unlock requirements |
-| CO selection | Open | Fixed to Andy vs. Max; explicitly unsupported |
+| CO selection | Implemented and verified | All 19 COs selected in both slots across the headless matrix; representative non-default pair in windowed mGBA; setup and battle IDs checked ([[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 CO selection (2026-11-10)][live evidence]]) |
 | Configurable match rules | Open | Fixed verified versus rules; explicitly unsupported |
 | Starting weather selection | Open | Fixed to clear; explicitly unsupported |
 | Two to four players/teams | Open | Two fixed external player slots |
@@ -117,7 +118,11 @@ actions must remain distinguishable at the public boundary.
    - [X] Explicitly load the isolated cartridge save so unlocks are honored; preserve safe startup diagnostics and leave the source save unchanged.
    - [X] Verify supported maps in headless and windowed mGBA, including unavailable selections, navigation failures, and checkpoint restore. See [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 additional Versus map categories (2026-11-10)][the acceptance evidence]].
    - Scope: built-in Versus maps outside Classic; three/four-player profiles depend on the player-count expansion below. Custom maps remain deferred.
-** TODO Add CO selection
+** DONE Add CO selection
+   - [X] Map all 19 CO names to their setup-screen candidate indexes and settled battle IDs from the controlled save-state research below.
+   - [X] Use Down/Up on the focused CO field, navigate to slot 2 with two Right inputs, and guard every candidate/focus transition with setup RAM observations.
+   - [X] Advertise all CO choices, preserve each selection in durable configuration, and verify the corresponding settled battle IDs before play.
+   - [X] Verify all 19 COs in both player slots in headless mGBA and a non-default pair in windowed mGBA; see [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 CO selection (2026-11-10)][the live acceptance evidence]].
 ** TODO Add configurable match rules
 ** TODO Add starting weather selection
 ** TODO Expand match setup and authorization to two through four players and teams

@@ -66,6 +66,7 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
         assert advertised["rules"]["weather"] == "clear"
         assert advertised["rules"]["day_limit"] == 30
         assert advertised["rules"]["capture_limit"] is None
+        assert len(options["co_ids"]) == 19
         assert "starting_weather" not in advertised["rules"]
         assert len(advertised["players"]) in caps["supported_player_counts"]
         for player in advertised["players"]:
@@ -89,7 +90,6 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
             changed["rules"][field] = value
             alternatives.append((changed, "unsupported_feature"))
         for field, value in (
-            ("co_id", "sami"),
             ("color", "green"),
             ("team_id", "b"),
             ("control", "computer"),
@@ -153,12 +153,15 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
             assert rejected.json()["request_id"] == request_id
             assert (await client.get("/v1/matches", headers=headers())).json()["matches"] == []
 
-        # Rejections must not reserve the request ID or allocate a match. The entire
-        # advertised profile can be submitted unchanged and survives a retry.
-        body = {"request_id": request_id, "configuration": advertised}
+        # Rejections must not reserve the request ID. CO selections are supported
+        # and remain durable across retries and metadata recovery.
+        selected = deepcopy(advertised)
+        selected["players"][0]["co_id"] = "sami"
+        selected["players"][1]["co_id"] = "nell"
+        body = {"request_id": request_id, "configuration": selected}
         created = await client.post("/v1/matches", json=body, headers=headers())
         assert created.status_code == 201, created.text
-        assert created.json()["configuration"] == advertised
+        assert created.json()["configuration"] == selected
         assert (
             await client.post("/v1/matches", json=body, headers=headers())
         ).json() == created.json()
@@ -171,7 +174,7 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
     async with client_for(restored_app) as client:
         inspected = await client.get(f"/v1/matches/{created.json()['match_id']}", headers=headers())
         assert inspected.status_code == 200, inspected.text
-        assert inspected.json()["configuration"] == advertised
+        assert inspected.json()["configuration"] == selected
 
 
 @run_async_test

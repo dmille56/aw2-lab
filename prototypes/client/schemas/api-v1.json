@@ -347,8 +347,25 @@
             "$ref": "#/components/schemas/ConfigurationOptions",
             "default": {
               "co_ids": [
+                "nell",
                 "andy",
-                "max"
+                "max",
+                "sami",
+                "hachi",
+                "olaf",
+                "grit",
+                "colin",
+                "kanbei",
+                "sonja",
+                "sensei",
+                "eagle",
+                "drake",
+                "jess",
+                "flak",
+                "lash",
+                "adder",
+                "hawke",
+                "sturm"
               ],
               "combination_constraint": "verified_profiles_only",
               "contract_version": 1,
@@ -3631,21 +3648,50 @@
         "properties": {
           "co_ids": {
             "default": [
+              "nell",
               "andy",
-              "max"
+              "max",
+              "sami",
+              "hachi",
+              "olaf",
+              "grit",
+              "colin",
+              "kanbei",
+              "sonja",
+              "sensei",
+              "eagle",
+              "drake",
+              "jess",
+              "flak",
+              "lash",
+              "adder",
+              "hawke",
+              "sturm"
             ],
-            "maxItems": 2,
-            "minItems": 2,
-            "prefixItems": [
-              {
-                "const": "andy",
-                "type": "string"
-              },
-              {
-                "const": "max",
-                "type": "string"
-              }
-            ],
+            "items": {
+              "enum": [
+                "nell",
+                "andy",
+                "max",
+                "sami",
+                "hachi",
+                "olaf",
+                "grit",
+                "colin",
+                "kanbei",
+                "sonja",
+                "sensei",
+                "eagle",
+                "drake",
+                "jess",
+                "flak",
+                "lash",
+                "adder",
+                "hawke",
+                "sturm"
+              ],
+              "type": "string"
+            },
             "title": "Co Ids",
             "type": "array"
           },

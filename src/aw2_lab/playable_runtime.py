@@ -133,6 +133,10 @@ class PlayableRuntime:
                 rom_path=self.rom_path,
                 save_mode="existing",
                 map_id=summary.configuration.map_id,
+                co_ids=(
+                    summary.configuration.player_1_co,
+                    summary.configuration.player_2_co,
+                ),
             )
         except ColdBootError as error:
             # Startup has already mutated the emulator. Preserve the safe menu

@@ -4,39 +4,24 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from uuid import UUID
 
 from pydantic import ValidationError
 
 from aw2_lab.api_contract import VERIFIED_CONFIGURATION, CreateMatchRequest, MatchConfiguration
 from aw2_lab.map_catalog import MAP_IDS, MAPS_BY_ID
-from aw2_lab.match_contract import ErrorBody, ErrorCode, ErrorResponse, FixedMatchConfiguration
-
-# Recognized CO IDs do not imply playable combinations. Players and rules remain fixed.
-KNOWN_CO_IDS = frozenset(
-    [
-        "andy",
-        "max",
-        "sami",
-        "nell",
-        "hachi",
-        "olaf",
-        "grit",
-        "colin",
-        "kanbei",
-        "sonja",
-        "sensei",
-        "eagle",
-        "drake",
-        "jess",
-        "flak",
-        "lash",
-        "adder",
-        "hawke",
-        "sturm",
-    ]
+from aw2_lab.match_contract import (
+    CO_ID_VALUES,
+    CoId,
+    ErrorBody,
+    ErrorCode,
+    ErrorResponse,
+    FixedMatchConfiguration,
 )
+
+# The supported two-player match shape is fixed except for the two CO choices.
+KNOWN_CO_IDS = frozenset(CO_ID_VALUES)
 KNOWN_MAP_IDS = frozenset(MAP_IDS)
 
 
@@ -63,8 +48,14 @@ def validate_configuration(configuration: MatchConfiguration) -> MatchConfigurat
         raise ContractValidationError(
             ErrorCode.INVALID_REQUEST, "Unknown CO identifier", field="configuration.players.co_id"
         )
+    expected_players = tuple(
+        player.model_copy(update={"co_id": requested.co_id})
+        for player, requested in zip(
+            VERIFIED_CONFIGURATION.players, configuration.players, strict=False
+        )
+    )
     if (
-        configuration.players != VERIFIED_CONFIGURATION.players
+        configuration.players != expected_players
         or configuration.rules != VERIFIED_CONFIGURATION.rules
     ):
         raise ContractValidationError(
@@ -78,7 +69,11 @@ def validate_configuration(configuration: MatchConfiguration) -> MatchConfigurat
 def configuration_to_controller(configuration: MatchConfiguration) -> FixedMatchConfiguration:
     """Prevent an unsupported transport configuration from being silently defaulted."""
     validate_configuration(configuration)
-    return FixedMatchConfiguration(map_id=MAPS_BY_ID[configuration.map_id].id)
+    return FixedMatchConfiguration(
+        map_id=MAPS_BY_ID[configuration.map_id].id,
+        player_1_co=cast(CoId, configuration.players[0].co_id),
+        player_2_co=cast(CoId, configuration.players[1].co_id),
+    )
 
 
 ERROR_HTTP_STATUS: Mapping[ErrorCode, int] = {

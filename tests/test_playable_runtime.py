@@ -1051,6 +1051,7 @@ def test_fixed_rule_selectors_reject_unverified_combinations():
         map_id=1,
         setup_subphase=2,
         setup=b"",
+        setup_focus=0,
         selector_object=0,
         selector_table=0,
         yes_no_selection=0,

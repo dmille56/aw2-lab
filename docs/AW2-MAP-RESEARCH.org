@@ -3356,3 +3356,89 @@ Across each battle comparison, only the slot-1 player-record CO byte at
   finding covers the final four COs in slot 1; other-slot mapping for those
   COs is not tested. Defer those checks unless an issue suggests slot-specific
   behavior.
+
+* Finding: Teams-screen CO selection input and roster order
+
+** Claim and scope
+- Status: setup selector order confirmed from the nine user-provided Teams
+  checkpoints; the slot-2 focus path and both settled player CO IDs are verified
+  by live cold-boot acceptance.
+- The setup candidate bytes are at =0x02017C6C..0x02017C6F=, one byte per
+  player slot. The active setup focus is at =0x02017C82=.
+- On the supplied slot-1 sequence, =Down= increments the selected CO candidate
+  by one. The checkpoints begin at Andy and advance through Sonja. =Up= decrements
+  the candidate; live tests cover transitions across the lower end of the list.
+- From slot 1's CO field (focus =0=), =Right= changes focus to =1=, the player
+  control field; a second =Right= selects slot 2's CO field (focus =2=). Down/Up
+  then changes only slot 2's candidate byte.
+
+** Setup index and settled battle ID
+The candidate index is the setup-array value. The settled ID is stored at the
+player record's =+0x1D= field and is not the same ordering.
+
+| Setup index | CO | Settled battle ID |
+|-------------+----+-------------------|
+| 0 | Nell | 0 |
+| 1 | Andy | 1 |
+| 2 | Max | 2 |
+| 3 | Sami | 4 |
+| 4 | Hachi | 15 |
+| 5 | Olaf | 3 |
+| 6 | Grit | 5 |
+| 7 | Colin | 16 |
+| 8 | Kanbei | 6 |
+| 9 | Sonja | 7 |
+| 10 | Sensei | 18 |
+| 11 | Eagle | 8 |
+| 12 | Drake | 9 |
+| 13 | Jess | 17 |
+| 14 | Flak | 11 |
+| 15 | Lash | 12 |
+| 16 | Adder | 13 |
+| 17 | Hawke | 14 |
+| 18 | Sturm | 10 |
+
+** User-provided input sequence
+The nine source states show slot 1's candidate values =1..9= after =0..8=
+Down inputs from the initial Teams state. The other CO candidate bytes remain
+=02/03/0E=; teams, player setup, and screen phase remain unchanged. The cursor
+focus remains slot 1 CO. The source states were read-only.
+
+| State | Slot-1 setup index | Slot-2/3/4 indexes |
+|-------+--------------------+-------------------|
+| =aw2.ss1= | 1 | =02/03/0E= |
+| =aw2.ss2= | 2 | =02/03/0E= |
+| =aw2.ss3= | 3 | =02/03/0E= |
+| =aw2.ss4= | 4 | =02/03/0E= |
+| =aw2.ss5= | 5 | =02/03/0E= |
+| =aw2.ss6= | 6 | =02/03/0E= |
+| =aw2.ss7= | 7 | =02/03/0E= |
+| =aw2.ss8= | 8 | =02/03/0E= |
+| =aw2.ss9= | 9 | =02/03/0E= |
+
+The states were supplied on 2026-11-10 for ROM SHA-256
+=ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134=.
+Their SHA-256 values are:
+
+| State | SHA-256 |
+|-------+---------|
+| =aw2.ss1= | =d4d27ba402486a9193638084e8fdc496cc1ecaa49556bde31ed6504ba17e314b= |
+| =aw2.ss2= | =5c7cf78c39f81ad4bf7ff0c0e88a3e13defda9a5f6627e9cddd718785250b52f= |
+| =aw2.ss3= | =dd2b702de333cd71d7792e435b756c0ec860ca4af5f1c241030fe43d7071156b= |
+| =aw2.ss4= | =32aa331bf1e526563ea634aa4d5f4ddbd923718a3e3a540cfea6f52e486eb4f8= |
+| =aw2.ss5= | =97db59da37f98f3dd6301af6ddf6b9a48c930df38ee1657e6f7a2e5bf2e7d47c= |
+| =aw2.ss6= | =08a4458902437446c665c2e5dea91954585979a9462d30138ba58148002a7bb5= |
+| =aw2.ss7= | =4c51178e31f0df1e504e382cac228f234b10edfd8e0d4a8e2cacedf9d0f0f8ab= |
+| =aw2.ss8= | =c3ee1539b7d59d9cb3355847da1489522e125a905aa9fba7148deebc82bf4c73= |
+| =aw2.ss9= | =1e54b8b75b0b4f8ec748dd276d33f6563e752187b04610749569758db4c5fb62= |
+
+** Live acceptance
+- All 19 COs were selected once in each player slot across 19 adjacent CO-pair
+  cases in headless mGBA. The loaded battle records matched each requested
+  CO pair. Nell versus Andy also passed in windowed mGBA.
+- Evidence and build identities are recorded in
+  [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 CO selection (2026-11-10)][the Milestone 5 live acceptance log]].
+- The combined external JSON is =/tmp/aw2-co-selection-acceptance.json= with
+  SHA-256 =3b536f66563c13d8f0346650fe64c37d8cef5f8d68a4b0705153cb0ba6474390=.
+- The source cartridge save SHA-256 remained
+  =f596b04b096de3a3b89615cf0ea2c3b6d2904bee26ff7b84fcbd0215e483e42a=.

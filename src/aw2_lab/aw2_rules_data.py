@@ -600,6 +600,25 @@ UNIT_FUEL_UPKEEP: dict[int, int] = {
 UNIT_ZERO_FUEL_LOSS = frozenset((16, 17, 19, 20, 21, 22, 23, 24))
 CO_FUEL_DISCOUNTS: dict[tuple[int | None, int], int] = {(8, 0): 2, (8, 1): 2, (8, 2): 2}
 
-# Numeric identities verified by fixed-profile cold-boot checks (cold_boot.py).
-# Other CO names remain unavailable until their numeric identities are audited.
-VERIFIED_CO_NAMES: dict[int, str] = {1: "Andy", 2: "Max"}
+# Battle-record CO identities verified by the controlled selection save states.
+VERIFIED_CO_NAMES: dict[int, str] = {
+    0: "Nell",
+    1: "Andy",
+    2: "Max",
+    3: "Olaf",
+    4: "Sami",
+    5: "Grit",
+    6: "Kanbei",
+    7: "Sonja",
+    8: "Eagle",
+    9: "Drake",
+    10: "Sturm",
+    11: "Flak",
+    12: "Lash",
+    13: "Adder",
+    14: "Hawke",
+    15: "Hachi",
+    16: "Colin",
+    17: "Jess",
+    18: "Sensei",
+}

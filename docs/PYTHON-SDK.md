@@ -153,4 +153,13 @@ profiles. Use, for example, `--map-id brace_range` for a Pre-Deployed match or
 `--map-id spann_island` for War Room. Read `map_category` and `requires_unlock`
 in each advertised configuration profile. Unlock-dependent maps use the local
 ROM's companion `.sav`, loaded from an isolated copy; they require the relevant
-purchases/unlocks in that save. COs, rules, and the two external slots remain fixed.
+purchases/unlocks in that save. Each external slot may choose any of the 19
+verified COs. Rules and the two external slots remain fixed.
+
+To choose COs at creation, pass `--co-ids sami,nell`; each value must appear in
+the server's `configuration_options.co_ids`. Omitting this option uses the
+advertised default pair Andy/Max. For example:
+
+```sh
+python examples/manage_match.py create --map-id bean_island --co-ids sami,nell
+```

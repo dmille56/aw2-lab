@@ -17,7 +17,9 @@ from pydantic import AwareDatetime, Field, SecretStr, StringConstraints, model_v
 
 from aw2_lab.map_catalog import ALL_MAPS, MAP_IDS, MAPS_BY_ID, MapCategory, MapId
 from aw2_lab.match_contract import (
+    CO_ID_VALUES,
     CheckpointReference,
+    CoId,
     ContractModel,
     FixedMatchConfiguration,
     GameplayAction,
@@ -262,7 +264,7 @@ class ConfigurationOptions(ContractModel):
     """Accepted options derived from the verified profile, not the recognition catalog."""
 
     map_ids: Annotated[tuple[MapId, ...], Field(min_length=1)] = MAP_IDS
-    co_ids: tuple[Literal["andy"], Literal["max"]] = ("andy", "max")
+    co_ids: tuple[CoId, ...] = CO_ID_VALUES
     players: tuple[PlayerConfiguration, ...] = VERIFIED_CONFIGURATION.players
     rules: RuleConfiguration = VERIFIED_CONFIGURATION.rules
     combination_constraint: Literal["verified_profiles_only"] = "verified_profiles_only"
@@ -270,7 +272,15 @@ class ConfigurationOptions(ContractModel):
     @model_validator(mode="after")
     def validate_verified_options(self) -> ConfigurationOptions:
         if (
-            self.players != VERIFIED_CONFIGURATION.players
+            self.co_ids != CO_ID_VALUES
+            or len(self.players) != 2
+            or any(
+                (actual.slot, actual.color, actual.team_id, actual.control)
+                != (expected.slot, expected.color, expected.team_id, expected.control)
+                for actual, expected in zip(
+                    self.players, VERIFIED_CONFIGURATION.players, strict=False
+                )
+            )
             or self.rules != VERIFIED_CONFIGURATION.rules
         ):
             raise ValueError("Only verified player assignments and rules can be advertised")
@@ -399,7 +409,18 @@ def configuration_from_controller(configuration: FixedMatchConfiguration) -> Mat
     # Legacy fixed-profile documents have no capture-limit field; their rule is Off.
     rules["capture_limit"] = None
     return VERIFIED_CONFIGURATION.model_copy(
-        update={"map_id": configuration.map_id, "rules": RuleConfiguration.model_validate(rules)}
+        update={
+            "map_id": configuration.map_id,
+            "players": tuple(
+                player.model_copy(update={"co_id": co_id})
+                for player, co_id in zip(
+                    VERIFIED_CONFIGURATION.players,
+                    (configuration.player_1_co, configuration.player_2_co),
+                    strict=True,
+                )
+            ),
+            "rules": RuleConfiguration.model_validate(rules),
+        }
     )
 
 

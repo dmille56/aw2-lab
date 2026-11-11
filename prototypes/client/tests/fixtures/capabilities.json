@@ -67,7 +67,27 @@
   "configuration_options": {
     "contract_version": 1,
     "map_ids": ["bean_island"],
-    "co_ids": ["andy", "max"],
+    "co_ids": [
+      "nell",
+      "andy",
+      "max",
+      "sami",
+      "hachi",
+      "olaf",
+      "grit",
+      "colin",
+      "kanbei",
+      "sonja",
+      "sensei",
+      "eagle",
+      "drake",
+      "jess",
+      "flak",
+      "lash",
+      "adder",
+      "hawke",
+      "sturm"
+    ],
     "players": [
       {
         "contract_version": 1,

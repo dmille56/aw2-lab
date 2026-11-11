@@ -20,7 +20,7 @@ it("fits width and height, preserves legibility, and supports coordinate space",
 it("keeps names and unknown numeric identities explicit", () => {
   expect(coName(1)).toBe("Andy");
   expect(coName(2)).toBe("Max");
-  expect(coName(18)).toBe("Unknown CO (ID 18)");
+  expect(coName(18)).toBe("Sensei");
   expect(playerName(state, 1)).toBe("one");
   expect(playerName(state, 8)).toBe("Unknown player");
   expect(terrainLabel(8, "HQ")).toBe("HQ");

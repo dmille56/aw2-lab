@@ -208,13 +208,11 @@ def test_public_weather_rename_preserves_stored_controller_rules() -> None:
             RuleConfiguration.model_validate(data)
 
 
-@pytest.mark.parametrize("change", ["fog", "co", "funds", "weather", "team", "cpu", "count"])
+@pytest.mark.parametrize("change", ["fog", "funds", "weather", "team", "cpu", "count"])
 def test_known_unverified_combinations_are_unsupported(change: str) -> None:
     data = profile()
     if change == "fog":
         data["rules"]["fog"] = True
-    elif change == "co":
-        data["players"][0]["co_id"] = "sami"
     elif change == "funds":
         data["rules"]["income_per_property"] = 2000
     elif change == "weather":
@@ -563,11 +561,22 @@ def test_capabilities_do_not_claim_runtime_actions_by_default() -> None:
 def test_capabilities_cannot_advertise_unverified_configuration_options(field: str) -> None:
     options = ConfigurationOptions().model_dump(mode="json")
     if field == "players":
-        options[field][0]["co_id"] = "sami"
+        options[field][0]["color"] = "green"
     else:
         options[field]["fog"] = True
     with pytest.raises(ValidationError, match="Only verified"):
         ConfigurationOptions.model_validate(options)
+
+
+def test_co_selection_round_trips_into_durable_configuration() -> None:
+    players = list(VERIFIED_CONFIGURATION.players)
+    players[0] = players[0].model_copy(update={"co_id": "sami"})
+    players[1] = players[1].model_copy(update={"co_id": "nell"})
+    selected = VERIFIED_CONFIGURATION.model_copy(update={"players": tuple(players)})
+    durable = configuration_to_controller(selected)
+    assert durable.player_1_co == "sami"
+    assert durable.player_2_co == "nell"
+    assert configuration_from_controller(durable) == selected
 
 
 def test_state_response_preserves_boundary_identity_and_revision(memory) -> None:

@@ -602,3 +602,49 @@ AW2_RUN_RUNTIME_TESTS=1 AW2_ROM_PATH=/private/aw2.gba \
   AW2_RUNTIME_MAP_IDS=little_island,big_daddy,pay_dirt AW2_RUNTIME_MODE=headless \
   pytest -q tests/test_playable_runtime_integration.py
 ```
+
+## Milestone 5 CO selection (2026-11-10)
+
+The Teams screen stores each player's CO roster index in the byte array at
+`0x02017C6C..0x02017C6F`; the selected setup field is at `0x02017C82`.
+The supplied checkpoints show that Down increments the focused CO index and Up
+decrements it. From slot 1's CO field, two Right presses move focus through the
+slot 1 player-control field to slot 2's CO field. Startup observes and checks
+focus and the affected candidate byte after every input, then verifies both
+settled battle CO IDs before proceeding to Rules.
+
+The setup candidate order is `Nell, Andy, Max, Sami, Hachi, Olaf, Grit, Colin,
+Kanbei, Sonja, Sensei, Eagle, Drake, Jess, Flak, Lash, Adder, Hawke, Sturm`.
+Battle player records use a different ID order; cold boot verifies that mapping
+rather than assuming the setup index equals the battle ID.
+
+The live matrix exercised 19 adjacent roster pairs in headless mGBA. Across the
+matrix, every CO was selected once in each player slot, and every match reached
+day 1 with the requested battle CO IDs. A windowed mGBA run also passed for
+Nell versus Andy. Match configuration, capabilities, durable summaries, and
+checkpoint restore retain each CO selection. The source cartridge save remained
+at SHA-256
+`f596b04b096de3a3b89615cf0ea2c3b6d2904bee26ff7b84fcbd0215e483e42a`.
+
+The opt-in test covers the full 19-pair matrix in either mode. The recorded run
+used:
+
+```sh
+AW2_RUN_CO_SELECTION_TESTS=1 AW2_ROM_PATH=/private/aw2.gba \
+  pytest -q tests/test_co_selection_live_acceptance.py -k headless
+AW2_RUN_CO_SELECTION_TESTS=1 AW2_ROM_PATH=/private/aw2.gba \
+  pytest -q 'tests/test_co_selection_live_acceptance.py::test_live_selected_cos[0-windowed]'
+```
+
+ROM SHA-256: `ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`.
+Headless build: `sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22`.
+Windowed build: `sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810`.
+The supplied setup-state hashes and candidate bytes are recorded in
+[`AW2-MAP-RESEARCH.org`](AW2-MAP-RESEARCH.org). Per-case screenshots and JSON
+are external under `/tmp/pytest-of-dono/`; the aggregate
+`/tmp/aw2-co-selection-acceptance.json` has SHA-256
+`3b536f66563c13d8f0346650fe64c37d8cef5f8d68a4b0705153cb0ba6474390`.
+
+Limits: the complete roster matrix ran headless; windowed coverage is one
+non-default pair. Other map, rule, weather, fog, and player-count settings remain
+outside the accepted configuration.

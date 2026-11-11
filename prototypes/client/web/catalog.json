@@ -35,8 +35,25 @@
     "31": "Unused Blocked"
   },
   "cos": {
+    "0": "Nell",
     "1": "Andy",
-    "2": "Max"
+    "2": "Max",
+    "3": "Olaf",
+    "4": "Sami",
+    "5": "Grit",
+    "6": "Kanbei",
+    "7": "Sonja",
+    "8": "Eagle",
+    "9": "Drake",
+    "10": "Sturm",
+    "11": "Flak",
+    "12": "Lash",
+    "13": "Adder",
+    "14": "Hawke",
+    "15": "Hachi",
+    "16": "Colin",
+    "17": "Jess",
+    "18": "Sensei"
   },
   "movement": {
     "types": {

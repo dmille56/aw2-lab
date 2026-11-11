@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 from struct import unpack_from
@@ -11,6 +12,7 @@ from typing import Literal, Protocol
 from aw2_lab.bridge import LuaBridgeClient
 from aw2_lab.lifecycle import BattleControlObservation, LifecyclePhase, classify_lifecycle
 from aw2_lab.map_catalog import MAPS_BY_ID, MapId, VersusMap
+from aw2_lab.match_contract import CO_ID_VALUES, CoId
 from aw2_lab.rom_profile import select_rom_profile
 from aw2_lab.state_decoder import capture_game_state
 from aw2_lab.state_model import GameState, ValueStatus, Weather
@@ -19,6 +21,7 @@ _PROCESS_POOL = (0x0200D610, 32 * 0x6C)
 _CONTROL = (0x03003F3C, 0xC4)
 _CALLBACKS = (0x030040D0, 0x20)
 _SETUP = (0x02017C61, 0x16)
+_SETUP_FOCUS = (0x02017C82, 1)
 _BATTLE_STATE = (0x030032D8, 2)
 _LOCK = (0x030030F0, 1)
 _INPUT_GATE = (0x030040E4, 2)
@@ -34,6 +37,28 @@ _KEY_DOWN = 128
 _KEY_UP = 64
 _KEY_LEFT = 32
 _KEY_RIGHT = 16
+_CO_SETUP_INDEX: dict[CoId, int] = {co_id: index for index, co_id in enumerate(CO_ID_VALUES)}
+_CO_BATTLE_ID: dict[CoId, int] = {
+    "nell": 0,
+    "andy": 1,
+    "max": 2,
+    "olaf": 3,
+    "sami": 4,
+    "grit": 5,
+    "kanbei": 6,
+    "sonja": 7,
+    "eagle": 8,
+    "drake": 9,
+    "sturm": 10,
+    "flak": 11,
+    "lash": 12,
+    "adder": 13,
+    "hawke": 14,
+    "hachi": 15,
+    "colin": 16,
+    "jess": 17,
+    "sensei": 18,
+}
 # Main-menu and Continue/New selector tables identified in the manual traces.
 _VERSUS_MODE_TABLE = 0x086076DF
 _CONTINUE_CHOICE_TABLE = 0x0860770A
@@ -72,6 +97,7 @@ class _FrontendState:
     map_id: int
     setup_subphase: int
     setup: bytes
+    setup_focus: int
     selector_object: int
     selector_table: int
     yes_no_selection: int
@@ -90,6 +116,7 @@ async def boot_fixed_versus_match(
     rom_path: Path,
     save_mode: Literal["fresh", "existing"] = "fresh",
     map_id: MapId = "bean_island",
+    co_ids: tuple[CoId, CoId] = ("andy", "max"),
     checkpoint_recorder: CheckpointRecorder | None = None,
 ) -> ColdBootResult:
     """Navigate from cartridge boot and verify the selected map at the first turn.
@@ -100,6 +127,8 @@ async def boot_fixed_versus_match(
     copy. Every wait is bounded and the final playable state is verified.
     """
     selected_map = MAPS_BY_ID[map_id]
+    if any(co_id not in _CO_SETUP_INDEX for co_id in co_ids):
+        raise ColdBootError("Requested CO selection is not recognized")
     select_rom_profile(rom_path)
     events: list[ColdBootEvent] = []
 
@@ -109,6 +138,7 @@ async def boot_fixed_versus_match(
             _CONTROL,
             _CALLBACKS,
             _SETUP,
+            _SETUP_FOCUS,
             _BATTLE_STATE,
             _LOCK,
             _INPUT_GATE,
@@ -124,6 +154,7 @@ async def boot_fixed_versus_match(
             control,
             callbacks,
             setup,
+            setup_focus,
             battle_state,
             lock,
             gate,
@@ -156,6 +187,7 @@ async def boot_fixed_versus_match(
             map_id=control[0x86],
             setup_subphase=setup[0x15],
             setup=setup,
+            setup_focus=setup_focus[0],
             selector_object=unpack_from("<I", selector)[0],
             selector_table=unpack_from("<I", selector, 0x20)[0],
             yes_no_selection=selector[0x7E],
@@ -447,7 +479,17 @@ async def boot_fixed_versus_match(
             raise ColdBootError(
                 f"Unexpected phase after team/CO setup: {teams.phase.value}/{teams.setup_subphase}"
             )
-        _verify_setup(teams)
+        _verify_setup(teams, co_ids=None)
+        teams = await _select_setup_co(teams, tap, settle, slot=1, co_id=co_ids[0])
+        for expected_focus in (1, 2):
+            await tap(f"focus-co-slot-2-{expected_focus}", _KEY_RIGHT)
+            teams = await settle()
+            if teams.setup_focus != expected_focus:
+                raise ColdBootError(
+                    f"CO selector focus expected {expected_focus}, observed {teams.setup_focus}"
+                )
+        teams = await _select_setup_co(teams, tap, settle, slot=2, co_id=co_ids[1])
+        _verify_setup(teams, co_ids)
         await checkpoint("teams-co-setup", teams)
 
         await tap("open-rules", _KEY_A)
@@ -510,19 +552,76 @@ async def boot_fixed_versus_match(
         await wait_for(LifecyclePhase.BATTLE_PLAYER_TURN, budget=1800)
         game_state = await capture_game_state(bridge, rom_path=rom_path)
         loaded_map_id = (await bridge.read_memory_snapshot([(0x03003FC2, 1)])).ranges[0][0]
-        _verify_playable_state(game_state, loaded_map_id, selected_map)
+        _verify_playable_state(game_state, loaded_map_id, selected_map, co_ids)
         ready = await observe()
         await checkpoint("player-one-ready", ready)
 
     return ColdBootResult(game_state, loaded_map_id, tuple(events))
 
 
-def _verify_setup(state: _FrontendState) -> None:
+async def _select_setup_co(
+    state: _FrontendState,
+    tap: Callable[[str, int], Awaitable[_FrontendState]],
+    settle: Callable[[], Awaitable[_FrontendState]],
+    *,
+    slot: int,
+    co_id: CoId,
+) -> _FrontendState:
+    """Cycle the focused Teams-screen CO and verify each Down/Up input in RAM."""
+    expected_focus = 0 if slot == 1 else 2
+    if (
+        state.phase is not LifecyclePhase.VERSUS_SETUP
+        or state.setup_subphase != 0
+        or state.setup_focus != expected_focus
+    ):
+        raise ColdBootError(
+            f"Player {slot} CO selector is not focused; observed setup focus {state.setup_focus}"
+        )
+    offset = 0x0B + slot - 1
+    current = state.setup[offset]
+    if current >= 19:
+        raise ColdBootError(f"Player {slot} CO setup index is unrecognized: {current}")
+    target = _CO_SETUP_INDEX[co_id]
+    down_steps = (target - current) % 19
+    up_steps = (current - target) % 19
+    if min(down_steps, up_steps) == 0:
+        return state
+    direction, count = (_KEY_DOWN, down_steps) if down_steps <= up_steps else (_KEY_UP, up_steps)
+    delta = 1 if direction == _KEY_DOWN else -1
+    for index in range(count):
+        await tap(f"select-slot-{slot}-co-{index + 1}", direction)
+        state = await settle()
+        expected = (current + delta * (index + 1)) % 19
+        if (
+            state.phase is not LifecyclePhase.VERSUS_SETUP
+            or state.setup_subphase != 0
+            or state.setup_focus != expected_focus
+            or state.setup[offset] != expected
+        ):
+            raise ColdBootError(
+                f"Player {slot} CO selector did not reach setup index {expected}; "
+                f"observed {state.setup[offset]} at focus {state.setup_focus}"
+            )
+    if state.setup[offset] != target:
+        raise ColdBootError(f"Player {slot} CO selector did not reach {co_id}")
+    return state
+
+
+def _verify_setup(
+    state: _FrontendState, co_ids: tuple[CoId, CoId] | None = ("andy", "max")
+) -> None:
     teams = state.setup[0:4]
     if teams[:2] != bytes((0, 1)):
         raise ColdBootError(
             f"Expected players 1/2 on separate teams A/B; observed {teams[:2].hex()}"
         )
+    if co_ids is not None:
+        observed_cos = state.setup[0x0B:0x0D]
+        expected_cos = bytes(_CO_SETUP_INDEX[co_id] for co_id in co_ids)
+        if observed_cos != expected_cos:
+            raise ColdBootError(
+                f"Expected setup CO indexes {expected_cos.hex()}; observed {observed_cos.hex()}"
+            )
 
 
 def _verify_rules(state: _FrontendState) -> None:
@@ -540,7 +639,10 @@ def _verify_rules(state: _FrontendState) -> None:
 
 
 def _verify_playable_state(
-    state: GameState, map_id: int, selected_map: VersusMap = MAPS_BY_ID["bean_island"]
+    state: GameState,
+    map_id: int,
+    selected_map: VersusMap = MAPS_BY_ID["bean_island"],
+    co_ids: tuple[CoId, CoId] = ("andy", "max"),
 ) -> None:
     if state.lifecycle.phase is not LifecyclePhase.BATTLE_PLAYER_TURN:
         raise ColdBootError(f"Expected a human player turn; observed {state.lifecycle.phase.value}")
@@ -560,8 +662,8 @@ def _verify_playable_state(
     if set(players) != {1, 2}:
         raise ColdBootError(f"Expected active slots 1 and 2; observed {sorted(players)}")
     expected = {
-        1: (1, 1, 0),  # human control, Andy, team A
-        2: (1, 2, 1),  # human control, Max, team B
+        1: (1, _CO_BATTLE_ID[co_ids[0]], 0),
+        2: (1, _CO_BATTLE_ID[co_ids[1]], 1),
     }
     for slot, (control, co, team) in expected.items():
         player = players[slot]

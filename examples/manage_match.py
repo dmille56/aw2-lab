@@ -31,6 +31,11 @@ async def main() -> None:
         "--directory", type=Path, default=Path.home() / ".local/state/aw2-lab/sdk-demo"
     )
     parser.add_argument("--map-id", help="select an advertised map ID when creating a match")
+    parser.add_argument(
+        "--co-ids",
+        metavar="CO1,CO2",
+        help="select one advertised CO for each player, for example sami,nell",
+    )
     parser.add_argument("--checkpoint", type=UUID)
     parser.add_argument("--archive", type=Path)
     args = parser.parse_args()
@@ -47,8 +52,20 @@ async def main() -> None:
             )
             if profile is None:
                 parser.error("map ID is not advertised by this server")
+            configuration = profile.configuration
+            if args.co_ids:
+                co_ids = tuple(co_id.strip() for co_id in args.co_ids.split(","))
+                if len(co_ids) != 2 or any(
+                    co_id not in capabilities.configuration_options.co_ids for co_id in co_ids
+                ):
+                    parser.error("--co-ids must contain two CO IDs advertised by this server")
+                players = tuple(
+                    player.model_copy(update={"co_id": co_id})
+                    for player, co_id in zip(configuration.players, co_ids, strict=True)
+                )
+                configuration = configuration.model_copy(update={"players": players})
             directory.mkdir(mode=0o700, parents=True)
-            match = await client.create_match(profile.configuration)
+            match = await client.create_match(configuration)
             private_file(directory / "match-id", str(match.match_id))
             for slot in PlayerSlot:
                 invitation = SecretStr(token_urlsafe(32))

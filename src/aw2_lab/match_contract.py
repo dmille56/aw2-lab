@@ -1,4 +1,4 @@
-"""Versioned public models for the initial, fixed Milestone 3 match contract."""
+"""Versioned public models for the Milestone 3 contract and Milestone 5 extensions."""
 
 from __future__ import annotations
 
@@ -53,6 +53,51 @@ class SlotStatus(StrEnum):
     REVOKED = "revoked"
 
 
+CoId = Literal[
+    "nell",
+    "andy",
+    "max",
+    "sami",
+    "hachi",
+    "olaf",
+    "grit",
+    "colin",
+    "kanbei",
+    "sonja",
+    "sensei",
+    "eagle",
+    "drake",
+    "jess",
+    "flak",
+    "lash",
+    "adder",
+    "hawke",
+    "sturm",
+]
+
+CO_ID_VALUES: tuple[CoId, ...] = (
+    "nell",
+    "andy",
+    "max",
+    "sami",
+    "hachi",
+    "olaf",
+    "grit",
+    "colin",
+    "kanbei",
+    "sonja",
+    "sensei",
+    "eagle",
+    "drake",
+    "jess",
+    "flak",
+    "lash",
+    "adder",
+    "hawke",
+    "sturm",
+)
+
+
 class MatchRules(ContractModel):
     # Retain the stored controller/checkpoint schema. Public rules validate 5–99
     # or Off; only the verified 30-day profile can reach the controller adapter.
@@ -65,11 +110,11 @@ class MatchRules(ContractModel):
 
 
 class FixedMatchConfiguration(ContractModel):
-    """Two-player configuration with selectable maps and fixed COs and rules."""
+    """Two-player configuration with selectable maps and COs, and fixed rules."""
 
     map_id: MapId = "bean_island"
-    player_1_co: Literal["andy"] = "andy"
-    player_2_co: Literal["max"] = "max"
+    player_1_co: CoId = "andy"
+    player_2_co: CoId = "max"
     player_1_color: Literal["red"] = "red"
     player_2_color: Literal["blue"] = "blue"
     player_1_team: Literal["a"] = "a"

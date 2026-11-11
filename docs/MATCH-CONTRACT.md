@@ -15,15 +15,16 @@ Contract version 1 supports exactly one active local Versus match:
 | Setting | Supported value |
 | --- | --- |
 | Map | Selectable two-player built-in Versus map; Bean Island (`bean_island`) by default |
-| Slot 1 | Red, Andy, Team A |
-| Slot 2 | Blue, Max, Team B |
+| Slot 1 | Red, selected CO, Team A (Andy by default) |
+| Slot 2 | Blue, selected CO, Team B (Max by default) |
 | Control | Both armies controlled by the server for their external players |
 | Rules | 30-day limit, 1,000 income per owned property, CO Powers enabled, clear starting weather |
 | Fog | Disabled |
 
 Map selection is caller-selectable through the 72 advertised two-player Versus
-profiles. The other values remain fixed. Match creation validates a complete
-profile before allocation; unsupported COs, rules, or player assignments fail
+profiles, and each slot can select any of the 19 verified COs. Colors, teams,
+controls, and rules remain fixed. Match creation validates a complete profile
+before allocation; unsupported rules or player assignments fail
 with `unsupported_feature`. AW2 remains
 authoritative for legal actions, combat, randomness, upkeep, and outcomes.
 
@@ -254,10 +255,10 @@ The proposal also records future 2–4 player matches: use an extensible slot
 collection and per-slot permissions/subscriptions while initially advertising
 only the fixed two-player configuration. The current Python contract and
 executors require explicit extension before three or four players are supported.
-The creation design accepts an explicit map/player/rule configuration, initially
-restricted to the advertised two-player Versus profiles. Future COs,
-teams, fog/weather, and rule combinations use that same creation shape after
-validation and runtime verification. Adopting this proposed schema requires
+The creation design accepts an explicit map/player/rule configuration, restricted
+to the advertised two-player Versus profiles and verified CO roster. Other player
+assignments, teams, fog/weather, and rule combinations use that same creation
+shape after validation and runtime verification. Adopting this proposed schema requires
 explicit conversion between the legacy `FixedMatchConfiguration` and new
 collection-based transport models. `api_validation.py` validates the complete
 profile before conversion; map selection now preserves the requested supported map.
