@@ -278,6 +278,7 @@ class ConfigurationProfile(ContractModel):
     configuration: MatchConfiguration = VERIFIED_CONFIGURATION
     map_category: MapCategory = MapCategory.CLASSIC
     requires_unlock: bool = False
+    availability: Literal["always_available", "save_dependent"] = "always_available"
 
     @model_validator(mode="after")
     def validate_verified_profile(self) -> ConfigurationProfile:
@@ -286,6 +287,12 @@ class ConfigurationProfile(ContractModel):
             or self.profile_id != f"{self.configuration.map_id}_v1"
             or self.map_category != MAPS_BY_ID[self.configuration.map_id].category
             or self.requires_unlock != MAPS_BY_ID[self.configuration.map_id].requires_unlock
+            or self.availability
+            != (
+                "save_dependent"
+                if MAPS_BY_ID[self.configuration.map_id].requires_unlock
+                else "always_available"
+            )
             or self.configuration.players
             != default_players(MAPS_BY_ID[self.configuration.map_id].player_count)
             or self.configuration.rules != VERIFIED_CONFIGURATION.rules
@@ -408,6 +415,7 @@ class CapabilitiesResponse(ContractModel):
             ),
             map_category=entry.category,
             requires_unlock=entry.requires_unlock,
+            availability="save_dependent" if entry.requires_unlock else "always_available",
         )
         for entry in ALL_MAPS
     )

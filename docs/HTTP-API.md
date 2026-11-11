@@ -293,12 +293,19 @@ The selected map is persisted in match metadata and checkpoints. Start verifies
 its numeric ROM ID, dimensions, two external armies, selected rules, and opening
 property income before publishing a playable boundary. A wrong loaded map fails
 startup. Profiles include `map_category` (`classic`, `versus`, `pre_deployed`, or
-`war_room`) and `requires_unlock`. Eight entries require purchases/unlocks in the
-local cartridge save: Hourglass Isle, Big Daddy, Pay Dirt, Long Road, Nest Egg,
-The Trident, Banker Hills, and Missile Plains. A fresh save cannot start those
-profiles; the failed Start retains an actionable menu diagnostic and enters
-recovery-required without publishing a playable observation. Close that match
-before choosing another map.
+`war_room`), `requires_unlock`, and `availability`. Availability is a catalog
+classification (`always_available` or `save_dependent`), not a claim about the
+current cartridge save. The service does not decode per-map unlock flags from
+SRAM; the game menu is authoritative during Start. A locked selection fails
+with a diagnostic directing the operator to unlock it in Battle Maps. Without a
+companion `.sav`, startup uses a fresh isolated save, so save-dependent maps
+should be treated as unavailable until the appropriate save is configured.
+The eight two-player profiles requiring local unlocks are Hourglass Isle, Big
+Daddy, Pay Dirt, Long Road, Nest Egg, The Trident, Banker Hills, and Missile
+Plains. Nine three/four-player profiles are also save-dependent: Grid Assault,
+Crossroad, Archipelagos, Wyrm's Eye, Knotted Keys, Pipe Maze, Lock Ridge,
+Heartland, and Badlands. A failed Start enters recovery-required without
+publishing a playable observation; close that match before choosing another map.
 
 The launcher explicitly loads an isolated copy of the ROM's companion `.sav`;
 source saves are never changed. Unlocks are not granted or patched by the server.

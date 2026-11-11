@@ -74,17 +74,25 @@ def test_advertised_profiles_and_options_describe_the_same_supported_maps():
     for profile, entry in zip(profiles, ALL_MAPS, strict=True):
         assert profile.map_category == entry.category
         assert profile.requires_unlock == entry.requires_unlock
+        assert profile.availability == (
+            "save_dependent" if entry.requires_unlock else "always_available"
+        )
         assert validate_configuration(profile.configuration) == profile.configuration
 
 
-@pytest.mark.parametrize("field", ["map_category", "requires_unlock"])
+@pytest.mark.parametrize("field", ["map_category", "requires_unlock", "availability"])
 def test_profiles_cannot_hide_category_or_unlock_requirements(field):
     data = {
         "profile_id": "hourglass_isle_v1",
         "configuration": VERIFIED_CONFIGURATION.model_copy(update={"map_id": "hourglass_isle"}),
         "map_category": "versus",
         "requires_unlock": True,
+        "availability": "save_dependent",
     }
-    data[field] = "classic" if field == "map_category" else False
+    data[field] = {
+        "map_category": "classic",
+        "requires_unlock": False,
+        "availability": "always_available",
+    }[field]
     with pytest.raises(ValidationError):
         ConfigurationProfile.model_validate(data)

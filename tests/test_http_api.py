@@ -61,6 +61,11 @@ async def test_creation_uses_advertised_profile_and_rejects_other_configurations
         options = caps["configuration_options"]
         assert caps["observation_visibility"] == "omniscient_trusted_clients"
         assert options["combination_constraint"] == "verified_options"
+        assert all(
+            profile["availability"]
+            == ("save_dependent" if profile["requires_unlock"] else "always_available")
+            for profile in caps["configuration_profiles"]
+        )
         assert advertised["map_id"] in options["map_ids"]
         assert advertised["players"] == options["players"]
         assert advertised["rules"] == options["rules"]

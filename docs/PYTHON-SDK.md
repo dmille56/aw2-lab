@@ -157,7 +157,9 @@ profiles. Use, for example, `--map-id brace_range` for a Pre-Deployed match or
 `--map-id spann_island` for War Room. Read `map_category` and `requires_unlock`
 in each advertised configuration profile. Unlock-dependent maps use the local
 ROM's companion `.sav`, loaded from an isolated copy; they require the relevant
-purchases/unlocks in that save. Each external slot may choose any of the 19
+purchases/unlocks in that save. Profile `availability` is a catalog class, not
+the current save's unlock state. If no companion save exists, startup uses a
+fresh save and a locked map is rejected. Each external slot may choose any of the 19
 verified COs. Income, day limit, capture limit, and CO powers can be selected
 from the advertised rule options, along with Clear, Rain, Snow, or Random
 starting weather, and fog. The capability field

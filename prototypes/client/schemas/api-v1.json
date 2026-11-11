@@ -693,6 +693,7 @@
           "configuration_profiles": {
             "default": [
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "bean_island",
@@ -730,6 +731,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "crater_isle",
@@ -767,6 +769,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "triangles",
@@ -804,6 +807,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "ball_islands",
@@ -841,6 +845,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "coral_lagoon",
@@ -878,6 +883,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "puzzle_trio",
@@ -915,6 +921,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "fist_peninsula",
@@ -952,6 +959,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "deer_harbor",
@@ -989,6 +997,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "alara_range",
@@ -1026,6 +1035,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "lost_river",
@@ -1063,6 +1073,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "volcano_isle",
@@ -1100,6 +1111,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "turtle_atoll",
@@ -1137,6 +1149,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "squash_island",
@@ -1174,6 +1187,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "cube_keys",
@@ -1211,6 +1225,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "mirror_islands",
@@ -1248,6 +1263,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "shark_strait",
@@ -1285,6 +1301,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "royal_channel",
@@ -1322,6 +1339,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "little_island",
@@ -1359,6 +1377,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "sun_canal",
@@ -1396,6 +1415,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "beaker_river",
@@ -1433,6 +1453,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "star_islands",
@@ -1470,6 +1491,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "eon_springs",
@@ -1507,6 +1529,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "portal_bridge",
@@ -1544,6 +1567,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "sabre_range",
@@ -1581,6 +1605,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "asphalt_maze",
@@ -1618,6 +1643,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "cog_isle",
@@ -1655,6 +1681,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "zero_wood",
@@ -1692,6 +1719,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "switchback",
@@ -1729,6 +1757,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "ruby_keys",
@@ -1766,6 +1795,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "rainy_haven",
@@ -1803,6 +1833,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "rail_strait",
@@ -1840,6 +1871,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "tribe_islands",
@@ -1877,6 +1909,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "vision_bridge",
@@ -1914,6 +1947,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "piston_dam",
@@ -1951,6 +1985,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "hat_harbor",
@@ -1988,6 +2023,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "swan_cove",
@@ -2025,6 +2061,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "go_islands",
@@ -2062,6 +2099,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "save_dependent",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "hourglass_isle",
@@ -2099,6 +2137,7 @@
                 "requires_unlock": true
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "brace_range",
@@ -2136,6 +2175,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "river_range",
@@ -2173,6 +2213,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "moon_isle",
@@ -2210,6 +2251,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "mint_plateau",
@@ -2247,6 +2289,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "jewel_canal",
@@ -2284,6 +2327,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "wrench_island",
@@ -2321,6 +2365,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "rapid_ferry",
@@ -2358,6 +2403,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "bundle_city",
@@ -2395,6 +2441,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "scarab_road",
@@ -2432,6 +2479,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "pointing_river",
@@ -2469,6 +2517,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "liaison_wood",
@@ -2506,6 +2555,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "save_dependent",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "big_daddy",
@@ -2543,6 +2593,7 @@
                 "requires_unlock": true
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "spann_island",
@@ -2580,6 +2631,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "moji_island",
@@ -2617,6 +2669,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "duo_falls",
@@ -2654,6 +2707,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "sole_harbor",
@@ -2691,6 +2745,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "pivot_isle",
@@ -2728,6 +2783,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "lands_end",
@@ -2765,6 +2821,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "kita_straight",
@@ -2802,6 +2859,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "point_stormy",
@@ -2839,6 +2897,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "ridge_island",
@@ -2876,6 +2935,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "mials_hope",
@@ -2913,6 +2973,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "bounty_river",
@@ -2950,6 +3011,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "toil_ferry",
@@ -2987,6 +3049,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "twin_isle",
@@ -3024,6 +3087,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "dire_range",
@@ -3061,6 +3125,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "egg_islands",
@@ -3098,6 +3163,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "terra_maw",
@@ -3135,6 +3201,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "save_dependent",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "pay_dirt",
@@ -3172,6 +3239,7 @@
                 "requires_unlock": true
               },
               {
+                "availability": "save_dependent",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "long_road",
@@ -3209,6 +3277,7 @@
                 "requires_unlock": true
               },
               {
+                "availability": "save_dependent",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "nest_egg",
@@ -3246,6 +3315,7 @@
                 "requires_unlock": true
               },
               {
+                "availability": "save_dependent",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "the_trident",
@@ -3283,6 +3353,7 @@
                 "requires_unlock": true
               },
               {
+                "availability": "save_dependent",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "banker_hills",
@@ -3320,6 +3391,7 @@
                 "requires_unlock": true
               },
               {
+                "availability": "save_dependent",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "missile_plains",
@@ -3357,6 +3429,7 @@
                 "requires_unlock": true
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "delta_heights",
@@ -3402,6 +3475,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "poem_cape",
@@ -3447,6 +3521,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "blue_lake",
@@ -3492,6 +3567,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "coil_range",
@@ -3545,6 +3621,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "leaf_haven",
@@ -3598,6 +3675,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "battle_cube",
@@ -3651,6 +3729,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "save_dependent",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "grid_assault",
@@ -3704,6 +3783,7 @@
                 "requires_unlock": true
               },
               {
+                "availability": "save_dependent",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "crossroad",
@@ -3757,6 +3837,7 @@
                 "requires_unlock": true
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "pyramid_cape",
@@ -3802,6 +3883,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "bead_islands",
@@ -3847,6 +3929,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "clover_keys",
@@ -3892,6 +3975,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "keyhole_cove",
@@ -3937,6 +4021,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "fork_river",
@@ -3982,6 +4067,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "mantis_river",
@@ -4027,6 +4113,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "channel_city",
@@ -4072,6 +4159,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "ink_canal",
@@ -4117,6 +4205,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "shield_hills",
@@ -4162,6 +4251,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "peril_maze",
@@ -4207,6 +4297,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "gem_creek",
@@ -4252,6 +4343,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "glass_heights",
@@ -4297,6 +4389,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "devils_inlet",
@@ -4342,6 +4435,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "shear_port",
@@ -4387,6 +4481,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "liars_cove",
@@ -4432,6 +4527,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "nail_canal",
@@ -4477,6 +4573,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "atlas_river",
@@ -4522,6 +4619,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "eel_channels",
@@ -4567,6 +4665,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "jab_peninsula",
@@ -4612,6 +4711,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "thorn_islands",
@@ -4657,6 +4757,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "portsmouth",
@@ -4702,6 +4803,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "save_dependent",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "archipelagos",
@@ -4747,6 +4849,7 @@
                 "requires_unlock": true
               },
               {
+                "availability": "save_dependent",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "wyrms_eye",
@@ -4792,6 +4895,7 @@
                 "requires_unlock": true
               },
               {
+                "availability": "save_dependent",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "knotted_keys",
@@ -4837,6 +4941,7 @@
                 "requires_unlock": true
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "four_corners",
@@ -4890,6 +4995,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "rocket_cape",
@@ -4943,6 +5049,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "crop_river",
@@ -4996,6 +5103,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "tween_isle",
@@ -5049,6 +5157,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "rival_islands",
@@ -5102,6 +5211,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "loop_road",
@@ -5155,6 +5265,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "plus_canal",
@@ -5208,6 +5319,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "islas_five",
@@ -5261,6 +5373,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "patriot_cove",
@@ -5314,6 +5427,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "web_river",
@@ -5367,6 +5481,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "cap_narrows",
@@ -5420,6 +5535,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "jay_islands",
@@ -5473,6 +5589,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "chain_canal",
@@ -5526,6 +5643,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "spring_lakes",
@@ -5579,6 +5697,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "tatter_river",
@@ -5632,6 +5751,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "island_x",
@@ -5685,6 +5805,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "alakule",
@@ -5738,6 +5859,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "traitor_river",
@@ -5791,6 +5913,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "fable_hills",
@@ -5844,6 +5967,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "south_cape",
@@ -5897,6 +6021,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "glory_islands",
@@ -5950,6 +6075,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "save_dependent",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "pipe_maze",
@@ -6003,6 +6129,7 @@
                 "requires_unlock": true
               },
               {
+                "availability": "save_dependent",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "lock_ridge",
@@ -6056,6 +6183,7 @@
                 "requires_unlock": true
               },
               {
+                "availability": "save_dependent",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "heartland",
@@ -6109,6 +6237,7 @@
                 "requires_unlock": true
               },
               {
+                "availability": "save_dependent",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "badlands",
@@ -6162,6 +6291,7 @@
                 "requires_unlock": true
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "stamp_islands",
@@ -6207,6 +6337,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "rivers_four",
@@ -6252,6 +6383,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "ring_islands",
@@ -6297,6 +6429,7 @@
                 "requires_unlock": false
               },
               {
+                "availability": "always_available",
                 "configuration": {
                   "contract_version": 1,
                   "map_id": "last_mission",
@@ -7457,6 +7590,15 @@
       "ConfigurationProfile": {
         "additionalProperties": false,
         "properties": {
+          "availability": {
+            "default": "always_available",
+            "enum": [
+              "always_available",
+              "save_dependent"
+            ],
+            "title": "Availability",
+            "type": "string"
+          },
           "configuration": {
             "$ref": "#/components/schemas/MatchConfiguration",
             "default": {

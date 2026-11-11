@@ -255,7 +255,7 @@ Add features in this order:
 6. Starting weather selection (implemented and verified).
 7. Two to four players and teams (implemented; see the Milestone 5 acceptance log).
 8. Fog-enabled matches with explicitly omniscient observations for trusted research clients.
-9. Investigate how to detect and handle Versus maps that are locked in the local cartridge save.
+9. Investigate how to detect and handle Versus maps that are locked in the local cartridge save (investigation complete; future unlock support is tracked in [MILESTONE-5.org](MILESTONE-5.org)).
 
 **Acceptance criteria:** each feature has verified decoding, action execution, error/recovery scenarios, and capability advertisement. Clients can distinguish unsupported features from illegal actions.
 

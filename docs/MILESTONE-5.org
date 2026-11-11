@@ -142,10 +142,10 @@ actions must remain distinguishable at the public boundary.
    - [X] Select and verify Fog On at setup and the playable boundary; preserve the setting through match summaries and checkpoints.
    - [X] Explicitly advertise that trusted clients receive omniscient observations; do not claim player-specific visibility isolation.
    - [X] Verify Fog On at the playable boundary in headless and windowed mGBA; record ROM/build identities and visibility-policy evidence in [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 fog-enabled matches (2026-11-10)][the live acceptance log]].
-** TODO Investigate how to handle locked Versus maps
-   - [ ] Determine whether map availability can be read reliably from the local cartridge save before match creation.
-   - [ ] Decide how to show unavailable maps in capabilities and explain how to unlock them, including when no companion save is present.
-   - [ ] Verify the chosen behavior with fresh, partially unlocked, and fully unlocked saves.
+** DONE Investigate how to handle locked Versus maps
+   - [X] Individual unlock availability is not reliably decoded from SRAM; the game selector is authoritative at Start.
+   - [X] Capabilities classify profiles as =always_available= or =save_dependent= without claiming current-save access. Document Battle Maps unlock guidance and that a missing companion save starts fresh.
+   - [X] Verify representative fresh-save rejection across all five map categories and all 17 save-dependent profiles with the supplied unlocked save in headless/windowed mGBA. Partial-save verification was omitted by project direction; see [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 locked Versus map availability (2026-11-10)][the acceptance evidence]].
 
 ** TODO Complete the final Milestone 5 acceptance audit
    - [ ] Map each planned feature to implementation and checks, including error/recovery and public capability behavior.
@@ -160,3 +160,11 @@ Keep aarch64, macOS, Windows, Android, and iOS acceptance deferred until
 Milestone 5 is complete, as requested. Keep the Pi bubblewrap investigation
 deferred until the same point. Both are tracked in
 [[file:MILESTONE-4.org][the Milestone 4 deferred work]].
+
+** TODO Support unlocking save-dependent Versus maps from fresh or partially unlocked saves
+   Decide how to unlock/provision a requested map when the configured save does
+   not have it unlocked. Keep the source save unchanged and avoid implying that
+   the current capabilities status has changed until the game confirms access.
+   - [ ] Choose a safe flow, such as guiding the user through Battle Maps or using an explicitly authorized isolated save copy.
+   - [ ] Report progress and failure clearly when a requested unlock cannot be completed.
+   - [ ] Verify fresh and partially unlocked saves in headless/windowed mGBA; confirm fully unlocked saves remain unchanged.

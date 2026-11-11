@@ -703,6 +703,24 @@ All supplied state, raw-save, SPS, ROM, and archive fingerprints stayed unchange
 Future unlock research should compare controlled purchases/completions and visible
 availability, rather than assigning meanings to all profile differences at once.
 
+* Finding: Versus map unlock availability is save-dependent
+
+- Status: Individual per-map unlock flags are not reliably decoded from the
+  cartridge SRAM. The gold-menu comparison above documents broad profile-byte
+  differences, but does not isolate an unlock bit. Do not infer current map
+  availability from those bytes.
+- Policy: Capabilities advertise catalog availability as =always_available=
+  or =save_dependent= and retain =requires_unlock=. This is not a live status
+  for the configured save. The game map selector is authoritative during Start;
+  a rejected map retains a menu diagnostic explaining that it must be unlocked
+  in Battle Maps. If the ROM has no companion =.sav=, the isolated emulator
+  starts a fresh save, so save-dependent maps should be considered unavailable.
+- Verification scope: Fresh-save rejection for Hourglass Isle and accepted
+  startup for all eight two-player save-dependent profiles using the supplied
+  unlocked save, in both mGBA frontends, are recorded in
+  [[file:LIVE-SDK-ACCEPTANCE.md::*Milestone 5 locked Versus map availability (2026-11-10)][the live acceptance log]]. Per project direction, no partially unlocked
+  save was tested.
+
 * Finding: Kita Straight turn changes and funds
 
 ** Scope and supplied states

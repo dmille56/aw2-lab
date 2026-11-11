@@ -581,6 +581,7 @@ export interface components {
              * Configuration Profiles
              * @default [
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "bean_island",
@@ -618,6 +619,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "crater_isle",
@@ -655,6 +657,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "triangles",
@@ -692,6 +695,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "ball_islands",
@@ -729,6 +733,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "coral_lagoon",
@@ -766,6 +771,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "puzzle_trio",
@@ -803,6 +809,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "fist_peninsula",
@@ -840,6 +847,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "deer_harbor",
@@ -877,6 +885,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "alara_range",
@@ -914,6 +923,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "lost_river",
@@ -951,6 +961,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "volcano_isle",
@@ -988,6 +999,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "turtle_atoll",
@@ -1025,6 +1037,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "squash_island",
@@ -1062,6 +1075,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "cube_keys",
@@ -1099,6 +1113,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "mirror_islands",
@@ -1136,6 +1151,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "shark_strait",
@@ -1173,6 +1189,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "royal_channel",
@@ -1210,6 +1227,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "little_island",
@@ -1247,6 +1265,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "sun_canal",
@@ -1284,6 +1303,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "beaker_river",
@@ -1321,6 +1341,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "star_islands",
@@ -1358,6 +1379,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "eon_springs",
@@ -1395,6 +1417,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "portal_bridge",
@@ -1432,6 +1455,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "sabre_range",
@@ -1469,6 +1493,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "asphalt_maze",
@@ -1506,6 +1531,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "cog_isle",
@@ -1543,6 +1569,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "zero_wood",
@@ -1580,6 +1607,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "switchback",
@@ -1617,6 +1645,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "ruby_keys",
@@ -1654,6 +1683,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "rainy_haven",
@@ -1691,6 +1721,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "rail_strait",
@@ -1728,6 +1759,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "tribe_islands",
@@ -1765,6 +1797,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "vision_bridge",
@@ -1802,6 +1835,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "piston_dam",
@@ -1839,6 +1873,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "hat_harbor",
@@ -1876,6 +1911,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "swan_cove",
@@ -1913,6 +1949,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "go_islands",
@@ -1950,6 +1987,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "save_dependent",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "hourglass_isle",
@@ -1987,6 +2025,7 @@ export interface components {
              *         "requires_unlock": true
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "brace_range",
@@ -2024,6 +2063,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "river_range",
@@ -2061,6 +2101,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "moon_isle",
@@ -2098,6 +2139,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "mint_plateau",
@@ -2135,6 +2177,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "jewel_canal",
@@ -2172,6 +2215,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "wrench_island",
@@ -2209,6 +2253,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "rapid_ferry",
@@ -2246,6 +2291,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "bundle_city",
@@ -2283,6 +2329,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "scarab_road",
@@ -2320,6 +2367,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "pointing_river",
@@ -2357,6 +2405,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "liaison_wood",
@@ -2394,6 +2443,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "save_dependent",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "big_daddy",
@@ -2431,6 +2481,7 @@ export interface components {
              *         "requires_unlock": true
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "spann_island",
@@ -2468,6 +2519,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "moji_island",
@@ -2505,6 +2557,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "duo_falls",
@@ -2542,6 +2595,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "sole_harbor",
@@ -2579,6 +2633,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "pivot_isle",
@@ -2616,6 +2671,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "lands_end",
@@ -2653,6 +2709,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "kita_straight",
@@ -2690,6 +2747,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "point_stormy",
@@ -2727,6 +2785,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "ridge_island",
@@ -2764,6 +2823,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "mials_hope",
@@ -2801,6 +2861,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "bounty_river",
@@ -2838,6 +2899,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "toil_ferry",
@@ -2875,6 +2937,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "twin_isle",
@@ -2912,6 +2975,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "dire_range",
@@ -2949,6 +3013,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "egg_islands",
@@ -2986,6 +3051,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "terra_maw",
@@ -3023,6 +3089,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "save_dependent",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "pay_dirt",
@@ -3060,6 +3127,7 @@ export interface components {
              *         "requires_unlock": true
              *       },
              *       {
+             *         "availability": "save_dependent",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "long_road",
@@ -3097,6 +3165,7 @@ export interface components {
              *         "requires_unlock": true
              *       },
              *       {
+             *         "availability": "save_dependent",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "nest_egg",
@@ -3134,6 +3203,7 @@ export interface components {
              *         "requires_unlock": true
              *       },
              *       {
+             *         "availability": "save_dependent",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "the_trident",
@@ -3171,6 +3241,7 @@ export interface components {
              *         "requires_unlock": true
              *       },
              *       {
+             *         "availability": "save_dependent",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "banker_hills",
@@ -3208,6 +3279,7 @@ export interface components {
              *         "requires_unlock": true
              *       },
              *       {
+             *         "availability": "save_dependent",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "missile_plains",
@@ -3245,6 +3317,7 @@ export interface components {
              *         "requires_unlock": true
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "delta_heights",
@@ -3290,6 +3363,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "poem_cape",
@@ -3335,6 +3409,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "blue_lake",
@@ -3380,6 +3455,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "coil_range",
@@ -3433,6 +3509,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "leaf_haven",
@@ -3486,6 +3563,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "battle_cube",
@@ -3539,6 +3617,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "save_dependent",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "grid_assault",
@@ -3592,6 +3671,7 @@ export interface components {
              *         "requires_unlock": true
              *       },
              *       {
+             *         "availability": "save_dependent",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "crossroad",
@@ -3645,6 +3725,7 @@ export interface components {
              *         "requires_unlock": true
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "pyramid_cape",
@@ -3690,6 +3771,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "bead_islands",
@@ -3735,6 +3817,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "clover_keys",
@@ -3780,6 +3863,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "keyhole_cove",
@@ -3825,6 +3909,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "fork_river",
@@ -3870,6 +3955,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "mantis_river",
@@ -3915,6 +4001,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "channel_city",
@@ -3960,6 +4047,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "ink_canal",
@@ -4005,6 +4093,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "shield_hills",
@@ -4050,6 +4139,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "peril_maze",
@@ -4095,6 +4185,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "gem_creek",
@@ -4140,6 +4231,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "glass_heights",
@@ -4185,6 +4277,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "devils_inlet",
@@ -4230,6 +4323,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "shear_port",
@@ -4275,6 +4369,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "liars_cove",
@@ -4320,6 +4415,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "nail_canal",
@@ -4365,6 +4461,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "atlas_river",
@@ -4410,6 +4507,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "eel_channels",
@@ -4455,6 +4553,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "jab_peninsula",
@@ -4500,6 +4599,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "thorn_islands",
@@ -4545,6 +4645,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "portsmouth",
@@ -4590,6 +4691,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "save_dependent",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "archipelagos",
@@ -4635,6 +4737,7 @@ export interface components {
              *         "requires_unlock": true
              *       },
              *       {
+             *         "availability": "save_dependent",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "wyrms_eye",
@@ -4680,6 +4783,7 @@ export interface components {
              *         "requires_unlock": true
              *       },
              *       {
+             *         "availability": "save_dependent",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "knotted_keys",
@@ -4725,6 +4829,7 @@ export interface components {
              *         "requires_unlock": true
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "four_corners",
@@ -4778,6 +4883,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "rocket_cape",
@@ -4831,6 +4937,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "crop_river",
@@ -4884,6 +4991,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "tween_isle",
@@ -4937,6 +5045,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "rival_islands",
@@ -4990,6 +5099,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "loop_road",
@@ -5043,6 +5153,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "plus_canal",
@@ -5096,6 +5207,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "islas_five",
@@ -5149,6 +5261,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "patriot_cove",
@@ -5202,6 +5315,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "web_river",
@@ -5255,6 +5369,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "cap_narrows",
@@ -5308,6 +5423,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "jay_islands",
@@ -5361,6 +5477,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "chain_canal",
@@ -5414,6 +5531,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "spring_lakes",
@@ -5467,6 +5585,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "tatter_river",
@@ -5520,6 +5639,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "island_x",
@@ -5573,6 +5693,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "alakule",
@@ -5626,6 +5747,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "traitor_river",
@@ -5679,6 +5801,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "fable_hills",
@@ -5732,6 +5855,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "south_cape",
@@ -5785,6 +5909,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "glory_islands",
@@ -5838,6 +5963,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "save_dependent",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "pipe_maze",
@@ -5891,6 +6017,7 @@ export interface components {
              *         "requires_unlock": true
              *       },
              *       {
+             *         "availability": "save_dependent",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "lock_ridge",
@@ -5944,6 +6071,7 @@ export interface components {
              *         "requires_unlock": true
              *       },
              *       {
+             *         "availability": "save_dependent",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "heartland",
@@ -5997,6 +6125,7 @@ export interface components {
              *         "requires_unlock": true
              *       },
              *       {
+             *         "availability": "save_dependent",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "badlands",
@@ -6050,6 +6179,7 @@ export interface components {
              *         "requires_unlock": true
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "stamp_islands",
@@ -6095,6 +6225,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "rivers_four",
@@ -6140,6 +6271,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "ring_islands",
@@ -6185,6 +6317,7 @@ export interface components {
              *         "requires_unlock": false
              *       },
              *       {
+             *         "availability": "always_available",
              *         "configuration": {
              *           "contract_version": 1,
              *           "map_id": "last_mission",
@@ -6938,6 +7071,12 @@ export interface components {
         };
         /** ConfigurationProfile */
         ConfigurationProfile: {
+            /**
+             * Availability
+             * @default always_available
+             * @enum {string}
+             */
+            availability: "always_available" | "save_dependent";
             /**
              * @default {
              *       "contract_version": 1,

@@ -598,6 +598,55 @@ turn, restores that boundary, and continues to Red's second day. The match
 summary and checkpoint manifest retain the selected map ID. Run the same check
 with `AW2_RUNTIME_MODE=headless` and `AW2_RUNTIME_MODE=windowed`.
 
+## Milestone 5 locked Versus map availability (2026-11-10)
+
+Individual map-unlock flags are not decoded reliably from SRAM, so
+`configuration_profiles` expose `availability` as `always_available` or
+`save_dependent`, alongside the existing `requires_unlock` field. This describes
+the catalog, not the current save. Start checks the actual Versus selector and
+fails before CO setup if a requested map is locked. The diagnostic directs the
+operator to unlock the map in Battle Maps. With no companion `.sav`, mGBA starts
+from a fresh isolated save and save-dependent maps are not selectable.
+
+Fresh-save checks rejected a representative save-dependent map from each of the
+five map categories (Versus, Pre-Deployed, War Room, 3P Maps, and 4P Maps) before
+CO setup in both frontends. Using the supplied save, all 17 save-dependent
+profiles reached the expected playable boundary in both frontends. Per project
+direction, this check omitted a partially unlocked save. The user-supplied `aw2.sav` SHA-256
+was `f596b04b096de3a3b89615cf0ea2c3b6d2904bee26ff7b84fcbd0215e483e42a` before
+and after the runs.
+
+ROM SHA-256:
+`ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`.
+Headless build:
+`sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22`.
+Windowed build:
+`sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810`.
+The paired screenshots matched across frontends for each map:
+
+| Map | Frame | Screenshot SHA-256 |
+| --- | ---: | --- |
+| Archipelagos | 7802 | `2c0d31dc97c91321a6082423903cdd59cbfd3f8d4f78399c877a3bb0bc89aa33` |
+| Badlands | 8563 | `023a953eb53ac286d205a0a7ff12228cc5ce9bdd2717f950e351cec7aa7ff9bc` |
+| Banker Hills | 7917 | `41b81e08006053c9129f182024159847d1eeda6b0e21fcd674fd44a97d79d2e2` |
+| Big Daddy | 6707 | `2a4a1f7797bba148abbc6a0a830baacbcf6657854c1523f108863980bfaddba8` |
+| Crossroad | 7626 | `4dca062a667c67b52d375c4339e961b8d564d6d80e28f0829545e2a1edad8012` |
+| Grid Assault | 7505 | `f919699a87ab45de372c5b85eb92d53b8e99434288e045bfbb0d427a663055f0` |
+| Heartland | 8352 | `29cbb722205305fec6a7868e9efd1354ba2a18c19b80c13593eb0c13fcc40feb` |
+| Hourglass Isle | 6949 | `2cd39c574bed2db90a1c124f8485a7d5bea18898620f0680acb678b9abf4068d` |
+| Knotted Keys | 8014 | `8a3ac28a9bccb7b0a543b54b7bb5e26067af0ca3cc46f204c37f5e0c3a62cb36` |
+| Lock Ridge | 8231 | `cf26ca7d04f554d7d7e87ee08f70b4de55d0161a7e7b5158a60472447d5bb95c` |
+| Long Road | 7554 | `339dad1dab049f6724c27690861f342d13ff308226f0b11efd1f24fff58b0de2` |
+| Missile Plains | 8068 | `06760a22c962bf26017993233383918ebcfb4c5180adec9edde3f5b53f42ccfe` |
+| Nest Egg | 7675 | `35363c2912622fa0c9279af2a6c27cec12bce1b530ea4044ed3a303f37fc5d6e` |
+| Pay Dirt | 7433 | `cbcec473c91aa419106ad6a7ac2d3421c6beddb75f8811f52ce5676529089eb1` |
+| The Trident | 7826 | `ef5f012d65ebaaf8fa014d8063bfc5bc95965bc6f7e96d826a4a2bdb241eb7bb` |
+| Wyrm's Eye | 7893 | `d86543a9dcfa208ff73221b4b2d24c1789574506bf6f36b0eed62459029c513e` |
+
+Accepted-map evidence is external under `/tmp/aw2-map-unlock-final/`. Fresh-save
+selector traces are under `/tmp/pytest-of-dono/pytest-1433/`; they end at each
+map's confirmation label and contain no CO setup input.
+
 ```sh
 AW2_RUN_RUNTIME_TESTS=1 AW2_ROM_PATH=/private/aw2.gba \
   AW2_RUNTIME_MAP_IDS=little_island,big_daddy,pay_dirt AW2_RUNTIME_MODE=headless \

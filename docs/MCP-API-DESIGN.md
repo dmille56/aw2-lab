@@ -114,6 +114,9 @@ profile, external players selected from the 19-CO roster (Andy/Max by default),
 with Fog On or Off. Capabilities declare
 `observation_visibility: "omniscient_trusted_clients"`: authorized MCP clients
 receive full decoded observations, with no player-specific visibility filtering.
+Map profile `availability` is a catalog class (`always_available` or
+`save_dependent`), not the current save's unlock status. Start checks the game's
+map selector; a missing companion save starts fresh and locked maps fail there.
 Coordinates are zero-based
 `{x, y}`. Paths explicitly list successive destination tiles, excluding the
 starting tile; an empty path acts at the current tile. Unit IDs identify a

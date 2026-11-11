@@ -58,7 +58,9 @@ Three/four-player teams are configurable; each credential controls its own slot.
 Match configuration also accepts the listed income, day-limit, capture-limit,
 CO-power, starting-weather, and fog choices. Match observations remain
 omniscient for trusted clients; player-specific visibility isolation is not
-provided. A valid tool
+provided. Map profile `availability` is `always_available` or `save_dependent`;
+the latter is a catalog classification, and the game verifies actual access
+during Start. A valid tool
 schema does not mean an action is legal in the current game state.
 
 With the pinned Python SDK, a client session can be opened like this (load the

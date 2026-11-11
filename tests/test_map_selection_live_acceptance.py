@@ -157,8 +157,14 @@ def test_wrong_loaded_map_fails_before_co_setup(
 
 
 @pytest.mark.parametrize("mode", ["headless", "windowed"])
-def test_locked_map_fails_with_fresh_save(mode, tmp_path):
+@pytest.mark.parametrize(
+    "map_id",
+    ("hourglass_isle", "big_daddy", "pay_dirt", "archipelagos", "pipe_maze"),
+    ids=("versus", "pre_deployed", "war_room", "three_player", "four_player"),
+)
+def test_locked_map_fails_with_fresh_save(mode, map_id, tmp_path):
     from aw2_lab.cold_boot import ColdBootError
+    from aw2_lab.map_catalog import MAPS_BY_ID
 
     source_rom = Path(os.environ.get("AW2_ROM_PATH", "")).expanduser()
     assert source_rom.is_file(), "AW2_ROM_PATH must name the supported ROM"
@@ -183,10 +189,17 @@ def test_locked_map_fails_with_fresh_save(mode, tmp_path):
             bridge = launcher.bridge
             assert bridge is not None
             with pytest.raises(
-                ColdBootError, match="Hourglass Isle is not selectable in this save"
+                ColdBootError,
+                match=f"{MAPS_BY_ID[map_id].name} is not selectable in this save",
             ):
                 await boot_fixed_versus_match(
-                    bridge, rom_path=rom, map_id="hourglass_isle", checkpoint_recorder=record
+                    bridge,
+                    rom_path=rom,
+                    map_id=map_id,
+                    co_ids=tuple(
+                        player.co_id for player in default_players(MAPS_BY_ID[map_id].player_count)
+                    ),
+                    checkpoint_recorder=record,
                 )
             assert "select-team-player" not in labels
             (tmp_path / "rejection.json").write_text(json.dumps(labels, indent=2) + "\n")
