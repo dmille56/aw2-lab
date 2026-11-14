@@ -1023,5 +1023,28 @@ The evidence directory includes the blank seed, saved profile, manifest,
 SHA-256: `e9bb92902cff961301d94529511b7569dcd414e045763be9c05e81b910129538`;
 acceptance summary SHA-256:
 `b6d240f1836e2f9bf7de0be27980b630b081dc60fb0c05ea8aefb6f75077eede`.
-Profiles outside the verified map and CO unlock scope, including partial-save
-states, remain unverified.
+Profiles outside the verified map and CO unlock scope remain unverified.
+
+## Milestone 5 partially unlocked Battle Maps save (2026-11-14)
+
+The user's 64 KiB save at `~/Downloads/aw2/partial-save/aw2.sav` had SHA-256
+`98031c7c240d9ae36cdb72524406d746abc513570e17aaf1c36b2494befea451`. All
+acceptance runs used isolated copies; the source hash remained unchanged. The
+save made Pay Dirt selectable in both pinned mGBA frontends. After confirming
+Pay Dirt, both runs reached Versus setup with map bytes `10000c00`, matching
+Pay Dirt's 16x12 map. The recorder proceeded through battle setup, then stopped
+because its fresh-save roster expectation was Andy (CO 1) while the saved
+profile supplied a different player-1 CO (CO 2). This CO mismatch is after map
+loading and does not affect the unlock result.
+
+As the locked comparison, Hourglass Isle remained unavailable in both
+frontends, with the selector reporting `Hourglass Isle is not selectable in
+this save; unlock it in Battle Maps`. This establishes a mixed unlock state:
+Pay Dirt available, Hourglass Isle locked. Headless and windowed builds were
+`sha256:2428496c7cf6efaa59aa9533d2e3c2ce7c79771b642695a1fe24744c42871810` and
+`sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810`.
+Pay Dirt evidence is under
+`/tmp/aw2-partial-save-map-matrix-20261114/pay_dirt/` and
+`/tmp/aw2-partial-save-windowed-pay-dirt-20261114/`; Hourglass Isle evidence is
+under `/tmp/aw2-partial-save-probe-hourglass-pinned/` and
+`/tmp/aw2-partial-save-windowed-hourglass-20261114/`.
