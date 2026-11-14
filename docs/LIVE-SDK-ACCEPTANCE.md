@@ -990,3 +990,38 @@ source save supplied to each restart remained unchanged. This accepts
 persistence for the tested Hourglass Isle flow only; broader profiles and
 partially unlocked saves remain unverified. Evidence directories are under
 `/tmp/aw2-late-unlock-{headless,windowed,save-attempt,restart-check,post-save-restart,post-save-windowed}-20261113/`.
+
+## Milestone 5 generated all-unlocked profile from blank SRAM (2026-11-14)
+
+Created a new profile from a 64 KiB all-`FF` blank SRAM seed in a disposable
+windowed emulator workspace. At the recognized battle boundary, copied the
+72-byte unlock/progression block at `0x02028030..0x02028077` from the verified
+reference profile (source save SHA-256
+`f596b04b096de3a3b89615cf0ea2c3b6d2904bee26ff7b84fcbd0215e483e42a`) into
+EWRAM, then saved the battle using AW2's own in-game Save command. The source
+profile and the source `aw2.sav` remained unchanged. This uses the reference
+profile to seed unlock state; it does not earn or replay campaign progress.
+
+The resulting persistent 64 KiB save is
+`/tmp/aw2-generated-all-unlocked-corrected-20261114/aw2.sav`, SHA-256
+`df44d45859929c8a49589c4766e5e747487970900b0b2ac61ee81eedbda1655e`. The
+copied unlock block read back unchanged after the in-game save (SHA-256
+`e52db5819e906a20d9eba5761ff3fb1df05da11c82fc7a39f8be4f9f8492b4bc`). A
+separate isolated restart loaded Hourglass Isle with Nell vs Sturm and reached
+the first player turn at frame 7284, proving a save-dependent map and a
+campaign CO survived serialization.
+
+Restart acceptance passed the full 19-CO selection matrix and all 17
+save-dependent map profiles headlessly against a separate ROM/save copy; the
+test suite confirmed that the generated source save remained unchanged. The
+pinned headless build was
+`sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22`;
+the seed/save build was windowed
+`sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810`.
+The evidence directory includes the blank seed, saved profile, manifest,
+“Save complete!” screenshot, and per-case acceptance JSON/screenshots. Manifest
+SHA-256: `e9bb92902cff961301d94529511b7569dcd414e045763be9c05e81b910129538`;
+acceptance summary SHA-256:
+`b6d240f1836e2f9bf7de0be27980b630b081dc60fb0c05ea8aefb6f75077eede`.
+Profiles outside the verified map and CO unlock scope, including partial-save
+states, remain unverified.
