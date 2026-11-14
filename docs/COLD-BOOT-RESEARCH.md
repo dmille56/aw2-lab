@@ -143,11 +143,24 @@ and Max=1, while keeping all playable-state assertions enabled; it verified
 Hourglass Isle through the first player turn at frame 6948 with battle CO IDs
 `[1, 2]`. This confirms a complete experimental match path when the write
 happens after the map selector initializes and the fresh roster is indexed
-correctly. The repo's regular cold-boot path still assumes full-roster CO
-indices, so it does not yet reproduce this result automatically. No in-game
-save was made, so persistence remains unverified. The next step is to add a
-clearly opt-in late write and fresh-roster mapping to the isolated recorder,
-then check whether an in-game save retains the unlock after restart.
+correctly. The isolated recorder now exposes this path with
+`--experimental-late-versus-unlock`, restricted to a fresh save, Hourglass Isle,
+and Andy vs Max; it reads the written flag back before confirming the map and
+records automation failure progress. Normal startup and match provisioning do
+not use this write. The follow-up live check saved the battle through AW2's
+in-battle Save command. A fresh boot from that saved copy loaded Hourglass Isle
+without the late write in both frontends, showing that this specific unlock
+survives the game save and restart. The resumed profile then hit a CO identity
+mismatch during first-turn verification; the map itself had already loaded in
+Versus setup. This evidence accepts persistence only for this tested map/save
+flow, not other save-dependent maps or partial unlock states.
+
+To keep the windowed probe open for AW2's in-battle save, add
+`--continue-after-automation` to the command in HTTP-API.md. At the recorder
+prompt, enter `select 1`, then `down 1` followed by `neutral 8` three times to
+highlight Save, then `a 1`, `neutral 120`, `a 1`, and `neutral 120` to confirm
+the default Yes choice and wait for “Save complete!”. Use only the disposable
+recorder save; the save menu writes battle progress to its isolated SRAM copy.
 
 ### CO unlock status
 

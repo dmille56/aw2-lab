@@ -94,6 +94,19 @@ def recorder_main(arguments: list[str]) -> None:
         default="bean_island",
         help="Versus map to verify when using --automate-fixed-match",
     )
+    parser.add_argument(
+        "--experimental-late-versus-unlock",
+        action="store_true",
+        help=(
+            "on a fresh isolated save only, write the experimentally verified Versus unlock "
+            "flag after map selection (currently verified for Andy vs Max)"
+        ),
+    )
+    parser.add_argument(
+        "--continue-after-automation",
+        action="store_true",
+        help="keep the isolated emulator interactive after the verified match starts",
+    )
     args = parser.parse_args(arguments)
 
     if not args.rom:
@@ -110,6 +123,17 @@ def recorder_main(arguments: list[str]) -> None:
         parser.error(f"existing save is not a file: {source_save}")
     if source_save is not None and source_save.suffix.lower() not in {".sav", ".sps"}:
         parser.error("--existing-save must be an mGBA .sav or GameShark SP .sps file")
+    if args.experimental_late_versus_unlock and (
+        not args.automate_fixed_match
+        or args.save_mode != "fresh"
+        or args.map_id != "hourglass_isle"
+    ):
+        parser.error(
+            "--experimental-late-versus-unlock requires --automate-fixed-match, "
+            "--save-mode fresh, and --map-id hourglass_isle"
+        )
+    if args.continue_after_automation and not args.automate_fixed_match:
+        parser.error("--continue-after-automation requires --automate-fixed-match")
 
     try:
         profile = select_rom_profile(rom_path)
@@ -255,15 +279,19 @@ def recorder_main(arguments: list[str]) -> None:
                         rom_path=rom_path,
                         save_mode=args.save_mode,
                         map_id=args.map_id,
+                        late_versus_unlock=args.experimental_late_versus_unlock,
                         checkpoint_recorder=record_checkpoint,
                     )
-                except ColdBootError as error:
+                except (BridgeError, ColdBootError) as error:
                     _write_json(
                         output / "automation-result.json",
                         {
                             "status": "failed",
                             "requested_map_id": args.map_id,
                             "requested_map_name": MAPS_BY_ID[args.map_id].name,
+                            "experimental_late_versus_unlock": (
+                                args.experimental_late_versus_unlock
+                            ),
                             "reason": str(error),
                             "progress": [
                                 event["label"]
@@ -281,6 +309,8 @@ def recorder_main(arguments: list[str]) -> None:
                     {
                         "status": "verified",
                         "requested_map_id": args.map_id,
+                        "requested_map_name": MAPS_BY_ID[args.map_id].name,
+                        "experimental_late_versus_unlock": (args.experimental_late_versus_unlock),
                         "final_frame": result.game_state.frame,
                         "map_id": result.map_id,
                         "phase": result.game_state.lifecycle.phase.value,
@@ -301,7 +331,9 @@ def recorder_main(arguments: list[str]) -> None:
                     f"Fixed Versus match ready at frame {result.game_state.frame}; "
                     "final state verified."
                 )
-                return
+                if not args.continue_after_automation:
+                    return
+                print("Continue with manual bridge inputs, or enter `quit` to stop.")
 
             while True:
                 try:

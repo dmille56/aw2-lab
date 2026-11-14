@@ -954,3 +954,39 @@ its aggregate JSON has SHA-256
 `19505fdba038b9280a73c4875a25af06420845695a3257c1f70a0cd575cf5ddb`.
 The successful two-case log `/tmp/multi-surrender-live.log` has SHA-256
 `99db33d5c94c6f7da021687c7391181685cc33299c5435b1c861e2db3be3ec87`.
+
+## Milestone 5 late-write map unlock persistence (2026-11-13)
+
+Using the supported ROM SHA-256
+`ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134`, the
+opt-in recorder run selected Hourglass Isle with Andy vs Max on a fresh isolated
+save and verified the first player turn at frame 6948 in both modes. Pinned mGBA
+builds were headless
+`sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22` and
+windowed
+`sha256:46703b12dc6ba566874b9283d2e3c2ce7c79771b642695a1fe24744c42871810`.
+The common automation-result SHA-256 is
+`d20a692347ecf45622083446603f0ea2f64d2c317fbf651cafbcadc08711c24a`.
+
+After the windowed run, the interactive recorder continued into the in-battle
+Select menu. Save → “Save current data?” → Yes displayed “Save complete!” at
+frame 7461. The isolated save became SHA-256
+`44bd7fbcb21361df42c93eaa9036678215b2b0d5aaa3524d3658b1431f955677`; the
+“Save complete!” screenshot is `/tmp/aw2-late-unlock-save-attempt-20261113/step-0106.png`
+(SHA-256 `f37090527006f860b5e69df20491d7bbe386fab092f6632b194b4c84f9bbed4c`).
+Before the in-game save, an otherwise equivalent fresh run's stopped-emulator
+save remained SHA-256
+`8b3943cb2ab71539a3510c0834658c397af2d2745ec60f3a7bc3b7e8e7426338` and was
+still rejected on restart. This distinguishes the game save from mGBA shutdown.
+
+Restarted from the in-game-saved copy without the late write in both frontends.
+Both selected Hourglass Isle and entered Versus setup (map bytes `10001800`,
+16x24); neither reported that the map was locked. Both later stopped at first
+turn verification because the resumed save's CO setup produced Max for player
+1 where the fresh-roster Andy expectation was configured. The matching restart
+automation-result SHA-256 is
+`16f470deaa57cd168cf8c0d8960b2f1646db5cad9140334f5344ad5ec84e27c5`. The
+source save supplied to each restart remained unchanged. This accepts
+persistence for the tested Hourglass Isle flow only; broader profiles and
+partially unlocked saves remain unverified. Evidence directories are under
+`/tmp/aw2-late-unlock-{headless,windowed,save-attempt,restart-check,post-save-restart,post-save-windowed}-20261113/`.

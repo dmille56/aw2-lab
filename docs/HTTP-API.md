@@ -327,5 +327,19 @@ can verify a requested map with `--automate-fixed-match --map-id`; it reports
 the last reached step and failure reason when the game still considers the map
 locked. No capability claim changes until the game loads the requested map and
 the runtime verifies it.
+
+An experimental fresh-save probe is available only in the isolated recorder:
+
+```sh
+record-cold-boot --save-mode fresh --automate-fixed-match --map-id hourglass_isle \\
+  --experimental-late-versus-unlock
+```
+
+It writes the tested flag after the map
+selector initializes, then selects the verified fresh-save roster indexes for
+Andy vs Max. This does not change application startup or grant unlocks to normal
+matches. The Hourglass Isle case is verified through an AW2 in-battle save and
+headless/windowed restarts; this evidence does not cover other save-dependent
+profiles or partial unlock states. Use a disposable isolated save.
 3P Maps, 4P Maps, and maps with three/four armies in Pre-Deployed or War Room
 remain tied to the player-count expansion. Custom maps remain deferred.

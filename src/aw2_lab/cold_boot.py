@@ -38,6 +38,9 @@ _KEY_UP = 64
 _KEY_LEFT = 32
 _KEY_RIGHT = 16
 _CO_SETUP_INDEX: dict[CoId, int] = {co_id: index for index, co_id in enumerate(CO_ID_VALUES)}
+# The fresh-save roster is a different selector from the fully unlocked roster.
+# Only these two indexes have been verified in the late Versus-unlock probe.
+_FRESH_SAVE_CO_SETUP_INDEX: dict[CoId, int] = {"andy": 0, "max": 1}
 _CO_BATTLE_ID: dict[CoId, int] = {
     "nell": 0,
     "andy": 1,
@@ -125,6 +128,7 @@ async def boot_fixed_versus_match(
     match_rules: MatchRules = _DEFAULT_MATCH_RULES,
     checkpoint_recorder: CheckpointRecorder | None = None,
     team_ids: tuple[int, ...] | None = None,
+    late_versus_unlock: bool = False,
 ) -> ColdBootResult:
     """Navigate from cartridge boot and verify the selected map at the first turn.
 
@@ -144,6 +148,16 @@ async def boot_fixed_versus_match(
         raise ColdBootError("Invalid map player count or team assignments")
     if any(co_id not in _CO_SETUP_INDEX for co_id in co_ids):
         raise ColdBootError("Requested CO selection is not recognized")
+    if late_versus_unlock and (
+        save_mode != "fresh"
+        or map_id != "hourglass_isle"
+        or co_ids != ("andy", "max")
+        or checkpoint_recorder is None
+    ):
+        raise ColdBootError(
+            "Experimental late Versus unlock is verified only for a fresh isolated save, "
+            "Hourglass Isle, and Andy versus Max"
+        )
     select_rom_profile(rom_path)
     events: list[ColdBootEvent] = []
     rule_addresses = tuple(_FOG_RULE[0] + index * 0x60 for index in range(6))
@@ -466,6 +480,15 @@ async def boot_fixed_versus_match(
             ):
                 raise ColdBootError("Left the expected category while moving the map highlight")
         await checkpoint(f"{map_id.replace('_', '-')}-selected", map_select)
+        if late_versus_unlock:
+            # Experimental direct flag write, deliberately after the selector has
+            # initialized. The caller is the isolated cold-boot recorder only.
+            written = await bridge.request("write_memory", address=0x02028046, bytes=[0xFF, 0xFF])
+            if written.get("written") != 2:
+                raise ColdBootError("Late Versus unlock write was not confirmed")
+            flag = (await bridge.read_memory_batch([(0x02028046, 2)]))[0]
+            if flag != b"\xff\xff":
+                raise ColdBootError("Late Versus unlock flag did not retain the requested value")
         await tap(f"confirm-{map_id.replace('_', '-')}", _KEY_A)
 
         if selected_map.requires_unlock:
@@ -516,7 +539,14 @@ async def boot_fixed_versus_match(
                 if teams.player_controls[index] != 1:
                     raise ColdBootError("External player control was not selected")
             teams = await focus_setup(index * 2)
-            teams = await _select_setup_co(teams, tap, settle, slot=index + 1, co_id=co_id)
+            teams = await _select_setup_co(
+                teams,
+                tap,
+                settle,
+                slot=index + 1,
+                co_id=co_id,
+                fresh_roster=late_versus_unlock,
+            )
         await checkpoint("players-configured", teams)
         if len(co_ids) > 2:
             await tap("open-team-assignments", _KEY_A)
@@ -533,7 +563,7 @@ async def boot_fixed_versus_match(
                         or teams.setup[index] != expected
                     ):
                         raise ColdBootError("Team selector did not reach the expected team")
-        _verify_setup(teams, co_ids, team_ids)
+        _verify_setup(teams, co_ids, team_ids, fresh_roster=late_versus_unlock)
         await checkpoint("teams-co-setup", teams)
 
         await tap("open-rules", _KEY_A)
@@ -618,6 +648,7 @@ async def _select_setup_co(
     *,
     slot: int,
     co_id: CoId,
+    fresh_roster: bool = False,
 ) -> _FrontendState:
     """Cycle the focused Teams-screen CO and verify each Down/Up input in RAM."""
     expected_focus = 2 * (slot - 1)
@@ -633,7 +664,10 @@ async def _select_setup_co(
     current = state.setup[offset]
     if current >= 19:
         raise ColdBootError(f"Player {slot} CO setup index is unrecognized: {current}")
-    target = _CO_SETUP_INDEX[co_id]
+    roster = _FRESH_SAVE_CO_SETUP_INDEX if fresh_roster else _CO_SETUP_INDEX
+    if co_id not in roster:
+        raise ColdBootError(f"{co_id} is not verified in the fresh-save CO roster")
+    target = roster[co_id]
     down_steps = (target - current) % 19
     up_steps = (current - target) % 19
     if min(down_steps, up_steps) == 0:
@@ -663,6 +697,8 @@ def _verify_setup(
     state: _FrontendState,
     co_ids: tuple[CoId, ...] | None = ("andy", "max"),
     team_ids: tuple[int, ...] = (0, 1),
+    *,
+    fresh_roster: bool = False,
 ) -> None:
     teams = state.setup[0:4]
     if teams[: len(team_ids)] != bytes(team_ids):
@@ -671,7 +707,10 @@ def _verify_setup(
         )
     if co_ids is not None:
         observed_cos = state.setup[0x0B : 0x0B + len(co_ids)]
-        expected_cos = bytes(_CO_SETUP_INDEX[co_id] for co_id in co_ids)
+        roster = _FRESH_SAVE_CO_SETUP_INDEX if fresh_roster else _CO_SETUP_INDEX
+        if any(co_id not in roster for co_id in co_ids):
+            raise ColdBootError("Requested CO is not verified in the selected roster")
+        expected_cos = bytes(roster[co_id] for co_id in co_ids)
         if observed_cos != expected_cos:
             raise ColdBootError(
                 f"Expected setup CO indexes {expected_cos.hex()}; observed {observed_cos.hex()}"
