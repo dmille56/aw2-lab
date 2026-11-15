@@ -1048,3 +1048,19 @@ Pay Dirt evidence is under
 `/tmp/aw2-partial-save-windowed-pay-dirt-20261114/`; Hourglass Isle evidence is
 under `/tmp/aw2-partial-save-probe-hourglass-pinned/` and
 `/tmp/aw2-partial-save-windowed-hourglass-20261114/`.
+
+### Long Road save update (2026-11-14)
+
+The user subsequently updated `~/Downloads/aw2/aw2.sav` to unlock Long Road.
+Its SHA-256 was
+`e243adeea480e6f91a31beb640d39a82d658ad25cab49e6e5aae5493326e0347`. On
+isolated copies, both pinned frontends selected Long Road and reached Versus
+setup at frame 6203; map bytes `0f001400` match its 15x20 dimensions. Both runs
+then stopped at the same saved-profile player-1 CO mismatch (CO 2 observed,
+CO 1 expected by the fresh-save verifier). Hourglass Isle remained locked in
+headless and windowed runs against this same updated save, confirming the mixed
+unlock state. The source hash remained unchanged. Builds were the same pinned
+identities above. Evidence is under `/tmp/aw2-long-road-headless-20261114/`,
+`/tmp/aw2-long-road-windowed-20261114/`,
+`/tmp/aw2-long-road-hourglass-headless-20261114/`, and
+`/tmp/aw2-long-road-hourglass-windowed-20261114/`.
