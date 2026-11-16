@@ -380,7 +380,7 @@ test("retains recent command activity and distinguishes terminal results", async
     .click();
   await page
     .getByRole("dialog", { name: "Unit actions" })
-    .getByRole("button", { name: "Wait", exact: true })
+    .getByRole("button", { name: "Move & Wait", exact: true })
     .click();
   await expect(page.locator(".command-result")).toContainText(
     "Completed and committed to the match.",
@@ -394,7 +394,7 @@ test("retains recent command activity and distinguishes terminal results", async
   const history = page.locator(".command-history");
   await expect(history).toContainText("Previous actions (1)");
   await history.locator("summary").click();
-  await expect(history).toContainText("Wait");
+  await expect(history).toContainText("Move & Wait");
   await expect(history).toContainText("Resulting revision 2");
   expect((await (await request.get("/__test/stats")).json()).commands).toBe(2);
 });
@@ -530,7 +530,7 @@ for (const kind of ["move_wait", "move_attack", "move_capture"]) {
     } else
       await menu
         .getByRole("button", {
-          name: kind === "move_capture" ? "Capture" : "Wait",
+          name: kind === "move_capture" ? "Capture" : "Move & Wait",
           exact: true,
         })
         .click();
@@ -681,7 +681,7 @@ for (const relationship of ["own", "allied", "enemy"]) {
       await expect(
         page
           .getByRole("dialog", { name: "Unit actions" })
-          .getByRole("button", { name: "Wait", exact: true }),
+          .getByRole("button", { name: "Move & Wait", exact: true }),
       ).toBeEnabled();
     }
     expect((await (await request.get("/__test/stats")).json()).commands).toBe(
@@ -767,7 +767,7 @@ test("selects a unit and previews destinations without submitting commands", asy
   await expect(
     page
       .getByRole("dialog", { name: "Unit actions" })
-      .getByRole("button", { name: "Wait", exact: true }),
+      .getByRole("button", { name: "Move & Wait", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
 });
@@ -833,7 +833,7 @@ test("keeps inspection available for opponents and used units and announces keyb
   await expect(
     page
       .getByRole("dialog", { name: "Unit actions" })
-      .getByRole("button", { name: "Wait", exact: true }),
+      .getByRole("button", { name: "Move & Wait", exact: true }),
   ).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.locator('#board [data-x="0"][data-y="0"]')).toBeFocused();
@@ -1225,7 +1225,9 @@ for (const kind of ["move_wait", "move_attack"]) {
       );
       await page.keyboard.press("Enter");
     } else
-      await menu.getByRole("button", { name: "Wait", exact: true }).click();
+      await menu
+        .getByRole("button", { name: "Move & Wait", exact: true })
+        .click();
     await expect(page.locator(".command-result")).toContainText(
       "Command status: completed",
     );
@@ -1251,7 +1253,7 @@ test("context menu cancellation returns through target, destination, and unit se
   await menu.getByRole("button", { name: "Attack", exact: true }).click();
   await page.keyboard.press("Escape");
   await expect(
-    menu.getByRole("button", { name: "Wait", exact: true }),
+    menu.getByRole("button", { name: "Move & Wait", exact: true }),
   ).toBeVisible();
   await menu.getByRole("button", { name: "Back", exact: true }).click();
   await expect(menu).toHaveCount(0);
@@ -1277,7 +1279,7 @@ for (const scale of [100, 200]) {
     await destination.click();
     const menu = page.getByRole("dialog", { name: "Unit actions" });
     await expect(
-      menu.getByRole("button", { name: "Wait", exact: true }),
+      menu.getByRole("button", { name: "Move & Wait", exact: true }),
     ).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(
@@ -1418,7 +1420,7 @@ test("keeps feedback by the board and blocks repeated input while a receipt is p
     await unit.click();
     await page
       .getByRole("dialog", { name: "Unit actions" })
-      .getByRole("button", { name: "Wait", exact: true })
+      .getByRole("button", { name: "Move & Wait", exact: true })
       .evaluate((button) => {
         button.click();
         button.click();
@@ -1431,7 +1433,7 @@ test("keeps feedback by the board and blocks repeated input while a receipt is p
     ).toBeDisabled();
     await expect(page.locator(".action-progress")).toBeVisible();
     await expect(page.locator(".action-progress")).toContainText(
-      "Sending Wait",
+      "Sending Move & Wait",
     );
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.locator('#board [data-x="1"][data-y="1"]').click();

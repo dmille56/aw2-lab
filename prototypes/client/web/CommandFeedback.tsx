@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CommandProgress, ViewState } from "./session";
 import type { ActionKind } from "./gameplay";
 export const actionLabels: Record<ActionKind, string> = {
-  move_wait: "Wait",
+  move_wait: "Move & Wait",
   attack: "Attack in place",
   move_attack: "Attack",
   move_capture: "Capture",

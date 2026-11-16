@@ -462,11 +462,14 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     baseline; duplicate refreshes/reconnects do not announce the same turn again.
     Snapshots/operators do not get personal turn notices. Human review pending.
 
-*** TODO Label the movement action as Move & Wait
+*** IN-PROGRESS Label the movement action as Move & Wait
     Human playtest feedback (2026-11-16): "Wait" is confusing when the action
     also moves the unit. Show "Move & Wait" for the movement action, keeping
     menu text and action feedback consistent. Verify the wording during route
     selection and submission without changing gameplay behavior.
+    Implemented: Move & Wait in the board menu, progress, history, and error
+    feedback. Existing submission/keyboard browser scenarios check the wording.
+    Human wording review remains pending.
 
 *** TODO Hide the tile-corner player labels
     Human playtest feedback (2026-11-16): the top-right P-, P1, and P2 labels

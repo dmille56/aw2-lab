@@ -211,7 +211,7 @@ export function ContextActions({
         tile.x === point.x && tile.y === point.y && tile.terrain_class === 17,
     );
   const choices: { kind: ActionKind; label: string; show: boolean }[] = [
-    { kind: "move_wait", label: "Wait", show: model.movementReady },
+    { kind: "move_wait", label: "Move & Wait", show: model.movementReady },
     { kind: "move_capture", label: "Capture", show: model.canCapture },
     { kind: "join", label: "Join", show: model.canJoin },
     {
