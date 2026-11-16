@@ -462,6 +462,33 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     baseline; duplicate refreshes/reconnects do not announce the same turn again.
     Snapshots/operators do not get personal turn notices. Human review pending.
 
+*** TODO Label the movement action as Move & Wait
+    Human playtest feedback (2026-11-16): "Wait" is confusing when the action
+    also moves the unit. Show "Move & Wait" for the movement action, keeping
+    menu text and action feedback consistent. Verify the wording during route
+    selection and submission without changing gameplay behavior.
+
+*** TODO Hide the tile-corner player labels
+    Human playtest feedback (2026-11-16): the top-right P-, P1, and P2 labels
+    clutter the board. Hide these labels on tiles, retaining ownership details
+    in accessible inspection and other useful ownership cues. Review the board
+    with sprites and the fallback display for reduced clutter.
+
+*** TODO Give unit HP a distinct readable badge without player prefixes
+    Human playtest feedback (2026-11-16): make unit HP immediately identifiable
+    on each occupied tile. Use a visually distinct, high-contrast HP badge and
+    remove the P1/P2 prefix from its displayed value. Keep the number readable
+    alongside cargo, selection, used status, and range overlays at supported
+    tile sizes; retain accessible unit ownership and HP information.
+
+*** TODO Strengthen movement range visibility over sea tiles
+    Human playtest feedback (2026-11-16): the revised movement overlay still
+    blends into sea terrain when selecting a unit. Increase contrast and use
+    distinct patterns or outlines so reachable tiles are obvious over water
+    and land, while preserving readable units, HP, routes, and attack overlap.
+    Recheck with local sprites and fallback terrain, both themes, and supported
+    scales. Require human confirmation on sea-heavy maps before acceptance.
+
 *** IN-PROGRESS Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,
     purchasing, unloading, cancellation, end turn, and error recovery against
@@ -490,6 +517,9 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     the user, and finish remaining native visual verification before acceptance.
     All eight follow-ups are implemented in separate commits; their in-progress
     status now tracks pending human visual review.
+    Further human review (2026-11-16) added four TODOs above: Move & Wait wording,
+    tile-corner label removal, clearer HP badges without player prefixes, and
+    stronger movement overlays over sea tiles. Implement and recheck these too.
     - [ ] Human rechecks the reported usability follow-ups and accepts the redesign.
 
     For every implementation item, add focused behavior checks, run relevant
