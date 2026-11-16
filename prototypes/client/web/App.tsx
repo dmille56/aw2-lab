@@ -3,6 +3,7 @@ import { MapPanel } from "./MapPanel";
 import { coName, humanSlot, perspective, playerName } from "./presentation";
 import { Health } from "./Health";
 import { MatchSession } from "./session";
+import { ContextActions } from "./ContextActions";
 import { CommandPanel } from "./CommandPanel";
 import { useGameplay } from "./gameplay";
 import {
@@ -88,7 +89,12 @@ export function App() {
     setSelected(position);
     setCargo(null);
   };
-  const gameplay = useGameplay(view, select, { automaticRouting: true });
+  const gameplay = useGameplay(view, select, {
+    automaticRouting: true,
+    onCommit: (action, revision) => {
+      void session.submitAction(action, revision);
+    },
+  });
   const empty = !snapshot
     ? "Connect or open an exported StateResponse JSON file to see the board."
     : obs
@@ -472,10 +478,42 @@ export function App() {
                 ? gameplay.draft.path
                 : []
             }
+            actionTargets={
+              gameplay.draft.contextual && gameplay.draft.phase === "target"
+                ? new Set(gameplay.targets.map((unit) => `${unit.x},${unit.y}`))
+                : undefined
+            }
             empty={empty}
             yourSlot={humanSlot(view.identity)}
           />
-          <div className="gameplay-sidebar">
+          <ContextActions
+            model={gameplay}
+            view={view}
+            onSubmit={session.submitAction}
+          />
+          <div
+            className={`gameplay-sidebar${gameplay.selectedUnit && (gameplay.draft.routeMode === "automatic" || gameplay.draft.contextual) ? " board-controls" : ""}`}
+          >
+            {gameplay.selectedUnit &&
+              gameplay.draft.routeMode === "automatic" &&
+              gameplay.draft.phase === "unit" && (
+                <button
+                  type="button"
+                  disabled={!gameplay.editable}
+                  onClick={() => {
+                    gameplay.dispatch({ type: "plan" });
+                    const point = gameplay.draft.origin;
+                    if (point)
+                      document
+                        .querySelector<HTMLButtonElement>(
+                          `#board button[data-x="${point.x}"][data-y="${point.y}"]`,
+                        )
+                        ?.focus();
+                  }}
+                >
+                  Plan movement
+                </button>
+              )}
             <CommandPanel
               model={gameplay}
               view={view}

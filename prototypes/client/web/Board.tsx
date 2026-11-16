@@ -195,6 +195,12 @@ export function Board({
                 aria-pressed={match}
                 aria-label={`${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}` : ""}`}
                 onClick={() => (activate ?? select)(tile)}
+                onContextMenu={(event) => {
+                  if (cancel) {
+                    event.preventDefault();
+                    cancel();
+                  }
+                }}
                 onKeyDown={(event) => {
                   if (event.key === "Escape") {
                     cancel?.();

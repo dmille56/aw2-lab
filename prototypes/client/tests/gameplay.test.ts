@@ -685,3 +685,50 @@ it("does not offer occupied or non-adjacent unload tiles", () => {
     ),
   ).not.toContainEqual({ x: 1, y: 1 });
 });
+
+it("constructs contextual attacks from the chosen target without waiting for a render", () => {
+  const snapshot = validateState(structuredClone(stateFixture));
+  const view: ViewState = {
+    ...new MatchSession().getSnapshot(),
+    snapshot,
+    connected: true,
+    ready: true,
+    identity: {
+      contract_version: 1,
+      match_id: snapshot.summary.match_id,
+      role: "player",
+      player_slot: "slot_1",
+    },
+    capabilities: validateCapabilitiesResponse(capabilityFixture),
+  };
+  view.capabilities!.actions = [
+    {
+      contract_version: 1,
+      name: "move_attack",
+      implemented: true,
+      available: true,
+      verification: "synthetic",
+      unavailable_reason: null,
+    },
+  ];
+  const onCommit = vi.fn();
+  const { result } = renderHook(() =>
+    useGameplay(view, vi.fn(), { automaticRouting: true, onCommit }),
+  );
+  act(() => result.current.selectUnit("1"));
+  act(() => result.current.activate({ x: 1, y: 0 }));
+  expect(result.current.draft.phase).toBe("menu");
+  expect(onCommit).not.toHaveBeenCalled();
+  act(() => result.current.dispatch({ type: "choose", kind: "move_attack" }));
+  act(() => result.current.activate({ x: 1, y: 1 }));
+  expect(onCommit).toHaveBeenCalledWith(
+    {
+      contract_version: 1,
+      kind: "move_attack",
+      unit_id: "1",
+      path: [{ contract_version: 1, x: 1, y: 0 }],
+      target: { contract_version: 1, x: 1, y: 1 },
+    },
+    1,
+  );
+});

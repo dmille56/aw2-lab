@@ -17,9 +17,10 @@ export interface Draft {
   target: Position | null;
   unitType: string;
   kind: ActionKind | null;
-  phase: "select" | "unit" | "route" | "target" | "review";
+  phase: "select" | "unit" | "route" | "menu" | "target" | "review";
   notice: string;
   routeMode: "automatic" | "manual";
+  contextual: boolean;
   dropDestinations: Record<string, Position>;
   unloadPassengerId: string | null;
 }
@@ -52,6 +53,7 @@ export const emptyDraft = (boundary: string, notice = ""): Draft => ({
   phase: "select",
   notice,
   routeMode: "automatic",
+  contextual: false,
   dropDestinations: {},
   unloadPassengerId: null,
 });
@@ -67,7 +69,7 @@ export type DraftEvent =
   | { type: "base"; boundary: string; base: Position }
   | { type: "step"; point: Position }
   | { type: "destination"; path: Position[] }
-  | { type: "undo" | "clear" | "edit" | "plan" | "cancel_route" }
+  | { type: "undo" | "clear" | "edit" | "plan" | "cancel_route" | "open_menu" }
   | { type: "choose"; kind: ActionKind }
   | { type: "target"; point: Position }
   | { type: "drop_destination"; unitId: string; point: Position | null }
@@ -99,7 +101,8 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
       return {
         ...draft,
         path: event.path,
-        phase: "route",
+        phase: "menu",
+        contextual: true,
         routeMode: "automatic",
         kind: null,
         target: null,
@@ -107,6 +110,15 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
         unloadPassengerId: null,
         notice:
           "Destination selected. Choose an action or another reachable destination.",
+      };
+    case "open_menu":
+      return {
+        ...draft,
+        phase: "menu",
+        contextual: true,
+        kind: null,
+        target: null,
+        notice: "Choose an action for this destination.",
       };
     case "notice":
       return { ...draft, notice: event.notice };
@@ -167,6 +179,7 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
         ...draft,
         phase: "route",
         routeMode: "manual",
+        contextual: false,
         kind: null,
         target: null,
         dropDestinations: {},
@@ -232,7 +245,13 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
 export function useGameplay(
   view: ViewState,
   inspect: (p: Position) => void,
-  { automaticRouting = false }: { automaticRouting?: boolean } = {},
+  {
+    automaticRouting = false,
+    onCommit,
+  }: {
+    automaticRouting?: boolean;
+    onCommit?: (action: GameplayAction, revision: number) => void;
+  } = {},
 ) {
   const snapshot = view.snapshot;
   const observation = snapshot?.observation;
@@ -514,6 +533,11 @@ export function useGameplay(
     dispatch({ type: "reset", boundary, notice: "Action cancelled." });
   const cancel = () => {
     if (pending) return;
+    if (draft.contextual && draft.phase === "target") {
+      if (destination) inspect(destination);
+      dispatch({ type: "open_menu" });
+      return;
+    }
     if (draft.origin && draft.phase !== "unit") {
       inspect(draft.origin);
       dispatch({ type: "cancel_route" });
@@ -603,6 +627,7 @@ export function useGameplay(
       editable &&
       selectedUnit &&
       (draft.phase === "unit" ||
+        draft.phase === "menu" ||
         (draft.phase === "route" && draft.routeMode === "automatic"))
     ) {
       const other = units.find(
@@ -643,6 +668,21 @@ export function useGameplay(
       return;
     }
     if (draft.phase === "target") {
+      if (
+        draft.contextual &&
+        onCommit &&
+        (draft.kind === "attack" || draft.kind === "move_attack") &&
+        snapshot
+      ) {
+        const action = prepareAction(draft.kind, point);
+        if (action) onCommit(action, snapshot.summary.revision);
+        else
+          dispatch({
+            type: "notice",
+            notice: "Choose a highlighted compatible enemy target.",
+          });
+        return;
+      }
       if (draft.kind === "silo_launch") dispatch({ type: "target", point });
       else if (targets.some((unit) => sameTile(unit, point)))
         dispatch({ type: "target", point });
@@ -705,151 +745,163 @@ export function useGameplay(
           path: draft.path.map(coordinate),
         }
       : null;
-  let action: GameplayAction | null = null;
-  if (
-    editable &&
-    draft.phase === "review" &&
-    draft.kind &&
-    available(draft.kind)
-  ) {
-    const kind = draft.kind;
+  const buildAction = (draft: Draft): GameplayAction | null => {
+    const candidateReady =
+      (!draft.path.length || !movement?.error) &&
+      (!movement?.endpointError || (!!loadTransport && draft.kind === "load"));
+    let action: GameplayAction | null = null;
     if (
-      kind === "end_turn" ||
-      kind === "surrender" ||
-      kind === "activate_normal_power" ||
-      kind === "activate_super_power"
-    )
-      action = { contract_version: 1, kind };
-    else if (
-      kind === "purchase" &&
-      draft.base &&
-      !occupiedBase &&
-      purchaseUnitTypes.includes(draft.unitType)
-    )
-      action = {
-        contract_version: 1,
-        kind,
-        property: coordinate(draft.base),
-        unit_type: draft.unitType,
-      };
-    else if (
-      selectedUnit &&
-      movementReady &&
-      kind === "load" &&
-      loadTransport &&
-      loadTransportId &&
-      available("load")
-    )
-      action = {
-        contract_version: 1,
-        kind,
-        unit_id: draft.unitId,
-        transport_id: loadTransportId,
-        path: draft.path.map(coordinate),
-      };
-    else if (
-      selectedUnit &&
-      movementReady &&
-      kind === "unload" &&
-      selectedTransportCargo.length > 0 &&
-      selectedDrops.length > 0 &&
-      !unloadError &&
-      available("unload")
-    )
-      action = {
-        contract_version: 1,
-        kind,
-        transport_id: draft.unitId,
-        path: draft.path.map(coordinate),
-        drops: selectedDrops.map(({ id, point }) => ({
+      editable &&
+      draft.phase === "review" &&
+      draft.kind &&
+      available(draft.kind)
+    ) {
+      const kind = draft.kind;
+      if (
+        kind === "end_turn" ||
+        kind === "surrender" ||
+        kind === "activate_normal_power" ||
+        kind === "activate_super_power"
+      )
+        action = { contract_version: 1, kind };
+      else if (
+        kind === "purchase" &&
+        draft.base &&
+        !occupiedBase &&
+        purchaseUnitTypes.includes(draft.unitType)
+      )
+        action = {
           contract_version: 1,
-          unit_id: id,
-          destination: coordinate(point),
-        })),
-      };
-    else if (
-      selectedUnit &&
-      movementReady &&
-      (kind === "move_wait" || (kind === "move_capture" && canCapture))
-    )
-      action = {
-        contract_version: 1,
-        kind,
-        unit_id: draft.unitId,
-        path: draft.path.map(coordinate),
-      };
-    else if (selectedUnit && kind === "join" && joinReady)
-      action = {
-        contract_version: 1,
-        kind,
-        unit_id: draft.unitId,
-        path: draft.path.map(coordinate),
-      };
-    else if (selectedUnit && kind === "supply" && supplyReady)
-      action = {
-        contract_version: 1,
-        kind,
-        unit_id: draft.unitId,
-        path: draft.path.map(coordinate),
-      };
-    else if (selectedUnit && kind === "dive" && diveReady)
-      action = {
-        contract_version: 1,
-        kind,
-        unit_id: draft.unitId,
-        path: draft.path.map(coordinate),
-      };
-    else if (selectedUnit && kind === "rise" && riseReady)
-      action = {
-        contract_version: 1,
-        kind,
-        unit_id: draft.unitId,
-        path: draft.path.map(coordinate),
-      };
-    else if (
-      selectedUnit &&
-      kind === "silo_launch" &&
-      siloReady &&
-      draft.target
-    )
-      action = {
-        contract_version: 1,
-        kind,
-        unit_id: draft.unitId,
-        path: draft.path.map(coordinate),
-        target: coordinate(draft.target),
-      };
-    else if (
-      selectedUnit &&
-      movementReady &&
-      kind === "attack" &&
-      draft.path.length === 0 &&
-      canAttack &&
-      draft.target &&
-      targets.some((u) => sameTile(u, draft.target!))
-    )
-      action = {
-        contract_version: 1,
-        kind,
-        unit_id: draft.unitId,
-        target: coordinate(draft.target),
-      };
-    else if (
-      selectedUnit &&
-      movementReady &&
-      kind === "move_attack" &&
-      canAttack &&
-      draft.target &&
-      targets.some((u) => sameTile(u, draft.target!))
-    )
-      action = {
-        contract_version: 1,
-        kind,
-        unit_id: draft.unitId,
-        path: draft.path.map(coordinate),
-        target: coordinate(draft.target),
-      };
-  }
+          kind,
+          property: coordinate(draft.base),
+          unit_type: draft.unitType,
+        };
+      else if (
+        selectedUnit &&
+        candidateReady &&
+        kind === "load" &&
+        loadTransport &&
+        loadTransportId &&
+        available("load")
+      )
+        action = {
+          contract_version: 1,
+          kind,
+          unit_id: draft.unitId,
+          transport_id: loadTransportId,
+          path: draft.path.map(coordinate),
+        };
+      else if (
+        selectedUnit &&
+        candidateReady &&
+        kind === "unload" &&
+        selectedTransportCargo.length > 0 &&
+        selectedDrops.length > 0 &&
+        !unloadError &&
+        available("unload")
+      )
+        action = {
+          contract_version: 1,
+          kind,
+          transport_id: draft.unitId,
+          path: draft.path.map(coordinate),
+          drops: selectedDrops.map(({ id, point }) => ({
+            contract_version: 1,
+            unit_id: id,
+            destination: coordinate(point),
+          })),
+        };
+      else if (
+        selectedUnit &&
+        candidateReady &&
+        (kind === "move_wait" || (kind === "move_capture" && canCapture))
+      )
+        action = {
+          contract_version: 1,
+          kind,
+          unit_id: draft.unitId,
+          path: draft.path.map(coordinate),
+        };
+      else if (selectedUnit && kind === "join" && joinReady)
+        action = {
+          contract_version: 1,
+          kind,
+          unit_id: draft.unitId,
+          path: draft.path.map(coordinate),
+        };
+      else if (selectedUnit && kind === "supply" && supplyReady)
+        action = {
+          contract_version: 1,
+          kind,
+          unit_id: draft.unitId,
+          path: draft.path.map(coordinate),
+        };
+      else if (selectedUnit && kind === "dive" && diveReady)
+        action = {
+          contract_version: 1,
+          kind,
+          unit_id: draft.unitId,
+          path: draft.path.map(coordinate),
+        };
+      else if (selectedUnit && kind === "rise" && riseReady)
+        action = {
+          contract_version: 1,
+          kind,
+          unit_id: draft.unitId,
+          path: draft.path.map(coordinate),
+        };
+      else if (
+        selectedUnit &&
+        kind === "silo_launch" &&
+        siloReady &&
+        draft.target
+      )
+        action = {
+          contract_version: 1,
+          kind,
+          unit_id: draft.unitId,
+          path: draft.path.map(coordinate),
+          target: coordinate(draft.target),
+        };
+      else if (
+        selectedUnit &&
+        candidateReady &&
+        kind === "attack" &&
+        draft.path.length === 0 &&
+        canAttack &&
+        draft.target &&
+        targets.some((u) => sameTile(u, draft.target!))
+      )
+        action = {
+          contract_version: 1,
+          kind,
+          unit_id: draft.unitId,
+          target: coordinate(draft.target),
+        };
+      else if (
+        selectedUnit &&
+        candidateReady &&
+        kind === "move_attack" &&
+        canAttack &&
+        draft.target &&
+        targets.some((u) => sameTile(u, draft.target!))
+      )
+        action = {
+          contract_version: 1,
+          kind,
+          unit_id: draft.unitId,
+          path: draft.path.map(coordinate),
+          target: coordinate(draft.target),
+        };
+    }
+    return action;
+  };
+  const action = buildAction(draft);
+  const prepareAction = (
+    kind: ActionKind,
+    target: Position | null = null,
+    unitType = draft.unitType,
+  ) => buildAction({ ...draft, kind, target, unitType, phase: "review" });
   const unavailable = !view.connected
     ? "Connect to a live match to submit actions."
     : !view.ready
@@ -907,6 +959,7 @@ export function useGameplay(
     available,
     feature,
     action,
+    prepareAction,
     reset,
     cancel,
     movement,

@@ -738,18 +738,21 @@ test("selects a unit and previews destinations without submitting commands", asy
   await expect(page.locator("#action-unit")).toHaveValue("1");
   await expect(page.locator("#board [data-route-step]")).toHaveCount(2);
   await expect(
-    page.getByRole("button", { name: "Edit route manually" }),
+    page.getByRole("button", { name: "Other actions / manual route" }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.locator("#board [data-route-step]")).toHaveCount(0);
-  await unit.click();
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("Enter");
   await expect(page.locator("#board [data-route-step]")).toHaveCount(2);
   await page.keyboard.press("Escape");
   await unit.click();
-  await page.getByRole("button", { name: "Wait here" }).click();
-  await expect(page.locator(".command-preview")).toContainText("stay in place");
+  await expect(
+    page
+      .getByRole("dialog", { name: "Unit actions" })
+      .getByRole("button", { name: "Wait", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
 });
 
 test("restricts indirect attacks after movement and supports cancelling with Escape", async ({
@@ -763,11 +766,15 @@ test("restricts indirect attacks after movement and supports cancelling with Esc
   await page.locator(".selection-lists").evaluate((node) => (node.open = true));
   await page.locator("#action-unit").focus();
   await page.locator("#action-unit").selectOption("1");
-  const attack = page.getByRole("button", { name: "Choose attack target" });
-  await expect(attack).toBeEnabled();
-  await page
-    .getByRole("button", { name: "Plan movement", exact: true })
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  const menu = page.getByRole("dialog", { name: "Unit actions" });
+  await expect(
+    menu.getByRole("button", { name: "Attack", exact: true }),
+  ).toBeEnabled();
+  await menu
+    .getByRole("button", { name: "Other actions / manual route" })
     .click();
+  const attack = page.getByRole("button", { name: "Choose attack target" });
   await page.locator('#board [data-x="1"][data-y="0"]').click();
   await expect(attack).toBeDisabled();
   await page.keyboard.press("Escape");
@@ -1163,7 +1170,132 @@ test("clicking a distant destination builds a route without emulator input", asy
   await page.locator('#board [data-x="3"]').click();
   await expect(page.locator("#board [data-route-step]")).toHaveCount(4);
   expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
-  await page.getByRole("button", { name: "Edit route manually" }).click();
+  await page
+    .getByRole("button", { name: "Other actions / manual route" })
+    .click();
   await page.getByRole("button", { name: "Undo step" }).click();
   await expect(page.locator("#board [data-route-step]")).toHaveCount(3);
+});
+
+for (const kind of ["move_wait", "move_attack"]) {
+  test(`context menu commits ${kind} without an extra confirmation`, async ({
+    page,
+    request,
+  }) => {
+    await connect(page);
+    await page.locator('#board [data-x="0"][data-y="0"]').click();
+    await page.locator('#board [data-x="1"][data-y="0"]').click();
+    const menu = page.getByRole("dialog", { name: "Unit actions" });
+    await expect(menu).toBeVisible();
+    const requests = [];
+    page.on("request", (req) => {
+      if (req.url().endsWith("/commands") && req.method() === "POST")
+        requests.push(req.postDataJSON());
+    });
+    if (kind === "move_attack") {
+      await menu.getByRole("button", { name: "Attack", exact: true }).click();
+      await expect(
+        page.locator('#board [data-x="1"][data-y="1"]'),
+      ).toBeFocused();
+      await expect(page.locator('#board [data-x="1"][data-y="1"]')).toHaveClass(
+        /attackable/,
+      );
+      await page.keyboard.press("Enter");
+    } else
+      await menu.getByRole("button", { name: "Wait", exact: true }).click();
+    await expect(page.locator(".command-result")).toContainText(
+      "Command status: completed",
+    );
+    expect(requests).toHaveLength(1);
+    expect(requests[0].action.kind).toBe(kind);
+    expect(requests[0].action.path).toEqual([
+      { contract_version: 1, x: 1, y: 0 },
+    ]);
+    expect((await (await request.get("/__test/stats")).json()).commands).toBe(
+      1,
+    );
+  });
+}
+
+test("context menu cancellation returns through target, destination, and unit selection", async ({
+  page,
+  request,
+}) => {
+  await connect(page);
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  await page.locator('#board [data-x="1"][data-y="0"]').click();
+  const menu = page.getByRole("dialog", { name: "Unit actions" });
+  await menu.getByRole("button", { name: "Attack", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(
+    menu.getByRole("button", { name: "Wait", exact: true }),
+  ).toBeVisible();
+  await menu.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(menu).toHaveCount(0);
+  await expect(page.locator("#board [data-route-step]")).toHaveCount(0);
+  await expect(page.locator('#board [data-x="0"][data-y="0"]')).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#action-unit")).toHaveValue("");
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
+});
+
+for (const scale of [100, 200]) {
+  test(`context menu supports keyboard and narrow placement at ${scale}% scale`, async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (let current = 100; current < scale; current += 10)
+      await page.locator("#ui-scale-increase").click();
+    await connect(page);
+    const origin = page.locator('#board [data-x="0"][data-y="0"]');
+    const destination = page.locator('#board [data-x="1"][data-y="0"]');
+    await origin.click();
+    await destination.click();
+    const menu = page.getByRole("dialog", { name: "Unit actions" });
+    await expect(
+      menu.getByRole("button", { name: "Wait", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(
+      menu.getByRole("button", { name: "Attack", exact: true }),
+    ).toBeFocused();
+    const rect = await menu.boundingBox();
+    expect(rect.x).toBeGreaterThanOrEqual(0);
+    expect(rect.x + rect.width).toBeLessThanOrEqual(390);
+    expect(rect.y + rect.height).toBeLessThanOrEqual(844);
+    if (scale === 100) await origin.click({ button: "right" });
+    else await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    expect((await (await request.get("/__test/stats")).json()).commands).toBe(
+      0,
+    );
+  });
+}
+
+test("context menu submits Capture directly from an eligible observed property", async ({
+  page,
+}) => {
+  const state = structuredClone(fixture);
+  const battle = state.observation.game_state.battle.value;
+  battle.map.tiles.find((t) => t.x === 1 && t.y === 0).terrain_class = 6;
+  battle.map.tiles.find((t) => t.x === 1 && t.y === 0).owner_slot = 2;
+  battle.properties.push({ x: 1, y: 0, terrain_class: 6, owner_slot: 2 });
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await connect(page);
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  await page.locator('#board [data-x="1"][data-y="0"]').click();
+  const capture = page
+    .getByRole("dialog", { name: "Unit actions" })
+    .getByRole("button", { name: "Capture", exact: true });
+  await expect(capture).toBeEnabled();
+  await page.unroute("**/state");
+  const command = page.waitForRequest(
+    (req) => req.url().endsWith("/commands") && req.method() === "POST",
+  );
+  await capture.click();
+  expect((await command).postDataJSON().action.kind).toBe("move_capture");
+  await expect(page.locator(".command-result")).toContainText(
+    "Command status: completed",
+  );
 });

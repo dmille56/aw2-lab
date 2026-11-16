@@ -367,3 +367,23 @@ Occupied allied tiles remain transit-only unless an available Join/Load action
 can use that endpoint; the server remains authoritative for action legality.
 The persistent command form and its confirmation flow remain until the next
 contextual-menu tasks replace them.
+
+### Ordinary contextual actions (2026-11-16)
+
+A destination click, or a second click on the selected unit, opens a compact
+viewport-constrained action menu. Narrow screens use a bottom panel. Wait and
+Capture submit immediately when chosen; Attack highlights compatible enemies and
+submits on target selection. Actions are constructed from the final target and
+current committed revision without waiting for a React draft update.
+
+Menus focus their first enabled action and support Up/Down/Home/End navigation.
+Escape, right-click on the board, and Back return from targeting to the destination
+menu, then to unit selection, then clear selection. Placement accounts for the
+interface scale; browser checks cover narrow menus at 100% and 200%. Pending
+commands close contextual menus and the session retains its duplicate-submission
+and uncertain-retry guards.
+
+Other actions / manual route retains the existing explicit editor while remaining
+unit actions migrate. Explicit routes can open the contextual menu with Choose
+action. The old command form stays available for operations not yet migrated;
+its ordinary route controls are hidden during contextual board interaction.

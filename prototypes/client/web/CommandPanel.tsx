@@ -304,6 +304,13 @@ export function CommandPanel({
                   <div className="toolbar">
                     <button
                       type="button"
+                      disabled={!editable}
+                      onClick={() => dispatch({ type: "open_menu" })}
+                    >
+                      Choose action
+                    </button>
+                    <button
+                      type="button"
                       disabled={!editable || !draft.path.length}
                       onClick={() => dispatch({ type: "undo" })}
                     >

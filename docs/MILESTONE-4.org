@@ -306,7 +306,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     route reconstruction and browser checks cover distant destination previews
     without commands, keyboard selection, and transition to explicit editing.
 
-*** TODO Replace ordinary unit forms with contextual menus
+*** DONE Replace ordinary unit forms with contextual menus
     Depends on destination routing. Add viewport-constrained destination menus
     and a bottom panel on narrow screens. Start with Wait, Capture, and Attack;
     Wait/Capture commit on selection, Attack on highlighted target selection.
@@ -314,6 +314,9 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Back return through targeting, destination, and unit selection with focus
     restoration. Verify keyboard/mouse/touch parity, current-revision submission,
     and duplicate-input prevention.
+    Evidence (2026-11-16): [[file:HUMAN-CLIENT-DESIGN.md::*Ordinary contextual actions (2026-11-16)][ordinary contextual action notes]];
+    direct Wait/Capture, target-committed Attack, keyboard and right-click Back,
+    scaled/narrow placement, and final-target action construction checks.
 
 *** TODO Move remaining unit actions into contextual menus
     Depends on ordinary contextual actions. Cover Join, Supply, Dive, Rise,

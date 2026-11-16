@@ -103,6 +103,11 @@ button,
   cursor: pointer;
 }
 
+.file-label {
+  max-width: 100%;
+  min-width: 0;
+}
+
 button:where(:not(.tile)):hover,
 .file-label:hover {
   background: var(--control-hover);
@@ -155,7 +160,7 @@ form,
 
 form label {
   flex: 1;
-  min-width: 180px;
+  min-width: min(180px, 100%);
 }
 
 .toolbar {
@@ -908,5 +913,46 @@ summary {
 
   .session-controls .toolbar {
     justify-content: start;
+  }
+}
+
+.board-controls .command-panel .route-editor {
+  display: none;
+}
+
+.action-menu {
+  position: fixed;
+  z-index: 100;
+  width: 260px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
+  border: 2px solid var(--accent);
+  box-shadow: 0 4px 18px #0005;
+  margin: 0;
+  padding: 12px;
+}
+
+.action-menu h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.action-menu-buttons {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.action-menu button {
+  min-height: 44px;
+  text-align: left;
+}
+
+@media (width <= 600px) {
+  .action-menu {
+    inset: auto 8px 8px !important;
+    width: auto !important;
+    max-height: 50dvh;
   }
 }
