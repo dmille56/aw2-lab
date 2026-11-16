@@ -496,3 +496,88 @@ This is automated browser-driven live evidence, with screenshots reviewed by the
 implementation agent. It does not provide human acceptance, native Tauri visual
 acceptance, or live outage/rollback acceptance. The final redesign TODO remains
 open for those checks and for any focused usability feedback.
+
+### Human playtest feedback (2026-11-16)
+
+The user prefers the redesigned UI so far. Follow-up TODOs are recorded in
+[Milestone 4](MILESTONE-4.org):
+
+- Make the funds, CO identity, and CO power charge display resemble the game or
+  Advance Wars By Web, with a compact arrangement and readable charge/readiness.
+- Make both movement and attack ranges substantially easier to see. Their covered
+  tiles, boundaries, and differences must remain clear over game sprites and
+  symbolic terrain, including overlapping markings.
+
+Review these changes with the user in the live client. Human playtesting is in
+progress, and final acceptance remains open pending these fixes and the remaining
+playtest scenarios.
+
+Further human testing identified four additional follow-ups:
+
+- Join is offered for two full-health Infantry. Audit client and server rules
+  together and validate the complete cartridge behavior before emulator input.
+- Waiting for gameplay execution needs an obvious spinner/progress indicator
+  that explains the current action, including long-running actions.
+- Rejected or failed gameplay actions need prominent toast-style notifications
+  with a readable reason, outcome, and recovery guidance.
+- The selected unit needs an unmistakable persistent marker, distinct from
+  inspection, keyboard focus, ranges, routes, and targets.
+
+Join research: the [AWBW units reference](https://awbw.fandom.com/wiki/Units#Joining_Units)
+says the destination is damaged, a full-health mover may initiate, loaded
+transports cannot join, health/fuel/ammo combine, excess HP converts to funds,
+and the resulting unit has spent its action. Equal health alone is not a reason
+to forbid joining two damaged units. The
+[command overview](https://awbw.fandom.com/wiki/Advance_Wars_Overview) describes
+the destination cutoff as at most 9 displayed HP and gives a refund of 10% of
+unit price per excess HP. Nintendo's
+[AW2 manual](https://www.nintendo.com/eu/media/downloads/games_8/emanuals/game_boy_advance_8/Manual_GameBoyAdvance_AdvanceWars2BlackHoleRising_EN_DE_FR_ES_IT.pdf)
+provides a simpler description referring to both units being damaged.
+Reconcile this wording and AWBW's behavior with the actual supported cartridge,
+including hidden damage, used partners, capture progress, and rounding; the ROM
+remains authoritative. Current client partner selection and server preflight
+lack a health gate, and the server's result check assumes the mover gains health.
+These are investigation findings for the Join TODO, not an implemented fix.
+
+Further requested follow-ups:
+
+- Give loaded APCs, Transport Copters, Landers, and other supported transports a
+  clear persistent cargo indicator on the board, with readable cargo count/status
+  alongside existing HP and selection markings.
+- Show an accessible toast when the authenticated player's turn begins, without
+  stealing focus or repeating notifications on ordinary refreshes/reconnects.
+
+Both are separate TODOs in Milestone 4 and remain part of human acceptance.
+
+Human result: the user confirmed that movement and cancellation work during the
+live playtest. These functional scenarios have passed human testing. The range
+and selected-unit visibility findings remain open, alongside the other usability
+follow-ups. Combat, cargo, purchasing/turn changes, and error recovery still need
+explicit human confirmation before final acceptance.
+
+Human result: the user confirmed that Attack works. Mark attack execution as
+passed. Attack-target cancellation still needs explicit confirmation; cargo,
+purchasing/turn changes, and error recovery remain in the acceptance checklist.
+
+Human result: the user confirmed cargo works after the loading/unloading test.
+Mark cargo loading and unloading as passed. The loaded-transport visibility TODO
+remains open. Purchasing/turn changes, error recovery, and attack cancellation
+still need explicit human confirmation before final acceptance.
+
+Human result: the user confirmed purchasing and turn changes work after testing
+purchase cancellation, the funds deduction, and unit readiness on the next turn.
+Mark purchasing and turn changes as passed. Functional human passes now cover
+movement/cancellation, attack execution, cargo loading/unloading, purchasing, and
+turn changes. Attack-target cancellation and error recovery still need explicit
+confirmation. All reported usability follow-ups and final acceptance remain open.
+
+Human result: the user confirmed both attack-target cancellation and recovery
+after a rejected Join work. The functional human playtest checklist has passed:
+movement/cancellation, attack execution/cancellation, cargo loading/unloading,
+purchasing, turn changes, and valid actions after rejection. This confirms the
+reported recovery flow, not new live outage or rollback fault-injection coverage.
+
+Final redesign acceptance remains open. The next work is to implement the eight
+recorded usability TODOs, review those changes with the user, and complete the
+remaining native visual verification. The positive functional results do not
+close the Join eligibility or visibility/notification findings.

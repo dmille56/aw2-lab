@@ -346,7 +346,91 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     old action forms removed, board-side progress/recovery retained, and 43
     browser scenarios passed, including repeated input during a held receipt.
 
-*** TODO Playtest and accept the redesign
+*** TODO Match the funds, CO, and power-charge HUD to the game/AWBW
+    Human playtest feedback (2026-11-16): make the funds, commanding officer,
+    and CO power charge display resemble Advance Wars / Advance Wars By Web.
+    Use a compact game-style arrangement with prominent funds, CO identity,
+    and a readable power/super-power charge meter and readiness indication.
+    Keep unknown charge/threshold observations explicit. Any added game artwork
+    must come from local ROM extraction and remain outside Git and the Nix store;
+    preserve a usable fallback without extracted assets.
+    Review the result with the user in the live client, including narrow layouts
+    and interface scaling, before marking this follow-up complete.
+
+*** TODO Make movement and attack ranges clearly visible
+    Human playtest feedback (2026-11-16): both range displays are too hard to see.
+    Strengthen movement and attack overlays so their boundaries and covered tiles
+    are immediately visible over sprites and symbolic terrain. Make movement,
+    attack, and overlapping markings distinguishable using contrast plus patterns
+    or outlines, with readable routes, targets, units, and HP badges.
+    Verify both themes, light/dark appearances, narrow layouts, and interface
+    scaling. Have the user confirm readability during live playtesting.
+
+*** TODO Correct Join eligibility and verify complete cartridge behavior
+    Human playtest feedback (2026-11-16): the menu offers Join for two full-HP
+    Infantry. Audit client eligibility, server preflight, and result validation
+    against the supported AW2 ROM before changing the shared rules.
+    Research: [[https://awbw.fandom.com/wiki/Units#Joining_Units][AWBW joining reference]] and
+    [[https://awbw.fandom.com/wiki/Advance_Wars_Overview][AWBW command overview]]. A full-health mover can join into a damaged
+    partner; equal HP alone is not invalid when both units are damaged. Verify
+    AW2's displayed versus internal HP cutoff, including hidden damage at 10 HP.
+    Cover full/full rejection, full/damaged, damaged/full, and equal damaged HP;
+    same owner/type, source/partner action state, path/fuel, cargo and empty
+    transport restrictions; combined HP/fuel/ammo caps, excess-HP funds, survivor
+    identity, turn consumption, and capture progress. Keep cartridge differences
+    from AWBW explicit. A valid full-health mover need not gain health after Join.
+    Reject invalid joins before emulator input and avoid offering them in the UI.
+    Add focused client/server regressions and live cartridge acceptance evidence.
+
+*** TODO Show obvious progress while a gameplay action executes
+    Human playtest feedback (2026-11-16): waiting for an action is confusing.
+    Show a prominent spinner or equivalent progress indicator near the board
+    immediately after submission, naming the action and explaining that it is
+    being sent or executed. Keep it visible for slow emulator actions and make
+    uncertain status/recovery clear. Announce status accessibly, respect reduced
+    motion, retain inspection, and prevent duplicate submissions. Verify delayed
+    receipts, queued/running actions, and transition to every terminal result.
+
+*** TODO Show prominent notifications when gameplay actions cannot execute
+    Human playtest feedback (2026-11-16): rejection and its cause are hard to see.
+    Add accessible toast-style notifications near the play area for submission
+    rejection and terminal failure, with the affected action, a plain-language
+    reason, and an appropriate next step. Distinguish rejection, rollback,
+    uncertain outcome, and recovery-required results so users know whether the
+    action committed. Keep details/recovery controls available, allow dismissal,
+    and retain important errors long enough to read. Verify immediate API errors
+    and accepted commands that later fail without repeating the action.
+
+*** TODO Make the selected unit unmistakable
+    Human playtest feedback (2026-11-16): it is difficult to identify the selected
+    unit. Add a strong persistent selection marker, such as a game-style cursor
+    or high-contrast outline, distinct from inspected tiles, keyboard focus,
+    reachable tiles, route destinations, and attack targets. Keep the acting
+    unit identifiable during destination/target selection and move or clear the
+    marker correctly when selection changes. Verify sprites and symbols, both
+    themes/appearances, scaling, keyboard/mouse input, and range overlays with
+    the user in live playtesting.
+
+*** TODO Make loaded transports visually distinct
+    Human playtest feedback (2026-11-16): make it obvious when an APC, Transport
+    Copter, Lander, or other supported transport contains cargo. Add a persistent
+    board indicator, such as a cargo badge/count, that distinguishes loaded and
+    empty transports without relying on color alone. Keep sprites, HP, used
+    status, selection, and range markings readable. Reflect loading/unloading
+    from committed observations, include accessible cargo status, and verify
+    one- and two-passenger transports, symbols/sprites, themes, and scaling.
+
+*** TODO Notify the player when their turn begins
+    Human playtest feedback (2026-11-16): show a clear accessible toast when the
+    committed match state changes to the authenticated player's turn. Identify
+    the new turn/day and allow dismissal without stealing focus. Notify once per
+    turn, avoiding duplicate toasts from repeated state refreshes or reconnects.
+    Handle initial connection, match/identity changes, and imported snapshots
+    deliberately; show personal turn notifications only for a player identity.
+    Verify normal turn changes, background tabs, refresh/reconnect, and keyboard
+    accessibility with the user in live playtesting.
+
+*** IN-PROGRESS Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,
     purchasing, unloading, cancellation, end turn, and error recovery against
     the emulator. Record friction and address focused follow-up fixes. Require
@@ -354,7 +438,25 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     closing the redesign and resuming deferred platform acceptance.
     In progress (2026-11-16): [[file:HUMAN-CLIENT-DESIGN.md::*Live playtest follow-ups (2026-11-16)][live playtest notes]];
     isolated real-emulator purchase/turn/load/move/unload/attack flows verified.
-    Human acceptance and native visual verification remain open.
+    Human playtesting started (2026-11-16): the user prefers the redesigned UI
+    so far and requested the HUD, range visibility, Join, action progress,
+    failure notifications, selection markers, loaded-transport indicators, and
+    turn notifications above. Address and recheck these before final acceptance.
+    Human result: the user confirmed movement and cancellation work in the live
+    playtest. Record these functional scenarios as passed; the range/selection
+    visibility TODOs remain open. Human acceptance and native visual verification
+    remain open.
+    - [X] Human verifies movement and cancellation.
+    - [X] Human verifies attack execution.
+    - [X] Human verifies cargo loading and unloading.
+    - [X] Human verifies purchasing and turn changes.
+    - [X] Human verifies attack-target cancellation.
+    - [X] Human verifies error recovery after a rejected Join.
+    Functional human playtesting passed: movement/cancellation, attacks and attack
+    cancellation, loading/unloading, purchasing/turn changes, and recovery after
+    a rejected Join. Implement the eight usability TODOs above, recheck them with
+    the user, and finish remaining native visual verification before acceptance.
+    - [ ] Human rechecks the reported usability follow-ups and accepts the redesign.
 
     For every implementation item, add focused behavior checks, run relevant
     browser scenarios, review changed screenshots, and require
