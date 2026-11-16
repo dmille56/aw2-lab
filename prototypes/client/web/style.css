@@ -561,7 +561,7 @@ summary {
   outline: 2px solid var(--accent);
 }
 
-.active-player strong::before {
+.active-player > strong::before {
   content: "▶ ";
 }
 
@@ -865,35 +865,6 @@ summary {
   flex-wrap: wrap;
   gap: 10px;
   margin-block: 12px;
-}
-
-.hud-player {
-  display: grid;
-  gap: 4px;
-  padding: 8px 12px;
-  border-radius: 4px;
-  background: var(--player-card);
-  flex: 1;
-  min-width: min(200px, 100%);
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-
-.player-3 {
-  border-left: 4px solid #69b980;
-}
-
-.player-4 {
-  border-left: 4px solid #d1bb54;
-}
-
-.unit-details {
-  margin-top: 12px;
-}
-
-.unit-details > summary {
-  min-height: 44px;
-  padding-block: 10px;
 }
 
 @media (width <= 600px) {

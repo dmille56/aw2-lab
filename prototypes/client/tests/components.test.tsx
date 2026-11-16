@@ -5,6 +5,7 @@ import "@testing-library/jest-dom/vitest";
 import { Board, UnitInspector } from "../web/Board";
 import { MapPanel } from "../web/MapPanel";
 import { Health } from "../web/Health";
+import { PlayerHud } from "../web/PlayerHud";
 import { App } from "../web/App";
 import { MatchControls } from "../web/MatchControls";
 import { CommandFeedback } from "../web/CommandFeedback";
@@ -434,3 +435,29 @@ it.each([3, 4] as const)(
     );
   },
 );
+
+it("shows game-style funds and charge with honest unknown threshold fallback", () => {
+  const state = structuredClone(battle);
+  state.players[0].power_meter = {
+    status: "available",
+    value: 30000,
+    reasons: [],
+  };
+  state.players[0].power_use_counter = {
+    status: "available",
+    value: 0,
+    reasons: [],
+  };
+  state.players[1].co_id = 18;
+  render(<PlayerHud battle={state} yourSlot={1} />);
+  expect(
+    screen.getByRole("progressbar", { name: "Andy CO power charge" }),
+  ).toHaveAttribute("aria-valuemax", "54000");
+  expect(screen.getByRole("progressbar")).toHaveAttribute(
+    "aria-valuenow",
+    "30000",
+  );
+  expect(screen.getByText("Power ready")).toBeVisible();
+  expect(screen.getByText(/Charge threshold unavailable/)).toBeVisible();
+  expect(screen.getAllByText("FUNDS")).toHaveLength(2);
+});

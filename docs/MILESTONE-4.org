@@ -346,7 +346,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     old action forms removed, board-side progress/recovery retained, and 43
     browser scenarios passed, including repeated input during a held receipt.
 
-*** TODO Match the funds, CO, and power-charge HUD to the game/AWBW
+*** IN-PROGRESS Match the funds, CO, and power-charge HUD to the game/AWBW
     Human playtest feedback (2026-11-16): make the funds, commanding officer,
     and CO power charge display resemble Advance Wars / Advance Wars By Web.
     Use a compact game-style arrangement with prominent funds, CO identity,
@@ -356,6 +356,10 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     preserve a usable fallback without extracted assets.
     Review the result with the user in the live client, including narrow layouts
     and interface scaling, before marking this follow-up complete.
+    Implemented: compact CO badge/funds panel, split Power/Super charge stars,
+    current-counter readiness, accessible meter, and explicit unknown fallback.
+    Component/browser checks cover thresholds, layouts, themes, and scaling.
+    Awaiting user visual review; CO badges use text when portraits are absent.
 
 *** TODO Make movement and attack ranges clearly visible
     Human playtest feedback (2026-11-16): both range displays are too hard to see.

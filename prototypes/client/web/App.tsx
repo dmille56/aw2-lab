@@ -3,6 +3,7 @@ import { MapPanel } from "./MapPanel";
 import { coName, humanSlot, perspective, playerName } from "./presentation";
 import { Health } from "./Health";
 import { MatchSession } from "./session";
+import { PlayerHud } from "./PlayerHud";
 import { MatchControls, PurchaseMenu } from "./MatchControls";
 import { ContextActions, restoreBoardFocus } from "./ContextActions";
 import { CommandFeedback } from "./CommandFeedback";
@@ -324,27 +325,7 @@ export function App() {
             </p>
           )}
           {battle && (
-            <div className="player-hud" aria-label="Player status">
-              {battle.players.map((player) => (
-                <div
-                  key={player.slot}
-                  className={`hud-player player-${player.slot}${player.slot === battle.active_player_slot ? " active-player" : ""}${player.slot === humanSlot(view.identity) ? " your-player" : ""}`}
-                >
-                  <strong>
-                    {owner(player.slot)}
-                    {player.slot === humanSlot(view.identity) ? " · You" : ""}
-                  </strong>
-                  <span>
-                    {coName(player.co_id)} · {player.funds.toLocaleString()}{" "}
-                    funds
-                  </span>
-                  <span>
-                    {activePowerLabel(player.active_power)} ·{" "}
-                    {powerMeterLabel(player.power_meter)}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <PlayerHud battle={battle} yourSlot={humanSlot(view.identity)} />
           )}
           <MatchControls
             model={gameplay}

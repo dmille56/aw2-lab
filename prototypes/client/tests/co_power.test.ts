@@ -4,6 +4,7 @@ import {
   nextPowerThresholdLabel,
   powerMeterLabel,
   powerReadiness,
+  powerCharge,
 } from "../web/co_power";
 
 const available = (value: number) => ({
@@ -73,4 +74,26 @@ it("separates current readiness from the next activation debit", () => {
   expect(nextPowerThresholdLabel(1, available(9))).toContain(
     "Power 54,000 charge units · Super 108,000 charge units",
   );
+});
+
+it("uses current activation thresholds for segmented meters and preserves unknowns", () => {
+  const player = {
+    co_id: 1,
+    power_meter: available(30000),
+    power_use_counter: available(1),
+  };
+  expect(powerCharge(player)).toEqual({
+    normalStars: 3,
+    superStars: 6,
+    perStar: 10800,
+    maximum: 64800,
+    value: 30000,
+  });
+  expect(powerCharge({ ...player, co_id: 18 })).toBeNull();
+  expect(
+    powerCharge({
+      ...player,
+      power_meter: { status: "unknown", value: null, reasons: [] },
+    }),
+  ).toBeNull();
 });

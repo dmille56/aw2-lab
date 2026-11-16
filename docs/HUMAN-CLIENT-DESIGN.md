@@ -581,3 +581,13 @@ Final redesign acceptance remains open. The next work is to implement the eight
 recorded usability TODOs, review those changes with the user, and complete the
 remaining native visual verification. The positive functional results do not
 close the Join eligibility or visibility/notification findings.
+
+### Usability implementation: player HUD
+
+The player overview now uses a compact CO badge/funds panel with segmented gold
+Power and blue Super Power stars and a readiness/active-state label. Meters use
+the verified current-use activation thresholds, distinct from next-use debits.
+Unknown thresholds/readings retain explicit text instead of fabricated progress.
+No new game artwork is bundled: CO identity uses a text badge. The arrangement
+follows the [AWBW overview](https://awbw.amarriner.com/guide.php); final human
+visual acceptance remains pending.

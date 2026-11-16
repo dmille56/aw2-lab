@@ -89,3 +89,32 @@ export function powerReadiness(
   const threshold = stars * ((9000 * (100 + 20 * counter.value)) / 100);
   return meter.value >= threshold ? "ready" : "not_ready";
 }
+
+/** Only verified complete CO thresholds get a segmented visual meter. */
+export function powerCharge(
+  player: Pick<PlayerState, "co_id" | "power_meter" | "power_use_counter">,
+) {
+  const stars = verifiedStars[player.co_id];
+  const count = player.power_use_counter;
+  const meter = player.power_meter;
+  if (
+    !stars?.super ||
+    count.status !== "available" ||
+    count.value === null ||
+    !Number.isInteger(count.value) ||
+    count.value < 0 ||
+    count.value > 9 ||
+    meter.status !== "available" ||
+    meter.value === null ||
+    meter.value < 0
+  )
+    return null;
+  const perStar = (9000 * (100 + 20 * count.value)) / 100;
+  return {
+    normalStars: stars.power,
+    superStars: stars.super,
+    perStar,
+    maximum: perStar * stars.super,
+    value: meter.value,
+  };
+}
