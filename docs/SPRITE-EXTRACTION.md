@@ -75,3 +75,40 @@ third-party implementation was added to the project.
 
 No animation, weather selection, exact map edge composition, generated artwork
 packaging, browser delivery, or client rendering is claimed by this proof.
+
+## Complete static client pack
+
+The next extraction layer covers the decoder's 19 supported unit types in all
+five ROM army palettes (95 frames), and 18 supported terrain classes in neutral
+plus five army palettes (108 frames). It uses representative ground tiles and
+static property foregrounds. It does not reproduce per-map terrain connections.
+
+```sh
+PYTHONPATH=src python -m aw2_lab.sprite_pack \
+  --rom "$AW2_ROM_PATH" --output-dir /tmp/aw2-redesign-sprite-pack
+AW2_RUN_SPRITE_ACCEPTANCE=1 PYTHONPATH=src pytest tests/test_sprite_pack.py
+```
+
+The output consists of a content-addressed PNG atlas and an atomically replaced
+`manifest.json`. The manifest identifies `aw2-client-sprites` version 1, the ROM
+checksum, atlas checksum and dimensions, and regions with `x`, `y`, `width`, and
+`height`. Unit keys are `unit_type:army_id` (army IDs 1–5); terrain keys are
+`terrain_class:army_id` (neutral 0 and armies 1–5). Each unit occupies 16x16 pixels;
+each terrain frame occupies 16x32, with ground at its bottom and foreground
+anchored at the bottom. The manifest contains no local machine paths.
+
+Additional property sources, relative to `0x0CFFC4`, are Base `+0x80` (four tiles),
+Airport `+0x140`, Port `+0x240`, City `+0x440`, and Missile Silo `+0xA40` (six tiles
+each), and Spent Silo `+0xB00` (four tiles). HQ sources are at
+`0x0D16C4 + (army_id - 1) * 0x100` (eight tiles); neutral uses the first HQ shape
+with the neutral palette. These regions were checked against the original source
+selection routine and visually inspected in the generated atlas. Terrain ground
+regions use the first graphical tile matching each class in the verified lookup.
+
+On 2026-11-15, all three pack checks passed with the live-ROM opt-in: coverage
+matches the current observation/rules contract, every region is within the atlas,
+the PNG hash matches the manifest, repeated extraction produces the same output,
+and the input ROM hash stays unchanged. Visual inspection covered the full atlas,
+including all 19 silhouettes and property families. Browser/native delivery and
+rendering remain the next checklist item. Unsupported campaign-only terrain
+classes use the client's symbolic fallback rather than a guessed mapping.

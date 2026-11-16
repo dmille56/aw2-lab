@@ -266,12 +266,15 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Battleship palettes. All 12 focused checks passed with the live-ROM opt-in.
     Full feature/foreground mapping remains the next task.
 
-*** TODO Build the complete static sprite pack
+*** DONE Build the complete static sprite pack
     Depends on verified extraction. Produce PNG atlases and a versioned manifest
     covering supported terrain classes, unit types, and army palettes. Reject
     unsupported ROMs clearly. Verify every mapping; separate ROM-dependent
     extraction checks from ROM-independent tests. Defer animation, exact terrain
     connections, weather palettes, and CO portraits.
+    Evidence (2026-11-15): [[file:SPRITE-EXTRACTION.md::*Complete static client pack][static pack guide]]; 95 unit
+    and 108 terrain regions, full-atlas visual inspection, and three passing
+    pack checks with live-ROM opt-in. Assets remain external.
 
 *** TODO Render sprites in the existing board
     Depends on the sprite pack. Serve only generated images and the manifest
