@@ -41,14 +41,20 @@ def _request(match_id: UUID, unit_id: str, point: tuple[int, int]) -> CommandReq
     )
 
 
-def test_join_moves_onto_partner_and_verifies_moving_unit_survives(memory) -> None:
+@pytest.mark.parametrize(
+    ("source_hp", "partner_hp", "partner_used"),
+    [(27, 51, False), (100, 50, False), (50, 50, False), (27, 50, True)],
+)
+def test_join_moves_onto_partner_and_verifies_moving_unit_survives(
+    memory, source_hp, partner_hp, partner_used
+) -> None:
     match_id = uuid4()
     tracker = MatchObservationTracker(match_id)
     state = decode_snapshot(snapshot(memory))
     battle = state.battle.value
     assert battle is not None
     source = next(unit for unit in battle.units if unit.army_slot == battle.active_player_slot)
-    source = replace(source, internal_health=27)
+    source = replace(source, internal_health=source_hp)
     battle = replace(
         battle,
         units=tuple(
@@ -62,7 +68,8 @@ def test_join_moves_onto_partner_and_verifies_moving_unit_survives(memory) -> No
         unit_slot=2,
         x=destination[0],
         y=destination[1],
-        internal_health=51,
+        internal_health=partner_hp,
+        used_this_turn=partner_used,
     )
     initial_state = replace(
         state,
@@ -85,7 +92,7 @@ def test_join_moves_onto_partner_and_verifies_moving_unit_survives(memory) -> No
         source,
         x=destination[0],
         y=destination[1],
-        internal_health=90,
+        internal_health=min(100, ((source_hp + 9) // 10 + (partner_hp + 9) // 10) * 10),
         used_this_turn=True,
     )
     final_battle = replace(battle, units=(final_source,))
@@ -139,14 +146,23 @@ def test_join_moves_onto_partner_and_verifies_moving_unit_survives(memory) -> No
     ]
 
 
-@pytest.mark.parametrize(("partner_type", "used"), [(2, False), (1, True)])
-def test_join_rejects_wrong_type_or_used_partner_before_input(memory, partner_type, used) -> None:
+@pytest.mark.parametrize(
+    ("partner_type", "health", "source_cargo", "partner_cargo"),
+    [(2, 50, (), ()), (1, 100, (), ()), (1, 91, (), ()), (1, 50, (3,), ()), (1, 50, (), (3,))],
+)
+def test_join_rejects_invalid_partner_before_input(
+    memory, partner_type, health, source_cargo, partner_cargo
+) -> None:
     match_id = uuid4()
     tracker = MatchObservationTracker(match_id)
     state = decode_snapshot(snapshot(memory))
     battle = state.battle.value
     assert battle is not None
     source = next(unit for unit in battle.units if unit.army_slot == battle.active_player_slot)
+    source = replace(source, cargo_references=source_cargo)
+    battle = replace(
+        battle, units=tuple(source if u.reference == source.reference else u for u in battle.units)
+    )
     destination = (source.x + 1, source.y)
     partner = replace(
         source,
@@ -155,7 +171,8 @@ def test_join_rejects_wrong_type_or_used_partner_before_input(memory, partner_ty
         unit_type=partner_type,
         x=destination[0],
         y=destination[1],
-        used_this_turn=used,
+        internal_health=health,
+        cargo_references=partner_cargo,
     )
     battle = replace(battle, units=(*battle.units, partner))
     initial = tracker.commit_boundary(replace(state, battle=replace(state.battle, value=battle)))
@@ -167,7 +184,7 @@ def test_join_rejects_wrong_type_or_used_partner_before_input(memory, partner_ty
         async def select_unit(self, *args, **kwargs):
             pytest.fail("invalid Join partner must be rejected before input")
 
-    with pytest.raises(CommandRejected, match="same type"):
+    with pytest.raises(CommandRejected, match="same-type"):
         asyncio.run(
             JoinActionExecutor(cast(ActionNavigator, NoInputNavigator()), tracker).execute(
                 _request(match_id, source_id, destination), initial

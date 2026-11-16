@@ -143,7 +143,7 @@ def test_join_choice_requires_the_verified_single_row_and_same_type_ally(memory)
     pack_into("<H", iwram, 0x32D8, 13)
     iwram[0x30F0] = 1
     pack_into("<H", iwram, 0x3334, 4)
-    ewram[0x226A8:0x226B4] = bytes((1, 0, 1, 0, 100, 0, 99, 0, 0, 0, 0, 0))
+    ewram[0x226A8:0x226B4] = bytes((1, 0, 1, 0, 90, 0, 99, 0, 0, 0, 0, 0))
     ewram[0x1E450 + 0x51A] = 1
     ewram[0x1E450 + 0x51A + 1] = 3
 
@@ -153,6 +153,16 @@ def test_join_choice_requires_the_verified_single_row_and_same_type_ally(memory)
     assert menu.items == (MenuItem.JOIN,)
     assert menu.selected_item is MenuItem.JOIN
     assert menu.actionable
+
+    # The cartridge allows used partners, but rejects all displayed-10 HP values.
+    ewram[0x226A9] = 1
+    current = snapshot(memory)
+    assert observe_menu(current, validate_battle_snapshot(current)).items == (MenuItem.JOIN,)
+    for health in (91, 100):
+        ewram[0x226AC] = health
+        current = snapshot(memory)
+        assert not observe_menu(current, validate_battle_snapshot(current)).actionable
+    ewram[0x226AC] = 90
 
     ewram[0x226A8] = 2  # Different unit type.
     current = snapshot(memory)

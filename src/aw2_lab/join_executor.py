@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from aw2_lab.action_navigation import ActionNavigator, validate_path
+from aw2_lab.aw2_unit_profiles import UNIT_PROFILES
 from aw2_lab.lifecycle import LifecyclePhase
 from aw2_lab.match_contract import CommandRequest, ErrorCode, JoinAction, MatchLifecycle
 from aw2_lab.match_controller import CommandRejected, MutationOutcome
@@ -88,11 +89,13 @@ class JoinActionExecutor:
             partner is None
             or partner.army_slot != source.army_slot
             or partner.unit_type != source.unit_type
-            or partner.used_this_turn
+            or not 1 <= partner.internal_health <= 90
+            or source.cargo_references
+            or partner.cargo_references
         ):
             raise CommandRejected(
                 ErrorCode.INVALID_REQUEST,
-                "Join destination must contain an unused allied unit of the same type",
+                "Join requires a same-type ally below 10 displayed HP and two empty units",
             )
         partner_identity = next(
             (item for item in observation.unit_identities if item.reference == partner.reference),
@@ -140,7 +143,13 @@ class JoinActionExecutor:
             or final_source.unit_type != source.unit_type
             or (final_source.x, final_source.y) != destination
             or not final_source.used_this_turn
-            or final_source.internal_health <= source.internal_health
+            or final_source.internal_health
+            != min(
+                100, ((source.internal_health + 9) // 10 + (partner.internal_health + 9) // 10) * 10
+            )
+            or final_source.ammo
+            != min(UNIT_PROFILES[source.unit_type].ammo_capacity, source.ammo + partner.ammo)
+            or final_source.capture_points != partner.capture_points
             or final_partner is not None
         ):
             raise RuntimeError("Join did not preserve the mover and consume the named partner")

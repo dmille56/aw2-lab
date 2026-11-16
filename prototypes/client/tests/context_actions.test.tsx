@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Board, type Position } from "../web/Board";
 import { MatchControls, PurchaseMenu } from "../web/MatchControls";
 import { ContextActions } from "../web/ContextActions";
-import { useGameplay } from "../web/gameplay";
+import { joinCompatible, useGameplay } from "../web/gameplay";
 import { MatchSession, type ViewState } from "../web/session";
 import { validateState, type StateResponse } from "../web/state";
 import { validateCapabilitiesResponse } from "../web/capabilities";
@@ -263,5 +263,27 @@ it("confirms match controls, restores trigger focus, and gates observed power re
   expect(send).toHaveBeenCalledWith(
     { contract_version: 1, kind: "end_turn" },
     1,
+  );
+});
+
+it("Join requires a damaged destination, preserves equal damaged HP, and permits a full-health mover", () => {
+  const state = validateState(structuredClone(fixture));
+  ally(state, 1);
+  const [source, , partner] = state.observation!.game_state.battle.value!.units;
+  expect(joinCompatible(source, partner)).toBe(true);
+  expect(joinCompatible(source, { ...partner, internal_health: 100 })).toBe(
+    false,
+  );
+  expect(joinCompatible(source, { ...partner, internal_health: 91 })).toBe(
+    false,
+  );
+  expect(joinCompatible({ ...source, internal_health: 50 }, partner)).toBe(
+    true,
+  );
+  expect(joinCompatible(source, { ...partner, used_this_turn: true })).toBe(
+    true,
+  );
+  expect(joinCompatible({ ...source, cargo_references: [2] }, partner)).toBe(
+    false,
   );
 });

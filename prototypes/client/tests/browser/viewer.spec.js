@@ -1458,3 +1458,52 @@ test("distinguishes solid movement and striped attack overlays above terrain", a
     "Attack · diagonal stripes",
   );
 });
+
+test("does not offer Join into full-health Infantry but accepts a damaged used partner", async ({
+  page,
+  request,
+}) => {
+  const state = structuredClone(fixture),
+    battle = state.observation.game_state.battle.value;
+  battle.units[1] = {
+    ...battle.units[0],
+    reference: 2,
+    unit_slot: 2,
+    x: 1,
+    y: 0,
+  };
+  state.observation.unit_identities[1].reference = 2;
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await page.route("**/v1/capabilities", async (route) => {
+    const value = await (await route.fetch()).json();
+    value.actions.push({
+      contract_version: 1,
+      name: "join",
+      implemented: true,
+      available: true,
+      verification: "synthetic",
+      unavailable_reason: null,
+    });
+    await route.fulfill({ json: value });
+  });
+  await connect(page);
+  const source = page.locator('#board [data-x="0"][data-y="0"]'),
+    partner = page.locator('#board [data-x="1"][data-y="0"]');
+  await source.click();
+  await partner.click();
+  await expect(
+    page.getByRole("button", { name: "Join", exact: true }),
+  ).toHaveCount(0);
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
+  battle.units[1].internal_health = 50;
+  battle.units[1].used_this_turn = true;
+  state.summary.revision = state.observation.revision = 2;
+  await page.locator("#refresh").click();
+  await source.click();
+  await partner.click();
+  await expect(
+    page
+      .getByRole("dialog", { name: "Unit actions" })
+      .getByRole("button", { name: "Join", exact: true }),
+  ).toBeEnabled();
+});

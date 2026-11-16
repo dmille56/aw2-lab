@@ -1,3 +1,4 @@
+import type { UnitState } from "./state";
 import { useEffect, useReducer } from "react";
 import type { ViewState } from "./session";
 import type { Position } from "./Board";
@@ -6,6 +7,22 @@ import { supportedProductionProperties } from "./command_input";
 import catalog from "./catalog.json";
 import { movementRoute, unloadDropTiles, validateMovement } from "./movement";
 import { attackTargets } from "./combat_overlay";
+
+/** Cartridge 0x08025FC0: the destination must display less than 10 HP. */
+export function joinCompatible(source: UnitState, partner: UnitState): boolean {
+  return (
+    source.reference !== partner.reference &&
+    source.army_slot === partner.army_slot &&
+    source.unit_type === partner.unit_type &&
+    !source.used_this_turn &&
+    !source.embarked &&
+    !partner.embarked &&
+    source.cargo_references.length === 0 &&
+    partner.cargo_references.length === 0 &&
+    partner.internal_health > 0 &&
+    partner.internal_health <= 90
+  );
+}
 
 export type ActionKind = GameplayAction["kind"];
 export interface Draft {
@@ -360,12 +377,7 @@ export function useGameplay(
     battle && selectedUnit && destination && draft.path.length
       ? battle.units.find(
           (unit) =>
-            unit.army_slot === selectedUnit.army_slot &&
-            unit.unit_type === selectedUnit.unit_type &&
-            !unit.used_this_turn &&
-            !unit.embarked &&
-            unit.reference !== selectedUnit.reference &&
-            sameTile(unit, destination),
+            joinCompatible(selectedUnit, unit) && sameTile(unit, destination),
         )
       : undefined;
   const canJoin = !!joinPartner;
@@ -632,10 +644,7 @@ export function useGameplay(
         sameTile(unit, point),
     );
     const join =
-      occupant?.army_slot === slot &&
-      occupant.unit_type === selectedUnit.unit_type &&
-      !occupant.used_this_turn &&
-      available("join");
+      !!occupant && joinCompatible(selectedUnit, occupant) && available("join");
     const load =
       occupant?.army_slot === slot &&
       transportCanCarry(occupant.unit_type, selectedUnit.unit_type) &&

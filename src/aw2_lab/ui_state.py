@@ -724,12 +724,16 @@ def _selected_unit_can_join_at_cursor(
     width, height = snapshot.u16(MAP_BASE), snapshot.u16(MAP_BASE + 2)
     if not (0 <= x < width and 0 <= y < height) or (x, y) == (selected.x, selected.y):
         return False
+    if snapshot.read(selected.record_address, UNIT_STRIDE)[7]:
+        return False
     for slot in range(1, UNITS_PER_ARMY + 1):
         address = UNIT_BASE + ((selected.army_slot - 1) * 64 + slot) * UNIT_STRIDE
         record = snapshot.read(address, UNIT_STRIDE)
         if (
             record[0] == selected.unit_type
-            and not record[1] & 0x09
+            and not record[1] & 0x08
+            and record[7] == 0
+            and 1 <= record[4] & 0x7F <= 90
             and (record[2], record[3]) == (x, y)
         ):
             return True

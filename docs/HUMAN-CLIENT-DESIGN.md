@@ -600,3 +600,23 @@ transit uses dashed blue, and threats/drops keep distinct dashed edges. A visibl
 legend explains the patterns. A dedicated overlay layer sits above terrain and
 below units/HP, shared by sprite and symbolic boards. Human readability review
 remains pending.
+
+### Usability implementation: Join eligibility
+
+The supported cartridge's eligibility routine (0x08025FC0) compares owner/type,
+requires empty cargo in both units, and rejects destinations whose rounded-up
+HP is 10 (internal health 91–100). It does not reject a full-health mover or a
+destination that has already acted. Client destination planning, menus, server
+preflight, and menu recognition now agree with this behavior.
+
+The merge routine (0x08042998) rounds each unit's HP up before summing, caps the
+result at 100, combines ammo/fuel with capacity caps, converts excess displayed
+HP into funds through the cartridge's CO-adjusted cost routine, copies destination
+capture progress, consumes the destination, and spends the mover's action.
+The executor now verifies exact combined health, ammo, destination capture
+progress, and survivor identity instead of requiring a health increase. Native
+execution remains responsible for fuel consumption and CO-adjusted refunds.
+Regression checks cover full/full, hidden damage at 10 HP, full/damaged, equal
+damaged HP, used destinations, and cargo rejection. ROM routine evidence comes
+from the supported local ROM and its matching disassembly; no assets or ROM
+bytes are committed. Live edge-case and user rechecks remain pending.

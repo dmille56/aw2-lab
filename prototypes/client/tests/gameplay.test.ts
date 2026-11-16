@@ -221,7 +221,7 @@ it("builds a command only for the current ready boundary and locks uncertain sub
   unmount();
 });
 
-it("submits Join only when the route ends on an unused same-type ally", () => {
+it("submits Join onto a damaged same-type ally that has already acted", () => {
   const state = structuredClone(stateFixture);
   state.observation.game_state.battle.value.units.push({
     ...state.observation.game_state.battle.value.units[0],
@@ -229,6 +229,8 @@ it("submits Join only when the route ends on an unused same-type ally", () => {
     unit_slot: 2,
     x: 1,
     y: 0,
+    internal_health: 50,
+    used_this_turn: true,
   });
   state.observation.unit_identities.push({
     reference: 2,
