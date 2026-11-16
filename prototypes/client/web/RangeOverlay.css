@@ -1,0 +1,78 @@
+.range-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border: 2px solid transparent;
+}
+
+.movement-range {
+  background: #1684ff66;
+  border-color: #053d86;
+  box-shadow: inset 0 0 0 1px #fff;
+}
+
+.transit-range {
+  background: #1684ff44;
+  border: 3px dashed #053d86;
+}
+
+.firing-range {
+  background: repeating-linear-gradient(
+    135deg,
+    #a9141677 0 4px,
+    #ffcc8a66 4px 8px
+  );
+  border-color: #861114;
+  box-shadow: inset 0 0 0 1px #fff;
+}
+
+.movement-range.firing-range {
+  background: repeating-linear-gradient(
+    135deg,
+    #1684ff88 0 5px,
+    #ff793c99 5px 10px
+  );
+  border-color: #053d86 #861114 #861114 #053d86;
+}
+
+.threat-range {
+  background-image: repeating-linear-gradient(
+    45deg,
+    #a9141688 0 3px,
+    transparent 3px 8px
+  );
+  border: 2px dashed #861114;
+}
+
+.drop-range {
+  background: #18b45d66;
+  border: 3px dashed #07542b;
+}
+
+.range-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+  margin-block: 8px;
+}
+
+.range-key > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.range-swatch {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+}
+
+.tile .unit,
+.tile .unit-health,
+.tile .owner-tag,
+.tile .coords {
+  z-index: 3;
+}

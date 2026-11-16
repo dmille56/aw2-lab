@@ -361,7 +361,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Component/browser checks cover thresholds, layouts, themes, and scaling.
     Awaiting user visual review; CO badges use text when portraits are absent.
 
-*** TODO Make movement and attack ranges clearly visible
+*** IN-PROGRESS Make movement and attack ranges clearly visible
     Human playtest feedback (2026-11-16): both range displays are too hard to see.
     Strengthen movement and attack overlays so their boundaries and covered tiles
     are immediately visible over sprites and symbolic terrain. Make movement,
@@ -369,6 +369,9 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     or outlines, with readable routes, targets, units, and HP badges.
     Verify both themes, light/dark appearances, narrow layouts, and interface
     scaling. Have the user confirm readability during live playtesting.
+    Implemented: high-contrast solid movement fill, striped attack fill, split
+    overlap pattern, distinct threat/drop outlines, and a visible range legend.
+    Overlays remain below units and HP; awaiting user visual review.
 
 *** TODO Correct Join eligibility and verify complete cartridge behavior
     Human playtest feedback (2026-11-16): the menu offers Join for two full-HP

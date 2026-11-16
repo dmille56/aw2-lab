@@ -1437,3 +1437,24 @@ test("keeps feedback by the board and blocks repeated input while a receipt is p
   );
   await page.unroute("**/v1/matches/*/commands");
 });
+
+test("distinguishes solid movement and striped attack overlays above terrain", async ({
+  page,
+}) => {
+  await connect(page);
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  const movement = page.locator("#board .movement-range").first();
+  await expect(movement).toBeVisible();
+  await expect(movement).toHaveCSS("border-top-style", "solid");
+  await page
+    .getByRole("button", { name: "Show attack range", exact: true })
+    .click();
+  const attack = page.locator("#board .firing-range").first();
+  await expect(attack).toBeVisible();
+  expect(
+    await attack.evaluate((e) => getComputedStyle(e).backgroundImage),
+  ).toContain("repeating-linear-gradient");
+  await expect(page.getByLabel("Range legend")).toContainText(
+    "Attack · diagonal stripes",
+  );
+});

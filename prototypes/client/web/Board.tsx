@@ -1,3 +1,4 @@
+import "./RangeOverlay.css";
 import { Fragment, useRef, type ReactNode } from "react";
 import { Sprite, type SpritePack } from "./sprites";
 import { terrainLabel, unitLabel } from "./presentation";
@@ -247,6 +248,16 @@ export function Board({
                     {dropLabel || (isTarget ? "T" : step === 0 ? "S" : step)}
                     {destination ? "·D" : ""}
                   </span>
+                )}
+                {(isReachable ||
+                  isTransit ||
+                  isAttackable ||
+                  isThreatened ||
+                  isDropTarget) && (
+                  <span
+                    aria-hidden="true"
+                    className={`range-overlay${isReachable ? " movement-range" : ""}${isTransit ? " transit-range" : ""}${isAttackable ? " firing-range" : ""}${isThreatened ? " threat-range" : ""}${isDropTarget ? " drop-range" : ""}`}
+                  />
                 )}
                 <span className="owner-tag">P{tile.owner_slot || "–"}</span>
                 {spritePack && terrainRegion && (

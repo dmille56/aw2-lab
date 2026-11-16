@@ -591,3 +591,12 @@ Unknown thresholds/readings retain explicit text instead of fabricated progress.
 No new game artwork is bundled: CO identity uses a text badge. The arrangement
 follows the [AWBW overview](https://awbw.amarriner.com/guide.php); final human
 visual acceptance remains pending.
+
+### Usability implementation: range visibility
+
+Movement uses a strong blue solid fill and double edge; attack uses diagonal
+stripes and a red edge. Overlaps use alternating blue/orange stripes, allied
+transit uses dashed blue, and threats/drops keep distinct dashed edges. A visible
+legend explains the patterns. A dedicated overlay layer sits above terrain and
+below units/HP, shared by sprite and symbolic boards. Human readability review
+remains pending.

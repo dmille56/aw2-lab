@@ -200,6 +200,26 @@ export function MapPanel({
           by the server.
         </p>
       )}
+      {selectedUnit && (
+        <div className="range-key" aria-label="Range legend">
+          <span>
+            <i aria-hidden="true" className="range-swatch movement-range" />
+            Movement · solid
+          </span>
+          {showAttackRange && (
+            <span>
+              <i aria-hidden="true" className="range-swatch firing-range" />
+              Attack · diagonal stripes
+            </span>
+          )}
+          {showThreats && (
+            <span>
+              <i aria-hidden="true" className="range-swatch threat-range" />
+              Enemy threats · dashed
+            </span>
+          )}
+        </div>
+      )}
       {selectedUnit && battle && (
         <p className="hint" id="overlay-assumptions">
           {movementUnavailable
@@ -265,11 +285,11 @@ export function MapPanel({
           inspector. Terrain colors are illustrative.
         </p>
         <p>
-          Blue dotted tiles are reachable movement destinations; striped tiles
-          are allied units usable as route transit only. Orange tiles show
-          potential attack range. Red hatched tiles are in the enabled enemy
-          threat estimate. These overlays describe observed potential coverage,
-          not an action guarantee.
+          Blue solid tiles are reachable movement destinations; dashed blue
+          tiles are allied transit. Diagonal stripes show potential attack
+          range; blue/orange stripes show overlap. Red dashed tiles are in the
+          enabled enemy threat estimate. These overlays describe observed
+          potential coverage, not an action guarantee.
         </p>
         <div id="legend">
           {terrains.map((id) => (
