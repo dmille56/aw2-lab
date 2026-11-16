@@ -1,0 +1,29 @@
+.tile[data-acting-unit="true"] {
+  z-index: 8;
+}
+
+.acting-unit-marker {
+  position: absolute;
+  inset: 1px;
+  z-index: 7;
+  pointer-events: none;
+  border: 4px solid #fff;
+  outline: 2px solid #171717;
+  outline-offset: -6px;
+  box-shadow: 0 0 0 2px #171717;
+}
+
+.acting-unit-label {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #171717;
+  color: #fff;
+  padding: 1px 2px;
+  border: 1px solid #fff;
+  font-size: clamp(6px, calc(var(--cell) * 0.14), 12px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.03em;
+}

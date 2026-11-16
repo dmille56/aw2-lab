@@ -137,7 +137,7 @@ export function ActionMenu({
 }
 
 export function restoreBoardFocus(point: Position | null) {
-  requestAnimationFrame(() => {
+  queueMicrotask(() => {
     const action = document.querySelector<HTMLButtonElement>(
       ".action-menu button:not(:disabled)",
     );

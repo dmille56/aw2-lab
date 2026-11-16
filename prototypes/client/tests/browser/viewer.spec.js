@@ -1543,3 +1543,27 @@ test("makes immediate action rejections visible and dismissible without stealing
   await toast.getByRole("button", { name: /Dismiss/ }).click();
   await expect(toast).toHaveCount(0);
 });
+
+test("keeps the acting unit distinct while inspecting and targeting elsewhere", async ({
+  page,
+}) => {
+  await connect(page);
+  const source = page.locator('#board [data-x="0"][data-y="0"]'),
+    dest = page.locator('#board [data-x="1"][data-y="0"]');
+  await source.click();
+  await expect(source).toHaveAttribute("data-acting-unit", "true");
+  await expect(source.locator(".acting-unit-marker")).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await expect(source).toHaveAttribute("data-acting-unit", "true");
+  await dest.click();
+  await expect(source).toHaveAttribute("data-acting-unit", "true");
+  await page
+    .getByRole("dialog", { name: "Unit actions" })
+    .getByRole("button", { name: "Attack", exact: true })
+    .click();
+  await expect(source).toHaveAttribute("data-acting-unit", "true");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await expect(page.locator("[data-acting-unit]")).toHaveCount(0);
+});

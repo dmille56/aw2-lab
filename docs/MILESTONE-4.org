@@ -420,7 +420,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     steps. Rejections retain request context; repeated refreshes do not duplicate
     notices, and completed safe retries clear the stale unknown warning. Human review pending.
 
-*** TODO Make the selected unit unmistakable
+*** IN-PROGRESS Make the selected unit unmistakable
     Human playtest feedback (2026-11-16): it is difficult to identify the selected
     unit. Add a strong persistent selection marker, such as a game-style cursor
     or high-contrast outline, distinct from inspected tiles, keyboard focus,
@@ -429,6 +429,10 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     marker correctly when selection changes. Verify sprites and symbols, both
     themes/appearances, scaling, keyboard/mouse input, and range overlays with
     the user in live playtesting.
+    Implemented: persistent white/black acting-unit cursor and SELECTED label,
+    distinct from inspection, destination/target overlays, and keyboard focus.
+    Browser regression follows the marker through targeting and cancellation.
+    Awaiting human visual review.
 
 *** TODO Make loaded transports visually distinct
     Human playtest feedback (2026-11-16): make it obvious when an APC, Transport

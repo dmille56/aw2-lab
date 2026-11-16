@@ -638,3 +638,12 @@ HTTP rejections retain request context, so they appear as failed actions as well
 as a toast. Notices are deduplicated per request/outcome, preserve focus, and
 announce errors accessibly; safe retry completion clears its unknown warning.
 Human review remains pending.
+
+### Usability implementation: acting-unit selection
+
+The acting unit now has a persistent black/white cursor and SELECTED label.
+It stays at the unit's origin while the user inspects other tiles, previews a
+destination, or selects an attack target. Inspection, keyboard focus, route, and
+acting-unit identity remain separate; cancellation and boundary changes clear
+the marker. Its accessible tile name identifies the selected acting unit.
+Human review remains pending.

@@ -272,6 +272,7 @@ export function MapPanel({
             actionTargets ?? (showAttackRange ? attacks : new Set<string>())
           }
           threatened={threats}
+          actingUnitReference={selectedUnit?.reference ?? null}
           coordinates={coordinates}
           yourSlot={yourSlot}
         />

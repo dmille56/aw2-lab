@@ -1,3 +1,4 @@
+import "./UnitSelection.css";
 import "./RangeOverlay.css";
 import { Fragment, useRef, type ReactNode } from "react";
 import { Sprite, type SpritePack } from "./sprites";
@@ -124,6 +125,7 @@ export function Board({
   dropTargets = new Set<string>(),
   spritePack = null,
   dropSelections = {},
+  actingUnitReference = null,
 }: {
   battle: BattleState | null;
   selected: Position | null;
@@ -141,6 +143,7 @@ export function Board({
   dropTargets?: Set<string>;
   spritePack?: SpritePack | null;
   dropSelections?: Record<string, string>;
+  actingUnitReference?: number | null;
 }) {
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const occupancy = new Map(
@@ -181,6 +184,7 @@ export function Board({
             const isThreatened = threatened.has(tileKey);
             const isDropTarget = dropTargets.has(tileKey);
             const dropLabel = dropSelections[tileKey];
+            const isActing = !!unit && unit.reference === actingUnitReference;
             return (
               <button
                 key={`${tile.x},${tile.y}`}
@@ -191,6 +195,7 @@ export function Board({
                 }}
                 type="button"
                 tabIndex={tile.x === tabStop.x && tile.y === tabStop.y ? 0 : -1}
+                data-acting-unit={isActing || undefined}
                 data-drop-selected={dropLabel || undefined}
                 data-x={tile.x}
                 data-y={tile.y}
@@ -202,7 +207,7 @@ export function Board({
                 data-your-unit={!!unit && unit.army_slot === yourSlot}
                 title={`${terrainName(tile.terrain_class)}${unit ? ` · ${unitName(unit)}` : ""}`}
                 aria-pressed={match}
-                aria-label={`${dropLabel ? `Cargo drop ${dropLabel}, ` : ""}${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}` : ""}`}
+                aria-label={`${isActing ? "Selected acting unit, " : ""}${dropLabel ? `Cargo drop ${dropLabel}, ` : ""}${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}` : ""}`}
                 onClick={() => (activate ?? select)(tile)}
                 onContextMenu={(event) => {
                   if (cancel) {
@@ -258,6 +263,11 @@ export function Board({
                     aria-hidden="true"
                     className={`range-overlay${isReachable ? " movement-range" : ""}${isTransit ? " transit-range" : ""}${isAttackable ? " firing-range" : ""}${isThreatened ? " threat-range" : ""}${isDropTarget ? " drop-range" : ""}`}
                   />
+                )}
+                {isActing && (
+                  <span className="acting-unit-marker" aria-hidden="true">
+                    <span className="acting-unit-label">SELECTED</span>
+                  </span>
                 )}
                 <span className="owner-tag">P{tile.owner_slot || "–"}</span>
                 {spritePack && terrainRegion && (
