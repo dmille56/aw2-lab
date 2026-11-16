@@ -411,3 +411,25 @@ existing executor acceptance and await redesigned-client live playtesting.
 
 Sprite movement/transit borders, threat hatching, and cargo markings are drawn
 over artwork so they remain visible when the symbolic renderer is replaced.
+
+## Purchases and match controls (2026-11-16)
+
+Empty owned production facilities open a viewport-constrained catalog with
+local sprites (or symbols), baseline costs, available funds, and disabled
+unaffordable choices. Choosing a unit opens a confirmation; Back restores the
+catalog and its selected choice. Occupied facilities remain unit selections.
+
+Power, Super Power, End turn, and Surrender now live in the compact HUD.
+All four require confirmation; end turn lists unused units and surrender
+explains immediate forfeiture. Known meter/CO thresholds disable unready
+powers using the current use counter. Unverified thresholds defer readiness
+to the server. Next-use debit reference values retain their separate meaning
+and use the backend's maximum-counter clamp.
+
+Component checks cover readiness, confirmation, unused units, and trigger
+focus restoration. Browser checks cover affordable/disabled choices,
+purchase Back, cancellation by inspection, current revision requests, and
+existing uncertain/failed/rollback match-control flows. The symbols-only
+sidebar screenshot was reviewed after moving match controls to the HUD.
+Authentic assets remain outside the repository. Live emulator and human
+acceptance remain in the final playtest item.

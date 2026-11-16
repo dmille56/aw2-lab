@@ -30,12 +30,14 @@ export function CommandPanel({
   onSubmit,
   onRetry,
   onCheckStatus,
+  modernControls = false,
 }: {
   model: GameplayModel;
   view: ViewState;
   onSubmit: (action: GameplayAction, revision: number) => void;
   onRetry: () => void;
   onCheckStatus: () => void;
+  modernControls?: boolean;
 }) {
   const { draft, dispatch, editable, selectedUnit, destination } = model;
   const command = view.command;
@@ -550,7 +552,7 @@ export function CommandPanel({
           </select>
         </>
       )}
-      <div className="toolbar">
+      <div className="toolbar legacy-match-controls">
         <button
           type="button"
           disabled={!editable || !model.available("activate_normal_power")}
@@ -579,154 +581,170 @@ export function CommandPanel({
         >
           Surrender
         </button>
-        <button type="button" disabled={model.pending} onClick={model.reset}>
+        <button
+          className="cancel-draft"
+          type="button"
+          disabled={model.pending}
+          onClick={model.reset}
+        >
           Cancel action
         </button>
       </div>
-      {draft.phase === "review" && draft.kind && (
-        <div className="command-preview" aria-label="Action preview">
-          <h3>Confirm {labels[draft.kind]}</h3>
-          <p className="preview-summary">{preview}</p>
-          {draft.kind === "unload" && selectedUnit && (
-            <>
-              <p>
-                Move {unitName(selectedUnit)} to{" "}
-                {destination && positionLabel(destination)} and drop selected
-                cargo on adjacent legal tiles. Select a passenger, then choose
-                one of the highlighted tiles on the board. The server checks the
-                final route and drop positions before execution.
-              </p>
-              <fieldset className="unload-drops">
-                <legend>Choose passengers to unload</legend>
-                {model.unloadDropOptions.map(
-                  ({ unit, id, destinations: dropTiles }) => {
-                    const point = draft.dropDestinations[id];
-                    return (
-                      <div className="unload-passenger" key={id}>
-                        <button
-                          type="button"
-                          aria-pressed={draft.unloadPassengerId === id}
-                          disabled={!editable || !dropTiles.length}
-                          onClick={() =>
-                            dispatch({
-                              type: "unload_passenger",
-                              unitId:
-                                draft.unloadPassengerId === id ? null : id,
-                            })
-                          }
-                        >
-                          {draft.unloadPassengerId === id
-                            ? `Choose ${unitName(unit)} drop tile`
-                            : unitName(unit)}
-                          {` · ${unit.internal_health}/100 HP`}
-                        </button>
-                        <span>
-                          {point
-                            ? `Drop at ${positionLabel(point)}`
-                            : dropTiles.length
-                              ? "Staying aboard"
-                              : "No legal adjacent tile"}
-                        </span>
-                        {point && (
+      {draft.phase === "review" &&
+        draft.kind &&
+        !(
+          modernControls &&
+          [
+            "purchase",
+            "activate_normal_power",
+            "activate_super_power",
+            "end_turn",
+            "surrender",
+          ].includes(draft.kind)
+        ) && (
+          <div className="command-preview" aria-label="Action preview">
+            <h3>Confirm {labels[draft.kind]}</h3>
+            <p className="preview-summary">{preview}</p>
+            {draft.kind === "unload" && selectedUnit && (
+              <>
+                <p>
+                  Move {unitName(selectedUnit)} to{" "}
+                  {destination && positionLabel(destination)} and drop selected
+                  cargo on adjacent legal tiles. Select a passenger, then choose
+                  one of the highlighted tiles on the board. The server checks
+                  the final route and drop positions before execution.
+                </p>
+                <fieldset className="unload-drops">
+                  <legend>Choose passengers to unload</legend>
+                  {model.unloadDropOptions.map(
+                    ({ unit, id, destinations: dropTiles }) => {
+                      const point = draft.dropDestinations[id];
+                      return (
+                        <div className="unload-passenger" key={id}>
                           <button
                             type="button"
-                            className="secondary-button"
-                            disabled={!editable}
+                            aria-pressed={draft.unloadPassengerId === id}
+                            disabled={!editable || !dropTiles.length}
                             onClick={() =>
                               dispatch({
-                                type: "drop_destination",
-                                unitId: id,
-                                point: null,
+                                type: "unload_passenger",
+                                unitId:
+                                  draft.unloadPassengerId === id ? null : id,
                               })
                             }
                           >
-                            Keep aboard
+                            {draft.unloadPassengerId === id
+                              ? `Choose ${unitName(unit)} drop tile`
+                              : unitName(unit)}
+                            {` · ${unit.internal_health}/100 HP`}
                           </button>
-                        )}
-                      </div>
-                    );
-                  },
-                )}
-                {draft.unloadPassengerId && (
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={!editable}
-                    onClick={() =>
-                      dispatch({ type: "unload_passenger", unitId: null })
-                    }
-                  >
-                    Cancel tile selection
-                  </button>
-                )}
-              </fieldset>
-              {model.unloadError && (
-                <p role="alert" className="hint">
-                  {model.unloadError}
-                </p>
-              )}
-              {!model.available("unload") && (
-                <p role="status" className="hint">
-                  {model.unloadUnavailableReason}
-                </p>
-              )}
-              {model.canUnload && model.available("unload") && (
-                <p className="hint">
-                  Drop tiles are unique, unoccupied, adjacent to the carrier,
-                  and legal for each cargo unit's movement class.
-                </p>
-              )}
-            </>
-          )}
-          {draft.kind === "end_turn" && (
-            <div className="turn-confirmation">
-              {model.units.length ? (
-                <>
-                  <p>
-                    End your turn with {model.units.length} ready unit
-                    {model.units.length === 1 ? "" : "s"} unused?
+                          <span>
+                            {point
+                              ? `Drop at ${positionLabel(point)}`
+                              : dropTiles.length
+                                ? "Staying aboard"
+                                : "No legal adjacent tile"}
+                          </span>
+                          {point && (
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              disabled={!editable}
+                              onClick={() =>
+                                dispatch({
+                                  type: "drop_destination",
+                                  unitId: id,
+                                  point: null,
+                                })
+                              }
+                            >
+                              Keep aboard
+                            </button>
+                          )}
+                        </div>
+                      );
+                    },
+                  )}
+                  {draft.unloadPassengerId && (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={!editable}
+                      onClick={() =>
+                        dispatch({ type: "unload_passenger", unitId: null })
+                      }
+                    >
+                      Cancel tile selection
+                    </button>
+                  )}
+                </fieldset>
+                {model.unloadError && (
+                  <p role="alert" className="hint">
+                    {model.unloadError}
                   </p>
-                  <ul aria-label="Unused units" className="unused-unit-list">
-                    {model.units.map(({ unit, id }) => (
-                      <li key={id}>
-                        {unitName(unit)} · {positionLabel(unit)}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              ) : (
-                <p>No ready units remain unused.</p>
-              )}
-            </div>
-          )}
-          {draft.kind === "surrender" && (
-            <p role="alert" className="surrender-warning">
-              Surrender will immediately forfeit this match. This action cannot
-              be undone.
+                )}
+                {!model.available("unload") && (
+                  <p role="status" className="hint">
+                    {model.unloadUnavailableReason}
+                  </p>
+                )}
+                {model.canUnload && model.available("unload") && (
+                  <p className="hint">
+                    Drop tiles are unique, unoccupied, adjacent to the carrier,
+                    and legal for each cargo unit's movement class.
+                  </p>
+                )}
+              </>
+            )}
+            {draft.kind === "end_turn" && (
+              <div className="turn-confirmation">
+                {model.units.length ? (
+                  <>
+                    <p>
+                      End your turn with {model.units.length} ready unit
+                      {model.units.length === 1 ? "" : "s"} unused?
+                    </p>
+                    <ul aria-label="Unused units" className="unused-unit-list">
+                      {model.units.map(({ unit, id }) => (
+                        <li key={id}>
+                          {unitName(unit)} · {positionLabel(unit)}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p>No ready units remain unused.</p>
+                )}
+              </div>
+            )}
+            {draft.kind === "surrender" && (
+              <p role="alert" className="surrender-warning">
+                Surrender will immediately forfeit this match. This action
+                cannot be undone.
+              </p>
+            )}
+            <p>
+              This preview uses committed revision{" "}
+              {view.snapshot?.summary.revision}. If the match changes, review it
+              again before submitting.
             </p>
-          )}
-          <p>
-            This preview uses committed revision{" "}
-            {view.snapshot?.summary.revision}. If the match changes, review it
-            again before submitting.
-          </p>
-          <button
-            id="submit-action"
-            type="button"
-            disabled={!model.action}
-            onClick={() => {
-              if (model.action && view.snapshot)
-                onSubmit(model.action, view.snapshot.summary.revision);
-            }}
-          >
-            {draft.kind === "surrender"
-              ? "Surrender match"
-              : draft.kind === "end_turn"
-                ? "Confirm end turn"
-                : `Confirm ${labels[draft.kind]}`}
-          </button>
-        </div>
-      )}
+            <button
+              id="submit-action"
+              type="button"
+              disabled={!model.action}
+              onClick={() => {
+                if (model.action && view.snapshot)
+                  onSubmit(model.action, view.snapshot.summary.revision);
+              }}
+            >
+              {draft.kind === "surrender"
+                ? "Surrender match"
+                : draft.kind === "end_turn"
+                  ? "Confirm end turn"
+                  : `Confirm ${labels[draft.kind]}`}
+            </button>
+          </div>
+        )}
       <p role="status" aria-live="polite">
         {draft.notice}
       </p>

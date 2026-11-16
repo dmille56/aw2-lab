@@ -69,7 +69,16 @@ export type DraftEvent =
   | { type: "base"; boundary: string; base: Position }
   | { type: "step"; point: Position }
   | { type: "destination"; path: Position[] }
-  | { type: "undo" | "clear" | "edit" | "plan" | "cancel_route" | "open_menu" }
+  | {
+      type:
+        | "undo"
+        | "clear"
+        | "edit"
+        | "plan"
+        | "cancel_route"
+        | "open_menu"
+        | "back_purchase";
+    }
   | { type: "choose"; kind: ActionKind }
   | { type: "target"; point: Position }
   | { type: "drop_destination"; unitId: string; point: Position | null }
@@ -110,6 +119,13 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
         unloadPassengerId: null,
         notice:
           "Destination selected. Choose an action or another reachable destination.",
+      };
+    case "back_purchase":
+      return {
+        ...draft,
+        kind: null,
+        phase: "select",
+        notice: "Choose a unit to purchase.",
       };
     case "open_menu":
       return {
@@ -535,6 +551,10 @@ export function useGameplay(
     dispatch({ type: "reset", boundary, notice: "Action cancelled." });
   const cancel = () => {
     if (pending) return;
+    if (draft.base && draft.phase === "review" && draft.kind === "purchase") {
+      dispatch({ type: "back_purchase" });
+      return;
+    }
     if (
       draft.contextual &&
       draft.phase === "review" &&
@@ -571,7 +591,7 @@ export function useGameplay(
     });
   };
   const selectBase = (point: Position) => {
-    if (!editable || !bases.some((p) => sameTile(p, point))) return;
+    if (!editable || !productionBases.some((p) => sameTile(p, point))) return;
     inspect(point);
     dispatch({ type: "base", boundary, base: point });
   };
@@ -739,7 +759,7 @@ export function useGameplay(
     }
     const item = units.find((item) => sameTile(item.unit, point));
     if (item) selectUnit(item.id);
-    else if (bases.some((p) => sameTile(p, point))) selectBase(point);
+    else if (productionBases.some((p) => sameTile(p, point))) selectBase(point);
     else
       dispatch({
         type: "notice",

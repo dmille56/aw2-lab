@@ -3,9 +3,14 @@ import {
   activePowerLabel,
   nextPowerThresholdLabel,
   powerMeterLabel,
+  powerReadiness,
 } from "../web/co_power";
 
-const available = (value: number) => ({ status: "available", value });
+const available = (value: number) => ({
+  status: "available" as const,
+  value,
+  reasons: [],
+});
 
 it("labels inactive, Power, Super, and unrecognized active-power flags", () => {
   expect(activePowerLabel(0)).toBe("Inactive");
@@ -47,4 +52,25 @@ it("shows verified next-use thresholds without implying action readiness", () =>
       reasons: ["Counter not observed"],
     }),
   ).toContain("Counter not observed");
+});
+
+it("separates current readiness from the next activation debit", () => {
+  const player = {
+    co_id: 1,
+    active_power: 0,
+    power_meter: available(30000),
+    power_use_counter: available(0),
+  };
+  expect(powerReadiness(player, "normal")).toBe("ready");
+  expect(powerReadiness(player, "super")).toBe("not_ready");
+  expect(powerReadiness({ ...player, active_power: 1 }, "normal")).toBe(
+    "not_ready",
+  );
+  expect(powerReadiness({ ...player, co_id: 18 }, "normal")).toBe("unknown");
+  expect(
+    powerReadiness({ ...player, power_meter: available(0) }, "normal"),
+  ).toBe("not_ready");
+  expect(nextPowerThresholdLabel(1, available(9))).toContain(
+    "Power 54,000 charge units · Super 108,000 charge units",
+  );
 });

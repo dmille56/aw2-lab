@@ -3,6 +3,7 @@ import { MapPanel } from "./MapPanel";
 import { coName, humanSlot, perspective, playerName } from "./presentation";
 import { Health } from "./Health";
 import { MatchSession } from "./session";
+import { MatchControls, PurchaseMenu } from "./MatchControls";
 import { ContextActions, restoreBoardFocus } from "./ContextActions";
 import { CommandPanel } from "./CommandPanel";
 import { useGameplay } from "./gameplay";
@@ -344,6 +345,11 @@ export function App() {
               ))}
             </div>
           )}
+          <MatchControls
+            model={gameplay}
+            view={view}
+            onSubmit={session.submitAction}
+          />
           <p id="perspective">
             {snapshot && perspective(snapshot, view.identity, view.connected)}
           </p>
@@ -435,7 +441,7 @@ export function App() {
             </div>
           </details>
         </section>
-        <div className="workspace" id="workspace">
+        <div className="workspace modern-controls" id="workspace">
           <MapPanel
             battle={battle}
             selected={selected}
@@ -505,13 +511,18 @@ export function App() {
             empty={empty}
             yourSlot={humanSlot(view.identity)}
           />
+          <PurchaseMenu
+            model={gameplay}
+            view={view}
+            onSubmit={session.submitAction}
+          />
           <ContextActions
             model={gameplay}
             view={view}
             onSubmit={session.submitAction}
           />
           <div
-            className={`gameplay-sidebar${gameplay.draft.contextual && !gameplay.pending ? " contextual-draft" : ""}${gameplay.selectedUnit && (gameplay.draft.routeMode === "automatic" || gameplay.draft.contextual) ? " board-controls" : ""}`}
+            className={`gameplay-sidebar${!gameplay.pending && (gameplay.draft.base || (gameplay.draft.phase === "review" && ["activate_normal_power", "activate_super_power", "end_turn", "surrender"].includes(gameplay.draft.kind ?? ""))) ? " confirming-draft" : ""}${gameplay.draft.contextual && !gameplay.pending ? " contextual-draft" : ""}${gameplay.selectedUnit && (gameplay.draft.routeMode === "automatic" || gameplay.draft.contextual) ? " board-controls" : ""}`}
           >
             {gameplay.selectedUnit &&
               gameplay.draft.routeMode === "automatic" &&
@@ -534,6 +545,7 @@ export function App() {
                 </button>
               )}
             <CommandPanel
+              modernControls
               model={gameplay}
               view={view}
               onSubmit={session.submitAction}

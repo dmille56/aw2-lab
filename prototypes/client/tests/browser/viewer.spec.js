@@ -319,9 +319,7 @@ test("submits gameplay actions with a revision and follows the command receipt",
   await expect(page.locator('[aria-label="Unused units"]')).toContainText(
     "Infantry · (0,0)",
   );
-  await expect(page.locator(".preview-summary")).toContainText(
-    "End your turn and pass control",
-  );
+  await expect(page.locator(".command-preview")).toContainText("End your turn");
   await page.locator("#submit-action").click();
   await expect(page.locator(".command-result")).toContainText(
     "Command status: completed",
@@ -530,82 +528,78 @@ for (const kind of ["move_wait", "move_attack", "move_capture"]) {
   });
 }
 
-test("lists only unoccupied supported bases for purchases", async ({
+test("opens only empty owned factories and confirms affordable purchases", async ({
   page,
 }) => {
   const state = structuredClone(fixture);
   const battle = state.observation.game_state.battle.value;
+  battle.players[0].funds = 1200;
   battle.properties.push({ x: 0, y: 1, terrain_class: 14, owner_slot: 1 });
   battle.properties[0].terrain_class = 14;
   await page.route("**/state", (route) => route.fulfill({ json: state }));
   await connect(page);
-  await page.locator(".selection-lists summary").click();
-  expect(
-    await page
-      .locator("#purchase-property option")
-      .evaluateAll((options) => options.map((option) => option.value)),
-  ).toEqual(["", "0,1"]);
-  await page.locator("#purchase-property").selectOption("0,1");
-  await expect(page.locator("#purchase-unit-type")).toBeEnabled();
-  await page.locator("#purchase-unit-type").selectOption("Infantry");
-  await expect(page.locator(".command-preview")).toContainText(
-    "Baseline cost: 1000",
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  await expect(page.getByRole("dialog", { name: "Purchase unit" })).toHaveCount(
+    0,
   );
+  await page.keyboard.press("Escape");
+  await page.locator('#board [data-x="0"][data-y="1"]').click();
+  const menu = page.getByRole("dialog", { name: "Purchase unit" });
+  await expect(menu).toContainText("Funds: 1,200");
+  await expect(menu.getByRole("button", { name: /^Mech / })).toBeDisabled();
+  await menu.getByRole("button", { name: /^Infantry / }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Confirm action" }),
+  ).toContainText("Buy Infantry for 1,000 funds");
+  await page.keyboard.press("Escape");
+  await expect(menu.getByRole("button", { name: /^Infantry / })).toBeFocused();
+  await page.keyboard.press("Enter");
   const sent = page.waitForRequest(
     (request) =>
       request.url().endsWith("/commands") && request.method() === "POST",
   );
   await page.locator("#submit-action").click();
-  expect((await sent).postDataJSON().action).toEqual({
-    contract_version: 1,
-    kind: "purchase",
-    property: { contract_version: 1, x: 0, y: 1 },
-    unit_type: "Infantry",
+  expect((await sent).postDataJSON()).toMatchObject({
+    expected_revision: 1,
+    action: {
+      contract_version: 1,
+      kind: "purchase",
+      property: { contract_version: 1, x: 0, y: 1 },
+      unit_type: "Infantry",
+    },
   });
   await expect(page.locator(".command-result")).toContainText(
     "Command status: completed",
   );
-  state.summary.revision = state.observation.revision = 2;
-  battle.units[0].x = 0;
-  battle.units[0].y = 1;
-  await page.locator("#refresh").click();
-  await expect(page.locator("#purchase-property option")).toHaveText([
-    "Choose a production facility",
-    "(0,0)",
-  ]);
 });
 
-test("dismisses base purchase drafts when inspecting another tile by click or keyboard", async ({
+test("dismisses purchase drafts when selecting another tile or unit", async ({
   page,
   request,
 }) => {
   const state = structuredClone(fixture);
-  state.observation.game_state.battle.value.properties.push({
-    x: 0,
-    y: 1,
-    terrain_class: 14,
-    owner_slot: 1,
-  });
+  const battle = state.observation.game_state.battle.value;
+  battle.players[0].funds = 5000;
+  battle.properties.push({ x: 0, y: 1, terrain_class: 14, owner_slot: 1 });
   await page.route("**/state", (route) => route.fulfill({ json: state }));
   await connect(page);
   const base = page.locator('#board [data-x="0"][data-y="1"]');
   await base.click();
-  await page.locator("#purchase-unit-type").selectOption("Infantry");
+  await page
+    .getByRole("dialog", { name: "Purchase unit" })
+    .getByRole("button", { name: /^Infantry / })
+    .click();
   await expect(page.locator("#submit-action")).toBeEnabled();
   await page.locator('#board [data-x="1"][data-y="0"]').click();
-  await expect(page.locator("#purchase-unit-type")).toHaveCount(0);
-  await expect(page.locator(".command-preview")).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await base.click();
-  await expect(page.locator("#purchase-unit-type")).toBeVisible();
+  await base.focus();
   await page.keyboard.press("ArrowRight");
   await expect(page.locator("#inspector")).toContainText("Tile (1, 1)");
-  await expect(page.locator("#purchase-unit-type")).toHaveCount(0);
-  await expect(page.locator(".command-preview")).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await base.click();
   await page.locator("#roster button").first().click();
-  await expect(page.locator("#purchase-unit-type")).toHaveCount(0);
-  await expect(page.locator("#action-unit")).toHaveValue("1");
-  await expect(page.locator(".route-editor")).toContainText("Infantry");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
 });
 

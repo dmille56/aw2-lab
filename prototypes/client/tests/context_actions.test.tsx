@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
 import { useState } from "react";
 import { Board, type Position } from "../web/Board";
+import { MatchControls, PurchaseMenu } from "../web/MatchControls";
 import { ContextActions } from "../web/ContextActions";
 import { useGameplay } from "../web/gameplay";
 import { MatchSession, type ViewState } from "../web/session";
@@ -83,6 +84,8 @@ function Harness({
         dropTargets={model.unloadTargets}
       />
       <ContextActions model={model} view={view} onSubmit={onSubmit} />
+      <MatchControls model={model} view={view} onSubmit={onSubmit} />
+      <PurchaseMenu model={model} view={view} onSubmit={onSubmit} />
     </>
   );
 }
@@ -228,6 +231,37 @@ it("selects two distinct Lander drop tiles before one final unload command", asy
         },
       ],
     },
+    1,
+  );
+});
+
+it("confirms match controls, restores trigger focus, and gates observed power readiness", async () => {
+  const view = viewWith(
+    ["end_turn", "surrender", "activate_normal_power", "activate_super_power"],
+    (state) => {
+      const player = state.observation!.game_state.battle.value!.players[0];
+      player.power_meter = { status: "available", value: 30000, reasons: [] };
+      player.power_use_counter = { status: "available", value: 0, reasons: [] };
+    },
+  );
+  const send = vi.fn();
+  const user = userEvent.setup();
+  render(<Harness view={view} onSubmit={send} />);
+  expect(screen.getByRole("button", { name: "Super Power" })).toBeDisabled();
+  await user.click(screen.getByRole("button", { name: /^Power$/ }));
+  expect(
+    screen.getByRole("dialog", { name: "Confirm action" }),
+  ).toHaveTextContent("normal Power");
+  expect(send).not.toHaveBeenCalled();
+  await user.keyboard("{Escape}");
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: /^Power$/ })).toHaveFocus(),
+  );
+  await user.click(screen.getByRole("button", { name: "End turn" }));
+  expect(screen.getByLabelText("Unused units")).toHaveTextContent("Infantry");
+  await user.click(screen.getByRole("button", { name: "Confirm end turn" }));
+  expect(send).toHaveBeenCalledWith(
+    { contract_version: 1, kind: "end_turn" },
     1,
   );
 });

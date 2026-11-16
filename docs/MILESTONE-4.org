@@ -328,11 +328,14 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     all specialized kinds covered by component checks, two-passenger keyboard
     unloading, and browser preview/drop/final-request acceptance.
 
-*** TODO Add purchase menus and match controls
+*** DONE Add purchase menus and match controls
     Depends on contextual unit actions. Empty owned production facilities open
     sprite purchase menus with costs/affordability. Add compact power, end-turn,
     and surrender controls with concise confirmations, including purchases.
     Verify insufficient funds, unavailable powers, cancellation, and focus.
+    Evidence (2026-11-16): [[file:HUMAN-CLIENT-DESIGN.md::*Purchases and match controls (2026-11-16)][purchase/control notes]];
+    affordable catalogs, confirmation and Back focus, current-counter power
+    readiness, and browser purchase/match-control requests verified.
 
 *** TODO Integrate command feedback and remove superseded controls
     Depends on all action replacements. Show pending/completed/uncertain/failed/

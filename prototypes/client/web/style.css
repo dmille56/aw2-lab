@@ -1001,3 +1001,44 @@ summary {
     transparent 8px
   );
 }
+
+.match-controls button {
+  min-height: 44px;
+}
+
+.modern-controls .legacy-match-controls > button:not(.cancel-draft) {
+  display: none;
+}
+
+.confirming-draft .command-panel {
+  display: none;
+}
+
+.purchase-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.purchase-option small {
+  display: block;
+  font-size: 12px;
+}
+
+.purchase-icon {
+  --cell: 32px;
+
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 32px;
+  height: 32px;
+  font-size: 11px;
+}
+
+.action-menu .command-preview {
+  border: 0;
+  padding: 0;
+}

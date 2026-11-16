@@ -17,8 +17,10 @@ export function ActionMenu({
   onBack,
   children,
   label,
+  center = false,
 }: {
   point: Position;
+  center?: boolean;
   onBack: () => void;
   children: ReactNode;
   label: string;
@@ -38,7 +40,7 @@ export function ActionMenu({
         )
         ?.getBoundingClientRect();
       const rect = menu.current?.getBoundingClientRect();
-      if (!tile || !rect) return;
+      if (!rect || (!tile && !center)) return;
       const zoom = Number(getComputedStyle(document.documentElement).zoom) || 1;
       const next = {
         width: Math.min(260, (window.innerWidth - 16) / zoom),
@@ -48,12 +50,18 @@ export function ActionMenu({
         left:
           Math.max(
             8,
-            Math.min(tile.right + 8, window.innerWidth - rect.width - 8),
+            Math.min(
+              center ? (window.innerWidth - rect.width) / 2 : tile!.right + 8,
+              window.innerWidth - rect.width - 8,
+            ),
           ) / zoom,
         top:
           Math.max(
             8,
-            Math.min(tile.top, window.innerHeight - rect.height - 8),
+            Math.min(
+              center ? (window.innerHeight - rect.height) / 2 : tile!.top,
+              window.innerHeight - rect.height - 8,
+            ),
           ) / zoom,
       };
       setPosition((current) =>
@@ -66,9 +74,12 @@ export function ActionMenu({
       );
     };
     measure();
-    menu.current
-      ?.querySelector<HTMLButtonElement>("button:not(:disabled)")
-      ?.focus();
+    (
+      menu.current?.querySelector<HTMLButtonElement>(
+        "button[data-autofocus]:not(:disabled)",
+      ) ??
+      menu.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")
+    )?.focus();
     const observer =
       typeof ResizeObserver === "undefined"
         ? null
@@ -82,7 +93,7 @@ export function ActionMenu({
       window.removeEventListener("resize", measure);
       window.removeEventListener("scroll", measure, true);
     };
-  }, [point.x, point.y]);
+  }, [point.x, point.y, center]);
   return (
     <div
       ref={menu}
