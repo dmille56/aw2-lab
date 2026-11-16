@@ -369,8 +369,13 @@ test("retains recent command activity and distinguishes terminal results", async
     .getByRole("button", { name: "Plan movement", exact: true })
     .click();
   await tile(1, 0).click();
-  await page.getByRole("button", { name: "Wait here" }).click();
-  await page.locator("#submit-action").click();
+  await page
+    .getByRole("button", { name: "Choose action", exact: true })
+    .click();
+  await page
+    .getByRole("dialog", { name: "Unit actions" })
+    .getByRole("button", { name: "Wait", exact: true })
+    .click();
   await expect(page.locator(".command-result")).toContainText(
     "Completed and committed to the match.",
   );
@@ -435,11 +440,15 @@ test("resets action drafts when the committed revision changes", async ({
     .getByRole("button", { name: "Plan movement", exact: true })
     .click();
   await page.locator('#board [data-x="1"][data-y="0"]').click();
-  await page.getByRole("button", { name: "Wait here" }).click();
-  await expect(page.locator("#submit-action")).toBeEnabled();
+  await page
+    .getByRole("button", { name: "Choose action", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Unit actions" }),
+  ).toBeVisible();
   await request.post("/__test/advance");
   await expect(page.locator("#boundary")).toContainText("Revision 2");
-  await expect(page.locator("#submit-action")).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator(".command-panel")).toContainText(
     "Match state changed",
   );
@@ -501,18 +510,24 @@ for (const kind of ["move_wait", "move_attack", "move_capture"]) {
     await expect(tile(1, 0)).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(tile(1, 0)).toHaveAttribute("data-route-step", "1");
-    if (kind === "move_capture") {
-      await page.getByRole("button", { name: "Capture here" }).click();
-    } else if (kind === "move_attack") {
-      await page.getByRole("button", { name: "Choose attack target" }).click();
-      await tile(1, 1).click();
-      await expect(tile(1, 1)).toHaveAttribute("data-target", "true");
-    } else await page.getByRole("button", { name: "Wait here" }).click();
+    await page
+      .getByRole("button", { name: "Choose action", exact: true })
+      .click();
     const sent = page.waitForRequest(
       (request) =>
         request.url().endsWith("/commands") && request.method() === "POST",
     );
-    await page.locator("#submit-action").click();
+    const menu = page.getByRole("dialog", { name: "Unit actions" });
+    if (kind === "move_attack") {
+      await menu.getByRole("button", { name: "Attack", exact: true }).click();
+      await tile(1, 1).click();
+    } else
+      await menu
+        .getByRole("button", {
+          name: kind === "move_capture" ? "Capture" : "Wait",
+          exact: true,
+        })
+        .click();
     const body = (await sent).postDataJSON();
     expect(body.expected_revision).toBe(1);
     expect(body.action).toMatchObject({
@@ -647,19 +662,21 @@ for (const relationship of ["own", "allied", "enemy"]) {
       await expect(page.locator("#board [data-route-step]")).toHaveCount(1);
     } else {
       await expect(page.locator("#board [data-route-step]")).toHaveCount(2);
-      await expect(
-        page.getByRole("button", { name: "Wait here" }),
-      ).toBeDisabled();
       await expect(page.locator(".route-editor")).toContainText(
-        "You can move through it",
+        "choose an empty tile to finish",
       );
       await page.locator('#board [data-x="2"][data-y="0"]').click();
-      await expect(page.locator("#board [data-route-step]")).toHaveCount(3);
-      await page.getByRole("button", { name: "Wait here" }).click();
-      await expect(page.locator("#submit-action")).toBeEnabled();
-      await expect(page.locator(".command-preview")).toContainText(
+      await expect(page.locator(".route-editor")).toContainText(
         "(1,0) → (2,0)",
       );
+      await page
+        .getByRole("button", { name: "Choose action", exact: true })
+        .click();
+      await expect(
+        page
+          .getByRole("dialog", { name: "Unit actions" })
+          .getByRole("button", { name: "Wait", exact: true }),
+      ).toBeEnabled();
     }
     expect((await (await request.get("/__test/stats")).json()).commands).toBe(
       0,
@@ -766,9 +783,13 @@ test("restricts indirect attacks after movement and supports cancelling with Esc
     menu.getByRole("button", { name: "Attack", exact: true }),
   ).toBeEnabled();
   await menu.getByRole("button", { name: "Edit route manually" }).click();
-  const attack = page.getByRole("button", { name: "Choose attack target" });
   await page.locator('#board [data-x="1"][data-y="0"]').click();
-  await expect(attack).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Choose action", exact: true })
+    .click();
+  await expect(
+    menu.getByRole("button", { name: "Attack", exact: true }),
+  ).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(page.locator("#board [data-route-step]")).toHaveCount(0);
   await expect(page.locator(".command-panel")).toContainText(
@@ -800,10 +821,16 @@ test("keeps inspection available for opponents and used units and announces keyb
   );
   await page.getByRole("button", { name: "Undo step" }).click();
   await expect(page.locator(".route-editor")).toContainText("Act in place");
-  await page.getByRole("button", { name: "Wait here" }).click();
-  await expect(page.locator("#submit-action")).toBeFocused();
+  await page
+    .getByRole("button", { name: "Choose action", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("dialog", { name: "Unit actions" })
+      .getByRole("button", { name: "Wait", exact: true }),
+  ).toBeFocused();
   await page.keyboard.press("Escape");
-  await expect(page.locator("#draft-heading")).toBeFocused();
+  await expect(page.locator('#board [data-x="0"][data-y="0"]')).toBeFocused();
   await page
     .getByText("Connection, display, and snapshots", { exact: true })
     .click();
@@ -1363,4 +1390,50 @@ test("unload passenger selection previews a drop before one final command", asyn
   await expect(page.locator(".command-result")).toContainText(
     "Command status: completed",
   );
+});
+
+test("keeps feedback by the board and blocks repeated input while a receipt is pending", async ({
+  page,
+  request,
+}) => {
+  await connect(page);
+  let release;
+  const held = new Promise((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/v1/matches/*/commands", async (route) => {
+    const response = await route.fetch();
+    await held;
+    await route.fulfill({ response });
+  });
+  try {
+    const unit = page.locator('#board [data-x="0"][data-y="0"]');
+    await unit.click();
+    await unit.click();
+    await page
+      .getByRole("dialog", { name: "Unit actions" })
+      .getByRole("button", { name: "Wait", exact: true })
+      .evaluate((button) => {
+        button.click();
+        button.click();
+      });
+    await expect(page.locator(".board-column .command-result")).toContainText(
+      "Command status: submitting",
+    );
+    await expect(
+      page.getByRole("button", { name: "End turn", exact: true }),
+    ).toBeDisabled();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page.locator('#board [data-x="1"][data-y="1"]').click();
+    await expect(page.locator("#inspector")).toContainText("Tile (1, 1)");
+    expect((await (await request.get("/__test/stats")).json()).commands).toBe(
+      1,
+    );
+  } finally {
+    release();
+  }
+  await expect(page.locator(".board-column .command-result")).toContainText(
+    "Command status: completed",
+  );
+  await page.unroute("**/v1/matches/*/commands");
 });

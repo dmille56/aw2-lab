@@ -412,7 +412,7 @@ existing executor acceptance and await redesigned-client live playtesting.
 Sprite movement/transit borders, threat hatching, and cargo markings are drawn
 over artwork so they remain visible when the symbolic renderer is replaced.
 
-## Purchases and match controls (2026-11-16)
+### Purchases and match controls (2026-11-16)
 
 Empty owned production facilities open a viewport-constrained catalog with
 local sprites (or symbols), baseline costs, available funds, and disabled
@@ -433,3 +433,28 @@ existing uncertain/failed/rollback match-control flows. The symbols-only
 sidebar screenshot was reviewed after moving match controls to the HUD.
 Authentic assets remain outside the repository. Live emulator and human
 acceptance remain in the final playtest item.
+
+### Integrated command feedback (2026-11-16)
+
+All supported unit actions now use contextual menus, including routes edited
+manually. The persistent action/target/purchase form and duplicate match controls
+have been removed. Optional unit/facility lists and the explicit route editor
+remain as selection aids. A manual route opens the same destination menu with
+Choose action; Wait and Capture submit there, and Attack submits on the final
+target without an additional review screen.
+
+Command feedback is independent of the draft and stays directly below the board
+while other menus are open. It covers sending, queued/running, completed,
+uncertain, rejected, recovery-required, and rolled-back results. Request and
+revision metadata sit in a Command details disclosure. Safe same-request retries,
+status checks, error details, and the last eight actions remain available.
+The shared session still enforces one pending request and validates revisions;
+committed-boundary changes invalidate the action draft.
+
+Browser checks cover all ordinary manual/automatic routes, purchase and match
+controls, cargo selection, keyboard cancellation, recovery/reconnect, rollback,
+stale drafts, themes, interface scaling, and narrow screens. A delayed-receipt
+scenario deliberately clicks the same action twice, verifies only one server
+command, and inspects another tile while sending. The final symbols-only
+screenshot was reviewed. Native rendering, live game interaction, and human
+acceptance remain in the playtest item.

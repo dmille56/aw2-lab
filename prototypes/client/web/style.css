@@ -921,10 +921,6 @@ summary {
   }
 }
 
-.board-controls .command-panel .route-editor {
-  display: none;
-}
-
 .action-menu {
   position: fixed;
   z-index: 100;
@@ -960,10 +956,6 @@ summary {
     width: auto !important;
     max-height: 50dvh;
   }
-}
-
-.contextual-draft .command-panel {
-  display: none;
 }
 
 .cargo-choice {
@@ -1006,14 +998,6 @@ summary {
   min-height: 44px;
 }
 
-.modern-controls .legacy-match-controls > button:not(.cancel-draft) {
-  display: none;
-}
-
-.confirming-draft .command-panel {
-  display: none;
-}
-
 .purchase-option {
   display: flex;
   align-items: center;
@@ -1041,4 +1025,18 @@ summary {
 .action-menu .command-preview {
   border: 0;
   padding: 0;
+}
+
+.board-column {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.command-feedback:empty {
+  display: none;
+}
+
+.command-feedback .command-activity {
+  margin: 0;
 }

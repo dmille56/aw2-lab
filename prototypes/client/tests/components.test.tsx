@@ -6,7 +6,8 @@ import { Board, UnitInspector } from "../web/Board";
 import { MapPanel } from "../web/MapPanel";
 import { Health } from "../web/Health";
 import { App } from "../web/App";
-import { CommandPanel } from "../web/CommandPanel";
+import { MatchControls } from "../web/MatchControls";
+import { CommandFeedback } from "../web/CommandFeedback";
 import { validateCapabilitiesResponse } from "../web/capabilities";
 import { useGameplay } from "../web/gameplay";
 import { MatchSession, type ViewState } from "../web/session";
@@ -37,7 +38,11 @@ describe("React viewer", () => {
     ];
     const initial: ViewState = {
       ...new MatchSession().getSnapshot(),
-      snapshot,
+      snapshot: (() => {
+        const copy = structuredClone(snapshot);
+        copy.observation!.game_state.battle.value!.players[0].power_meter.value = 100000;
+        return copy;
+      })(),
       connected: true,
       ready: true,
       identity: {
@@ -52,26 +57,25 @@ describe("React viewer", () => {
     function SuperPanel() {
       const model = useGameplay(initial, vi.fn());
       return (
-        <CommandPanel
-          model={model}
-          view={initial}
-          onSubmit={onSubmit}
-          onRetry={vi.fn()}
-          onCheckStatus={vi.fn()}
-        />
+        <>
+          <MatchControls model={model} view={initial} onSubmit={onSubmit} />
+          <CommandFeedback
+            view={initial}
+            onRetry={vi.fn()}
+            onCheckStatus={vi.fn()}
+          />
+        </>
       );
     }
     render(<SuperPanel />);
 
+    await userEvent.click(screen.getByRole("button", { name: "Super Power" }));
+    expect(
+      screen.getByRole("heading", { name: "Activate Super Power" }),
+    ).toBeVisible();
+    expect(screen.getByText(/Readiness is checked/)).toBeVisible();
     await userEvent.click(
       screen.getByRole("button", { name: "Activate Super Power" }),
-    );
-    expect(
-      screen.getByRole("heading", { name: "Confirm Activate Super Power" }),
-    ).toBeVisible();
-    expect(screen.getByText(/CO-specific meter cost/)).toBeVisible();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Confirm Activate Super Power" }),
     );
     expect(onSubmit).toHaveBeenCalledWith(
       { contract_version: 1, kind: "activate_super_power" },
@@ -93,7 +97,11 @@ describe("React viewer", () => {
     ];
     const initial: ViewState = {
       ...new MatchSession().getSnapshot(),
-      snapshot,
+      snapshot: (() => {
+        const copy = structuredClone(snapshot);
+        copy.observation!.game_state.battle.value!.players[0].power_meter.value = 100000;
+        return copy;
+      })(),
       connected: true,
       ready: true,
       identity: {
@@ -108,28 +116,25 @@ describe("React viewer", () => {
     function PowerPanel({ view }: { view: ViewState }) {
       const model = useGameplay(view, vi.fn());
       return (
-        <CommandPanel
-          model={model}
-          view={view}
-          onSubmit={onSubmit}
-          onRetry={vi.fn()}
-          onCheckStatus={vi.fn()}
-        />
+        <>
+          <MatchControls model={model} view={view} onSubmit={onSubmit} />
+          <CommandFeedback
+            view={view}
+            onRetry={vi.fn()}
+            onCheckStatus={vi.fn()}
+          />
+        </>
       );
     }
 
     const rendered = render(<PowerPanel view={initial} />);
+    await userEvent.click(screen.getByRole("button", { name: "Power" }));
+    expect(
+      screen.getByRole("heading", { name: "Activate normal Power" }),
+    ).toBeVisible();
+    expect(screen.getByText(/Readiness is checked/)).toBeVisible();
     await userEvent.click(
       screen.getByRole("button", { name: "Activate normal Power" }),
-    );
-    expect(
-      screen.getByRole("heading", { name: "Confirm Activate normal Power" }),
-    ).toBeVisible();
-    expect(
-      screen.getByText(/server checks meter and activation state/),
-    ).toBeVisible();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Confirm Activate normal Power" }),
     );
     const action = {
       contract_version: 1 as const,

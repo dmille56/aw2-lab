@@ -5,6 +5,7 @@ import { Health } from "./Health";
 import { MatchSession } from "./session";
 import { MatchControls, PurchaseMenu } from "./MatchControls";
 import { ContextActions, restoreBoardFocus } from "./ContextActions";
+import { CommandFeedback } from "./CommandFeedback";
 import { CommandPanel } from "./CommandPanel";
 import { useGameplay } from "./gameplay";
 import {
@@ -441,76 +442,83 @@ export function App() {
             </div>
           </details>
         </section>
-        <div className="workspace modern-controls" id="workspace">
-          <MapPanel
-            battle={battle}
-            selected={selected}
-            select={gameplay.inspectTile}
-            activate={gameplay.activate}
-            cancel={
-              gameplay.pending
-                ? undefined
-                : () => {
-                    gameplay.cancel();
-                    restoreBoardFocus(gameplay.draft.origin);
-                  }
-            }
-            route={
-              gameplay.draft.boundary === gameplay.boundary &&
-              gameplay.draft.origin &&
-              gameplay.draft.phase !== "unit"
-                ? [gameplay.draft.origin, ...gameplay.draft.path]
-                : []
-            }
-            target={
-              gameplay.draft.boundary === gameplay.boundary
-                ? gameplay.draft.target
-                : null
-            }
-            dropTargets={
-              gameplay.draft.boundary === gameplay.boundary &&
-              gameplay.draft.phase === "review" &&
-              gameplay.draft.kind === "unload"
-                ? gameplay.unloadTargets
-                : new Set<string>()
-            }
-            selectedUnit={
-              gameplay.draft.boundary === gameplay.boundary
-                ? gameplay.selectedUnit
-                : null
-            }
-            selectedUnitKey={
-              gameplay.draft.boundary === gameplay.boundary &&
-              gameplay.selectedUnit
-                ? gameplay.draft.unitId
-                : null
-            }
-            plannedRoute={
-              gameplay.draft.boundary === gameplay.boundary &&
-              gameplay.draft.phase !== "unit"
-                ? gameplay.draft.path
-                : []
-            }
-            actionTargets={
-              gameplay.draft.contextual && gameplay.draft.phase === "target"
-                ? new Set(
-                    gameplay.draft.kind === "silo_launch"
-                      ? []
-                      : gameplay.targets.map((unit) => `${unit.x},${unit.y}`),
-                  )
-                : undefined
-            }
-            dropSelections={Object.fromEntries(
-              gameplay.selectedTransportCargo.flatMap(({ id }, index) => {
-                const point = gameplay.draft.dropDestinations[id];
-                return point
-                  ? [[`${point.x},${point.y}`, `D${index + 1}`]]
-                  : [];
-              }),
-            )}
-            empty={empty}
-            yourSlot={humanSlot(view.identity)}
-          />
+        <div className="workspace" id="workspace">
+          <div className="board-column">
+            <MapPanel
+              battle={battle}
+              selected={selected}
+              select={gameplay.inspectTile}
+              activate={gameplay.activate}
+              cancel={
+                gameplay.pending
+                  ? undefined
+                  : () => {
+                      gameplay.cancel();
+                      restoreBoardFocus(gameplay.draft.origin);
+                    }
+              }
+              route={
+                gameplay.draft.boundary === gameplay.boundary &&
+                gameplay.draft.origin &&
+                gameplay.draft.phase !== "unit"
+                  ? [gameplay.draft.origin, ...gameplay.draft.path]
+                  : []
+              }
+              target={
+                gameplay.draft.boundary === gameplay.boundary
+                  ? gameplay.draft.target
+                  : null
+              }
+              dropTargets={
+                gameplay.draft.boundary === gameplay.boundary &&
+                gameplay.draft.phase === "review" &&
+                gameplay.draft.kind === "unload"
+                  ? gameplay.unloadTargets
+                  : new Set<string>()
+              }
+              selectedUnit={
+                gameplay.draft.boundary === gameplay.boundary
+                  ? gameplay.selectedUnit
+                  : null
+              }
+              selectedUnitKey={
+                gameplay.draft.boundary === gameplay.boundary &&
+                gameplay.selectedUnit
+                  ? gameplay.draft.unitId
+                  : null
+              }
+              plannedRoute={
+                gameplay.draft.boundary === gameplay.boundary &&
+                gameplay.draft.phase !== "unit"
+                  ? gameplay.draft.path
+                  : []
+              }
+              actionTargets={
+                gameplay.draft.contextual && gameplay.draft.phase === "target"
+                  ? new Set(
+                      gameplay.draft.kind === "silo_launch"
+                        ? []
+                        : gameplay.targets.map((unit) => `${unit.x},${unit.y}`),
+                    )
+                  : undefined
+              }
+              dropSelections={Object.fromEntries(
+                gameplay.selectedTransportCargo.flatMap(({ id }, index) => {
+                  const point = gameplay.draft.dropDestinations[id];
+                  return point
+                    ? [[`${point.x},${point.y}`, `D${index + 1}`]]
+                    : [];
+                }),
+              )}
+              empty={empty}
+              yourSlot={humanSlot(view.identity)}
+            />
+            <CommandFeedback
+              view={view}
+              onRetry={session.retryUncertainAction}
+              onCheckStatus={session.checkCommandStatus}
+            />
+          </div>
           <PurchaseMenu
             model={gameplay}
             view={view}
@@ -521,9 +529,7 @@ export function App() {
             view={view}
             onSubmit={session.submitAction}
           />
-          <div
-            className={`gameplay-sidebar${!gameplay.pending && (gameplay.draft.base || (gameplay.draft.phase === "review" && ["activate_normal_power", "activate_super_power", "end_turn", "surrender"].includes(gameplay.draft.kind ?? ""))) ? " confirming-draft" : ""}${gameplay.draft.contextual && !gameplay.pending ? " contextual-draft" : ""}${gameplay.selectedUnit && (gameplay.draft.routeMode === "automatic" || gameplay.draft.contextual) ? " board-controls" : ""}`}
-          >
+          <div className="gameplay-sidebar">
             {gameplay.selectedUnit &&
               gameplay.draft.routeMode === "automatic" &&
               gameplay.draft.phase === "unit" && (
@@ -544,14 +550,7 @@ export function App() {
                   Plan movement
                 </button>
               )}
-            <CommandPanel
-              modernControls
-              model={gameplay}
-              view={view}
-              onSubmit={session.submitAction}
-              onRetry={session.retryUncertainAction}
-              onCheckStatus={session.checkCommandStatus}
-            />
+            <CommandPanel model={gameplay} />
             <aside className="card">
               <h2>Inspector</h2>
               <div id="inspector">
