@@ -69,6 +69,33 @@ test.afterEach(async ({ page }) => {
     await page.locator("#disconnect").click();
   expect(diagnostics.get(page).errors).toEqual([]);
 });
+test("keeps turn context visible while connection and match details can be expanded", async ({
+  page,
+}) => {
+  await connect(page);
+  await expect(page.getByLabel("Current turn")).toContainText("Your turn");
+  await expect(page.locator("#match-id")).toBeHidden();
+  await expect(page.locator("#players")).toBeHidden();
+  await expect(page.locator("#refresh")).toBeVisible();
+  await expect(page.locator("#disconnect")).toBeVisible();
+  await page
+    .getByText("Match details and player statistics", { exact: true })
+    .click();
+  await expect(page.locator("#players")).toBeVisible();
+  await page.getByText("Connect to a match", { exact: true }).click();
+  await expect(page.locator("#match-id")).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.getByRole("link", { name: "Skip to gameplay actions" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#draft-heading")).toBeFocused();
+  await page.locator("#disconnect").click();
+  await expect(page.locator("#match-id")).toBeVisible();
+});
 test("inspects the board, navigates with keyboard, filters units, and passes accessibility", async ({
   page,
 }) => {
@@ -235,7 +262,7 @@ test("checks advertised contract and schema versions before connecting", async (
   );
 
   const unsupportedGameState = structuredClone(capabilities);
-  unsupportedGameState.supported_game_state_schema_versions = [5];
+  unsupportedGameState.supported_game_state_schema_versions = [6];
   await rejectCapabilities(
     page,
     unsupportedGameState,
@@ -717,6 +744,7 @@ test("restricts indirect attacks after movement and supports cancelling with Esc
 }) => {
   const state = structuredClone(fixture);
   state.observation.game_state.battle.value.units[0].unit_type = 10;
+  state.observation.game_state.battle.value.units[0].ammo = 9;
   await page.route("**/state", (route) => route.fulfill({ json: state }));
   await connect(page);
   await page.locator(".selection-lists").evaluate((node) => (node.open = true));
@@ -995,13 +1023,13 @@ test("shows explicit unknown names and snapshot perspective", async ({
 }) => {
   const unknown = structuredClone(fixture);
   unknown.summary.slots[0].display_name = null;
-  unknown.observation.game_state.battle.value.players[0].co_id = 18;
+  unknown.observation.game_state.battle.value.players[0].co_id = 255;
   await upload(page, unknown);
   await expect(page.locator("#perspective")).toContainText(
     "no authenticated player perspective",
   );
   await expect(page.locator("#players")).toContainText("Unknown player");
-  await expect(page.locator("#players")).toContainText("Unknown CO (ID 18)");
+  await expect(page.locator("#players")).toContainText("Unknown CO (ID 255)");
   await expect(page.locator("#players .your-player")).toHaveCount(0);
 });
 

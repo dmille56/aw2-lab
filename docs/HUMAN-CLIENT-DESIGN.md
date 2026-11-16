@@ -250,3 +250,26 @@ Automatic routing, movement/attack range overlays, predicted damage, replay
 timelines, new match setup, custom maps, and broader fog profiles are follow-up
 features. The initial client needs a faithful inspectable board and reliable
 existing actions to make the current human playtest practical.
+
+
+## Usability redesign: first pass (2026-11-15)
+
+Code inspection identified two sources of friction before reaching the board:
+the connection form stays prominent during play, and full match/player statistics
+occupy vertical space above gameplay. This is an initial inspection finding;
+human playtesting has not yet established the highest-friction interactions.
+
+The first pass collapses the connection form after a live connection while
+keeping reconnect access in a labeled disclosure. Refresh, export, and disconnect
+stay available outside it. A compact day, active-player, funds, and your-turn
+summary stays visible alongside the connection perspective. Detailed match
+observations and player power statistics move into an expandable section.
+A keyboard skip link reaches gameplay actions directly. Existing action previews,
+confirmation, cancellation, board controls, and inspector behavior are retained.
+
+Next, playtest connecting, selecting and moving a unit, attacking, purchasing,
+unloading, canceling a draft, ending a turn, and recovering from an error. Record
+where players hesitate or lose board context across keyboard, mouse, and touch.
+Use those findings to guide the next layout pass and check narrow windows and
+accessibility before beginning platform acceptance. Automated disclosure checks
+use synthetic match state and do not establish live human usability.

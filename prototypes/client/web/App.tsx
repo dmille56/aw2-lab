@@ -96,58 +96,64 @@ export function App() {
       : "No committed observation available.";
   return (
     <>
+      <a className="skip-link" href="#draft-heading">
+        Skip to gameplay actions
+      </a>
       <header>
         <div>
           <span className="eyebrow">AW2 LAB</span>
-          <h1>Match viewer</h1>
+          <h1>Match workspace</h1>
         </div>
         <p id="connection" role="status">
           {view.status}
         </p>
       </header>
       <main>
-        <Health />
         <section className="card setup" aria-label="Open match">
-          <form
-            id="connect"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const form = event.currentTarget,
-                data = new FormData(form);
-              const id = data.get("match-id"),
-                token = data.get("token");
-              const input = form.elements.namedItem("token");
-              if (input instanceof HTMLInputElement) input.value = "";
-              setSelected(null);
-              setCargo(null);
-              if (typeof id === "string" && typeof token === "string")
-                void session.connect(id, token);
-            }}
-          >
-            <label>
-              Match ID
-              <input
-                type="text"
-                id="match-id"
-                name="match-id"
-                required
-                autoComplete="off"
-                spellCheck={false}
-              />
-            </label>
-            <label>
-              Player token
-              <input
-                ref={tokenInput}
-                id="token"
-                name="token"
-                type="password"
-                required
-                autoComplete="off"
-              />
-            </label>
-            <button type="submit">Connect</button>
-          </form>
+          <details className="connection-settings" open={!view.connected}>
+            <summary>Connect to a match</summary>
+            <Health />
+            <form
+              id="connect"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const form = event.currentTarget,
+                  data = new FormData(form);
+                const id = data.get("match-id"),
+                  token = data.get("token");
+                const input = form.elements.namedItem("token");
+                if (input instanceof HTMLInputElement) input.value = "";
+                setSelected(null);
+                setCargo(null);
+                if (typeof id === "string" && typeof token === "string")
+                  void session.connect(id, token);
+              }}
+            >
+              <label>
+                Match ID
+                <input
+                  type="text"
+                  id="match-id"
+                  name="match-id"
+                  required
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </label>
+              <label>
+                Player token
+                <input
+                  ref={tokenInput}
+                  id="token"
+                  name="token"
+                  type="password"
+                  required
+                  autoComplete="off"
+                />
+              </label>
+              <button type="submit">Connect</button>
+            </form>
+          </details>
           <div className="toolbar">
             {Object.keys(THEMES).length > 1 && (
               <label className="appearance-setting" htmlFor="theme">
@@ -290,86 +296,105 @@ export function App() {
             {snapshot &&
               `${view.connected ? "Live match" : "Snapshot · read only"} · Revision ${snapshot.summary.revision} · Frame ${obs?.game_state.frame ?? "unavailable"} · ${snapshot.summary.match_id}`}
           </p>
-          <Details
-            entries={[
-              ["Lifecycle", snapshot?.summary.lifecycle ?? "Unavailable"],
-              [
-                "Day",
-                battle ? battle.day : "Unavailable (battle state not observed)",
-              ],
-              [
-                "Active player",
-                battle
-                  ? owner(battle.active_player_slot)
-                  : "Unavailable (battle state not observed)",
-              ],
-              [
-                "Weather",
-                battle
-                  ? observed(battle.weather)
-                  : observed(obs?.game_state.battle),
-              ],
-              [
-                "Fog",
-                battle
-                  ? observed(battle.fog_enabled)
-                  : observed(obs?.game_state.battle),
-              ],
-              [
-                "Action readiness",
-                obs
-                  ? `${obs.action_readiness}${obs.action_readiness_reasons.length ? ` · ${obs.action_readiness_reasons.join("; ")}` : ""}`
-                  : "Unavailable (no committed observation)",
-              ],
-            ]}
-          />
+          {battle && (
+            <p className="turn-summary" aria-label="Current turn">
+              Day {battle.day} · {owner(battle.active_player_slot)}’s turn
+              {battle.active_player_slot === humanSlot(view.identity)
+                ? " · Your turn"
+                : ""}
+              {" · "}Funds:{" "}
+              {battle.players.find(
+                (player) => player.slot === battle.active_player_slot,
+              )?.funds ?? "Unavailable"}
+            </p>
+          )}
           <p id="perspective">
             {snapshot && perspective(snapshot, view.identity, view.connected)}
           </p>
-          <div id="players">
-            {battle?.players.map((player) => (
-              <div
-                key={player.slot}
-                className={`player player-${player.slot}${player.slot === humanSlot(view.identity) ? " your-player" : ""}${player.slot === battle.active_player_slot ? " active-player" : ""}`}
-              >
-                <strong>
-                  {owner(player.slot)} ·{" "}
-                  {snapshot && playerName(snapshot, player.slot)}
-                  {player.slot === humanSlot(view.identity) ? " · You" : ""}
-                  {player.slot === battle.active_player_slot ? " · Active" : ""}
-                </strong>
-                <p>
-                  Funds: {player.funds} · CO: {coName(player.co_id)} · ID{" "}
-                  {player.co_id}
-                </p>
-                <p>CO power: {activePowerLabel(player.active_power)}</p>
-                <p>Power meter: {powerMeterLabel(player.power_meter)}</p>
-                <p>Power uses: {observed(player.power_use_counter)}</p>
-                <p>
-                  Charge thresholds:{" "}
-                  {nextPowerThresholdLabel(
-                    player.co_id,
-                    player.power_use_counter,
-                  )}
-                </p>
-                <p>
-                  Units:{" "}
-                  {
-                    battle.units.filter((u) => u.army_slot === player.slot)
-                      .length
-                  }{" "}
-                  · Properties:{" "}
-                  {
-                    battle.properties.filter(
-                      (p) => p.owner_slot === player.slot,
-                    ).length
-                  }
-                </p>
-              </div>
-            ))}
-          </div>
+          <details className="match-details">
+            <summary>Match details and player statistics</summary>
+            <Details
+              entries={[
+                ["Lifecycle", snapshot?.summary.lifecycle ?? "Unavailable"],
+                [
+                  "Day",
+                  battle
+                    ? battle.day
+                    : "Unavailable (battle state not observed)",
+                ],
+                [
+                  "Active player",
+                  battle
+                    ? owner(battle.active_player_slot)
+                    : "Unavailable (battle state not observed)",
+                ],
+                [
+                  "Weather",
+                  battle
+                    ? observed(battle.weather)
+                    : observed(obs?.game_state.battle),
+                ],
+                [
+                  "Fog",
+                  battle
+                    ? observed(battle.fog_enabled)
+                    : observed(obs?.game_state.battle),
+                ],
+                [
+                  "Action readiness",
+                  obs
+                    ? `${obs.action_readiness}${obs.action_readiness_reasons.length ? ` · ${obs.action_readiness_reasons.join("; ")}` : ""}`
+                    : "Unavailable (no committed observation)",
+                ],
+              ]}
+            />
+            <div id="players">
+              {battle?.players.map((player) => (
+                <div
+                  key={player.slot}
+                  className={`player player-${player.slot}${player.slot === humanSlot(view.identity) ? " your-player" : ""}${player.slot === battle.active_player_slot ? " active-player" : ""}`}
+                >
+                  <strong>
+                    {owner(player.slot)} ·{" "}
+                    {snapshot && playerName(snapshot, player.slot)}
+                    {player.slot === humanSlot(view.identity) ? " · You" : ""}
+                    {player.slot === battle.active_player_slot
+                      ? " · Active"
+                      : ""}
+                  </strong>
+                  <p>
+                    Funds: {player.funds} · CO: {coName(player.co_id)} · ID{" "}
+                    {player.co_id}
+                  </p>
+                  <p>CO power: {activePowerLabel(player.active_power)}</p>
+                  <p>Power meter: {powerMeterLabel(player.power_meter)}</p>
+                  <p>Power uses: {observed(player.power_use_counter)}</p>
+                  <p>
+                    Charge thresholds:{" "}
+                    {nextPowerThresholdLabel(
+                      player.co_id,
+                      player.power_use_counter,
+                    )}
+                  </p>
+                  <p>
+                    Units:{" "}
+                    {
+                      battle.units.filter((u) => u.army_slot === player.slot)
+                        .length
+                    }{" "}
+                    · Properties:{" "}
+                    {
+                      battle.properties.filter(
+                        (p) => p.owner_slot === player.slot,
+                      ).length
+                    }
+                  </p>
+                </div>
+              ))}
+            </div>
+          </details>
         </section>
-        <div className="workspace">
+        <div className="workspace" id="workspace">
           <MapPanel
             battle={battle}
             selected={selected}

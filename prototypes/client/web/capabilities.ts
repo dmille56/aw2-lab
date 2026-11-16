@@ -65,7 +65,7 @@ export function validateCapabilitiesResponse(
   requireVersion(
     response,
     "supported_game_state_schema_versions",
-    4,
+    5,
     "game-state schema",
   );
   if (!validateSchema(value))

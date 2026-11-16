@@ -715,3 +715,41 @@ summary {
 .route-editor details {
   margin-block: 0.75rem;
 }
+
+.skip-link {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  padding: 12px;
+  background: var(--card);
+  color: var(--text);
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.connection-settings > summary,
+.match-details > summary {
+  padding-block: 10px;
+  min-height: 44px;
+  color: var(--text);
+  font-weight: 650;
+}
+
+.connection-settings > .card {
+  margin-top: 12px;
+}
+
+.turn-summary {
+  font-size: 1.15rem;
+  font-weight: 650;
+  margin-block: 8px;
+}
+
+#perspective {
+  color: var(--muted);
+  margin-block: 8px;
+}

@@ -23,7 +23,7 @@
   },
   "supported_game_contract_versions": [1],
   "supported_match_observation_schema_versions": [1],
-  "supported_game_state_schema_versions": [4],
+  "supported_game_state_schema_versions": [5],
   "supported_player_counts": [2, 3, 4],
   "supported_control_modes": ["external"],
   "default_profile_id": "bean_island_v1",

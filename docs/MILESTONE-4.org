@@ -229,13 +229,16 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
   competitive visibility filtering, strategy, authoritative server-side legal-move enumeration, and
   speculative rollouts remain outside this milestone.
 
-** TODO Redesign the human client UI for usability and ergonomics
+** IN-PROGRESS Redesign the human client UI for usability and ergonomics
    Complete this usability redesign before starting the deferred cross-platform
    acceptance matrix above. Use human playtesting to identify friction in common
    match tasks, then simplify the layout, navigation, selection and cancellation
    behavior, action controls, and status/error feedback. Keep the resulting flows
    clear across mouse, keyboard, touch, and different window sizes; record the
    design decisions and verify the implemented changes before platform testing.
+   First layout pass (2026-11-15): connection and detailed statistics disclosures,
+   a compact turn summary, and keyboard skip navigation are implemented. See
+   [[file:HUMAN-CLIENT-DESIGN.md][the design notes]] for inspection findings and pending human playtesting.
    - [ ] Review common human match tasks with playtesting and identify the highest-friction screens and interactions.
    - [ ] Propose and implement a clearer information hierarchy, navigation, and gameplay-control layout; reduce visual clutter while preserving board context and action feedback.
    - [ ] Recheck selection, cancellation, confirmations, errors, keyboard/focus, touch targets, accessibility, and responsive layouts; update the client design notes and checks.
