@@ -364,7 +364,7 @@ export class MatchSession {
       this.update({
         command: { request, receipt, result: null, phase: receipt.status },
       });
-      await this.pollCommand(c, receipt, 30);
+      await this.pollCommand(c, receipt, Infinity);
     } catch (error) {
       if (this.connection !== c || aborted(error)) return;
       const command = this.state.command;

@@ -103,7 +103,11 @@ each), and Spent Silo `+0xB00` (four tiles). HQ sources are at
 `0x0D16C4 + (army_id - 1) * 0x100` (eight tiles); neutral uses the first HQ shape
 with the neutral palette. These regions were checked against the original source
 selection routine and visually inspected in the generated atlas. Terrain ground
-regions use the first graphical tile matching each class in the verified lookup.
+regions use the first graphical tile matching each class in the verified lookup,
+except Sea: graphical tile 42 is open water observed at Bean Island (0,0).
+Tile 8 is a shoreline/island transition and is unsuitable for a repeated sea
+fill. The 2026-11-16 full-board live preview caught this selection issue.
+Regenerate existing external packs to obtain the corrected sea region.
 
 On 2026-11-15, all three pack checks passed with the live-ROM opt-in: coverage
 matches the current observation/rules contract, every region is within the atlas,

@@ -66,6 +66,12 @@ def terrain_frame(rom: bytes, terrain: int, army: int) -> tuple[int, int, bytes]
     )
     if tile is None:
         raise ValueError(f"No verified graphical tile for terrain {terrain}")
+    # The first sea entry (8) is a tiny island/shore transition. Use the
+    # interior water tile observed at Bean Island (0,0), not a repeated coast.
+    if terrain == 7:
+        tile = 42
+        if rom[0x0C1BC4 + tile] & 31 != terrain:
+            raise ValueError("Representative sea tile does not match the terrain lookup")
     _, _, ground = terrain_sample(rom, tile)
     result = bytearray(16 * 32 * 4)
     result[16 * 16 * 4 :] = ground

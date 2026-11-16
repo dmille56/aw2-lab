@@ -246,3 +246,66 @@ it("retries an uncertain command with the exact same request ID and payload", as
   expect(payloads).toHaveLength(2);
   expect(payloads[1]).toEqual(payloads[0]);
 });
+
+it("continues following accepted emulator actions beyond fifteen seconds", async () => {
+  vi.useFakeTimers();
+  const requestId = "00000000-0000-4000-8000-000000000071";
+  const commandId = "00000000-0000-4000-8000-000000000072";
+  const receipt = {
+    contract_version: 1,
+    match_id: fixture.summary.match_id,
+    request_id: requestId,
+    command_id: commandId,
+    accepted_revision: 1,
+    status: "queued",
+  };
+  let polls = 0;
+  const state = structuredClone(fixture);
+  server(() => response(state));
+  const baseFetch = globalThis.fetch;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string, init: RequestInit) => {
+      if (url.endsWith("/commands")) {
+        const submitted = JSON.parse(init.body as string) as {
+          request_id: string;
+        };
+        receipt.request_id = submitted.request_id;
+        return Promise.resolve(response(receipt));
+      }
+      if (url.endsWith("/commands/" + commandId)) {
+        polls++;
+        const done = polls > 34;
+        if (done) state.summary.revision = state.observation.revision = 2;
+        return Promise.resolve(
+          response({
+            ...receipt,
+            status: done ? "completed" : "running",
+            resulting_revision: done ? 2 : null,
+            checkpoint_id: null,
+            error: null,
+          }),
+        );
+      }
+      return baseFetch(url, init);
+    }),
+  );
+  const view = session();
+  try {
+    await view.connect(fixture.summary.match_id, "private");
+    const submission = view.submitAction(
+      { contract_version: 1, kind: "end_turn" },
+      1,
+    );
+    await vi.advanceTimersByTimeAsync(16000);
+    expect(polls).toBeGreaterThan(30);
+    expect(view.getSnapshot().command?.phase).toBe("running");
+    await vi.advanceTimersByTimeAsync(2000);
+    await submission;
+    expect(view.getSnapshot().command?.phase).toBe("completed");
+    expect(view.getSnapshot().snapshot?.summary.revision).toBe(2);
+  } finally {
+    view.disconnect();
+    vi.useRealTimers();
+  }
+});

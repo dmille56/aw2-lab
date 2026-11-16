@@ -342,6 +342,9 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     rolled-back feedback near the board. Preserve safe retries, revision checks,
     and stale-draft invalidation. Remove the persistent command form after action
     parity. Verify recovery, reconnect, rollback, revision changes, and rapid input.
+    Evidence (2026-11-16): [[file:HUMAN-CLIENT-DESIGN.md::*Integrated command feedback (2026-11-16)][integrated feedback notes]];
+    old action forms removed, board-side progress/recovery retained, and 43
+    browser scenarios passed, including repeated input during a held receipt.
 
 *** TODO Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,
@@ -349,6 +352,9 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     the emulator. Record friction and address focused follow-up fixes. Require
     browser/accessibility/responsive and live checks plus human acceptance before
     closing the redesign and resuming deferred platform acceptance.
+    In progress (2026-11-16): [[file:HUMAN-CLIENT-DESIGN.md::*Live playtest follow-ups (2026-11-16)][live playtest notes]];
+    isolated real-emulator purchase/turn/load/move/unload/attack flows verified.
+    Human acceptance and native visual verification remain open.
 
     For every implementation item, add focused behavior checks, run relevant
     browser scenarios, review changed screenshots, and require

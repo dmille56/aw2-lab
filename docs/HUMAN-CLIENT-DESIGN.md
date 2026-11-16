@@ -458,3 +458,41 @@ scenario deliberately clicks the same action twice, verifies only one server
 command, and inspects another tile while sending. The final symbols-only
 screenshot was reviewed. Native rendering, live game interaction, and human
 acceptance remain in the playtest item.
+
+### Live playtest follow-ups (2026-11-16)
+
+An isolated local headless emulator/API match used the existing unlocked save
+profile, current frontend build, and external ROM-extracted atlas. All generated
+saves, credentials, observations, scripts, and screenshots remained in temporary
+storage. The browser exercised actual facility purchase confirmations, both
+players' end turns, Infantry movement into an APC, and carrier movement followed
+by a passenger drop and final Unload. The resulting committed observation at
+revision 7 placed the APC at (3,7), Infantry at (2,7), and both outside cargo.
+No browser page errors occurred in this sequence.
+
+A subsequent two-player tank sequence purchased both tanks through the catalog,
+passed turns, moved around the mountain barrier using contextual Wait, and
+committed an Attack by selecting the enemy target. The enemy tank fell from
+100 to 61 internal health and the committed board refreshed. No browser page
+errors occurred. The corrected open-water atlas was separately rendered against
+a captured real-map observation and visually reviewed.
+
+The first live purchase completed in about 18 seconds. This exposed the old
+15-second automatic command-status polling limit, which left the UI showing
+Running after the emulator committed. Accepted commands now continue polling
+until a terminal result, disconnect, or request failure. A fake-clock regression
+covers a command still running beyond 30 polls and completing afterward; manual
+status checks and safe uncertain-request retry remain available.
+
+The full-map preview also exposed a representative-tile choice problem: the
+first Sea lookup entry is a tiny shoreline transition, repeated like islands
+across all water. Comparing the same match's emulator screenshot confirmed the
+palette/decoder colors; the pack now uses open-water tile 42, observed at Bean
+Island (0,0). ROM-dependent checks verify the chosen pixels and unchanged source
+ROM. Existing external packs need regeneration; generated artwork is not added
+to the repository.
+
+This is automated browser-driven live evidence, with screenshots reviewed by the
+implementation agent. It does not provide human acceptance, native Tauri visual
+acceptance, or live outage/rollback acceptance. The final redesign TODO remains
+open for those checks and for any focused usability feedback.

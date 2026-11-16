@@ -9,7 +9,8 @@ import pytest
 
 from aw2_lab.aw2_rules_data import UNIT_DATA
 from aw2_lab.rom_profile import UnsupportedRomError
-from aw2_lab.sprite_pack import TERRAIN_CLASSES, build_sprite_pack
+from aw2_lab.sprite_extraction import terrain_sample
+from aw2_lab.sprite_pack import TERRAIN_CLASSES, build_sprite_pack, terrain_frame
 from aw2_lab.state_validation import TERRAIN_CLASSES as DECODED_TERRAIN_CLASSES
 
 
@@ -33,6 +34,9 @@ def test_pack_rejects_unknown_rom_before_writing(tmp_path: Path) -> None:
 def test_local_pack_is_complete_deterministic_and_preserves_rom(tmp_path: Path) -> None:
     rom = Path(os.environ["AW2_ROM_PATH"])
     before = hashlib.sha256(rom.read_bytes()).hexdigest()
+    _, _, sea = terrain_frame(rom.read_bytes(), 7, 0)
+    assert sea[16 * 16 * 4 :] == terrain_sample(rom.read_bytes(), 42)[2]
+    assert sea[16 * 16 * 4 :] != terrain_sample(rom.read_bytes(), 8)[2]
     manifest = build_sprite_pack(rom, tmp_path)
     assert set(manifest["units"]) == {
         f"{unit}:{army}" for unit in UNIT_DATA for army in range(1, 6)
