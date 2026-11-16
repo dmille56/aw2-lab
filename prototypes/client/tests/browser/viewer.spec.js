@@ -718,7 +718,7 @@ test("rejects impossible route steps and cancels movement without deselecting th
   expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
 });
 
-test("selects a unit without entering movement planning and deselects when inspecting elsewhere", async ({
+test("selects a unit and previews destinations without submitting commands", async ({
   page,
 }) => {
   const state = structuredClone(fixture);
@@ -734,12 +734,19 @@ test("selects a unit without entering movement planning and deselects when inspe
   ).toBeVisible();
   await expect(page.locator("#board [data-route-step]")).toHaveCount(0);
   await empty.click();
-  await expect(page.getByLabel("Selected unit HP")).toHaveCount(0);
-  await expect(page.locator("#action-unit")).toHaveValue("");
-  await expect(page.locator(".route-editor")).toHaveCount(0);
+  await expect(page.getByLabel("Selected unit HP")).toHaveText("HP: 67/100");
+  await expect(page.locator("#action-unit")).toHaveValue("1");
+  await expect(page.locator("#board [data-route-step]")).toHaveCount(2);
+  await expect(
+    page.getByRole("button", { name: "Edit route manually" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#board [data-route-step]")).toHaveCount(0);
   await unit.click();
   await page.keyboard.press("ArrowRight");
-  await expect(page.locator(".route-editor")).toHaveCount(0);
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#board [data-route-step]")).toHaveCount(2);
+  await page.keyboard.press("Escape");
   await unit.click();
   await page.getByRole("button", { name: "Wait here" }).click();
   await expect(page.locator(".command-preview")).toContainText("stay in place");
@@ -1129,4 +1136,34 @@ test("renders a local sprite pack and retains keyboard inspection", async ({
   await page.keyboard.press("ArrowRight");
   await expect(page.locator("#inspector")).toContainText("Tile (1, 0)");
   await expect(page.locator('#board [data-x="1"][data-y="0"]')).toBeFocused();
+});
+
+test("clicking a distant destination builds a route without emulator input", async ({
+  page,
+  request,
+}) => {
+  const state = structuredClone(fixture);
+  const battle = state.observation.game_state.battle.value;
+  battle.map.width = 4;
+  battle.map.height = 1;
+  battle.map.tiles = Array.from({ length: 4 }, (_, x) => ({
+    x,
+    y: 0,
+    terrain_class: 1,
+    graphical_tile_id: 1,
+    owner_slot: 0,
+  }));
+  battle.units = [battle.units[0]];
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await page.locator("#match-id").fill(fixture.summary.match_id);
+  await page.locator("#token").fill(token);
+  await page.locator("#connect button").click();
+  await expect(page.locator("#board .tile")).toHaveCount(4);
+  await page.locator('#board [data-x="0"]').click();
+  await page.locator('#board [data-x="3"]').click();
+  await expect(page.locator("#board [data-route-step]")).toHaveCount(4);
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
+  await page.getByRole("button", { name: "Edit route manually" }).click();
+  await page.getByRole("button", { name: "Undo step" }).click();
+  await expect(page.locator("#board [data-route-step]")).toHaveCount(3);
 });

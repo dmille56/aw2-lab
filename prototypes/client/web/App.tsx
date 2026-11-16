@@ -88,7 +88,7 @@ export function App() {
     setSelected(position);
     setCargo(null);
   };
-  const gameplay = useGameplay(view, select);
+  const gameplay = useGameplay(view, select, { automaticRouting: true });
   const empty = !snapshot
     ? "Connect or open an exported StateResponse JSON file to see the board."
     : obs

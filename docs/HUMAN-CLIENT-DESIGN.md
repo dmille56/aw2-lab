@@ -349,3 +349,21 @@ progress. Exact internal health, identities, and baseline rules remain in an
 expandable section. The existing command form is retained until contextual
 replacement coverage is complete. These changes have synthetic component/browser
 coverage; human usability acceptance and native visual acceptance remain pending.
+
+### Destination routing (2026-11-15)
+
+In the app, selecting a ready unit shows observed movement reach. Clicking a
+reachable destination reconstructs a minimum-cost route using the existing
+movement search, retaining the source unit while the inspector follows the
+cursor. Enter/Space selects the destination after keyboard inspection. Routes
+exclude their origin in command payloads, include it in board markers, and do
+not submit emulator input until an action is chosen and confirmed by the current
+controls. Equal-cost ties follow the search's fixed traversal order.
+
+Automatic destinations can be replaced with another click. Plan movement/Edit
+route manually preserves explicit adjacent-step editing, undo, and clear. Unknown
+rules or fog keep automatic routing unavailable and retain the manual workflow.
+Occupied allied tiles remain transit-only unless an available Join/Load action
+can use that endpoint; the server remains authoritative for action legality.
+The persistent command form and its confirmation flow remain until the next
+contextual-menu tasks replace them.

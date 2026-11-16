@@ -296,12 +296,15 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     map/turn/player HUD, collapsible setup, concise inspector, and updated
     component/browser coverage. Existing commands remain available.
 
-*** TODO Add destination-based route planning
+*** DONE Add destination-based route planning
     Depends on the compact layout. Reconstruct deterministic minimum-cost routes
     with existing observed movement rules. Selecting a ready unit shows reach;
     selecting a destination previews a route without emulator input. Preserve
     explicit route editing and manual routing when observed rules are unavailable.
     Cover equal-cost ties, terrain/fuel/CO effects, blockers, and allied transit.
+    Evidence (2026-11-15): [[file:HUMAN-CLIENT-DESIGN.md::*Destination routing (2026-11-15)][destination routing notes]];
+    route reconstruction and browser checks cover distant destination previews
+    without commands, keyboard selection, and transition to explicit editing.
 
 *** TODO Replace ordinary unit forms with contextual menus
     Depends on destination routing. Add viewport-constrained destination menus

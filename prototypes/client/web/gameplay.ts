@@ -4,7 +4,7 @@ import type { Position } from "./Board";
 import type { GameplayAction } from "./command_input";
 import { supportedProductionProperties } from "./command_input";
 import catalog from "./catalog.json";
-import { unloadDropTiles, validateMovement } from "./movement";
+import { movementRoute, unloadDropTiles, validateMovement } from "./movement";
 import { attackTargets } from "./combat_overlay";
 
 export type ActionKind = GameplayAction["kind"];
@@ -19,6 +19,7 @@ export interface Draft {
   kind: ActionKind | null;
   phase: "select" | "unit" | "route" | "target" | "review";
   notice: string;
+  routeMode: "automatic" | "manual";
   dropDestinations: Record<string, Position>;
   unloadPassengerId: string | null;
 }
@@ -50,14 +51,22 @@ export const emptyDraft = (boundary: string, notice = ""): Draft => ({
   kind: null,
   phase: "select",
   notice,
+  routeMode: "automatic",
   dropDestinations: {},
   unloadPassengerId: null,
 });
 export type DraftEvent =
   | { type: "reset"; boundary: string; notice: string }
-  | { type: "unit"; boundary: string; unitId: string; origin: Position }
+  | {
+      type: "unit";
+      boundary: string;
+      unitId: string;
+      origin: Position;
+      notice?: string;
+    }
   | { type: "base"; boundary: string; base: Position }
   | { type: "step"; point: Position }
+  | { type: "destination"; path: Position[] }
   | { type: "undo" | "clear" | "edit" | "plan" | "cancel_route" }
   | { type: "choose"; kind: ActionKind }
   | { type: "target"; point: Position }
@@ -77,6 +86,7 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
         origin: event.origin,
         phase: "unit",
         notice:
+          event.notice ??
           "Unit selected. Choose Plan movement, or choose an action in place.",
       };
     case "base":
@@ -84,6 +94,19 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
         ...emptyDraft(event.boundary),
         base: event.base,
         notice: "Production facility selected. Choose a unit to purchase.",
+      };
+    case "destination":
+      return {
+        ...draft,
+        path: event.path,
+        phase: "route",
+        routeMode: "automatic",
+        kind: null,
+        target: null,
+        dropDestinations: {},
+        unloadPassengerId: null,
+        notice:
+          "Destination selected. Choose an action or another reachable destination.",
       };
     case "notice":
       return { ...draft, notice: event.notice };
@@ -143,6 +166,7 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
       return {
         ...draft,
         phase: "route",
+        routeMode: "manual",
         kind: null,
         target: null,
         dropDestinations: {},
@@ -205,7 +229,11 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
   }
 }
 
-export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
+export function useGameplay(
+  view: ViewState,
+  inspect: (p: Position) => void,
+  { automaticRouting = false }: { automaticRouting?: boolean } = {},
+) {
   const snapshot = view.snapshot;
   const observation = snapshot?.observation;
   const battle =
@@ -501,6 +529,9 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
       boundary,
       unitId: id,
       origin: { x: item.unit.x, y: item.unit.y },
+      notice: automaticRouting
+        ? "Unit selected. Choose a highlighted destination, or click the unit again to act in place."
+        : undefined,
     });
   };
   const selectBase = (point: Position) => {
@@ -513,7 +544,8 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     if (
       !pending &&
       ((draft.base && !sameTile(draft.base, point)) ||
-        (draft.phase === "unit" &&
+        (!automaticRouting &&
+          draft.phase === "unit" &&
           draft.origin &&
           !sameTile(draft.origin, point)))
     )
@@ -524,7 +556,72 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
           "Selection cleared. Select a ready unit or production facility.",
       });
   };
+  const planDestination = (point: Position) => {
+    if (!editable || !battle || !selectedUnit) return;
+    inspect(point);
+    const path = movementRoute(battle, selectedUnit, point);
+    if (!path) {
+      dispatch({
+        type: "notice",
+        notice:
+          "No observed route to this tile. Choose a highlighted destination, or edit the route manually when movement rules are unavailable.",
+      });
+      return;
+    }
+    const report = validateMovement(battle, selectedUnit, path);
+    const occupant = battle.units.find(
+      (unit) =>
+        !unit.embarked &&
+        unit.reference !== selectedUnit.reference &&
+        sameTile(unit, point),
+    );
+    const join =
+      occupant?.army_slot === slot &&
+      occupant.unit_type === selectedUnit.unit_type &&
+      !occupant.used_this_turn &&
+      available("join");
+    const load =
+      occupant?.army_slot === slot &&
+      transportCanCarry(occupant.unit_type, selectedUnit.unit_type) &&
+      occupant.cargo_references.length < (occupant.unit_type === 23 ? 2 : 1) &&
+      available("load");
+    if (report.error || (report.endpointError && !join && !load)) {
+      dispatch({
+        type: "notice",
+        notice:
+          report.error ||
+          report.endpointError ||
+          "Choose an empty destination.",
+      });
+      return;
+    }
+    dispatch({ type: "destination", path });
+  };
   const activate = (point: Position) => {
+    if (
+      automaticRouting &&
+      editable &&
+      selectedUnit &&
+      (draft.phase === "unit" ||
+        (draft.phase === "route" && draft.routeMode === "automatic"))
+    ) {
+      const other = units.find(
+        (item) => item.id !== draft.unitId && sameTile(item.unit, point),
+      );
+      if (
+        other &&
+        !(
+          other.unit.unit_type === selectedUnit.unit_type && available("join")
+        ) &&
+        !(
+          transportCanCarry(other.unit.unit_type, selectedUnit.unit_type) &&
+          available("load")
+        )
+      )
+        selectUnit(other.id);
+      else planDestination(point);
+      return;
+    }
     inspectTile(point);
     if (!editable || !battle?.map.tiles.some((tile) => sameTile(tile, point)))
       return;
@@ -816,6 +913,7 @@ export function useGameplay(view: ViewState, inspect: (p: Position) => void) {
     movementReady,
     selectUnit,
     selectBase,
+    planDestination,
     activate,
     inspectTile,
     slot,

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { movementReach, validateMovement } from "../web/movement";
+import {
+  movementReach,
+  movementRoute,
+  validateMovement,
+} from "../web/movement";
 import { validateState } from "../web/state";
 import fixture from "./fixtures/state.json";
 
@@ -167,5 +171,55 @@ describe("observed movement validation", () => {
     battle.weather = { status: "available", value: "clear", reasons: [] };
     battle.players[0].co_id = 99;
     expect(validateMovement(battle, unit, route(1)).error).toContain("CO");
+  });
+});
+
+describe("destination routes", () => {
+  it("reconstructs a minimum-cost path and stable ties without the origin", () => {
+    const { battle, unit } = scenario();
+    const path = movementRoute(battle, unit, { x: 1, y: 1 });
+    expect(path).toHaveLength(2);
+    expect(path).toEqual(movementRoute(battle, unit, { x: 1, y: 1 }));
+    expect(path?.at(-1)).toEqual({ x: 1, y: 1 });
+    expect(validateMovement(battle, unit, path!)).toMatchObject({
+      cost: 2,
+      error: null,
+    });
+    expect(movementRoute(battle, unit, unit)).toEqual([]);
+  });
+  it("uses a cheaper detour and honors fuel, blockers, and unavailable rules", () => {
+    const { battle, unit } = scenario(5);
+    battle.map.tiles.find((t) => t.x === 1 && t.y === 0)!.terrain_class = 3;
+    const path = movementRoute(battle, unit, { x: 2, y: 0 });
+    expect(path).toHaveLength(4);
+    expect(validateMovement(battle, unit, path!).error).toBeNull();
+    unit.fuel = 3;
+    expect(movementRoute(battle, unit, { x: 2, y: 0 })).toBeNull();
+    unit.fuel = 99;
+    battle.fog_enabled.value = true;
+    expect(movementRoute(battle, unit, { x: 2, y: 0 })).toBeNull();
+  });
+  it("allows allied transit while leaving endpoint action checks to the caller", () => {
+    const { battle, unit } = scenario();
+    battle.units.push({
+      ...unit,
+      reference: 2,
+      x: 1,
+      y: 0,
+      used_this_turn: true,
+    });
+    expect(movementRoute(battle, unit, { x: 2, y: 0 })).toEqual([
+      { x: 1, y: 0 },
+      { x: 2, y: 0 },
+    ]);
+    expect(
+      validateMovement(
+        battle,
+        unit,
+        movementRoute(battle, unit, { x: 1, y: 0 })!,
+      ).endpointError,
+    ).not.toBeNull();
+    battle.units[1].army_slot = 2;
+    expect(movementRoute(battle, unit, { x: 1, y: 0 })).toBeNull();
   });
 });

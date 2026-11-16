@@ -251,41 +251,56 @@ export function CommandPanel({
               )}
               {draft.phase === "route" && (
                 <>
-                  <p>
-                    Activate adjacent tiles to add steps or an earlier step to
-                    shorten the route. Arrow keys inspect; Enter/Space adds a
-                    step.
-                  </p>
-                  <details>
-                    <summary>Choose route steps from a list</summary>
-                    <label htmlFor="next-step">Next adjacent step</label>
-                    <select
-                      id="next-step"
-                      value=""
+                  {draft.routeMode === "automatic" && (
+                    <button
+                      type="button"
                       disabled={!editable}
-                      onChange={(event) => {
-                        const tile = model.battle?.map.tiles.find(
-                          (p) => `${p.x},${p.y}` === event.currentTarget.value,
-                        );
-                        if (tile) model.activate(tile);
-                      }}
+                      onClick={() => dispatch({ type: "plan" })}
                     >
-                      <option value="">Choose next step</option>
-                      {model.battle?.map.tiles
-                        .filter(
-                          (p) =>
-                            destination &&
-                            Math.abs(p.x - destination.x) +
-                              Math.abs(p.y - destination.y) ===
-                              1,
-                        )
-                        .map((p) => (
-                          <option key={`${p.x},${p.y}`} value={`${p.x},${p.y}`}>
-                            {positionLabel(p)}
-                          </option>
-                        ))}
-                    </select>
-                  </details>
+                      Edit route manually
+                    </button>
+                  )}
+                  <p>
+                    {draft.routeMode === "automatic"
+                      ? "Choose another highlighted destination to replace the route. Edit manually to choose individual steps."
+                      : "Activate adjacent tiles to add steps or an earlier step to shorten the route. Arrow keys inspect; Enter/Space adds a step."}
+                  </p>
+                  {draft.routeMode === "manual" && (
+                    <details>
+                      <summary>Choose route steps from a list</summary>
+                      <label htmlFor="next-step">Next adjacent step</label>
+                      <select
+                        id="next-step"
+                        value=""
+                        disabled={!editable}
+                        onChange={(event) => {
+                          const tile = model.battle?.map.tiles.find(
+                            (p) =>
+                              `${p.x},${p.y}` === event.currentTarget.value,
+                          );
+                          if (tile) model.activate(tile);
+                        }}
+                      >
+                        <option value="">Choose next step</option>
+                        {model.battle?.map.tiles
+                          .filter(
+                            (p) =>
+                              destination &&
+                              Math.abs(p.x - destination.x) +
+                                Math.abs(p.y - destination.y) ===
+                                1,
+                          )
+                          .map((p) => (
+                            <option
+                              key={`${p.x},${p.y}`}
+                              value={`${p.x},${p.y}`}
+                            >
+                              {positionLabel(p)}
+                            </option>
+                          ))}
+                      </select>
+                    </details>
+                  )}
                   <div className="toolbar">
                     <button
                       type="button"

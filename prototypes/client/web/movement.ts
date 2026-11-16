@@ -79,6 +79,7 @@ export function unloadDropTiles(
 export function movementReach(
   battle: BattleState,
   unit: UnitState,
+  predecessors?: Map<string, Position>,
 ): MovementReach {
   const result: MovementReach = {
     destinations: new Set(),
@@ -155,6 +156,7 @@ export function movementReach(
         if (total > allowance || total > unit.fuel) continue;
         if (total >= (distances.get(key) ?? Infinity)) continue;
         distances.set(key, total);
+        predecessors?.set(key, { x: current.x, y: current.y });
         buckets[total].push({ x, y });
       }
     }
@@ -166,6 +168,33 @@ export function movementReach(
     else result.destinations.add(key);
   }
   return result;
+}
+
+/** Reconstruct one deterministic minimum-cost observed route, excluding the origin.
+ * Occupied allied endpoints are returned for the caller to check for Join/Load.
+ * null means the destination or observed routing rules are unavailable.
+ */
+export function movementRoute(
+  battle: BattleState,
+  unit: UnitState,
+  destination: Position,
+): Position[] | null {
+  if (unit.x === destination.x && unit.y === destination.y) return [];
+  const predecessors = new Map<string, Position>();
+  const reach = movementReach(battle, unit, predecessors);
+  const key = `${destination.x},${destination.y}`;
+  if (!reach.destinations.has(key) && !reach.alliedTransit.has(key))
+    return null;
+  const route: Position[] = [];
+  let current = destination;
+  while (current.x !== unit.x || current.y !== unit.y) {
+    if (route.length >= battle.map.tiles.length) return null;
+    route.push({ x: current.x, y: current.y });
+    const previous = predecessors.get(`${current.x},${current.y}`);
+    if (!previous) return null;
+    current = previous;
+  }
+  return route.reverse();
 }
 
 /** Validate observed rules only; hidden blockers remain the executor's responsibility. */
