@@ -387,3 +387,27 @@ Other actions / manual route retains the existing explicit editor while remainin
 unit actions migrate. Explicit routes can open the contextual menu with Choose
 action. The old command form stays available for operations not yet migrated;
 its ordinary route controls are hidden during contextual board interaction.
+
+### Specialized contextual actions (2026-11-16)
+
+The same menu now exposes Join, Supply, Dive/Rise, Load, Unload, and missile
+launch when the observed unit and destination make them relevant. Immediate
+commands use the shared action constructor and capability checks. Missile launch
+commits on map target selection. Explicit route editing remains accessible.
+
+Unloading opens passenger choices and board drop highlights. Selected destinations
+are marked D1/D2; another passenger's assigned tile is excluded. Choosing a drop
+returns focus to the final Unload selected cargo control. Clearing a drop and Back
+retain predictable editing/cancellation stages. No command is sent until that
+final control is chosen. Roving board focus keeps keyboard Tab navigation from
+stepping through every map tile.
+
+Component checks cover all specialized command kinds and sequential two-passenger
+Lander drops. Browser checks cover passenger selection, green drop highlighting,
+D1 marking, focus restoration, absence of preview commands, and the final typed
+unload request. All 103 component/unit checks and 42 browser scenarios passed.
+These synthetic checks verify UI/transport behavior; live effects retain their
+existing executor acceptance and await redesigned-client live playtesting.
+
+Sprite movement/transit borders, threat hatching, and cargo markings are drawn
+over artwork so they remain visible when the symbolic renderer is replaced.

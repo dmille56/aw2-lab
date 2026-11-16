@@ -3,7 +3,7 @@ import { MapPanel } from "./MapPanel";
 import { coName, humanSlot, perspective, playerName } from "./presentation";
 import { Health } from "./Health";
 import { MatchSession } from "./session";
-import { ContextActions } from "./ContextActions";
+import { ContextActions, restoreBoardFocus } from "./ContextActions";
 import { CommandPanel } from "./CommandPanel";
 import { useGameplay } from "./gameplay";
 import {
@@ -441,7 +441,14 @@ export function App() {
             selected={selected}
             select={gameplay.inspectTile}
             activate={gameplay.activate}
-            cancel={gameplay.pending ? undefined : gameplay.cancel}
+            cancel={
+              gameplay.pending
+                ? undefined
+                : () => {
+                    gameplay.cancel();
+                    restoreBoardFocus(gameplay.draft.origin);
+                  }
+            }
             route={
               gameplay.draft.boundary === gameplay.boundary &&
               gameplay.draft.origin &&
@@ -480,9 +487,21 @@ export function App() {
             }
             actionTargets={
               gameplay.draft.contextual && gameplay.draft.phase === "target"
-                ? new Set(gameplay.targets.map((unit) => `${unit.x},${unit.y}`))
+                ? new Set(
+                    gameplay.draft.kind === "silo_launch"
+                      ? []
+                      : gameplay.targets.map((unit) => `${unit.x},${unit.y}`),
+                  )
                 : undefined
             }
+            dropSelections={Object.fromEntries(
+              gameplay.selectedTransportCargo.flatMap(({ id }, index) => {
+                const point = gameplay.draft.dropDestinations[id];
+                return point
+                  ? [[`${point.x},${point.y}`, `D${index + 1}`]]
+                  : [];
+              }),
+            )}
             empty={empty}
             yourSlot={humanSlot(view.identity)}
           />
@@ -492,7 +511,7 @@ export function App() {
             onSubmit={session.submitAction}
           />
           <div
-            className={`gameplay-sidebar${gameplay.selectedUnit && (gameplay.draft.routeMode === "automatic" || gameplay.draft.contextual) ? " board-controls" : ""}`}
+            className={`gameplay-sidebar${gameplay.draft.contextual && !gameplay.pending ? " contextual-draft" : ""}${gameplay.selectedUnit && (gameplay.draft.routeMode === "automatic" || gameplay.draft.contextual) ? " board-controls" : ""}`}
           >
             {gameplay.selectedUnit &&
               gameplay.draft.routeMode === "automatic" &&

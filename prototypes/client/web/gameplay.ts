@@ -118,6 +118,8 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
         contextual: true,
         kind: null,
         target: null,
+        dropDestinations: {},
+        unloadPassengerId: null,
         notice: "Choose an action for this destination.",
       };
     case "notice":
@@ -533,6 +535,16 @@ export function useGameplay(
     dispatch({ type: "reset", boundary, notice: "Action cancelled." });
   const cancel = () => {
     if (pending) return;
+    if (
+      draft.contextual &&
+      draft.phase === "review" &&
+      draft.kind === "unload"
+    ) {
+      if (draft.unloadPassengerId)
+        dispatch({ type: "unload_passenger", unitId: null });
+      else dispatch({ type: "open_menu" });
+      return;
+    }
     if (draft.contextual && draft.phase === "target") {
       if (destination) inspect(destination);
       dispatch({ type: "open_menu" });
@@ -671,7 +683,9 @@ export function useGameplay(
       if (
         draft.contextual &&
         onCommit &&
-        (draft.kind === "attack" || draft.kind === "move_attack") &&
+        (draft.kind === "attack" ||
+          draft.kind === "move_attack" ||
+          draft.kind === "silo_launch") &&
         snapshot
       ) {
         const action = prepareAction(draft.kind, point);
@@ -701,12 +715,20 @@ export function useGameplay(
       const passenger = unloadDropOptions.find(
         (item) => item.id === draft.unloadPassengerId,
       );
-      if (passenger?.destinations.some((tile) => sameTile(tile, point))) {
+      const assigned = Object.entries(draft.dropDestinations).some(
+        ([id, tile]) => id !== draft.unloadPassengerId && sameTile(tile, point),
+      );
+      if (
+        passenger?.destinations.some((tile) => sameTile(tile, point)) &&
+        !assigned
+      ) {
         dispatch({
           type: "drop_destination",
           unitId: draft.unloadPassengerId,
           point,
         });
+        if (draft.contextual)
+          dispatch({ type: "unload_passenger", unitId: null });
         return;
       }
       dispatch({
@@ -829,21 +851,26 @@ export function useGameplay(
           unit_id: draft.unitId,
           path: draft.path.map(coordinate),
         };
-      else if (selectedUnit && kind === "supply" && supplyReady)
+      else if (
+        selectedUnit &&
+        candidateReady &&
+        kind === "supply" &&
+        supplyReady
+      )
         action = {
           contract_version: 1,
           kind,
           unit_id: draft.unitId,
           path: draft.path.map(coordinate),
         };
-      else if (selectedUnit && kind === "dive" && diveReady)
+      else if (selectedUnit && candidateReady && kind === "dive" && diveReady)
         action = {
           contract_version: 1,
           kind,
           unit_id: draft.unitId,
           path: draft.path.map(coordinate),
         };
-      else if (selectedUnit && kind === "rise" && riseReady)
+      else if (selectedUnit && candidateReady && kind === "rise" && riseReady)
         action = {
           contract_version: 1,
           kind,
@@ -853,6 +880,7 @@ export function useGameplay(
       else if (
         selectedUnit &&
         kind === "silo_launch" &&
+        candidateReady &&
         siloReady &&
         draft.target
       )
@@ -951,7 +979,14 @@ export function useGameplay(
     unloadTargets: new Set(
       unloadDropOptions
         .find((item) => item.id === draft.unloadPassengerId)
-        ?.destinations.map((point) => `${point.x},${point.y}`) ?? [],
+        ?.destinations.filter(
+          (point) =>
+            !Object.entries(draft.dropDestinations).some(
+              ([id, other]) =>
+                id !== draft.unloadPassengerId && sameTile(point, other),
+            ),
+        )
+        .map((point) => `${point.x},${point.y}`) ?? [],
     ),
     unloadError,
     unloadUnavailableReason,

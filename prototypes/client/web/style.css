@@ -462,6 +462,11 @@ dd {
   flex-wrap: wrap;
 }
 
+.cargo-choice > span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 #legend span {
   font-size: 12px;
   padding: 5px;
@@ -955,4 +960,44 @@ summary {
     width: auto !important;
     max-height: 50dvh;
   }
+}
+
+.contextual-draft .command-panel {
+  display: none;
+}
+
+.cargo-choice {
+  display: grid;
+  gap: 6px;
+  margin-block: 10px;
+}
+
+.cargo-choice button[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+}
+
+.tile[data-drop-selected] {
+  box-shadow: inset 0 0 0 4px #16834a;
+}
+
+.tile.sprite-tile {
+  border: 0;
+}
+
+.sprite-tile.reachable::after {
+  border: 2px dotted #075b9d;
+}
+
+.sprite-tile.allied-transit::after {
+  border: 2px dashed #075b9d;
+}
+
+.sprite-tile.threatened::after {
+  background-image: repeating-linear-gradient(
+    135deg,
+    #c8202055 0,
+    #c8202055 4px,
+    transparent 4px,
+    transparent 8px
+  );
 }

@@ -738,7 +738,7 @@ test("selects a unit and previews destinations without submitting commands", asy
   await expect(page.locator("#action-unit")).toHaveValue("1");
   await expect(page.locator("#board [data-route-step]")).toHaveCount(2);
   await expect(
-    page.getByRole("button", { name: "Other actions / manual route" }),
+    page.getByRole("button", { name: "Edit route manually" }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.locator("#board [data-route-step]")).toHaveCount(0);
@@ -771,9 +771,7 @@ test("restricts indirect attacks after movement and supports cancelling with Esc
   await expect(
     menu.getByRole("button", { name: "Attack", exact: true }),
   ).toBeEnabled();
-  await menu
-    .getByRole("button", { name: "Other actions / manual route" })
-    .click();
+  await menu.getByRole("button", { name: "Edit route manually" }).click();
   const attack = page.getByRole("button", { name: "Choose attack target" });
   await page.locator('#board [data-x="1"][data-y="0"]').click();
   await expect(attack).toBeDisabled();
@@ -1170,9 +1168,7 @@ test("clicking a distant destination builds a route without emulator input", asy
   await page.locator('#board [data-x="3"]').click();
   await expect(page.locator("#board [data-route-step]")).toHaveCount(4);
   expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
-  await page
-    .getByRole("button", { name: "Other actions / manual route" })
-    .click();
+  await page.getByRole("button", { name: "Edit route manually" }).click();
   await page.getByRole("button", { name: "Undo step" }).click();
   await expect(page.locator("#board [data-route-step]")).toHaveCount(3);
 });
@@ -1295,6 +1291,81 @@ test("context menu submits Capture directly from an eligible observed property",
   );
   await capture.click();
   expect((await command).postDataJSON().action.kind).toBe("move_capture");
+  await expect(page.locator(".command-result")).toContainText(
+    "Command status: completed",
+  );
+});
+
+test("unload passenger selection previews a drop before one final command", async ({
+  page,
+  request,
+}) => {
+  const state = structuredClone(fixture);
+  const battle = state.observation.game_state.battle.value;
+  battle.units[0].unit_type = 7;
+  battle.units[0].cargo_references = [3];
+  battle.units.push({
+    ...battle.units[0],
+    reference: 3,
+    unit_slot: 3,
+    unit_type: 1,
+    embarked: true,
+    used_this_turn: true,
+    cargo_references: [],
+  });
+  state.observation.unit_identities.push({
+    reference: 3,
+    identity_id: "4",
+    generation: 1,
+  });
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await page.route("**/v1/capabilities", async (route) => {
+    const response = await route.fetch();
+    const capabilities = await response.json();
+    capabilities.actions.push({
+      contract_version: 1,
+      name: "unload",
+      implemented: true,
+      available: true,
+      verification: "synthetic",
+      unavailable_reason: null,
+    });
+    await route.fulfill({ response, json: capabilities });
+  });
+  await connect(page);
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  const menu = page.getByRole("dialog", { name: "Unit actions" });
+  await menu.getByRole("button", { name: "Unload", exact: true }).click();
+  await menu
+    .getByRole("button", { name: "Passenger 1: Infantry", exact: true })
+    .click();
+  const drop = page.locator('#board [data-x="1"][data-y="0"]');
+  await expect(drop).toHaveAttribute("data-drop-target", "true");
+  await expect(drop).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(drop).toHaveAttribute("data-drop-selected", "D1");
+  const submit = menu.getByRole("button", { name: "Unload selected cargo" });
+  await expect(submit).toBeFocused();
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
+  await page.unroute("**/state");
+  const command = page.waitForRequest(
+    (req) => req.url().endsWith("/commands") && req.method() === "POST",
+  );
+  await submit.click();
+  expect((await command).postDataJSON().action).toEqual({
+    contract_version: 1,
+    kind: "unload",
+    transport_id: "1",
+    path: [],
+    drops: [
+      {
+        contract_version: 1,
+        unit_id: "4",
+        destination: { contract_version: 1, x: 1, y: 0 },
+      },
+    ],
+  });
   await expect(page.locator(".command-result")).toContainText(
     "Command status: completed",
   );

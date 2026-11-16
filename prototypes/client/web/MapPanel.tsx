@@ -32,6 +32,7 @@ export function MapPanel({
   plannedRoute = [],
   dropTargets = new Set<string>(),
   actionTargets,
+  dropSelections = {},
 }: {
   battle: BattleState | null;
   selected: Position | null;
@@ -47,6 +48,7 @@ export function MapPanel({
   plannedRoute?: Position[];
   dropTargets?: Set<string>;
   actionTargets?: Set<string>;
+  dropSelections?: Record<string, string>;
 }) {
   const spritePack = useSpritePack(!!battle);
   const [size, setSize] = useState(58);
@@ -243,6 +245,7 @@ export function MapPanel({
           route={route}
           target={target}
           dropTargets={dropTargets}
+          dropSelections={dropSelections}
           reachable={reach.destinations}
           transit={reach.alliedTransit}
           attackable={

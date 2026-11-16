@@ -318,12 +318,15 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     direct Wait/Capture, target-committed Attack, keyboard and right-click Back,
     scaled/narrow placement, and final-target action construction checks.
 
-*** TODO Move remaining unit actions into contextual menus
+*** DONE Move remaining unit actions into contextual menus
     Depends on ordinary contextual actions. Cover Join, Supply, Dive, Rise,
     Load, missile launch, and Unload with existing capability checks. Immediate
     actions commit on selection; missile launch on target selection. Unload
     commits through a final control after passenger destinations are selected.
     Verify availability, cancellation, and every supported unit action.
+    Evidence (2026-11-16): [[file:HUMAN-CLIENT-DESIGN.md::*Specialized contextual actions (2026-11-16)][specialized action notes]];
+    all specialized kinds covered by component checks, two-passenger keyboard
+    unloading, and browser preview/drop/final-request acceptance.
 
 *** TODO Add purchase menus and match controls
     Depends on contextual unit actions. Empty owned production facilities open

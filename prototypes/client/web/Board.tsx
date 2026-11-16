@@ -122,6 +122,7 @@ export function Board({
   threatened = new Set<string>(),
   dropTargets = new Set<string>(),
   spritePack = null,
+  dropSelections = {},
 }: {
   battle: BattleState | null;
   selected: Position | null;
@@ -138,11 +139,15 @@ export function Board({
   threatened?: Set<string>;
   dropTargets?: Set<string>;
   spritePack?: SpritePack | null;
+  dropSelections?: Record<string, string>;
 }) {
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const occupancy = new Map(
     battle?.units.filter((u) => !u.embarked).map((u) => [`${u.x},${u.y}`, u]),
   );
+  const tabStop = battle?.map.tiles.find(
+    (tile) => tile.x === selected?.x && tile.y === selected?.y,
+  ) ?? { x: 0, y: 0 };
   return (
     <div
       id="board"
@@ -174,6 +179,7 @@ export function Board({
             const isAttackable = attackable.has(tileKey);
             const isThreatened = threatened.has(tileKey);
             const isDropTarget = dropTargets.has(tileKey);
+            const dropLabel = dropSelections[tileKey];
             return (
               <button
                 key={`${tile.x},${tile.y}`}
@@ -183,6 +189,8 @@ export function Board({
                   else buttons.current.delete(`${tile.x},${tile.y}`);
                 }}
                 type="button"
+                tabIndex={tile.x === tabStop.x && tile.y === tabStop.y ? 0 : -1}
+                data-drop-selected={dropLabel || undefined}
                 data-x={tile.x}
                 data-y={tile.y}
                 className={`tile${terrainRegion ? " sprite-tile" : ""}${unit?.used_this_turn ? " used-unit" : ""} terrain-${tile.terrain_class} owner-${unit?.army_slot ?? tile.owner_slot}${match ? " selected" : ""}${isReachable ? " reachable" : ""}${isTransit ? " allied-transit" : ""}${isAttackable ? " attackable" : ""}${isThreatened ? " threatened" : ""}${isDropTarget ? " unload-drop-target" : ""}`}
@@ -193,7 +201,7 @@ export function Board({
                 data-your-unit={!!unit && unit.army_slot === yourSlot}
                 title={`${terrainName(tile.terrain_class)}${unit ? ` · ${unitName(unit)}` : ""}`}
                 aria-pressed={match}
-                aria-label={`${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}` : ""}`}
+                aria-label={`${dropLabel ? `Cargo drop ${dropLabel}, ` : ""}${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}` : ""}`}
                 onClick={() => (activate ?? select)(tile)}
                 onContextMenu={(event) => {
                   if (cancel) {
@@ -234,9 +242,9 @@ export function Board({
                   });
                 }}
               >
-                {(step >= 0 || isTarget) && (
+                {(step >= 0 || isTarget || dropLabel) && (
                   <span className="route-marker" aria-hidden="true">
-                    {isTarget ? "T" : step === 0 ? "S" : step}
+                    {dropLabel || (isTarget ? "T" : step === 0 ? "S" : step)}
                     {destination ? "·D" : ""}
                   </span>
                 )}

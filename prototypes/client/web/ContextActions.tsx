@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { GameplayAction } from "./command_input";
 import type { ViewState } from "./session";
-import type { ActionKind, GameplayModel } from "./gameplay";
+import { sameTile, type ActionKind, type GameplayModel } from "./gameplay";
 import { unitName, type Position } from "./Board";
 
 function focusTile(point: Position | null) {
@@ -125,6 +125,16 @@ export function ActionMenu({
   );
 }
 
+export function restoreBoardFocus(point: Position | null) {
+  requestAnimationFrame(() => {
+    const action = document.querySelector<HTMLButtonElement>(
+      ".action-menu button:not(:disabled)",
+    );
+    if (action) action.focus();
+    else focusTile(point);
+  });
+}
+
 export function ContextActions({
   model,
   view,
@@ -136,16 +146,36 @@ export function ContextActions({
 }) {
   const { draft } = model;
   const point = model.destination;
+  useLayoutEffect(() => {
+    if (
+      draft.contextual &&
+      draft.phase === "review" &&
+      draft.kind === "unload" &&
+      !draft.unloadPassengerId &&
+      Object.keys(draft.dropDestinations).length
+    )
+      document.querySelector<HTMLButtonElement>("#unload-confirm")?.focus();
+  }, [
+    draft.contextual,
+    draft.phase,
+    draft.kind,
+    draft.unloadPassengerId,
+    draft.dropDestinations,
+  ]);
+  const unloading =
+    draft.phase === "review" && draft.kind === "unload" && draft.contextual;
   if (
     !point ||
     !model.selectedUnit ||
     model.pending ||
-    (draft.phase !== "menu" && !(draft.phase === "target" && draft.contextual))
+    (draft.phase !== "menu" &&
+      !(draft.phase === "target" && draft.contextual) &&
+      !unloading)
   )
     return null;
   const back = () => {
     model.cancel();
-    focusTile(draft.origin);
+    restoreBoardFocus(draft.origin);
   };
   const send = (kind: ActionKind) => {
     const action = model.prepareAction(kind);
@@ -157,6 +187,54 @@ export function ContextActions({
     : model.available("attack")
       ? "attack"
       : "move_attack";
+  const chooseTarget = (kind: ActionKind) => {
+    model.dispatch({ type: "choose", kind });
+    requestAnimationFrame(() =>
+      focusTile(kind === "silo_launch" ? point : (model.targets[0] ?? point)),
+    );
+  };
+  const silo =
+    [1, 2].includes(model.selectedUnit.unit_type) &&
+    model.battle?.map.tiles.some(
+      (tile) =>
+        tile.x === point.x && tile.y === point.y && tile.terrain_class === 17,
+    );
+  const choices: { kind: ActionKind; label: string; show: boolean }[] = [
+    { kind: "move_wait", label: "Wait", show: model.movementReady },
+    { kind: "move_capture", label: "Capture", show: model.canCapture },
+    { kind: "join", label: "Join", show: model.canJoin },
+    {
+      kind: "supply",
+      label: "Supply",
+      show: model.canSupply && model.movementReady,
+    },
+    {
+      kind: "dive",
+      label: "Dive",
+      show:
+        model.selectedUnit.unit_type === 24 &&
+        !model.selectedUnit.submerged &&
+        model.movementReady,
+    },
+    {
+      kind: "rise",
+      label: "Rise",
+      show:
+        model.selectedUnit.unit_type === 24 &&
+        !!model.selectedUnit.submerged &&
+        model.movementReady,
+    },
+    {
+      kind: "load",
+      label: "Load",
+      show:
+        !!model.loadTransport &&
+        model.loadTransport.reference !== model.selectedUnit.reference,
+    },
+  ];
+  const missing = choices.filter(
+    (item) => item.show && !model.available(item.kind),
+  );
   return (
     <ActionMenu
       key={draft.phase}
@@ -169,38 +247,127 @@ export function ContextActions({
         {Math.ceil(model.selectedUnit.internal_health / 10)} HP
       </h3>
       {draft.phase === "target" ? (
-        <p role="status">Choose a highlighted enemy on the board.</p>
+        <p role="status">
+          {draft.kind === "silo_launch"
+            ? "Choose a missile target on the board. A 3×3 area is hit."
+            : "Choose a highlighted enemy on the board."}
+        </p>
+      ) : unloading ? (
+        <>
+          <p>Choose a passenger, then a highlighted drop tile.</p>
+          {model.unloadDropOptions.map((item, index) => {
+            const drop = draft.dropDestinations[item.id];
+            const destinations = item.destinations.filter(
+              (point) =>
+                !Object.entries(draft.dropDestinations).some(
+                  ([id, other]) => id !== item.id && sameTile(point, other),
+                ),
+            );
+            return (
+              <div className="cargo-choice" key={item.id}>
+                <button
+                  type="button"
+                  aria-pressed={draft.unloadPassengerId === item.id}
+                  disabled={!model.editable || !destinations.length}
+                  onClick={() => {
+                    model.dispatch({
+                      type: "unload_passenger",
+                      unitId: item.id,
+                    });
+                    requestAnimationFrame(() =>
+                      focusTile(drop ?? destinations[0] ?? point),
+                    );
+                  }}
+                >
+                  Passenger {index + 1}: {unitName(item.unit)}
+                </button>
+                <span>
+                  {drop
+                    ? `Drop ${index + 1}: (${drop.x},${drop.y})`
+                    : "No drop selected"}
+                </span>
+                {drop && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      model.dispatch({
+                        type: "drop_destination",
+                        unitId: item.id,
+                        point: null,
+                      });
+                      restoreBoardFocus(point);
+                    }}
+                  >
+                    Clear drop {index + 1}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          <p role="status">{model.unloadError}</p>
+          <button
+            id="unload-confirm"
+            type="button"
+            disabled={!model.prepareAction("unload")}
+            onClick={() => send("unload")}
+          >
+            Unload selected cargo
+          </button>
+        </>
       ) : (
         <div className="action-menu-buttons">
-          <button
-            type="button"
-            disabled={!model.prepareAction("move_wait")}
-            onClick={() => send("move_wait")}
-          >
-            Wait
-          </button>
-          <button
-            type="button"
-            disabled={!model.prepareAction("move_capture")}
-            onClick={() => send("move_capture")}
-          >
-            Capture
-          </button>
-          <button
-            type="button"
-            disabled={
-              !model.editable ||
-              !model.canAttack ||
-              !model.movementReady ||
-              !model.available(attack)
-            }
-            onClick={() => {
-              model.dispatch({ type: "choose", kind: attack });
-              requestAnimationFrame(() => focusTile(model.targets[0] ?? point));
-            }}
-          >
-            Attack
-          </button>
+          {choices
+            .filter((item) => item.show)
+            .map((item) => (
+              <button
+                key={item.kind}
+                type="button"
+                title={
+                  !model.available(item.kind)
+                    ? model.feature(item.kind)?.unavailable_reason ||
+                      "Unavailable on this server."
+                    : undefined
+                }
+                disabled={!model.prepareAction(item.kind)}
+                onClick={() => send(item.kind)}
+              >
+                {item.label}
+              </button>
+            ))}
+          {model.canAttack && model.movementReady && (
+            <button
+              type="button"
+              disabled={!model.editable || !model.available(attack)}
+              onClick={() => chooseTarget(attack)}
+            >
+              Attack
+            </button>
+          )}
+          {silo && (
+            <button
+              type="button"
+              disabled={!model.siloReady || !model.movementReady}
+              onClick={() => chooseTarget("silo_launch")}
+            >
+              Launch missile
+            </button>
+          )}
+          {!!model.selectedTransportCargo.length && (
+            <button
+              type="button"
+              disabled={
+                !model.editable ||
+                !model.available("unload") ||
+                !model.movementReady ||
+                model.unloadDropOptions.every(
+                  (item) => !item.destinations.length,
+                )
+              }
+              onClick={() => model.dispatch({ type: "choose", kind: "unload" })}
+            >
+              Unload
+            </button>
+          )}
           <button
             type="button"
             disabled={!model.editable}
@@ -209,8 +376,20 @@ export function ContextActions({
               focusTile(point);
             }}
           >
-            Other actions / manual route
+            Edit route manually
           </button>
+          {!!missing.length && (
+            <details>
+              <summary>Unavailable actions</summary>
+              {missing.map((item) => (
+                <p key={item.kind}>
+                  {item.label}:{" "}
+                  {model.feature(item.kind)?.unavailable_reason ||
+                    "Not available on this server."}
+                </p>
+              ))}
+            </details>
+          )}
         </div>
       )}
       <button type="button" onClick={back}>
