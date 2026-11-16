@@ -254,13 +254,17 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     playtesting is accepted. Detailed behavior and acceptance are recorded in
     [[file:HUMAN-CLIENT-DESIGN.md::*Advance Wars client redesign][the redesign design notes]].
 
-*** TODO Prove local sprite extraction
+*** DONE Prove local sprite extraction
     Depends on the kickoff checklist. Research graphics locations, palettes,
     and transparency for the checksum-verified US revision-0 ROM. Extract and
     visually compare representative terrain, property, ground, air, and naval
     sprites, including army colors, with the game. Record reproducible steps
     and verified decoding rules; keep generated artwork outside Git/Nix.
     Resolve feasibility before expanding coverage.
+    Evidence (2026-11-15): [[file:SPRITE-EXTRACTION.md][verified offsets and sample extraction guide]];
+    30 external PNG samples cover terrain, City, and Infantry/Tank/Fighter/
+    Battleship palettes. All 12 focused checks passed with the live-ROM opt-in.
+    Full feature/foreground mapping remains the next task.
 
 *** TODO Build the complete static sprite pack
     Depends on verified extraction. Produce PNG atlases and a versioned manifest
