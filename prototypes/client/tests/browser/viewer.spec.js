@@ -1567,3 +1567,39 @@ test("keeps the acting unit distinct while inspecting and targeting elsewhere", 
   await page.keyboard.press("Escape");
   await expect(page.locator("[data-acting-unit]")).toHaveCount(0);
 });
+
+for (const type of [7, 20, 23, 22])
+  test(`marks cargo on transport type ${type} and clears it after unloading`, async ({
+    page,
+  }) => {
+    const state = structuredClone(fixture),
+      battle = state.observation.game_state.battle.value;
+    battle.units[0].unit_type = type;
+    battle.units[0].cargo_references = [2];
+    battle.units.push({
+      ...battle.units[0],
+      unit_type: 1,
+      reference: 2,
+      unit_slot: 2,
+      embarked: true,
+      cargo_references: [],
+    });
+    state.observation.unit_identities.push({
+      reference: 2,
+      identity_id: "3",
+      generation: 1,
+    });
+    await page.route("**/state", (route) => route.fulfill({ json: state }));
+    await connect(page);
+    const transport = page.locator('#board [data-x="0"][data-y="0"]');
+    await expect(transport.locator(".cargo-badge")).toHaveText("C1");
+    await expect(transport).toHaveAccessibleName(
+      /loaded transport, 1 passenger aboard/,
+    );
+    battle.units[0].cargo_references = [];
+    battle.units[2].embarked = false;
+    battle.units[2].x = 1;
+    state.summary.revision = state.observation.revision = 2;
+    await page.locator("#refresh").click();
+    await expect(transport.locator(".cargo-badge")).toHaveCount(0);
+  });

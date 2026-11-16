@@ -1,3 +1,4 @@
+import "./CargoBadge.css";
 import "./UnitSelection.css";
 import "./RangeOverlay.css";
 import { Fragment, useRef, type ReactNode } from "react";
@@ -195,6 +196,7 @@ export function Board({
                 }}
                 type="button"
                 tabIndex={tile.x === tabStop.x && tile.y === tabStop.y ? 0 : -1}
+                data-cargo-count={unit?.cargo_references.length || undefined}
                 data-acting-unit={isActing || undefined}
                 data-drop-selected={dropLabel || undefined}
                 data-x={tile.x}
@@ -207,7 +209,7 @@ export function Board({
                 data-your-unit={!!unit && unit.army_slot === yourSlot}
                 title={`${terrainName(tile.terrain_class)}${unit ? ` · ${unitName(unit)}` : ""}`}
                 aria-pressed={match}
-                aria-label={`${isActing ? "Selected acting unit, " : ""}${dropLabel ? `Cargo drop ${dropLabel}, ` : ""}${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}` : ""}`}
+                aria-label={`${isActing ? "Selected acting unit, " : ""}${dropLabel ? `Cargo drop ${dropLabel}, ` : ""}${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}${unit.cargo_references.length ? `, loaded transport, ${unit.cargo_references.length} passenger${unit.cargo_references.length === 1 ? "" : "s"} aboard` : ""}` : ""}`}
                 onClick={() => (activate ?? select)(tile)}
                 onContextMenu={(event) => {
                   if (cancel) {
@@ -267,6 +269,11 @@ export function Board({
                 {isActing && (
                   <span className="acting-unit-marker" aria-hidden="true">
                     <span className="acting-unit-label">SELECTED</span>
+                  </span>
+                )}
+                {!!unit?.cargo_references.length && (
+                  <span className="cargo-badge" aria-hidden="true">
+                    C{unit.cargo_references.length}
                   </span>
                 )}
                 <span className="owner-tag">P{tile.owner_slot || "–"}</span>

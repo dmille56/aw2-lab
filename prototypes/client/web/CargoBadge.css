@@ -1,0 +1,16 @@
+.cargo-badge {
+  position: absolute;
+  top: 50%;
+  left: 5px;
+  transform: translateY(-50%);
+  z-index: 6;
+  background: #ffe65a;
+  color: #171717;
+  border: 2px solid #171717;
+  box-shadow: 0 0 0 1px #fff;
+  border-radius: 2px;
+  padding: 1px 2px;
+  font-size: clamp(10px, calc(var(--cell) * 0.2), 16px);
+  font-weight: 900;
+  line-height: 1;
+}

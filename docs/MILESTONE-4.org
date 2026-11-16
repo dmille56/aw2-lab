@@ -434,7 +434,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Browser regression follows the marker through targeting and cancellation.
     Awaiting human visual review.
 
-*** TODO Make loaded transports visually distinct
+*** IN-PROGRESS Make loaded transports visually distinct
     Human playtest feedback (2026-11-16): make it obvious when an APC, Transport
     Copter, Lander, or other supported transport contains cargo. Add a persistent
     board indicator, such as a cargo badge/count, that distinguishes loaded and
@@ -442,6 +442,9 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     status, selection, and range markings readable. Reflect loading/unloading
     from committed observations, include accessible cargo status, and verify
     one- and two-passenger transports, symbols/sprites, themes, and scaling.
+    Implemented: persistent high-contrast C1/C2 badge and accessible passenger
+    count from committed cargo references, cleared after unloading. Browser
+    regressions cover APC, Transport Copter, Lander, and Cruiser. Human review pending.
 
 *** TODO Notify the player when their turn begins
     Human playtest feedback (2026-11-16): show a clear accessible toast when the

@@ -281,9 +281,10 @@ export function MapPanel({
         <summary>Legend</summary>
         <p>
           Unit badges show HP out of 10, rounded up from internal health. Exact
-          health remains in the inspector. ✓ marks used units. Full names and
-          coordinates remain available to assistive technology and in the
-          inspector. Terrain colors are illustrative.
+          health remains in the inspector. ✓ marks used units. C1/C2 marks a
+          loaded transport and its passenger count. Full names and coordinates
+          remain available to assistive technology and in the inspector. Terrain
+          colors are illustrative.
         </p>
         <p>
           Blue solid tiles are reachable movement destinations; dashed blue

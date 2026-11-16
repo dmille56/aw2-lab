@@ -647,3 +647,12 @@ destination, or selects an attack target. Inspection, keyboard focus, route, and
 acting-unit identity remain separate; cancellation and boundary changes clear
 the marker. Its accessible tile name identifies the selected acting unit.
 Human review remains pending.
+
+### Usability implementation: loaded transports
+
+Loaded transports show a persistent high-contrast C1/C2 passenger-count badge,
+independent of HP, used status, and the acting-unit cursor. Tile accessible names
+include cargo status/count, and the legend explains the badge. Cargo references
+from committed observations drive updates, including clearing after unloading.
+Browser regressions cover APC, Transport Copter, Lander, and Cruiser. Human
+visual review remains pending.
