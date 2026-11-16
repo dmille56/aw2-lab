@@ -112,3 +112,36 @@ and the input ROM hash stays unchanged. Visual inspection covered the full atlas
 including all 19 silhouettes and property families. Browser/native delivery and
 rendering remain the next checklist item. Unsupported campaign-only terrain
 classes use the client's symbolic fallback rather than a guessed mapping.
+
+## Prototype delivery and rendering
+
+Configure the prototype server with an already extracted pack:
+
+```sh
+PYTHONPATH=src python prototypes/client/serve.py \
+  --sprite-pack /tmp/aw2-redesign-sprite-pack
+```
+
+`AW2_CLIENT_SPRITES` is the equivalent environment setting. Vite development
+proxies `/client-sprites` to the API, and the shared Tauri frontend uses its
+configured loopback API base. The server validates the manifest version, ROM
+identity, region bounds, atlas dimensions, and PNG checksum at startup. Only the
+validated manifest and content-addressed PNG are served, from memory; the external
+directory and its other files are never mounted. No configured pack returns JSON
+`null` so the client quietly keeps its symbolic board.
+
+The client loads and decodes the atlas before switching artwork. Missing,
+unsupported, or failed artwork leaves symbolic tiles and units usable. Individual
+unmapped entries also use symbols. Tile accessible names, board focus, keyboard
+inspection, action overlays, and the exact-health inspector remain available.
+Visible unit badges use ceil(internal health / 10); used sprites are dimmed and
+retain a check mark. Owned units have underlined health badges. The prototype
+uses its existing player-slot color convention (1–4) to select army palettes;
+it does not claim a separately decoded native faction/skin identity.
+
+The initial browser preview used the authentic extracted atlas with synthetic
+match observations. This verifies artwork loading/rendering and interaction,
+not new live emulator gameplay or native Tauri visual acceptance. ROM-independent
+browser checks use original synthetic SVG artwork via mocked asset responses;
+server tests use original synthetic PNG pixels. No game artwork enters fixtures
+or visual baselines. The fallback-board visual baseline remains ROM-independent.

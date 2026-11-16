@@ -1081,3 +1081,40 @@ test("refreshes the restored board and explains rollback after a failed action",
     /Infantry.*ready/,
   );
 });
+
+test("renders a local sprite pack and retains keyboard inspection", async ({
+  page,
+}) => {
+  const atlas = `atlas-${"a".repeat(64)}.png`;
+  const region = { x: 0, y: 0, width: 16, height: 32 };
+  await page.route("**/client-sprites/manifest.json", (route) =>
+    route.fulfill({
+      json: {
+        kind: "aw2-client-sprites",
+        version: 1,
+        atlas,
+        width: 16,
+        height: 32,
+        terrain: { "1:0": region, "6:1": region, "6:2": region },
+        units: {
+          "1:1": { ...region, height: 16 },
+          "1:2": { ...region, height: 16 },
+        },
+      },
+    }),
+  );
+  await page.route(`**/client-sprites/${atlas}`, (route) =>
+    route.fulfill({
+      contentType: "image/svg+xml",
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="32"><rect width="16" height="32" fill="#508060"/></svg>',
+    }),
+  );
+  await connect(page);
+  await expect(page.locator(".sprite-terrain")).toHaveCount(4);
+  await expect(page.locator(".sprite-unit")).toHaveCount(2);
+  await expect(page.locator(".sprite-setup")).toHaveCount(0);
+  await page.locator("#board .tile").first().click();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("#inspector")).toContainText("Tile (1, 0)");
+  await expect(page.locator('#board [data-x="1"][data-y="0"]')).toBeFocused();
+});

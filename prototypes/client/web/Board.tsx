@@ -1,4 +1,5 @@
 import { Fragment, useRef, type ReactNode } from "react";
+import { Sprite, type SpritePack } from "./sprites";
 import { terrainLabel, unitLabel } from "./presentation";
 import catalogData from "./catalog.json";
 import type { BattleState, StateResponse, UnitState } from "./state";
@@ -110,6 +111,7 @@ export function Board({
   attackable = new Set<string>(),
   threatened = new Set<string>(),
   dropTargets = new Set<string>(),
+  spritePack = null,
 }: {
   battle: BattleState | null;
   selected: Position | null;
@@ -125,6 +127,7 @@ export function Board({
   attackable?: Set<string>;
   threatened?: Set<string>;
   dropTargets?: Set<string>;
+  spritePack?: SpritePack | null;
 }) {
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const occupancy = new Map(
@@ -144,6 +147,11 @@ export function Board({
           .sort((a, b) => a.y - b.y || a.x - b.x)
           .map((tile) => {
             const unit = occupancy.get(`${tile.x},${tile.y}`);
+            const terrainRegion =
+              spritePack?.terrain[`${tile.terrain_class}:${tile.owner_slot}`];
+            const unitRegion = unit
+              ? spritePack?.units[`${unit.unit_type}:${unit.army_slot}`]
+              : null;
             const match = selected?.x === tile.x && selected.y === tile.y;
             const step = route.findIndex(
               (p) => p.x === tile.x && p.y === tile.y,
@@ -167,7 +175,7 @@ export function Board({
                 type="button"
                 data-x={tile.x}
                 data-y={tile.y}
-                className={`tile terrain-${tile.terrain_class} owner-${unit?.army_slot ?? tile.owner_slot}${match ? " selected" : ""}${isReachable ? " reachable" : ""}${isTransit ? " allied-transit" : ""}${isAttackable ? " attackable" : ""}${isThreatened ? " threatened" : ""}${isDropTarget ? " unload-drop-target" : ""}`}
+                className={`tile${terrainRegion ? " sprite-tile" : ""}${unit?.used_this_turn ? " used-unit" : ""} terrain-${tile.terrain_class} owner-${unit?.army_slot ?? tile.owner_slot}${match ? " selected" : ""}${isReachable ? " reachable" : ""}${isTransit ? " allied-transit" : ""}${isAttackable ? " attackable" : ""}${isThreatened ? " threatened" : ""}${isDropTarget ? " unload-drop-target" : ""}`}
                 data-route-step={step >= 0 ? step : undefined}
                 data-destination={destination || undefined}
                 data-target={isTarget || undefined}
@@ -217,7 +225,18 @@ export function Board({
                   </span>
                 )}
                 <span className="owner-tag">P{tile.owner_slot || "–"}</span>
-                <span className="terrain-label" aria-hidden="true">
+                {spritePack && terrainRegion && (
+                  <Sprite
+                    pack={spritePack}
+                    region={terrainRegion}
+                    className="sprite-terrain"
+                  />
+                )}
+                <span
+                  className="terrain-label"
+                  aria-hidden="true"
+                  hidden={!!terrainRegion}
+                >
                   {terrainLabel(
                     tile.terrain_class,
                     terrainName(tile.terrain_class),
@@ -225,11 +244,19 @@ export function Board({
                 </span>
                 {unit && (
                   <>
-                    <span className="unit" aria-hidden="true">
-                      {unitLabel(unit.unit_type, unitName(unit))}
-                    </span>
+                    {spritePack && unitRegion ? (
+                      <Sprite
+                        pack={spritePack}
+                        region={unitRegion}
+                        className="sprite-unit"
+                      />
+                    ) : (
+                      <span className="unit" aria-hidden="true">
+                        {unitLabel(unit.unit_type, unitName(unit))}
+                      </span>
+                    )}
                     <span className="unit-health" aria-hidden="true">
-                      P{unit.army_slot}·{unit.internal_health}
+                      P{unit.army_slot}·{Math.ceil(unit.internal_health / 10)}
                       {unit.used_this_turn ? "✓" : ""}
                     </span>
                   </>

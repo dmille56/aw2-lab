@@ -9,6 +9,7 @@ import { Board, terrainName, unitName, type Position } from "./Board";
 import { fitTileSize, terrainLabel, unitLabel } from "./presentation";
 import type { BattleState } from "./state";
 import type { UnitState } from "./state";
+import { useSpritePack } from "./sprites";
 import { movementReach } from "./movement";
 import {
   enemyThreatCoverage,
@@ -45,6 +46,7 @@ export function MapPanel({
   plannedRoute?: Position[];
   dropTargets?: Set<string>;
 }) {
+  const spritePack = useSpritePack(!!battle);
   const [size, setSize] = useState(58);
   const [fit, setFit] = useState(true);
   const [coordinates, setCoordinates] = useState(false);
@@ -184,8 +186,8 @@ export function MapPanel({
         {fit
           ? `Fits automatically on resize; tiles stay at least ${coordinates ? 44 : 36} px for legibility. Scroll if needed.`
           : "Manual tile size; enable Fit to map to resize automatically."}{" "}
-        Property owners appear at the top; unit owners and internal health
-        appear below. Your units have an underlined label.
+        Property owners appear at the top; unit owners and HP out of 10 appear
+        below. Your units have underlined health badges.
       </p>
       {(!!route?.length || target) && (
         <p className="hint">
@@ -218,9 +220,20 @@ export function MapPanel({
       <p id="empty" hidden={!!battle}>
         {empty}
       </p>
+      {!spritePack && battle && (
+        <details className="sprite-setup">
+          <summary>Map artwork: symbols</summary>
+          <p>
+            Extract a local sprite pack and start the prototype server with its
+            sprite-pack directory to use game artwork. Symbols remain available
+            for unmapped tiles and units.
+          </p>
+        </details>
+      )}
       <div id="map-scroll" ref={scroll}>
         <Board
           battle={battle}
+          spritePack={spritePack}
           selected={selected}
           select={select}
           activate={activate}
@@ -239,9 +252,10 @@ export function MapPanel({
       <details>
         <summary>Legend</summary>
         <p>
-          Unit health is internal health out of 100. ✓ marks used units. Full
-          names and coordinates remain available to assistive technology and in
-          the inspector. Terrain colors are illustrative.
+          Unit badges show HP out of 10, rounded up from internal health. Exact
+          health remains in the inspector. ✓ marks used units. Full names and
+          coordinates remain available to assistive technology and in the
+          inspector. Terrain colors are illustrative.
         </p>
         <p>
           Blue dotted tiles are reachable movement destinations; striped tiles

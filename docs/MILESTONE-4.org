@@ -276,12 +276,16 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     and 108 terrain regions, full-atlas visual inspection, and three passing
     pack checks with live-ROM opt-in. Assets remain external.
 
-*** TODO Render sprites in the existing board
+*** DONE Render sprites in the existing board
     Depends on the sprite pack. Serve only generated images and the manifest
     from an external cache, never the ROM. Load the pack in browser and Tauri;
     preserve symbolic fallback with a setup message, accessible tile names,
     and keyboard navigation. Show game-style HP, used status, selection, and
     ownership. Verify existing gameplay with both sprites and fallback.
+    Evidence (2026-11-15): [[file:SPRITE-EXTRACTION.md::*Prototype delivery and rendering][delivery and rendering guide]];
+    validated manifest/PNG routes, symbolic fallback, shared browser/Tauri loading,
+    authentic-atlas browser preview with synthetic state, and synthetic asset
+    browser checks. Native Tauri visual and live emulator play remain unverified.
 
 *** TODO Introduce the compact gameplay layout
     Depends on sprite rendering. Give the board most of the play area; add a

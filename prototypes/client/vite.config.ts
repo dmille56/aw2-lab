@@ -7,6 +7,7 @@ export default defineConfig({
   build: { outDir: "../dist", emptyOutDir: true, target: "es2022" },
   server: {
     proxy: {
+      "/client-sprites": "http://127.0.0.1:43127",
       "/health": "http://127.0.0.1:43127",
       "/v1": "http://127.0.0.1:43127",
     },

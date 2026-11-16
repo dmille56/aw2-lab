@@ -312,3 +312,13 @@ validation is offline. Its `$id` must match the Tauri version in `Cargo.lock`;
 refresh it from `https://schema.tauri.app/config/2` when updating Tauri and review
 the schema change. Generated catalog and vendored schema files are verified
 separately from source formatting/linting.
+
+### Local game artwork
+
+The board supports a local static sprite pack extracted from the supported ROM.
+See [the extraction guide](../../docs/SPRITE-EXTRACTION.md) for commands and verified
+coverage. Pass `--sprite-pack DIRECTORY` to `serve.py`, or set
+`AW2_CLIENT_SPRITES`, pointing to the external directory containing `manifest.json`
+and its atlas. Generated artwork belongs outside the repository and Nix store.
+Without a pack, the client retains its symbolic board. Visible HP badges show
+health out of 10; the inspector retains exact internal health.

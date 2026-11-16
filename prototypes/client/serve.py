@@ -10,10 +10,13 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 
 from aw2_lab.api.app import create_app
+from aw2_lab.api.client_sprites import configure_sprite_assets
 from aw2_lab.emulator import EmulatorMode, EmulatorSettings
 
 
-def configure_client(app: FastAPI, *, assets: Path | None = None) -> None:
+def configure_client(
+    app: FastAPI, *, assets: Path | None = None, sprite_pack: Path | None = None
+) -> None:
     """Serve shared browser/native assets and permit explicit native origins."""
     app.add_middleware(
         CORSMiddleware,
@@ -28,6 +31,8 @@ def configure_client(app: FastAPI, *, assets: Path | None = None) -> None:
             "Client assets are missing; run nix build .#client-web "
             "--out-link prototypes/client/dist or set AW2_CLIENT_DIST to a production build"
         )
+    pack_path = sprite_pack or os.environ.get("AW2_CLIENT_SPRITES")
+    configure_sprite_assets(app, Path(pack_path).expanduser() if pack_path else None)
     app.mount("/client", StaticFiles(directory=directory, html=True))
 
 
@@ -45,6 +50,7 @@ def main() -> None:
         metavar="PATH",
         help="isolated starting save profile (.sps or .sav; default: AW2_SAVE_PROFILE_PATH)",
     )
+    parser.add_argument("--sprite-pack", type=Path, help="external extracted sprite-pack directory")
     parser.add_argument("--operator-secret-file", type=Path)
     parser.add_argument("--storage-dir", type=Path)
     parser.add_argument("--emulator-mode", choices=list(EmulatorMode), default="headless")
@@ -74,7 +80,7 @@ def main() -> None:
         ),
         **options,
     )
-    configure_client(app)
+    configure_client(app, sprite_pack=args.sprite_pack)
     uvicorn.run(app, host="127.0.0.1", port=43127)
 
 
