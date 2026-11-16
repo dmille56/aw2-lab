@@ -53,42 +53,52 @@ export function UnitInspector({
     (id) => id.reference === unit.reference,
   );
   const entries: [string, ReactNode][] = [
-    ["Health (internal)", `${unit.internal_health}/100`],
+    ["HP", `${Math.ceil(unit.internal_health / 10)}/10`],
     ["Turn status", unit.used_this_turn ? "Used" : "Ready"],
     ["Fuel", `${unit.fuel}${profile ? `/${profile.fuel_capacity}` : ""}`],
     ["Ammo", `${unit.ammo}${profile ? `/${profile.ammo_capacity}` : ""}`],
-    ["Capture points (observed)", unit.capture_points],
-    ["Embarked", unit.embarked ? "Yes" : "No"],
-    ["Unit identity", identity?.identity_id ?? "Unavailable"],
-    ["Cargo references", unit.cargo_references.join(", ") || "None"],
   ];
+  if (unit.cargo_references.length)
+    entries.push(["Cargo", unit.cargo_references.length]);
+  if (unit.capture_points > 0)
+    entries.push(["Capture points", unit.capture_points]);
   if (unit.unit_type === 24)
-    entries.splice(2, 0, [
-      "Submarine mode",
-      unit.submerged ? "Submerged" : "Surfaced",
-    ]);
+    entries.push(["Submarine mode", unit.submerged ? "Submerged" : "Surfaced"]);
   return (
     <>
       <h3>
         {unitName(unit)} · {owner(unit.army_slot)}
       </h3>
       <Details entries={entries} />
-      {profile && (
-        <>
-          <h3>Baseline rule information</h3>
-          <Details
-            entries={[
-              ["Movement", `${profile.movement} · ${profile.movement_type}`],
-              [
-                "Weapon range",
-                `${profile.minimum_range}–${profile.maximum_range}`,
-              ],
-              ["Cost", profile.cost],
-            ]}
-          />
-          <p className="hint">Current CO effects may change baseline rules.</p>
-        </>
-      )}
+      <details className="unit-details">
+        <summary>Exact health, identity, and baseline rules</summary>
+        <Details
+          entries={[
+            ["Health (internal)", `${unit.internal_health}/100`],
+            ["Unit identity", identity?.identity_id ?? "Unavailable"],
+            ["Embarked", unit.embarked ? "Yes" : "No"],
+            ["Cargo references", unit.cargo_references.join(", ") || "None"],
+          ]}
+        />
+        {profile && (
+          <>
+            <h3>Baseline rule information</h3>
+            <Details
+              entries={[
+                ["Movement", `${profile.movement} · ${profile.movement_type}`],
+                [
+                  "Weapon range",
+                  `${profile.minimum_range}–${profile.maximum_range}`,
+                ],
+                ["Cost", profile.cost],
+              ]}
+            />
+            <p className="hint">
+              Current CO effects may change baseline rules.
+            </p>
+          </>
+        )}
+      </details>
     </>
   );
 }

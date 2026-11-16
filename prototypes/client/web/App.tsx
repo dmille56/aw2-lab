@@ -104,157 +104,11 @@ export function App() {
           <span className="eyebrow">AW2 LAB</span>
           <h1>Match workspace</h1>
         </div>
-        <p id="connection" role="status">
-          {view.status}
-        </p>
-      </header>
-      <main>
-        <section className="card setup" aria-label="Open match">
-          <details className="connection-settings" open={!view.connected}>
-            <summary>Connect to a match</summary>
-            <Health />
-            <form
-              id="connect"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const form = event.currentTarget,
-                  data = new FormData(form);
-                const id = data.get("match-id"),
-                  token = data.get("token");
-                const input = form.elements.namedItem("token");
-                if (input instanceof HTMLInputElement) input.value = "";
-                setSelected(null);
-                setCargo(null);
-                if (typeof id === "string" && typeof token === "string")
-                  void session.connect(id, token);
-              }}
-            >
-              <label>
-                Match ID
-                <input
-                  type="text"
-                  id="match-id"
-                  name="match-id"
-                  required
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-              </label>
-              <label>
-                Player token
-                <input
-                  ref={tokenInput}
-                  id="token"
-                  name="token"
-                  type="password"
-                  required
-                  autoComplete="off"
-                />
-              </label>
-              <button type="submit">Connect</button>
-            </form>
-          </details>
+        <div className="session-controls">
+          <p id="connection" role="status">
+            {view.status}
+          </p>
           <div className="toolbar">
-            {Object.keys(THEMES).length > 1 && (
-              <label className="appearance-setting" htmlFor="theme">
-                Theme
-                <select
-                  id="theme"
-                  value={themePreference.theme}
-                  onChange={(event) => {
-                    const theme = event.currentTarget.value as ThemeId;
-                    setThemePreference((preference) => ({
-                      ...preference,
-                      theme,
-                    }));
-                  }}
-                >
-                  {Object.entries(THEMES).map(([id, definition]) => (
-                    <option key={id} value={id}>
-                      {definition.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <label className="appearance-setting" htmlFor="appearance">
-              Appearance
-              <select
-                id="appearance"
-                value={themePreference.appearance}
-                onChange={(event) => {
-                  const appearance = event.currentTarget.value as Appearance;
-                  setThemePreference((preference) => ({
-                    ...preference,
-                    appearance,
-                  }));
-                }}
-              >
-                <option value="system">Use system default</option>
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-              </select>
-            </label>
-            <fieldset className="ui-scale-setting">
-              <legend>Interface scale (50–200%)</legend>
-              <div>
-                <button
-                  type="button"
-                  id="ui-scale-decrease"
-                  aria-label="Decrease interface scale"
-                  disabled={uiScale <= UI_SCALE_MIN}
-                  onClick={() =>
-                    setUiScale((scale) =>
-                      Math.max(UI_SCALE_MIN, scale - UI_SCALE_STEP),
-                    )
-                  }
-                >
-                  −
-                </button>
-                <output id="ui-scale-value" aria-live="polite">
-                  {uiScale}%
-                </output>
-                <button
-                  type="button"
-                  id="ui-scale-increase"
-                  aria-label="Increase interface scale"
-                  disabled={uiScale >= UI_SCALE_MAX}
-                  onClick={() =>
-                    setUiScale((scale) =>
-                      Math.min(UI_SCALE_MAX, scale + UI_SCALE_STEP),
-                    )
-                  }
-                >
-                  +
-                </button>
-                <button
-                  type="button"
-                  id="ui-scale-reset"
-                  disabled={uiScale === UI_SCALE_DEFAULT}
-                  onClick={() => setUiScale(UI_SCALE_DEFAULT)}
-                >
-                  Reset
-                </button>
-              </div>
-            </fieldset>
-            <label className="file-label">
-              Open snapshot
-              <input
-                id="snapshot"
-                type="file"
-                accept="application/json,.json"
-                onChange={(event) => {
-                  const file = event.currentTarget.files?.[0];
-                  event.currentTarget.value = "";
-                  if (file) {
-                    clearToken();
-                    setSelected(null);
-                    setCargo(null);
-                    void session.openSnapshot(file);
-                  }
-                }}
-              />
-            </label>
             <button
               type="button"
               id="export"
@@ -283,19 +137,172 @@ export function App() {
               Disconnect
             </button>
           </div>
-          <p className="hint">
-            Inspect the full structured state. Tokens stay in page memory.
-          </p>
-        </section>
+        </div>
+      </header>
+      <main>
+        <details className="card client-settings" open={!snapshot}>
+          <summary>Connection, display, and snapshots</summary>
+          <section className="setup" aria-label="Open match">
+            <details className="connection-settings" open={!view.connected}>
+              <summary>Connect to a match</summary>
+              <Health />
+              <form
+                id="connect"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const form = event.currentTarget,
+                    data = new FormData(form);
+                  const id = data.get("match-id"),
+                    token = data.get("token");
+                  const input = form.elements.namedItem("token");
+                  if (input instanceof HTMLInputElement) input.value = "";
+                  setSelected(null);
+                  setCargo(null);
+                  if (typeof id === "string" && typeof token === "string")
+                    void session.connect(id, token);
+                }}
+              >
+                <label>
+                  Match ID
+                  <input
+                    type="text"
+                    id="match-id"
+                    name="match-id"
+                    required
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </label>
+                <label>
+                  Player token
+                  <input
+                    ref={tokenInput}
+                    id="token"
+                    name="token"
+                    type="password"
+                    required
+                    autoComplete="off"
+                  />
+                </label>
+                <button type="submit">Connect</button>
+              </form>
+            </details>
+            <div className="toolbar">
+              {Object.keys(THEMES).length > 1 && (
+                <label className="appearance-setting" htmlFor="theme">
+                  Theme
+                  <select
+                    id="theme"
+                    value={themePreference.theme}
+                    onChange={(event) => {
+                      const theme = event.currentTarget.value as ThemeId;
+                      setThemePreference((preference) => ({
+                        ...preference,
+                        theme,
+                      }));
+                    }}
+                  >
+                    {Object.entries(THEMES).map(([id, definition]) => (
+                      <option key={id} value={id}>
+                        {definition.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <label className="appearance-setting" htmlFor="appearance">
+                Appearance
+                <select
+                  id="appearance"
+                  value={themePreference.appearance}
+                  onChange={(event) => {
+                    const appearance = event.currentTarget.value as Appearance;
+                    setThemePreference((preference) => ({
+                      ...preference,
+                      appearance,
+                    }));
+                  }}
+                >
+                  <option value="system">Use system default</option>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </label>
+              <fieldset className="ui-scale-setting">
+                <legend>Interface scale (50–200%)</legend>
+                <div>
+                  <button
+                    type="button"
+                    id="ui-scale-decrease"
+                    aria-label="Decrease interface scale"
+                    disabled={uiScale <= UI_SCALE_MIN}
+                    onClick={() =>
+                      setUiScale((scale) =>
+                        Math.max(UI_SCALE_MIN, scale - UI_SCALE_STEP),
+                      )
+                    }
+                  >
+                    −
+                  </button>
+                  <output id="ui-scale-value" aria-live="polite">
+                    {uiScale}%
+                  </output>
+                  <button
+                    type="button"
+                    id="ui-scale-increase"
+                    aria-label="Increase interface scale"
+                    disabled={uiScale >= UI_SCALE_MAX}
+                    onClick={() =>
+                      setUiScale((scale) =>
+                        Math.min(UI_SCALE_MAX, scale + UI_SCALE_STEP),
+                      )
+                    }
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    id="ui-scale-reset"
+                    disabled={uiScale === UI_SCALE_DEFAULT}
+                    onClick={() => setUiScale(UI_SCALE_DEFAULT)}
+                  >
+                    Reset
+                  </button>
+                </div>
+              </fieldset>
+              <label className="file-label">
+                Open snapshot
+                <input
+                  id="snapshot"
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0];
+                    event.currentTarget.value = "";
+                    if (file) {
+                      clearToken();
+                      setSelected(null);
+                      setCargo(null);
+                      void session.openSnapshot(file);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+            <p className="hint">
+              Inspect the full structured state. Tokens stay in page memory.
+            </p>
+          </section>
+        </details>
         <p id="error" role="alert" hidden={!view.error}>
           {view.error}
         </p>
         <section id="match" className="card" hidden={!snapshot}>
-          <h2 id="match-title">Match overview</h2>
-          <p id="boundary">
-            {snapshot &&
-              `${view.connected ? "Live match" : "Snapshot · read only"} · Revision ${snapshot.summary.revision} · Frame ${obs?.game_state.frame ?? "unavailable"} · ${snapshot.summary.match_id}`}
-          </p>
+          <h2 id="match-title">
+            {snapshot
+              ? snapshot.summary.configuration.map_id.replaceAll("_", " ")
+              : "Match overview"}
+          </h2>
           {battle && (
             <p className="turn-summary" aria-label="Current turn">
               Day {battle.day} · {owner(battle.active_player_slot)}’s turn
@@ -308,11 +315,39 @@ export function App() {
               )?.funds ?? "Unavailable"}
             </p>
           )}
+          {battle && (
+            <div className="player-hud" aria-label="Player status">
+              {battle.players.map((player) => (
+                <div
+                  key={player.slot}
+                  className={`hud-player player-${player.slot}${player.slot === battle.active_player_slot ? " active-player" : ""}${player.slot === humanSlot(view.identity) ? " your-player" : ""}`}
+                >
+                  <strong>
+                    {owner(player.slot)}
+                    {player.slot === humanSlot(view.identity) ? " · You" : ""}
+                  </strong>
+                  <span>
+                    {coName(player.co_id)} · {player.funds.toLocaleString()}{" "}
+                    funds
+                  </span>
+                  <span>
+                    {activePowerLabel(player.active_power)} ·{" "}
+                    {powerMeterLabel(player.power_meter)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
           <p id="perspective">
             {snapshot && perspective(snapshot, view.identity, view.connected)}
           </p>
           <details className="match-details">
             <summary>Match details and player statistics</summary>
+            <p id="boundary">
+              {snapshot &&
+                `${view.connected ? "Live match" : "Snapshot · read only"} · Revision ${snapshot.summary.revision} · Frame ${obs?.game_state.frame ?? "unavailable"} · ${snapshot.summary.match_id}`}
+            </p>
+
             <Details
               entries={[
                 ["Lifecycle", snapshot?.summary.lifecycle ?? "Unavailable"],

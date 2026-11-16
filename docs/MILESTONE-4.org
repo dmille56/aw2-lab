@@ -287,11 +287,14 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     authentic-atlas browser preview with synthetic state, and synthetic asset
     browser checks. Native Tauri visual and live emulator play remain unverified.
 
-*** TODO Introduce the compact gameplay layout
+*** DONE Introduce the compact gameplay layout
     Depends on sprite rendering. Give the board most of the play area; add a
     compact day/player/funds/CO HUD and concise unit/terrain inspection. Put
     technical details in disclosures and retain existing command controls.
     Verify desktop/narrow layouts, themes, and interface scaling.
+    Evidence (2026-11-15): [[file:HUMAN-CLIENT-DESIGN.md::*Compact gameplay layout (2026-11-15)][compact layout notes]];
+    map/turn/player HUD, collapsible setup, concise inspector, and updated
+    component/browser coverage. Existing commands remain available.
 
 *** TODO Add destination-based route planning
     Depends on the compact layout. Reconstruct deterministic minimum-cost routes

@@ -334,3 +334,18 @@ accessibility, and recovery. Require all pre-commit hooks for each completed ite
 Human playtesting must cover selecting, moving, attacking, purchasing, unloading,
 cancelling, ending turns, and recovering from errors; record and address friction
 before accepting the redesign or resuming broader platform acceptance.
+
+### Compact gameplay layout (2026-11-15)
+
+After loading a match or snapshot, connection/display/import controls collapse
+into a labeled settings disclosure. Export, refresh, and disconnect remain in
+the header. The match HUD names the map and shows day, active player, funds,
+CO identity, and charge status; native frame numbers, revisions, and identifiers
+remain in match details. Player cards scroll horizontally on narrow screens so
+four players do not push the board down four rows.
+
+The inspector prioritizes HP, readiness, fuel, ammo, and present cargo/capture
+progress. Exact internal health, identities, and baseline rules remain in an
+expandable section. The existing command form is retained until contextual
+replacement coverage is complete. These changes have synthetic component/browser
+coverage; human usability acceptance and native visual acceptance remain pending.

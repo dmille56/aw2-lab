@@ -299,8 +299,13 @@ describe("React viewer", () => {
       }).length,
     ).toBeGreaterThan(0);
   });
-  it("shows observed unit data separately from baseline rules", () => {
+  it("shows observed unit data separately from baseline rules", async () => {
     render(<UnitInspector unit={battle.units[0]} snapshot={snapshot} />);
+    expect(screen.getByText("HP")).toBeVisible();
+    expect(screen.getByText("Health (internal)")).not.toBeVisible();
+    await userEvent.click(
+      screen.getByText("Exact health, identity, and baseline rules"),
+    );
     expect(screen.getByText("Health (internal)")).toBeVisible();
     expect(screen.getByText("Baseline rule information")).toBeVisible();
     expect(

@@ -74,6 +74,9 @@ test("keeps turn context visible while connection and match details can be expan
 }) => {
   await connect(page);
   await expect(page.getByLabel("Current turn")).toContainText("Your turn");
+  await expect(page.getByLabel("Player status")).toContainText("Andy");
+  await expect(page.getByLabel("Player status")).toContainText("funds");
+  await expect(page.locator("#theme")).toBeHidden();
   await expect(page.locator("#match-id")).toBeHidden();
   await expect(page.locator("#players")).toBeHidden();
   await expect(page.locator("#refresh")).toBeVisible();
@@ -82,6 +85,9 @@ test("keeps turn context visible while connection and match details can be expan
     .getByText("Match details and player statistics", { exact: true })
     .click();
   await expect(page.locator("#players")).toBeVisible();
+  await page
+    .getByText("Connection, display, and snapshots", { exact: true })
+    .click();
   await page.getByText("Connect to a match", { exact: true }).click();
   await expect(page.locator("#match-id")).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
@@ -792,6 +798,9 @@ test("keeps inspection available for opponents and used units and announces keyb
   await expect(page.locator("#submit-action")).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.locator("#draft-heading")).toBeFocused();
+  await page
+    .getByText("Connection, display, and snapshots", { exact: true })
+    .click();
   for (const theme of ["classic", "gruvbox"]) {
     await page.locator("#theme").selectOption(theme);
     for (const appearance of ["light", "dark"]) {
@@ -858,6 +867,9 @@ test("switches themes, follows system appearance, and persists explicit choices"
     .withTags(["wcag2a", "wcag2aa"])
     .analyze();
   expect(results.violations).toEqual([]);
+  await page
+    .getByText("Connection, display, and snapshots", { exact: true })
+    .click();
   await page.locator("#appearance").selectOption("dark");
   await expect(page.locator("body")).toHaveCSS(
     "background-color",

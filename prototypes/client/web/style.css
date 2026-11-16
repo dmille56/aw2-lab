@@ -825,3 +825,88 @@ summary {
   text-decoration: underline 2px var(--accent);
   text-underline-offset: 2px;
 }
+
+.session-controls {
+  min-width: 0;
+  text-align: right;
+}
+
+.session-controls #connection {
+  max-width: none;
+  margin-block: 0;
+}
+
+.session-controls .toolbar {
+  justify-content: end;
+}
+
+.client-settings > summary {
+  min-height: 44px;
+  padding-block: 10px;
+  font-weight: 650;
+}
+
+#match-title {
+  text-transform: capitalize;
+}
+
+.player-hud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-block: 12px;
+}
+
+.hud-player {
+  display: grid;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: var(--player-card);
+  flex: 1;
+  min-width: min(200px, 100%);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.player-3 {
+  border-left: 4px solid #69b980;
+}
+
+.player-4 {
+  border-left: 4px solid #d1bb54;
+}
+
+.unit-details {
+  margin-top: 12px;
+}
+
+.unit-details > summary {
+  min-height: 44px;
+  padding-block: 10px;
+}
+
+@media (width <= 600px) {
+  .player-hud {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 3px;
+  }
+
+  .hud-player {
+    min-width: 180px;
+  }
+
+  header {
+    flex-wrap: wrap;
+  }
+
+  .session-controls {
+    width: 100%;
+    text-align: left;
+  }
+
+  .session-controls .toolbar {
+    justify-content: start;
+  }
+}
