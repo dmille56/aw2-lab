@@ -6,6 +6,7 @@ import { MatchSession } from "./session";
 import { PlayerHud } from "./PlayerHud";
 import { MatchControls, PurchaseMenu } from "./MatchControls";
 import { ContextActions, restoreBoardFocus } from "./ContextActions";
+import { GameNotifications } from "./GameNotifications";
 import { ActionProgress } from "./ActionProgress";
 import { CommandFeedback } from "./CommandFeedback";
 import { CommandPanel } from "./CommandPanel";
@@ -109,6 +110,7 @@ export function App() {
       <a className="skip-link" href="#draft-heading">
         Skip to gameplay actions
       </a>
+      <GameNotifications view={view} onRefresh={session.refreshCurrent} />
       <header>
         <div>
           <span className="eyebrow">AW2 LAB</span>

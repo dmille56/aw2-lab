@@ -406,7 +406,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     uses a static indicator; delayed-receipt browser regression verifies it.
     Awaiting human visual review.
 
-*** TODO Show prominent notifications when gameplay actions cannot execute
+*** IN-PROGRESS Show prominent notifications when gameplay actions cannot execute
     Human playtest feedback (2026-11-16): rejection and its cause are hard to see.
     Add accessible toast-style notifications near the play area for submission
     rejection and terminal failure, with the affected action, a plain-language
@@ -415,6 +415,10 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     action committed. Keep details/recovery controls available, allow dismissal,
     and retain important errors long enough to read. Verify immediate API errors
     and accepted commands that later fail without repeating the action.
+    Implemented: persistent dismissible accessible toasts for immediate rejection,
+    rollback, unknown outcome, and recovery required, naming action/reason/next
+    steps. Rejections retain request context; repeated refreshes do not duplicate
+    notices, and completed safe retries clear the stale unknown warning. Human review pending.
 
 *** TODO Make the selected unit unmistakable
     Human playtest feedback (2026-11-16): it is difficult to identify the selected

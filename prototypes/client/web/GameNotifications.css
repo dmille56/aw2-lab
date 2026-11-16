@@ -1,0 +1,54 @@
+.game-notifications {
+  position: fixed;
+  z-index: 200;
+  bottom: 12px;
+  max-height: 45%;
+  overflow: auto;
+  right: 12px;
+  width: min(380px, calc(100% - 24px));
+  display: grid;
+  gap: 10px;
+}
+
+.game-toast {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  background: var(--card);
+  color: var(--text);
+  border: 3px solid #e47e58;
+  border-left-width: 8px;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 20px #0007;
+  overflow-wrap: anywhere;
+}
+
+.game-toast > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.game-toast p {
+  margin-block: 6px;
+}
+
+.game-toast a {
+  color: var(--text);
+}
+
+.game-toast button {
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+  padding: 4px;
+  font-size: 22px;
+}
+
+.toast-warning {
+  border-color: #e9ba43;
+}
+
+.toast-turn {
+  border-color: var(--accent);
+}

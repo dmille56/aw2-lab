@@ -628,3 +628,13 @@ sending, queuing, and execution. Unknown outcomes use a distinct static marker
 and recovery guidance. A details link reaches existing safe retry/status controls.
 Reduced-motion preferences disable rotation; inspection remains available and
 the shared session retains duplicate-input protection. Human review is pending.
+
+### Usability implementation: action notifications
+
+Persistent dismissible toasts now name rejected/rolled-back actions and explain
+the cause and next step, with links to action details and a board-refresh button.
+Unknown outcomes and recovery-required states have distinct guidance. Immediate
+HTTP rejections retain request context, so they appear as failed actions as well
+as a toast. Notices are deduplicated per request/outcome, preserve focus, and
+announce errors accessibly; safe retry completion clears its unknown warning.
+Human review remains pending.

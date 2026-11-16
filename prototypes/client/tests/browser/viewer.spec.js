@@ -59,6 +59,12 @@ test.beforeEach(async ({ page, request }) => {
       message.text().includes("net::ERR_FAILED")
     )
       return;
+    if (
+      messages.expectedActionRejection &&
+      message.location().url.endsWith("/commands") &&
+      message.text().includes("409")
+    )
+      return;
     messages.errors.push(message.text());
   });
   await page.route("**/favicon.ico", (route) => route.fulfill({ status: 204 }));
@@ -1511,4 +1517,29 @@ test("does not offer Join into full-health Infantry but accepts a damaged used p
       .getByRole("dialog", { name: "Unit actions" })
       .getByRole("button", { name: "Join", exact: true }),
   ).toBeEnabled();
+});
+
+test("makes immediate action rejections visible and dismissible without stealing focus", async ({
+  page,
+}) => {
+  await connect(page);
+  diagnostics.get(page).expectedActionRejection = true;
+  await page.route("**/v1/matches/*/commands", (route) =>
+    route.fulfill({
+      status: 409,
+      json: {
+        error: { message: "The match changed. Refresh before trying again." },
+      },
+    }),
+  );
+  await page.getByRole("button", { name: "End turn", exact: true }).click();
+  await page.locator("#submit-action").click();
+  const toast = page.locator(".game-toast");
+  await expect(toast).toContainText("End turn could not be executed");
+  await expect(toast).toContainText("The match changed.");
+  await expect(
+    toast.getByRole("button", { name: "Refresh board" }),
+  ).toBeVisible();
+  await toast.getByRole("button", { name: /Dismiss/ }).click();
+  await expect(toast).toHaveCount(0);
 });

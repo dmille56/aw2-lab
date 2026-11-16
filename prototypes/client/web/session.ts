@@ -350,7 +350,10 @@ export class MatchSession {
         const detail = await this.readError(response);
         if (response.status === 408 || response.status >= 500)
           throw new Error(detail);
-        this.update({ command: null, error: detail });
+        this.update({
+          command: { request, receipt: null, result: null, phase: "rejected" },
+          error: detail,
+        });
         return;
       }
       const value: unknown = await response.json();
