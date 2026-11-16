@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CommandProgress, ViewState } from "./session";
 import type { ActionKind } from "./gameplay";
-const labels: Record<ActionKind, string> = {
+export const actionLabels: Record<ActionKind, string> = {
   move_wait: "Wait",
   attack: "Attack in place",
   move_attack: "Attack",
@@ -59,7 +59,7 @@ export function CommandFeedback({
       ].slice(-8)
     : activity;
   return (
-    <div className="command-feedback">
+    <div id="command-feedback" className="command-feedback">
       {command && (
         <section
           className="card command-activity"
@@ -72,7 +72,7 @@ export function CommandFeedback({
             data-status={command.phase}
           >
             <p className="activity-action">
-              {labels[command.request.action.kind]}
+              {actionLabels[command.request.action.kind]}
             </p>
             <h4>Command status: {command.phase}</h4>
             <p className="activity-message" role="status">
@@ -148,7 +148,7 @@ export function CommandFeedback({
                   .map((item) => (
                     <li key={item.request.request_id}>
                       <span className="activity-action">
-                        {labels[item.request.action.kind]}
+                        {actionLabels[item.request.action.kind]}
                       </span>
                       <strong>Command status: {item.phase}</strong>
                       <p>

@@ -1423,6 +1423,10 @@ test("keeps feedback by the board and blocks repeated input while a receipt is p
     await expect(
       page.getByRole("button", { name: "End turn", exact: true }),
     ).toBeDisabled();
+    await expect(page.locator(".action-progress")).toBeVisible();
+    await expect(page.locator(".action-progress")).toContainText(
+      "Sending Wait",
+    );
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.locator('#board [data-x="1"][data-y="1"]').click();
     await expect(page.locator("#inspector")).toContainText("Tile (1, 1)");
@@ -1435,6 +1439,7 @@ test("keeps feedback by the board and blocks repeated input while a receipt is p
   await expect(page.locator(".board-column .command-result")).toContainText(
     "Command status: completed",
   );
+  await expect(page.locator(".action-progress")).toBeHidden();
   await page.unroute("**/v1/matches/*/commands");
 });
 

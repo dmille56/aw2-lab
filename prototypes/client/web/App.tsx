@@ -6,6 +6,7 @@ import { MatchSession } from "./session";
 import { PlayerHud } from "./PlayerHud";
 import { MatchControls, PurchaseMenu } from "./MatchControls";
 import { ContextActions, restoreBoardFocus } from "./ContextActions";
+import { ActionProgress } from "./ActionProgress";
 import { CommandFeedback } from "./CommandFeedback";
 import { CommandPanel } from "./CommandPanel";
 import { useGameplay } from "./gameplay";
@@ -425,6 +426,7 @@ export function App() {
         </section>
         <div className="workspace" id="workspace">
           <div className="board-column">
+            <ActionProgress view={view} />
             <MapPanel
               battle={battle}
               selected={selected}

@@ -620,3 +620,11 @@ Regression checks cover full/full, hidden damage at 10 HP, full/damaged, equal
 damaged HP, used destinations, and cargo rejection. ROM routine evidence comes
 from the supported local ROM and its matching disassembly; no assets or ROM
 bytes are committed. Live edge-case and user rechecks remain pending.
+
+### Usability implementation: action progress
+
+A sticky board-side status banner names the action and shows a spinner during
+sending, queuing, and execution. Unknown outcomes use a distinct static marker
+and recovery guidance. A details link reaches existing safe retry/status controls.
+Reduced-motion preferences disable rotation; inspection remains available and
+the shared session retains duplicate-input protection. Human review is pending.

@@ -393,7 +393,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     cargo, permit full-health movers and used partners. Validate rounded combined
     HP, ammo caps, and destination capture progress. Human recheck pending.
 
-*** TODO Show obvious progress while a gameplay action executes
+*** IN-PROGRESS Show obvious progress while a gameplay action executes
     Human playtest feedback (2026-11-16): waiting for an action is confusing.
     Show a prominent spinner or equivalent progress indicator near the board
     immediately after submission, naming the action and explaining that it is
@@ -401,6 +401,10 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     uncertain status/recovery clear. Announce status accessibly, respect reduced
     motion, retain inspection, and prevent duplicate submissions. Verify delayed
     receipts, queued/running actions, and transition to every terminal result.
+    Implemented: sticky board-side spinner/status with the action name, distinct
+    sending/queued/executing/unknown text, and a recovery link. Reduced motion
+    uses a static indicator; delayed-receipt browser regression verifies it.
+    Awaiting human visual review.
 
 *** TODO Show prominent notifications when gameplay actions cannot execute
     Human playtest feedback (2026-11-16): rejection and its cause are hard to see.
