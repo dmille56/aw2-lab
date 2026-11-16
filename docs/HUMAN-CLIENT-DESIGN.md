@@ -273,3 +273,64 @@ where players hesitate or lose board context across keyboard, mouse, and touch.
 Use those findings to guide the next layout pass and check narrow windows and
 accessibility before beginning platform acceptance. Automated disclosure checks
 use synthetic match state and do not establish live human usability.
+
+
+## Advance Wars client redesign
+
+Kickoff: 2026-11-15. The ordered implementation and acceptance checklist is in
+[Milestone 4](MILESTONE-4.org). Each item is implemented, reviewed, and committed
+separately. The preceding layout pass is the starting point for this redesign.
+
+### Agreed presentation and artwork
+
+Use an AWBW-style play area with a large sprite board, compact day/player/funds/CO
+HUD, concise unit/terrain inspection, and contextual actions. Use actual static
+sprites extracted from the checksum-verified local US revision-0 ROM. Prove the
+extraction on representative terrain/property/ground/air/naval samples before
+building complete atlases. Record verified offsets, palettes, transparency, and
+reproducible decoding rules. Store generated files in an external user cache,
+outside Git and the Nix store; serve only the manifest and images, never the ROM.
+Use representative terrain tiles; defer animation, exact terrain connections,
+weather palettes, and CO portraits. Keep symbolic rendering with a setup message
+when the sprite pack is absent. Retain accessible tile names and keyboard
+navigation. Display HP as ceil(internal health / 10), with exact health available
+in expanded inspection; mark used units and ownership without color alone.
+
+### Agreed interactions
+
+Selecting a ready unit immediately shows movement range. Selecting a destination
+previews a deterministic minimum-cost route and opens appropriate actions. Extend
+the existing search using observed terrain/fuel/CO/occupancy rules; retain manual
+route editing when the path matters or automatic routing cannot be supported.
+Previews send no emulator input. Clicking the selected unit opens in-place actions.
+
+Menus sit beside the chosen destination, constrained to the viewport; narrow
+screens use a bottom action panel. Wait, Capture, Join, Supply, Dive, Rise, and
+Load commit when chosen. Attack and missile launch commit on highlighted target
+selection. Unload selects passengers and board destinations before a final Unload
+control. Clicking an owned empty production facility opens a purchase menu with
+sprites, costs, and affordability. Purchases, powers, end turn, and surrender use
+concise confirmations.
+
+Escape, right-click, and a visible Back control return through targeting,
+destination selection, and unit selection, restoring board focus. Cancelling a
+destination returns to the unit; cancelling again clears selection. Mouse, touch,
+and keyboard paths provide the same operations. Open menus receive focus.
+
+### Command integration and acceptance
+
+Keep existing gameplay HTTP commands, authorization, observation schemas,
+revision checks, request IDs, and recovery behavior. Only extraction, a versioned
+sprite manifest, and prototype asset delivery add interfaces. Build submissions
+from the final draft and committed revision rather than reading stale React state
+after dispatch. Disable duplicate submissions while pending, preserve inspection,
+clear stale drafts on boundary changes, and show compact command feedback near
+the board, including uncertain results and rollback.
+
+Keep the current command form until all supported actions have replacements.
+Use synthetic artwork for ROM-independent tests, and verify extraction and live
+play separately. Check themes, scaling, narrow layouts, keyboard/mouse/touch,
+accessibility, and recovery. Require all pre-commit hooks for each completed item.
+Human playtesting must cover selecting, moving, attacking, purchasing, unloading,
+cancelling, ending turns, and recovering from errors; record and address friction
+before accepting the redesign or resuming broader platform acceptance.

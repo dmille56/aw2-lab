@@ -245,6 +245,90 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    - [X] Enable =Choose attack target= only when the selected unit has an actual attackable enemy target from its current position, or from the planned movement endpoint while planning a move. Respect weapon/target compatibility, attack range, and the rule that indirect units cannot move then attack; update availability whenever the unit, route, or committed state changes.
    - [X] Improve unloading ergonomics by letting the player select the destination tile directly on the board instead of choosing from a list of positions. Highlight valid adjacent unload tiles at the carrier's current or planned destination, support choosing a passenger and its drop tile for multi-cargo carriers, and provide clear cancellation and keyboard/touch interaction. Passenger buttons activate board highlighting; valid tiles are labeled for assistive technology, keyboard arrow navigation and activation use the same board controls, Escape cancels the action, and explicit controls clear passenger/drop selections.
 
+*** DONE Record the Advance Wars client redesign kickoff and checklist
+    Redesign started on 2026-11-15, after the first usability layout pass.
+    Direction: AWBW-style play area, Advance Wars-style contextual actions,
+    and authentic static sprites extracted from the supported local ROM.
+    Implement, review, and commit each item separately; keep the client usable
+    between steps. The overall redesign remains in progress until human
+    playtesting is accepted. Detailed behavior and acceptance are recorded in
+    [[file:HUMAN-CLIENT-DESIGN.md::*Advance Wars client redesign][the redesign design notes]].
+
+*** TODO Prove local sprite extraction
+    Depends on the kickoff checklist. Research graphics locations, palettes,
+    and transparency for the checksum-verified US revision-0 ROM. Extract and
+    visually compare representative terrain, property, ground, air, and naval
+    sprites, including army colors, with the game. Record reproducible steps
+    and verified decoding rules; keep generated artwork outside Git/Nix.
+    Resolve feasibility before expanding coverage.
+
+*** TODO Build the complete static sprite pack
+    Depends on verified extraction. Produce PNG atlases and a versioned manifest
+    covering supported terrain classes, unit types, and army palettes. Reject
+    unsupported ROMs clearly. Verify every mapping; separate ROM-dependent
+    extraction checks from ROM-independent tests. Defer animation, exact terrain
+    connections, weather palettes, and CO portraits.
+
+*** TODO Render sprites in the existing board
+    Depends on the sprite pack. Serve only generated images and the manifest
+    from an external cache, never the ROM. Load the pack in browser and Tauri;
+    preserve symbolic fallback with a setup message, accessible tile names,
+    and keyboard navigation. Show game-style HP, used status, selection, and
+    ownership. Verify existing gameplay with both sprites and fallback.
+
+*** TODO Introduce the compact gameplay layout
+    Depends on sprite rendering. Give the board most of the play area; add a
+    compact day/player/funds/CO HUD and concise unit/terrain inspection. Put
+    technical details in disclosures and retain existing command controls.
+    Verify desktop/narrow layouts, themes, and interface scaling.
+
+*** TODO Add destination-based route planning
+    Depends on the compact layout. Reconstruct deterministic minimum-cost routes
+    with existing observed movement rules. Selecting a ready unit shows reach;
+    selecting a destination previews a route without emulator input. Preserve
+    explicit route editing and manual routing when observed rules are unavailable.
+    Cover equal-cost ties, terrain/fuel/CO effects, blockers, and allied transit.
+
+*** TODO Replace ordinary unit forms with contextual menus
+    Depends on destination routing. Add viewport-constrained destination menus
+    and a bottom panel on narrow screens. Start with Wait, Capture, and Attack;
+    Wait/Capture commit on selection, Attack on highlighted target selection.
+    Clicking the selected unit opens in-place actions. Escape, right-click, and
+    Back return through targeting, destination, and unit selection with focus
+    restoration. Verify keyboard/mouse/touch parity, current-revision submission,
+    and duplicate-input prevention.
+
+*** TODO Move remaining unit actions into contextual menus
+    Depends on ordinary contextual actions. Cover Join, Supply, Dive, Rise,
+    Load, missile launch, and Unload with existing capability checks. Immediate
+    actions commit on selection; missile launch on target selection. Unload
+    commits through a final control after passenger destinations are selected.
+    Verify availability, cancellation, and every supported unit action.
+
+*** TODO Add purchase menus and match controls
+    Depends on contextual unit actions. Empty owned production facilities open
+    sprite purchase menus with costs/affordability. Add compact power, end-turn,
+    and surrender controls with concise confirmations, including purchases.
+    Verify insufficient funds, unavailable powers, cancellation, and focus.
+
+*** TODO Integrate command feedback and remove superseded controls
+    Depends on all action replacements. Show pending/completed/uncertain/failed/
+    rolled-back feedback near the board. Preserve safe retries, revision checks,
+    and stale-draft invalidation. Remove the persistent command form after action
+    parity. Verify recovery, reconnect, rollback, revision changes, and rapid input.
+
+*** TODO Playtest and accept the redesign
+    Depends on integrated feedback. Playtest selection, movement, attack,
+    purchasing, unloading, cancellation, end turn, and error recovery against
+    the emulator. Record friction and address focused follow-up fixes. Require
+    browser/accessibility/responsive and live checks plus human acceptance before
+    closing the redesign and resuming deferred platform acceptance.
+
+    For every implementation item, add focused behavior checks, run relevant
+    browser scenarios, review changed screenshots, and require
+    =pre-commit run --all-files= to pass. Update evidence/limitations, review,
+    and commit the item before starting the next one.
+
 ** DEFERRED Investigate bubblewrap sandboxing for the Pi game host after Milestone 5
    By project decision, revisit only after Milestone 5 is complete. The current
    launcher restricts model tools but does not provide OS-level isolation.
