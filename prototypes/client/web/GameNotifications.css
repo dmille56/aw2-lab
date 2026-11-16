@@ -1,5 +1,6 @@
 .game-notifications {
   position: fixed;
+  pointer-events: none;
   z-index: 200;
   bottom: 12px;
   max-height: 45%;
@@ -11,6 +12,7 @@
 }
 
 .game-toast {
+  pointer-events: auto;
   display: flex;
   align-items: start;
   gap: 10px;
@@ -51,4 +53,9 @@
 
 .toast-turn {
   border-color: var(--accent);
+  pointer-events: none;
+}
+
+.toast-turn button {
+  pointer-events: auto;
 }

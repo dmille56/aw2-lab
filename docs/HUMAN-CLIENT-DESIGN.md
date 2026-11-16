@@ -656,3 +656,32 @@ include cargo status/count, and the legend explains the badge. Cargo references
 from committed observations drive updates, including clearing after unloading.
 Browser regressions cover APC, Transport Copter, Lander, and Cruiser. Human
 visual review remains pending.
+
+### Usability implementation: turn notifications
+
+An accessible Your turn toast names the day/player when a committed state change
+begins the authenticated player's turn. Initial connection establishes a baseline.
+Repeated refreshes and reconnects do not repeat the same turn, and imported
+snapshots/operators receive no personal turn notices. Notices do not steal focus
+and remain available in background tabs until dismissed or the turn ends.
+Human review remains pending.
+
+### Join live verification and playtest refresh
+
+Controlled temporary savestate fixtures verified full/full and displayed-10 HP
+destination rejection before input, full-health movers joining damaged units,
+equal-damage pairs, and already-used partners. A Mech fixture verified health
+capping at 100, ammo at 3, fuel at 70, and a 1,500-fund excess-health refund.
+The fixtures are not naturally played setup sequences; all generated states,
+artwork, and test scripts remain outside Git. These cases were repeated using
+a private bridge port and its matching client.
+
+An earlier test used the default shared bridge port and displaced the live
+playtest emulator state. Restoring CURRENT succeeded; the restored units, health,
+cargo, funds, and turn exactly matched the cached committed position. The
+refreshed playtest uses a private bridge port as well. This is recovery evidence
+for this incident, not general live fault-injection acceptance.
+
+All eight usability changes are implemented, with focused regressions and
+per-item commits. Their task status remains in progress pending user visual
+review. Final redesign acceptance and native visual verification remain open.

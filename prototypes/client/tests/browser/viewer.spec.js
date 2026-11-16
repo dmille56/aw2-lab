@@ -1603,3 +1603,32 @@ for (const type of [7, 20, 23, 22])
     await page.locator("#refresh").click();
     await expect(transport.locator(".cargo-badge")).toHaveCount(0);
   });
+
+test("announces a new own turn without stealing focus or repeating on refresh/reconnect", async ({
+  page,
+  request,
+}) => {
+  const state = structuredClone(fixture),
+    battle = state.observation.game_state.battle.value;
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await connect(page);
+  await expect(page.locator(".toast-turn")).toHaveCount(0);
+  battle.active_player_slot = 2;
+  state.summary.revision = state.observation.revision = 2;
+  await page.locator("#refresh").click();
+  const tile = page.locator('#board [data-x="0"][data-y="0"]');
+  await tile.focus();
+  battle.active_player_slot = 1;
+  battle.day = 2;
+  state.summary.revision = state.observation.revision = 3;
+  await request.post("/__test/advance");
+  await expect(page.locator(".toast-turn")).toContainText("Your turn");
+  await expect(tile).toBeFocused();
+  await expect(page.locator(".toast-turn")).toContainText("Day 2");
+  await page.getByRole("button", { name: "Dismiss Your turn" }).click();
+  await page.locator("#refresh").click();
+  await expect(page.locator(".toast-turn")).toHaveCount(0);
+  await page.locator("#disconnect").click();
+  await connect(page);
+  await expect(page.locator(".toast-turn")).toHaveCount(0);
+});

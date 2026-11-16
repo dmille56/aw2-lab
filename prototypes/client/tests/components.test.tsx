@@ -461,3 +461,26 @@ it("shows game-style funds and charge with honest unknown threshold fallback", (
   expect(screen.getByText(/Charge threshold unavailable/)).toBeVisible();
   expect(screen.getAllByText("FUNDS")).toHaveLength(2);
 });
+
+it("shows a two-passenger cargo badge and accessible count on a loaded Lander", () => {
+  const state = structuredClone(battle);
+  state.units[0].unit_type = 23;
+  state.units[0].cargo_references = [2, 3];
+  state.units.push(
+    ...[2, 3].map((reference) => ({
+      ...state.units[0],
+      reference,
+      unit_slot: reference,
+      unit_type: 1,
+      embarked: true,
+      cargo_references: [],
+    })),
+  );
+  render(<Board battle={state} selected={null} select={vi.fn()} />);
+  expect(screen.getByText("C2")).toBeVisible();
+  expect(
+    screen.getByRole("button", {
+      name: /loaded transport, 2 passengers aboard/,
+    }),
+  ).toBeInTheDocument();
+});

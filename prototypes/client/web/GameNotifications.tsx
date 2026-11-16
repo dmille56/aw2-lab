@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { humanSlot } from "./presentation";
 import type { ViewState } from "./session";
 import { actionLabels } from "./CommandFeedback";
 import "./GameNotifications.css";
@@ -18,6 +19,70 @@ export function GameNotifications({
   const [notices, setNotices] = useState<Notice[]>([]);
   const seen = useRef(new Set<string>());
   const match = useRef(view.snapshot?.summary.match_id);
+  const turns = useRef(new Map<string, Set<string>>());
+  const turnIdentity = useRef<string | null>(null);
+  const battle = view.snapshot?.observation?.game_state.battle.value;
+  const playerSlot = humanSlot(view.identity);
+  const turnMatchId = view.snapshot?.summary.match_id;
+  const playable = view.snapshot?.summary.lifecycle === "playable";
+  const day = battle?.day;
+  const activePlayer = battle?.active_player_slot;
+  useEffect(() => {
+    if (
+      !view.connected ||
+      !view.ready ||
+      !turnMatchId ||
+      day === undefined ||
+      activePlayer === undefined ||
+      !playerSlot ||
+      !playable
+    ) {
+      setNotices((previous) => previous.filter((item) => item.kind !== "turn"));
+      return;
+    }
+    const identity = `${turnMatchId}:${playerSlot}`;
+    const key = `${identity}:${day}:${activePlayer}`;
+    const ownTurn = activePlayer === playerSlot;
+    if (turnIdentity.current !== identity) {
+      turnIdentity.current = identity;
+      setNotices((previous) => previous.filter((item) => item.kind !== "turn"));
+    }
+    setNotices((previous) =>
+      previous.filter(
+        (item) => item.kind !== "turn" || (ownTurn && item.id === key),
+      ),
+    );
+    const observed = turns.current.get(identity);
+    if (!observed) {
+      // The initial connection establishes a baseline, not a new turn event.
+      turns.current.set(identity, new Set([key]));
+      return;
+    }
+    if (!ownTurn || observed.has(key)) return;
+    observed.add(key);
+    if (observed.size > 256) {
+      const oldest = observed.values().next().value;
+      if (oldest) observed.delete(oldest);
+    }
+    const notice: Notice = {
+      id: key,
+      kind: "turn",
+      title: "Your turn",
+      message: `Day ${day} · Player ${playerSlot}. Choose a unit on the board.`,
+    };
+    setNotices((previous) =>
+      [...previous.filter((item) => item.kind !== "turn"), notice].slice(-4),
+    );
+  }, [
+    view.connected,
+    view.ready,
+    turnMatchId,
+    playable,
+    day,
+    activePlayer,
+    playerSlot,
+  ]);
+
   useEffect(() => {
     const matchId = view.snapshot?.summary.match_id;
     if (match.current !== matchId) {
@@ -83,7 +148,9 @@ export function GameNotifications({
           <div>
             <strong>{notice.title}</strong>
             <p>{notice.message}</p>
-            <a href="#command-feedback">Action details and recovery</a>
+            {notice.kind !== "turn" && (
+              <a href="#command-feedback">Action details and recovery</a>
+            )}
             {notice.kind === "error" && onRefresh && (
               <button type="button" onClick={onRefresh}>
                 Refresh board

@@ -79,3 +79,56 @@ it("clears an unknown-outcome notice once the same request completes", () => {
   );
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
+
+function turnView(active: number, day = 1): ViewState {
+  const value = view("completed");
+  value.command = null;
+  value.identity = {
+    contract_version: 1,
+    match_id: fixture.summary.match_id,
+    role: "player",
+    player_slot: "slot_1",
+  };
+  value.snapshot!.observation!.game_state.battle.value!.active_player_slot =
+    active;
+  value.snapshot!.observation!.game_state.battle.value!.day = day;
+  return value;
+}
+it("announces a new own turn once and retains deduplication across dismissal and reconnect", async () => {
+  const rendered = render(<GameNotifications view={turnView(2)} />);
+  expect(screen.queryByText("Your turn")).not.toBeInTheDocument();
+  rendered.rerender(<GameNotifications view={turnView(1, 2)} />);
+  expect(screen.getByText("Your turn")).toBeVisible();
+  expect(screen.getByRole("status")).toHaveTextContent("Day 2");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Dismiss Your turn" }),
+  );
+  rendered.rerender(<GameNotifications view={turnView(1, 2)} />);
+  expect(screen.queryByText("Your turn")).not.toBeInTheDocument();
+  rendered.rerender(
+    <GameNotifications view={new MatchSession().getSnapshot()} />,
+  );
+  rendered.rerender(<GameNotifications view={turnView(1, 2)} />);
+  expect(screen.queryByText("Your turn")).not.toBeInTheDocument();
+  rendered.rerender(<GameNotifications view={turnView(1, 3)} />);
+  expect(screen.getByText("Your turn")).toBeVisible();
+  rendered.rerender(<GameNotifications view={turnView(2, 3)} />);
+  expect(screen.queryByText("Your turn")).not.toBeInTheDocument();
+});
+it("uses the initial connection as baseline and never notifies snapshot readers or operators", () => {
+  const rendered = render(<GameNotifications view={turnView(1)} />);
+  expect(screen.queryByText("Your turn")).not.toBeInTheDocument();
+  const imported = turnView(1, 2);
+  imported.connected = false;
+  rendered.rerender(<GameNotifications view={imported} />);
+  expect(screen.queryByText("Your turn")).not.toBeInTheDocument();
+  const operator = turnView(1, 3);
+  operator.identity = {
+    contract_version: 1,
+    match_id: fixture.summary.match_id,
+    role: "operator",
+    player_slot: null,
+  };
+  rendered.rerender(<GameNotifications view={operator} />);
+  expect(screen.queryByText("Your turn")).not.toBeInTheDocument();
+});
