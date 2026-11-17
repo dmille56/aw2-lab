@@ -584,6 +584,61 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     the recovered width; browser checks compare larger fitted tiles against the
     previous layout and verify narrow screens at 50–200% scaling. Human review pending.
 
+*** TODO Let the board expand vertically for larger tiles
+    Human playtest feedback (2026-11-16): allow the board/map panel to grow
+    vertically so larger tiles do not force unnecessary up/down scrolling inside
+    a height-capped board viewport. Review the current 600 px / 65vh limits and
+    let the panel accommodate the full board height. Make Fit to map use the
+    available vertical space rather than an arbitrary cap. Keep manual tile
+    sizing and interface scaling usable; retain a scrolling fallback when the
+    board physically exceeds the screen instead of clipping tiles or controls.
+    Verify tall maps, large tiles, desktop/narrow layouts, and keyboard navigation
+    with the user, including the distinction between page and board scrolling.
+
+*** TODO Display local game portraits for commanding officers when available
+    Human playtest feedback (2026-11-16): use each CO's game portrait in the HUD
+    instead of initials when a matching portrait is available. Extend the local
+    ROM sprite-pack extraction/manifest and client lookup as needed, preserving
+    initials when assets are missing, unmapped, or fail to load. Keep CO names,
+    funds, charge meters, accessible descriptions, and narrow/scaled layouts clear.
+    Never store ROMs, extracted portraits, other game artwork, or authentic
+    screenshots in Git or the Nix store. Keep assets in the external local pack;
+    commit only extraction/rendering code and synthetic test fixtures. Verify
+    correct CO-to-portrait mappings and both asset-present and fallback behavior.
+
+*** TODO Preview estimated attack damage as a percentage before attacking
+    Human playtest feedback (2026-11-16): show an AW2-style estimate of the damage
+    an attack is likely to inflict before the player executes it.
+    User-supplied research references:
+    - [[https://advancewars.fandom.com/wiki/Damage_Formula][Damage Formula]]
+    - [[https://advancewars.fandom.com/wiki/Damage][Damage chart]]
+    These pages could not be fetched in this session; inspect them during
+    implementation and verify the AW2-specific formula/chart against the supported
+    cartridge. Account for weapon compatibility/ammunition, unit HP, terrain
+    defense, CO/power modifiers, luck, and integer rounding. Present an estimated
+    percentage with an uncertainty/range indication where needed; explain missing
+    observations or unsupported modifiers rather than fabricating a precise value.
+    Use the current/planned attack position and target, updating or clearing the
+    preview with selection, routes, and committed state. Mouse, touch, and keyboard
+    flows must expose the preview before final attack submission, including the
+    enemy-tile Attack menu and explicit target-selection flow. Previewing must not
+    send emulator input. Cover representative unit matchups/modifiers with focused
+    checks, live cartridge comparisons, and human review.
+
+*** TODO Support two-copter Cruiser cargo through the full gameplay flow
+    Human playtest feedback (2026-11-16): Cruisers should carry up to two copter
+    units, supporting Battle Copters and Transport Copters, including mixed cargo.
+    Audit supported AW2 behavior and extend shared carrier compatibility/capacity,
+    client load/unload menus and drop previews, server preflight/executors, command
+    recognition, and result validation wherever existing support is restricted to
+    APCs, Transport Copters, or Landers. Preserve cargo identities, counts, action
+    state, movement/path/fuel checks, and rollback/recovery behavior. Verify empty,
+    one-, and two-passenger Cruisers; compatible copters and rejected cargo;
+    capacity rejection before emulator input; loading/unloading in place and after
+    movement; and valid aerial drop tiles without ground-only restrictions.
+    Keep cargo badges/selection and existing carriers working. Add ROM-independent
+    regressions plus isolated live cartridge checks and human playtest evidence.
+
 *** IN-PROGRESS Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,
     purchasing, unloading, cancellation, end turn, and error recovery against
@@ -624,6 +679,9 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     pending before final acceptance.
     A further TODO requests minimal horizontal margins and padding to give the
     map more room for larger tiles. Implemented; human visual review remains pending.
+    Four more TODOs request vertical board expansion, local CO portraits,
+    pre-attack damage estimates, and two-copter Cruiser cargo. Implement and
+    review these before final acceptance; keep all game assets outside Git/Nix.
     - [ ] Human rechecks the reported usability follow-ups and accepts the redesign.
 
     For every implementation item, add focused behavior checks, run relevant
