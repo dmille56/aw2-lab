@@ -1698,7 +1698,7 @@ test("announces a new own turn without stealing focus or repeating on refresh/re
 });
 
 for (const health of [100, 51, 1])
-  test(`shows a distinct HP badge without a player prefix at health ${health}`, async ({
+  test(`shows only the health number in the tile badge at health ${health}`, async ({
     page,
   }) => {
     const state = structuredClone(fixture);
@@ -1707,7 +1707,7 @@ for (const health of [100, 51, 1])
     await connect(page);
     const unit = page.locator('#board [data-x="0"][data-y="0"]');
     const badge = unit.locator(".unit-health");
-    await expect(badge).toHaveText(`HP${Math.ceil(health / 10)}`);
+    await expect(badge).toHaveText(`${Math.ceil(health / 10)}`);
     await expect(badge).toHaveCSS("background-color", "rgb(23, 23, 23)");
     await expect(unit).toHaveAccessibleName(new RegExp(`health ${health}`));
     await page.setViewportSize({ width: 390, height: 844 });
@@ -1856,4 +1856,24 @@ test("does not highlight an enemy when the selected artillery has no ammunition"
   await connect(page);
   await page.locator('#board [data-x="0"][data-y="0"]').click();
   await expect(page.locator("#board [data-attackable-enemy]")).toHaveCount(0);
+});
+
+test("keeps the used check and number below the enemy target label at minimum tile size", async ({
+  page,
+}) => {
+  const state = structuredClone(fixture);
+  state.observation.game_state.battle.value.units[1].used_this_turn = true;
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await connect(page);
+  await page.locator("#zoom").fill("36");
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  await page.locator('#board [data-x="1"][data-y="0"]').click();
+  const enemy = page.locator('#board [data-x="1"][data-y="1"]');
+  const label = await enemy.locator(".enemy-target-label").boundingBox();
+  const used = await enemy.locator(".used-mark").boundingBox();
+  const hp = await enemy.locator(".unit-health").boundingBox();
+  const tile = await enemy.boundingBox();
+  expect(used.y).toBeGreaterThanOrEqual(label.y + label.height);
+  expect(hp.x).toBeGreaterThanOrEqual(tile.x);
+  expect(hp.x + hp.width).toBeLessThanOrEqual(tile.x + tile.width);
 });

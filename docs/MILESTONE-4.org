@@ -546,7 +546,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     identify attackable enemies. Browser checks cover direct/indirect routing,
     ammunition, and cancellation. Human review pending.
 
-*** TODO Show only the HP number in tile health badges
+*** IN-PROGRESS Show only the HP number in tile health badges
     Human playtest feedback (2026-11-16): remove the visible HP text from each
     unit's tile badge and show only its displayed health number from 1 to 10.
     Preserve rounding from internal health, the high-contrast badge, separate
@@ -554,6 +554,9 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     descriptions available to assistive technology and full details in the
     inspector. Review full and damaged units with sprites and fallback units
     at narrow tile sizes.
+    Implemented: tile health badges contain only the rounded 1–10 number;
+    accessible health descriptions, inspector details, and separate used markers
+    remain. Browser checks cover full, partial, and one HP. Human review pending.
 
 *** TODO Label waiting in place as Wait
     Human playtest feedback (2026-11-16): when the selected unit waits without

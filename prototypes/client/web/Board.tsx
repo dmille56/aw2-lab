@@ -318,7 +318,6 @@ export function Board({
                       </span>
                     )}
                     <span className="unit-health" aria-hidden="true">
-                      <span className="hp-label">HP</span>
                       <strong>{Math.ceil(unit.internal_health / 10)}</strong>
                       {unit.used_this_turn && (
                         <span className="used-mark">✓</span>
