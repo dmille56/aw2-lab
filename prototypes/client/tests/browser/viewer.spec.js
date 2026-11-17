@@ -666,9 +666,10 @@ for (const relationship of ["own", "allied", "enemy"]) {
       .click();
     await page.locator('#board [data-x="1"][data-y="0"]').click();
     if (relationship === "enemy") {
-      await expect(page.locator(".command-panel")).toContainText(
-        "enemy unit blocks",
-      );
+      // The enemy is not added as a movement step; clicking it offers Attack.
+      await expect(
+        page.getByRole("dialog", { name: "Attack enemy", exact: true }),
+      ).toBeVisible();
       await expect(page.locator("#board [data-route-step]")).toHaveCount(1);
     } else {
       await expect(page.locator("#board [data-route-step]")).toHaveCount(2);
@@ -1715,3 +1716,89 @@ for (const health of [100, 51, 1])
     expect(badgeBox.width).toBeLessThan(tileBox.width);
     expect(badgeBox.height).toBeLessThan(tileBox.height);
   });
+
+for (const moved of [false, true])
+  test(`opens an enemy Attack menu without submitting until chosen, moved=${moved}`, async ({
+    page,
+    request,
+  }) => {
+    const state = structuredClone(fixture);
+    if (!moved) state.observation.game_state.battle.value.units[1].y = 0;
+    await page.route("**/state", (route) => route.fulfill({ json: state }));
+    await connect(page);
+    const requests = [];
+    page.on("request", (req) => {
+      if (req.url().endsWith("/commands") && req.method() === "POST")
+        requests.push(req.postDataJSON());
+    });
+    const source = page.locator('#board [data-x="0"][data-y="0"]');
+    await source.click();
+    if (moved) await page.locator('#board [data-x="1"][data-y="0"]').click();
+    const enemy = page.locator(
+      `#board [data-x="1"][data-y="${moved ? 1 : 0}"]`,
+    );
+    await enemy.focus();
+    await page.keyboard.press("Enter");
+    const menu = page.getByRole("dialog", {
+      name: "Attack enemy",
+      exact: true,
+    });
+    await expect(menu).toBeVisible();
+    await expect(
+      menu.getByRole("button", { name: "Attack", exact: true }),
+    ).toBeFocused();
+    expect((await (await request.get("/__test/stats")).json()).commands).toBe(
+      0,
+    );
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(source).toHaveAttribute("data-acting-unit", "true");
+    await enemy.click();
+    await menu.getByRole("button", { name: "Attack", exact: true }).click();
+    await expect(page.locator(".command-result")).toContainText("completed");
+    expect(requests).toHaveLength(1);
+    // This server advertises move_attack for both movement and in-place attacks.
+    expect(requests[0].action.kind).toBe("move_attack");
+    expect(requests[0].action.path).toEqual(
+      moved ? [{ contract_version: 1, x: 1, y: 0 }] : [],
+    );
+  });
+
+test("does not offer an enemy Attack menu for incompatible targets or blocked movement", async ({
+  page,
+  request,
+}) => {
+  const state = structuredClone(fixture);
+  state.observation.game_state.battle.value.units[1].unit_type = 16;
+  state.observation.game_state.battle.value.units[1].y = 0;
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await connect(page);
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  await page.locator('#board [data-x="1"][data-y="0"]').click();
+  await expect(
+    page.getByRole("dialog", { name: "Attack enemy", exact: true }),
+  ).toHaveCount(0);
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
+});
+
+test("discards an enemy Attack menu when the committed boundary changes", async ({
+  page,
+  request,
+}) => {
+  const state = structuredClone(fixture);
+  state.observation.game_state.battle.value.units[1].y = 0;
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await connect(page);
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  await page.locator('#board [data-x="1"][data-y="0"]').click();
+  await expect(
+    page.getByRole("dialog", { name: "Attack enemy", exact: true }),
+  ).toBeVisible();
+  state.summary.revision = state.observation.revision = 2;
+  await page.locator("#refresh").click();
+  await expect(
+    page.getByRole("dialog", { name: "Attack enemy", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.locator("#board [data-acting-unit]")).toHaveCount(0);
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
+});

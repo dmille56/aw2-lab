@@ -517,7 +517,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     and dashed threat borders; movement overlap retains a turquoise outer cue.
     Browser checks cover fill, borders, overlap, and threat estimates. Human review pending.
 
-*** TODO Offer Attack when clicking an eligible enemy tile
+*** IN-PROGRESS Offer Attack when clicking an eligible enemy tile
     Human playtest feedback (2026-11-16): while a friendly unit is selected,
     clicking an enemy it can attack should open a context menu with Attack.
     Preserve the selected acting unit and use the current position or planned
@@ -526,6 +526,10 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Clicking the tile must only open the menu; choosing Attack submits through
     the existing command flow. Support keyboard activation and cancellation,
     omit Attack for ineligible targets, and handle stale/rejected actions clearly.
+    Implemented: enemy-tile Attack dialog reuses validated current/planned-route
+    targets, preserves the actor and path on cancellation, and submits only on
+    explicit Attack. Browser checks cover in-place/moved attacks and ineligible
+    targets. Existing command feedback handles rejection. Human review pending.
 
 *** TODO Highlight attackable enemy units when a unit is selected
     Human playtest feedback (2026-11-16): automatically highlight enemy-occupied

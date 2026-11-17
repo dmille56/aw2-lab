@@ -34,7 +34,8 @@ export interface Draft {
   target: Position | null;
   unitType: string;
   kind: ActionKind | null;
-  phase: "select" | "unit" | "route" | "menu" | "target" | "review";
+  phase:
+    "select" | "unit" | "route" | "menu" | "enemy_menu" | "target" | "review";
   notice: string;
   routeMode: "automatic" | "manual";
   contextual: boolean;
@@ -98,6 +99,8 @@ export type DraftEvent =
     }
   | { type: "choose"; kind: ActionKind }
   | { type: "target"; point: Position }
+  | { type: "enemy_target"; point: Position; kind: "attack" | "move_attack" }
+  | { type: "back_enemy" }
   | { type: "drop_destination"; unitId: string; point: Position | null }
   | { type: "unload_passenger"; unitId: string | null }
   | { type: "purchase"; unitType: string }
@@ -244,6 +247,25 @@ export function draftReducer(draft: Draft, event: DraftEvent): Draft {
             : event.kind === "move_attack" || event.kind === "attack"
               ? "Choose an observed enemy unit on the board or from the target list."
               : "Review the action, then confirm to send it.",
+      };
+    case "enemy_target":
+      return {
+        ...draft,
+        phase: "enemy_menu",
+        kind: event.kind,
+        target: event.point,
+        contextual: true,
+        notice:
+          "Enemy selected. Choose Attack to execute, or cancel to keep planning.",
+      };
+    case "back_enemy":
+      return {
+        ...draft,
+        phase: draft.path.length ? "menu" : "unit",
+        contextual: !!draft.path.length,
+        kind: null,
+        target: null,
+        notice: "Attack cancelled. Unit and planned route retained.",
       };
     case "target":
       return {
@@ -526,6 +548,18 @@ export function useGameplay(
     !!battle?.units.some(
       (unit) => !unit.embarked && sameTile(unit, draft.base!),
     );
+  const attackKind: "attack" | "move_attack" = draft.path.length
+    ? "move_attack"
+    : available("attack")
+      ? "attack"
+      : "move_attack";
+  const attackableTargets =
+    editable &&
+    movementReady &&
+    available(attackKind) &&
+    (!draft.kind || draft.kind === "attack" || draft.kind === "move_attack")
+      ? targets
+      : [];
   const canAttack = targets.length > 0;
   const canCapture =
     !!selectedUnit &&
@@ -575,6 +609,11 @@ export function useGameplay(
       if (draft.unloadPassengerId)
         dispatch({ type: "unload_passenger", unitId: null });
       else dispatch({ type: "open_menu" });
+      return;
+    }
+    if (draft.phase === "enemy_menu") {
+      if (destination) inspect(destination);
+      dispatch({ type: "back_enemy" });
       return;
     }
     if (draft.contextual && draft.phase === "target") {
@@ -667,8 +706,22 @@ export function useGameplay(
       automaticRouting &&
       editable &&
       selectedUnit &&
+      ["unit", "route", "menu", "enemy_menu"].includes(draft.phase)
+    ) {
+      if (attackableTargets.some((unit) => sameTile(unit, point))) {
+        inspect(point);
+        dispatch({ type: "enemy_target", point, kind: attackKind });
+        return;
+      }
+      if (draft.phase === "enemy_menu") dispatch({ type: "back_enemy" });
+    }
+    if (
+      automaticRouting &&
+      editable &&
+      selectedUnit &&
       (draft.phase === "unit" ||
         draft.phase === "menu" ||
+        draft.phase === "enemy_menu" ||
         (draft.phase === "route" && draft.routeMode === "automatic"))
     ) {
       const other = units.find(
@@ -987,6 +1040,8 @@ export function useGameplay(
     productionBases,
     purchaseUnitTypes,
     targets,
+    attackKind,
+    attackableTargets,
     selectedUnit,
     destination,
     occupiedBase,

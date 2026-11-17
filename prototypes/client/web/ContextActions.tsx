@@ -156,7 +156,7 @@ export function ContextActions({
   onSubmit: (action: GameplayAction, revision: number) => void;
 }) {
   const { draft } = model;
-  const point = model.destination;
+  const point = draft.phase === "enemy_menu" ? draft.target : model.destination;
   useLayoutEffect(() => {
     if (
       draft.contextual &&
@@ -180,6 +180,7 @@ export function ContextActions({
     !model.selectedUnit ||
     model.pending ||
     (draft.phase !== "menu" &&
+      draft.phase !== "enemy_menu" &&
       !(draft.phase === "target" && draft.contextual) &&
       !unloading)
   )
@@ -188,16 +189,34 @@ export function ContextActions({
     model.cancel();
     restoreBoardFocus(draft.origin);
   };
-  const send = (kind: ActionKind) => {
-    const action = model.prepareAction(kind);
+  const send = (kind: ActionKind, target: Position | null = null) => {
+    const action = model.prepareAction(kind, target);
     if (action && view.snapshot)
       onSubmit(action, view.snapshot.summary.revision);
   };
-  const attack = draft.path.length
-    ? "move_attack"
-    : model.available("attack")
-      ? "attack"
-      : "move_attack";
+  const attack = model.attackKind;
+  if (draft.phase === "enemy_menu") {
+    const enemy = model.attackableTargets.find((unit) => sameTile(unit, point));
+    if (!enemy) return null;
+    return (
+      <ActionMenu point={point} onBack={back} label="Attack enemy">
+        <h3>Attack {unitName(enemy)}</h3>
+        <p>
+          Target ({point.x}, {point.y}). Your planned route is retained.
+        </p>
+        <button
+          type="button"
+          disabled={!model.prepareAction(attack, point)}
+          onClick={() => send(attack, point)}
+        >
+          Attack
+        </button>
+        <button type="button" onClick={back}>
+          Cancel
+        </button>
+      </ActionMenu>
+    );
+  }
   const chooseTarget = (kind: ActionKind) => {
     model.dispatch({ type: "choose", kind });
     requestAnimationFrame(() =>
