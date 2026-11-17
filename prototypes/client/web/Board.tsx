@@ -5,7 +5,7 @@ import "./TargetHighlight.css";
 import "./UnitSelection.css";
 import "./RangeOverlay.css";
 import { Fragment, useEffect, useRef, type ReactNode } from "react";
-import { Sprite, type SpritePack } from "./sprites";
+import { Sprite, terrainSpriteRegion, type SpritePack } from "./sprites";
 import { terrainLabel, unitLabel } from "./presentation";
 import catalogData from "./catalog.json";
 import type { BattleState, StateResponse, UnitState } from "./state";
@@ -232,8 +232,7 @@ export function Board({
           .sort((a, b) => a.y - b.y || a.x - b.x)
           .map((tile) => {
             const unit = occupancy.get(`${tile.x},${tile.y}`);
-            const terrainRegion =
-              spritePack?.terrain[`${tile.terrain_class}:${tile.owner_slot}`];
+            const terrainRegion = terrainSpriteRegion(spritePack, tile);
             const unitRegion = unit
               ? spritePack?.units[`${unit.unit_type}:${unit.army_slot}`]
               : null;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateSpriteManifest } from "../web/sprites";
+import { terrainSpriteRegion, validateSpriteManifest } from "../web/sprites";
 const pack = {
   kind: "aw2-client-sprites",
   version: 1,
@@ -56,3 +56,63 @@ it("allows complete 48x48 native portraits while retaining map sprite limits", (
     }),
   ).toThrow();
 });
+
+it("selects native coastal variants and keeps safe legacy/symbolic fallbacks", () => {
+  const region = { x: 0, y: 0, width: 16, height: 32 };
+  const variants = {
+    "13:16": region,
+    "13:46": { ...region, x: 16 },
+    "13:47": { ...region, x: 32 },
+    "13:50": { ...region, x: 48 },
+    "7:42": region,
+  };
+  const coastal = {
+    ...pack,
+    width: 64,
+    image: "synthetic",
+    terrain: { ...pack.terrain, "7:0": region, "13:0": region },
+    terrain_variants: variants,
+  };
+  expect(validateSpriteManifest(coastal)).toEqual(coastal);
+  for (const id of [16, 46, 47, 50])
+    expect(
+      terrainSpriteRegion(coastal, {
+        terrain_class: 13,
+        graphical_tile_id: id,
+        owner_slot: 0,
+      }),
+    ).toBe(variants[`13:${id}` as keyof typeof variants]);
+  const legacy = { ...pack, image: "synthetic", terrain: coastal.terrain };
+  expect(
+    terrainSpriteRegion(legacy, {
+      terrain_class: 13,
+      graphical_tile_id: 16,
+      owner_slot: 0,
+    }),
+  ).toBeUndefined();
+  expect(
+    terrainSpriteRegion(legacy, {
+      terrain_class: 7,
+      graphical_tile_id: 42,
+      owner_slot: 0,
+    }),
+  ).toBe(region);
+  expect(
+    terrainSpriteRegion(coastal, {
+      terrain_class: 13,
+      graphical_tile_id: 999,
+      owner_slot: 0,
+    }),
+  ).toBeUndefined();
+});
+it.each(["13:1024", "13:-1", "13:0016", "6:16"])(
+  "rejects invalid coastal variant key %s",
+  (key) => {
+    expect(() =>
+      validateSpriteManifest({
+        ...pack,
+        terrain_variants: { [key]: { x: 0, y: 0, width: 16, height: 32 } },
+      }),
+    ).toThrow();
+  },
+);

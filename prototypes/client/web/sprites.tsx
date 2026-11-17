@@ -13,6 +13,7 @@ export interface SpritePack {
   units: Record<string, SpriteRegion>;
   terrain: Record<string, SpriteRegion>;
   portraits?: Record<string, SpriteRegion>;
+  terrain_variants?: Record<string, SpriteRegion>;
   image: string;
 }
 interface Manifest extends Omit<SpritePack, "image"> {
@@ -36,13 +37,16 @@ export function validateSpriteManifest(value: unknown): Manifest {
   )
     throw new Error("Unsupported local sprite pack.");
   const collections = [
-    { value: m.units, portraits: false },
-    { value: m.terrain, portraits: false },
+    { value: m.units, portraits: false, variants: false },
+    { value: m.terrain, portraits: false, variants: false },
     ...(m.portraits === undefined
       ? []
-      : [{ value: m.portraits, portraits: true }]),
+      : [{ value: m.portraits, portraits: true, variants: false }]),
+    ...(m.terrain_variants === undefined
+      ? []
+      : [{ value: m.terrain_variants, portraits: false, variants: true }]),
   ];
-  for (const { value: collection, portraits } of collections) {
+  for (const { value: collection, portraits, variants } of collections) {
     if (
       !collection ||
       typeof collection !== "object" ||
@@ -53,7 +57,10 @@ export function validateSpriteManifest(value: unknown): Manifest {
     for (const [key, raw] of Object.entries(collection)) {
       const validKey = portraits
         ? /^(?:[0-9]|1[0-8])$/.test(key)
-        : /^\d{1,2}:[0-5]$/.test(key);
+        : variants
+          ? /^(?:7|13):(?:0|[1-9][0-9]{0,3})$/.test(key) &&
+            Number(key.split(":")[1]) <= 1023
+          : /^\d{1,2}:[0-5]$/.test(key);
       if (!validKey || !raw || typeof raw !== "object")
         throw new Error("Invalid sprite region.");
       const r = raw as Record<string, unknown>;
@@ -74,6 +81,26 @@ export function validateSpriteManifest(value: unknown): Manifest {
   }
   return value as Manifest;
 }
+export function terrainSpriteRegion(
+  pack: SpritePack | null,
+  tile: {
+    terrain_class: number;
+    owner_slot: number;
+    graphical_tile_id: number;
+  },
+): SpriteRegion | undefined {
+  // Shoals must use their exact map variant; a generic sprite can face the wrong way.
+  // Legacy packs keep their ordinary sea artwork until regenerated.
+  if (
+    tile.terrain_class === 13 ||
+    (tile.terrain_class === 7 && pack?.terrain_variants !== undefined)
+  )
+    return pack?.terrain_variants?.[
+      `${tile.terrain_class}:${tile.graphical_tile_id}`
+    ];
+  return pack?.terrain[`${tile.terrain_class}:${tile.owner_slot}`];
+}
+
 export function useSpritePack(enabled: boolean) {
   const [pack, setPack] = useState<SpritePack | null>(null);
   useEffect(() => {

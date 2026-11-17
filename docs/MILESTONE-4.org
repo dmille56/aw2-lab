@@ -749,7 +749,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     selection/route preservation, and absence of gameplay commands. Human review
     pending.
 
-*** TODO Render shoals with coherent coastline orientation and connections
+*** IN-PROGRESS Render shoals with coherent coastline orientation and connections
     Human playtest feedback (2026-11-17): shoals currently appear in a fixed
     down-to-up configuration, which looks wrong when they meet land from another
     direction. Select the appropriate native shoal artwork using the observed
@@ -762,6 +762,15 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     fallback when artwork is unavailable. Add synthetic orientation/connection
     checks and visually review representative real-map coastlines, including
     Rainy Haven, before human acceptance.
+    Implemented (2026-11-17): optional coastal variants in the external atlas use
+    each observed graphical tile ID. All 36 native shoal shapes and 52 water-edge
+    shapes retain their original palette/flip data; the water variants preserve
+    connections alongside shoals. Missing shoal variants use symbolic fallback.
+    Old packs retain other terrain/portraits and can be regenerated for coastlines.
+    ROM extraction checks cover all variants, bounds, determinism, and unchanged
+    source bytes; browser checks cover distinct variants and missing artwork.
+    Reviewed Rainy Haven's 133 coastal cells and 15 shoal shapes with zero gameplay
+    commands. No extracted artwork is in Git/Nix. Human review pending.
 
 *** IN-PROGRESS Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,

@@ -50,6 +50,7 @@ class SpriteManifest(TypedDict):
     units: dict[str, Region]
     terrain: dict[str, Region]
     portraits: dict[str, Region]
+    terrain_variants: dict[str, Region]
 
 
 def property_frame(rom: bytes, terrain: int, army: int) -> tuple[int, int, bytes]:
@@ -88,6 +89,14 @@ def terrain_frame(rom: bytes, terrain: int, army: int) -> tuple[int, int, bytes]
     return 16, 32, bytes(result)
 
 
+def coastal_terrain_frame(rom: bytes, graphical_tile_id: int) -> tuple[int, int, bytes]:
+    """Keep the native shoal/water orientation, connections, palettes, and flips."""
+    if not 0 <= graphical_tile_id < 1024 or rom[0x0C1BC4 + graphical_tile_id] & 31 not in (7, 13):
+        raise ValueError("Expected a verified sea or shoal graphical tile")
+    _, _, ground = terrain_sample(rom, graphical_tile_id)
+    return 16, 32, bytes(16 * 16 * 4) + ground
+
+
 def build_sprite_pack(rom_path: Path, output: Path) -> SpriteManifest:
     profile = select_rom_profile(rom_path)
     output = output.expanduser().resolve()
@@ -106,16 +115,32 @@ def build_sprite_pack(rom_path: Path, output: Path) -> SpriteManifest:
     map_height = ((map_count + 15) // 16) * 32
     for co_id in range(19):
         frames.append(("portraits", str(co_id), co_portrait_sample(rom, co_id)))
-    width, height = 256, map_height + 4 * 48
+    coastal_ids = [
+        tile for tile, value in enumerate(rom[0x0C1BC4:0x0C1FC4]) if value & 31 in (7, 13)
+    ]
+    for tile in coastal_ids:
+        terrain = rom[0x0C1BC4 + tile] & 31
+        frames.append(("terrain_variants", f"{terrain}:{tile}", coastal_terrain_frame(rom, tile)))
+    coastal_y = map_height + 4 * 48
+    width, height = 256, coastal_y + ((len(coastal_ids) + 15) // 16) * 32
     pixels = bytearray(width * height * 4)
     units: dict[str, Region] = {}
     terrains: dict[str, Region] = {}
     portraits: dict[str, Region] = {}
-    collections = {"units": units, "terrain": terrains, "portraits": portraits}
+    terrain_variants: dict[str, Region] = {}
+    collections = {
+        "units": units,
+        "terrain": terrains,
+        "portraits": portraits,
+        "terrain_variants": terrain_variants,
+    }
     for index, (kind, key, (w, h, frame)) in enumerate(frames):
         if kind == "portraits":
             portrait_index = index - map_count
             x, y = portrait_index % 5 * 48, map_height + portrait_index // 5 * 48
+        elif kind == "terrain_variants":
+            coastal_index = index - map_count - 19
+            x, y = coastal_index % 16 * 16, coastal_y + coastal_index // 16 * 32
         else:
             x, y = index % 16 * 16, index // 16 * 32
         for row in range(h):
@@ -141,6 +166,7 @@ def build_sprite_pack(rom_path: Path, output: Path) -> SpriteManifest:
         "units": units,
         "terrain": terrains,
         "portraits": portraits,
+        "terrain_variants": terrain_variants,
     }
     output.mkdir(parents=True, exist_ok=True)
     (output / atlas).write_bytes(png)
@@ -161,7 +187,7 @@ def main() -> None:
         parser.exit(1, f"Sprite pack extraction failed: {error}\n")
     print(
         f"Extracted {len(manifest['units'])} unit, {len(manifest['terrain'])} terrain, "
-        f"and {len(manifest['portraits'])} CO portrait frames"
+        f"{len(manifest['portraits'])} CO portraits, and {len(manifest['terrain_variants'])} coastal variants"
     )
 
 

@@ -296,6 +296,14 @@ when the sprite pack is absent. Retain accessible tile names and keyboard
 navigation. Display HP as ceil(internal health / 10), with exact health available
 in expanded inspection; mark used units and ownership without color alone.
 
+Follow-up (2026-11-17): the external pack now includes complete CO portraits and
+an optional `terrain_variants` collection keyed by `terrain_class:graphical_tile_id`.
+Shoals and adjacent water use their exact native variant, including corners and
+shoreline connections. Regenerate older packs to obtain all 36 shoal and 52 sea
+variants; missing shoal artwork falls back to symbols rather than an incorrectly
+oriented generic sprite. Other terrain connections, animation, and weather artwork
+remain deferred. Native artwork and real-map screenshots remain outside Git/Nix.
+
 ### Agreed interactions
 
 Selecting a ready unit immediately shows movement range. Selecting a destination

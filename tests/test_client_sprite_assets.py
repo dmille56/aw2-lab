@@ -112,3 +112,30 @@ def test_wide_map_sprite_still_fails_before_serving(tmp_path: Path) -> None:
     (tmp_path / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match="Map sprite regions"):
         configure_sprite_assets(FastAPI(), tmp_path)
+
+
+def test_optional_coastal_variants_are_served(tmp_path: Path) -> None:
+    manifest = write_synthetic_pack(tmp_path)
+    manifest["terrain_variants"] = {
+        key: {"x": 0, "y": 0, "width": 16, "height": 32} for key in ("13:16", "7:42")
+    }
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+    app = FastAPI()
+    configure_sprite_assets(app, tmp_path)
+
+    async def scenario() -> None:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            assert (await client.get("/client-sprites/manifest.json")).json() == manifest
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("key", ["13:1024", "13:-1", "13:0016", "6:16"])
+def test_invalid_coastal_variant_keys_are_rejected(tmp_path: Path, key: str) -> None:
+    manifest = write_synthetic_pack(tmp_path)
+    manifest["terrain_variants"] = {key: {"x": 0, "y": 0, "width": 16, "height": 32}}
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError):
+        configure_sprite_assets(FastAPI(), tmp_path)

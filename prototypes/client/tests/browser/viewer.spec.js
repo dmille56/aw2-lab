@@ -2604,3 +2604,72 @@ test("middle movement preview respects exhausted fuel", async ({ page }) => {
   await expect(page.locator("#board .reachable")).toHaveCount(0);
   await page.mouse.up({ button: "middle" });
 });
+
+for (const missing of [false, true])
+  test(`shoals use their observed coastal variants and fall back to symbols when absent, missing=${missing}`, async ({
+    page,
+    request,
+  }) => {
+    const state = structuredClone(fixture),
+      ids = [16, 46, 47, 50];
+    const tiles = state.observation.game_state.battle.value.map.tiles;
+    for (let i = 0; i < tiles.length; i++) {
+      tiles[i].terrain_class = 13;
+      tiles[i].owner_slot = 0;
+      tiles[i].graphical_tile_id = ids[i];
+    }
+    await page.route("**/state", (route) => route.fulfill({ json: state }));
+    const atlas = `atlas-${"c".repeat(64)}.png`;
+    const variants = Object.fromEntries(
+      ids
+        .filter((_, i) => !missing || i < 3)
+        .map((id) => [
+          `13:${id}`,
+          { x: ids.indexOf(id) * 16, y: 0, width: 16, height: 32 },
+        ]),
+    );
+    await page.route("**/client-sprites/manifest.json", (route) =>
+      route.fulfill({
+        json: {
+          kind: "aw2-client-sprites",
+          version: 1,
+          atlas,
+          width: 64,
+          height: 32,
+          units: {},
+          terrain: { "13:0": { x: 0, y: 0, width: 16, height: 32 } },
+          terrain_variants: variants,
+        },
+      }),
+    );
+    await page.route(`**/client-sprites/${atlas}`, (route) =>
+      route.fulfill({
+        contentType: "image/svg+xml",
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="32"><rect y="16" width="16" height="16" fill="#a00"/><rect x="16" y="16" width="16" height="16" fill="#0a0"/><rect x="32" y="16" width="16" height="16" fill="#00a"/><rect x="48" y="16" width="16" height="16" fill="#aa0"/></svg>',
+      }),
+    );
+    await connect(page);
+    await expect(page.locator(".sprite-terrain")).toHaveCount(missing ? 3 : 4);
+    const cell = await page
+      .locator("#board .tile")
+      .first()
+      .evaluate((n) =>
+        parseFloat(getComputedStyle(n).getPropertyValue("--cell")),
+      );
+    for (let i = 0; i < (missing ? 3 : 4); i++)
+      await expect(
+        page.locator(
+          `#board [data-x="${tiles[i].x}"][data-y="${tiles[i].y}"] .sprite-terrain`,
+        ),
+      ).toHaveCSS("background-position", `${-i * cell}px 0px`);
+    if (missing)
+      await expect(
+        page.locator('#board [data-x="1"][data-y="1"]'),
+      ).not.toHaveClass(/sprite-tile/);
+    await page.locator("#board .tile").first().click();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.locator("#inspector")).toContainText("Shoal");
+    expect((await (await request.get("/__test/stats")).json()).commands).toBe(
+      0,
+    );
+  });
