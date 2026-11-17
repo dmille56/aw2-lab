@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -53,6 +54,24 @@ export function MapPanel({
   dropSelections?: Record<string, string>;
 }) {
   const spritePack = useSpritePack(!!battle);
+  const [heldRange, setHeldRange] = useState<{
+    battle: BattleState;
+    reference: number;
+  } | null>(null);
+  const previewAttackRange = useCallback(
+    (unit: UnitState | null) => {
+      setHeldRange(
+        unit && battle ? { battle, reference: unit.reference } : null,
+      );
+    },
+    [battle],
+  );
+  const heldUnit =
+    heldRange?.battle === battle
+      ? battle?.units.find((unit) => unit.reference === heldRange.reference)
+      : null;
+  const heldCoverage =
+    battle && heldUnit ? selectedAttackCoverage(battle, heldUnit, []) : null;
   const [size, setSize] = useState(58);
   const [fit, setFit] = useState(true);
   const [coordinates, setCoordinates] = useState(false);
@@ -186,6 +205,19 @@ export function MapPanel({
         HP badges show health out of 10. Inspect a tile for unit and terrain
         ownership.
       </p>
+      <p className="hint">
+        Hold the right mouse button on a unit to preview its attack range.
+        Release to hide the preview; right-click empty tiles or press Escape to
+        go back.
+      </p>
+      {heldUnit && (
+        <p className="hint" role="status">
+          Attack range preview: {unitName(heldUnit)} · Player{" "}
+          {heldUnit.army_slot}. Release the right mouse button to close.
+          {heldCoverage?.size === 0 &&
+            " No attack coverage is available for this unit."}
+        </p>
+      )}
       {!!enemyTargets.size && (
         <p className="hint">
           {actionTargets
@@ -200,14 +232,16 @@ export function MapPanel({
           by the server.
         </p>
       )}
-      {selectedUnit && (
+      {(selectedUnit || heldUnit) && (
         <div className="range-key" aria-label="Range legend">
-          <span>
-            <i aria-hidden="true" className="range-swatch movement-range" />
-            Movement · translucent turquoise
-          </span>
+          {selectedUnit && (
+            <span>
+              <i aria-hidden="true" className="range-swatch movement-range" />
+              Movement · translucent turquoise
+            </span>
+          )}
           {!!enemyTargets.size && <span>ATTACK · eligible enemy</span>}
-          {showAttackRange && (
+          {(showAttackRange || heldUnit) && (
             <span>
               <i aria-hidden="true" className="range-swatch firing-range" />
               Attack · solid red border
@@ -269,8 +303,11 @@ export function MapPanel({
           dropSelections={dropSelections}
           reachable={reach.destinations}
           transit={reach.alliedTransit}
+          previewAttackRange={previewAttackRange}
           attackable={
-            actionTargets ?? (showAttackRange ? attacks : new Set<string>())
+            heldCoverage ??
+            actionTargets ??
+            (showAttackRange ? attacks : new Set<string>())
           }
           threatened={threats}
           enemyTargets={enemyTargets}

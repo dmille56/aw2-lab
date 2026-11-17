@@ -1,9 +1,10 @@
 import "./CargoBadge.css";
+import { TerrainDefense } from "./TerrainDefense";
 import "./UnitHealth.css";
 import "./TargetHighlight.css";
 import "./UnitSelection.css";
 import "./RangeOverlay.css";
-import { Fragment, useRef, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, type ReactNode } from "react";
 import { Sprite, type SpritePack } from "./sprites";
 import { terrainLabel, unitLabel } from "./presentation";
 import catalogData from "./catalog.json";
@@ -60,6 +61,20 @@ export function UnitInspector({
   const entries: [string, ReactNode][] = [
     ["HP", `${Math.ceil(unit.internal_health / 10)}/10`],
     ["Turn status", unit.used_this_turn ? "Used" : "Ready"],
+    [
+      "Tile defense",
+      unit.embarked ? (
+        "Unavailable while embarked"
+      ) : (
+        <TerrainDefense
+          terrainClass={
+            snapshot.observation?.game_state.battle.value?.map.tiles.find(
+              (tile) => tile.x === unit.x && tile.y === unit.y,
+            )?.terrain_class
+          }
+        />
+      ),
+    ],
     ["Fuel", `${unit.fuel}${profile ? `/${profile.fuel_capacity}` : ""}`],
     ["Ammo", `${unit.ammo}${profile ? `/${profile.ammo_capacity}` : ""}`],
   ];
@@ -130,6 +145,7 @@ export function Board({
   dropSelections = {},
   actingUnitReference = null,
   enemyTargets = new Set<string>(),
+  previewAttackRange,
 }: {
   battle: BattleState | null;
   selected: Position | null;
@@ -149,8 +165,33 @@ export function Board({
   dropSelections?: Record<string, string>;
   actingUnitReference?: number | null;
   enemyTargets?: Set<string>;
+  previewAttackRange?: (unit: UnitState | null) => void;
 }) {
   const buttons = useRef(new Map<string, HTMLButtonElement>());
+  const heldPointer = useRef<number | null>(null);
+  useEffect(() => {
+    const clear = () => {
+      heldPointer.current = null;
+      previewAttackRange?.(null);
+    };
+    const release = (event: PointerEvent) => {
+      if (event.pointerId === heldPointer.current) clear();
+    };
+    const visibility = () => {
+      if (document.hidden) clear();
+    };
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
+    window.addEventListener("blur", clear);
+    document.addEventListener("visibilitychange", visibility);
+    return () => {
+      window.removeEventListener("pointerup", release);
+      window.removeEventListener("pointercancel", release);
+      window.removeEventListener("blur", clear);
+      document.removeEventListener("visibilitychange", visibility);
+      clear();
+    };
+  }, [battle, previewAttackRange]);
   const occupancy = new Map(
     battle?.units.filter((u) => !u.embarked).map((u) => [`${u.x},${u.y}`, u]),
   );
@@ -217,7 +258,25 @@ export function Board({
                 aria-pressed={match}
                 aria-label={`${isEnemyTarget ? "Attackable enemy, " : ""}${isActing ? "Selected acting unit, " : ""}${dropLabel ? `Cargo drop ${dropLabel}, ` : ""}${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}${unit.cargo_references.length ? `, loaded transport, ${unit.cargo_references.length} passenger${unit.cargo_references.length === 1 ? "" : "s"} aboard` : ""}` : ""}`}
                 onClick={() => (activate ?? select)(tile)}
+                onPointerDown={(event) => {
+                  if (event.button !== 2 || !unit || !previewAttackRange)
+                    return;
+                  event.preventDefault();
+                  heldPointer.current = event.pointerId;
+                  event.currentTarget.setPointerCapture?.(event.pointerId);
+                  previewAttackRange(unit);
+                }}
+                onLostPointerCapture={() => {
+                  if (heldPointer.current !== null) {
+                    heldPointer.current = null;
+                    previewAttackRange?.(null);
+                  }
+                }}
                 onContextMenu={(event) => {
+                  if (unit && previewAttackRange) {
+                    event.preventDefault();
+                    return;
+                  }
                   if (cancel) {
                     event.preventDefault();
                     cancel();
@@ -225,6 +284,8 @@ export function Board({
                 }}
                 onKeyDown={(event) => {
                   if (event.key === "Escape") {
+                    heldPointer.current = null;
+                    previewAttackRange?.(null);
                     cancel?.();
                     return;
                   }

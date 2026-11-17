@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
+import { TerrainDefense } from "./TerrainDefense";
 import { MapPanel } from "./MapPanel";
 import { coName, humanSlot, perspective, playerName } from "./presentation";
 import { Health } from "./Health";
@@ -557,6 +564,16 @@ export function App() {
                       entries={[
                         ["Terrain", terrainName(tile.terrain_class)],
                         ["Owner", owner(tile.owner_slot)],
+                        ...(!unit
+                          ? [
+                              [
+                                "Tile defense",
+                                <TerrainDefense
+                                  terrainClass={tile.terrain_class}
+                                />,
+                              ] as [string, ReactNode],
+                            ]
+                          : []),
                       ]}
                     />
                     {unit && (

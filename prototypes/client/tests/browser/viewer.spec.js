@@ -1305,7 +1305,10 @@ for (const scale of [100, 200]) {
     expect(rect.x).toBeGreaterThanOrEqual(0);
     expect(rect.x + rect.width).toBeLessThanOrEqual(390);
     expect(rect.y + rect.height).toBeLessThanOrEqual(844);
-    if (scale === 100) await origin.click({ button: "right" });
+    if (scale === 100)
+      await page
+        .locator('#board [data-x="0"][data-y="1"]')
+        .click({ button: "right" });
     else await page.keyboard.press("Escape");
     await expect(menu).toHaveCount(0);
     expect((await (await request.get("/__test/stats")).json()).commands).toBe(
@@ -2243,4 +2246,138 @@ test("Cruiser previews two different copter drops over sea before one command", 
   await expect(page.locator(".command-result")).toContainText(
     "Command status: completed",
   );
+});
+
+test("inspector and attack preview show the defending tile rating before confirmation", async ({
+  page,
+  request,
+}) => {
+  await connect(page);
+  await page.locator('#board [data-x="1"][data-y="1"]').click();
+  await expect(
+    page.locator("#inspector [data-terrain-defense]"),
+  ).toHaveAttribute("data-terrain-defense", "3");
+  await page.locator('#board [data-x="1"][data-y="0"]').click();
+  await expect(
+    page.locator("#inspector [data-terrain-defense]"),
+  ).toHaveAttribute("data-terrain-defense", "1");
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  await page.locator('#board [data-x="1"][data-y="0"]').click();
+  await page.locator('#board [data-x="1"][data-y="1"]').click();
+  const menu = page.getByRole("dialog", { name: "Attack enemy", exact: true });
+  await expect(menu.locator("[data-terrain-defense]")).toHaveAttribute(
+    "data-terrain-defense",
+    "3",
+  );
+  await expect(menu).toContainText("Defending tile defense:");
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
+});
+
+test("held right-click previews friendly and enemy ranges without changing a route or persistent toggle", async ({
+  page,
+  request,
+}) => {
+  await connect(page);
+  const origin = page.locator('#board [data-x="0"][data-y="0"]');
+  const enemy = page.locator('#board [data-x="1"][data-y="1"]');
+  await origin.click();
+  await page.locator('#board [data-x="1"][data-y="0"]').click();
+  const menu = page.getByRole("dialog", { name: "Unit actions" });
+  await expect(menu).toBeVisible();
+  await page.locator("#attack-range").click();
+  const before = await page
+    .locator("#board .attackable")
+    .evaluateAll((nodes) => nodes.map((n) => [n.dataset.x, n.dataset.y]));
+  for (const unit of [origin, enemy]) {
+    await unit.hover();
+    await page.mouse.down({ button: "right" });
+    await expect(
+      page.getByRole("status").filter({ hasText: "Attack range preview:" }),
+    ).toBeVisible();
+    await expect(menu).toBeVisible();
+    await expect(origin).toHaveAttribute("data-acting-unit", "true");
+    await expect(
+      page.locator('#board [data-x="1"][data-y="0"]'),
+    ).toHaveAttribute("data-destination", "true");
+    await page.mouse.move(5, 5);
+    await page.mouse.up({ button: "right" });
+    await expect(
+      page.getByRole("status").filter({ hasText: "Attack range preview:" }),
+    ).toHaveCount(0);
+    expect(
+      await page
+        .locator("#board .attackable")
+        .evaluateAll((nodes) => nodes.map((n) => [n.dataset.x, n.dataset.y])),
+    ).toEqual(before);
+    await expect(page.locator("#attack-range")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(menu).toBeVisible();
+  }
+  await page.locator("#attack-range").click();
+  await enemy.hover();
+  await page.mouse.down({ button: "right" });
+  await expect(page.locator("#board .attackable")).not.toHaveCount(0);
+  await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+  await expect(
+    page.getByRole("status").filter({ hasText: "Attack range preview:" }),
+  ).toHaveCount(0);
+  await page.mouse.up({ button: "right" });
+  await expect(page.locator("#board .attackable")).toHaveCount(0);
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
+});
+
+test("held range clears on pointer cancellation, lost capture, and committed state changes", async ({
+  page,
+  request,
+}) => {
+  await connect(page);
+  const origin = page.locator('#board [data-x="0"][data-y="0"]');
+  const status = page
+    .getByRole("status")
+    .filter({ hasText: "Attack range preview:" });
+  for (const event of ["pointercancel", "lostpointercapture"]) {
+    await origin.hover();
+    await page.mouse.down({ button: "right" });
+    await expect(status).toBeVisible();
+    await origin.dispatchEvent(event, { pointerId: 1 });
+    await expect(status).toHaveCount(0);
+    await page.mouse.up({ button: "right" });
+    await expect(page.locator("#board .attackable")).toHaveCount(0);
+  }
+  await origin.hover();
+  await page.mouse.down({ button: "right" });
+  await expect(status).toBeVisible();
+  await request.post("/__test/advance");
+  await expect(page.locator("#boundary")).toContainText("Revision 2");
+  await expect(status).toHaveCount(0);
+  await page.mouse.up({ button: "right" });
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
+});
+
+test("held preview uses an enemy indirect unit's observed range", async ({
+  page,
+}) => {
+  const state = structuredClone(fixture);
+  state.observation.game_state.battle.value.units[1].unit_type = 10;
+  state.observation.game_state.battle.value.units[1].ammo = 9;
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await connect(page);
+  const enemy = page.locator('#board [data-x="1"][data-y="1"]');
+  await enemy.hover();
+  await page.mouse.down({ button: "right" });
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Attack range preview: Artillery" }),
+  ).toBeVisible();
+  await expect(page.locator('#board [data-x="0"][data-y="0"]')).toHaveClass(
+    /attackable/,
+  );
+  await expect(page.locator('#board [data-x="1"][data-y="0"]')).not.toHaveClass(
+    /attackable/,
+  );
+  await page.mouse.up({ button: "right" });
+  await expect(page.locator("#board .attackable")).toHaveCount(0);
 });
