@@ -478,6 +478,13 @@ export function App() {
                   ? gameplay.draft.path
                   : []
               }
+              enemyTargets={
+                new Set(
+                  gameplay.attackableTargets.map(
+                    (unit) => `${unit.x},${unit.y}`,
+                  ),
+                )
+              }
               actionTargets={
                 gameplay.draft.contextual && gameplay.draft.phase === "target"
                   ? new Set(

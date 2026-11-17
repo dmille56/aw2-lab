@@ -1,5 +1,6 @@
 import "./CargoBadge.css";
 import "./UnitHealth.css";
+import "./TargetHighlight.css";
 import "./UnitSelection.css";
 import "./RangeOverlay.css";
 import { Fragment, useRef, type ReactNode } from "react";
@@ -128,6 +129,7 @@ export function Board({
   spritePack = null,
   dropSelections = {},
   actingUnitReference = null,
+  enemyTargets = new Set<string>(),
 }: {
   battle: BattleState | null;
   selected: Position | null;
@@ -146,6 +148,7 @@ export function Board({
   spritePack?: SpritePack | null;
   dropSelections?: Record<string, string>;
   actingUnitReference?: number | null;
+  enemyTargets?: Set<string>;
 }) {
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const occupancy = new Map(
@@ -187,6 +190,7 @@ export function Board({
             const isDropTarget = dropTargets.has(tileKey);
             const dropLabel = dropSelections[tileKey];
             const isActing = !!unit && unit.reference === actingUnitReference;
+            const isEnemyTarget = !!unit && enemyTargets.has(tileKey);
             return (
               <button
                 key={`${tile.x},${tile.y}`}
@@ -199,6 +203,7 @@ export function Board({
                 tabIndex={tile.x === tabStop.x && tile.y === tabStop.y ? 0 : -1}
                 data-cargo-count={unit?.cargo_references.length || undefined}
                 data-acting-unit={isActing || undefined}
+                data-attackable-enemy={isEnemyTarget || undefined}
                 data-drop-selected={dropLabel || undefined}
                 data-x={tile.x}
                 data-y={tile.y}
@@ -210,7 +215,7 @@ export function Board({
                 data-your-unit={!!unit && unit.army_slot === yourSlot}
                 title={`${terrainName(tile.terrain_class)}${unit ? ` · ${unitName(unit)}` : ""}`}
                 aria-pressed={match}
-                aria-label={`${isActing ? "Selected acting unit, " : ""}${dropLabel ? `Cargo drop ${dropLabel}, ` : ""}${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}${unit.cargo_references.length ? `, loaded transport, ${unit.cargo_references.length} passenger${unit.cargo_references.length === 1 ? "" : "s"} aboard` : ""}` : ""}`}
+                aria-label={`${isEnemyTarget ? "Attackable enemy, " : ""}${isActing ? "Selected acting unit, " : ""}${dropLabel ? `Cargo drop ${dropLabel}, ` : ""}${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}${unit.cargo_references.length ? `, loaded transport, ${unit.cargo_references.length} passenger${unit.cargo_references.length === 1 ? "" : "s"} aboard` : ""}` : ""}`}
                 onClick={() => (activate ?? select)(tile)}
                 onContextMenu={(event) => {
                   if (cancel) {
@@ -266,6 +271,11 @@ export function Board({
                     aria-hidden="true"
                     className={`range-overlay${isReachable ? " movement-range" : ""}${isTransit ? " transit-range" : ""}${isAttackable ? " firing-range" : ""}${isThreatened ? " threat-range" : ""}${isDropTarget ? " drop-range" : ""}`}
                   />
+                )}
+                {isEnemyTarget && (
+                  <span className="enemy-target-marker" aria-hidden="true">
+                    <span className="enemy-target-label">ATTACK</span>
+                  </span>
                 )}
                 {isActing && (
                   <span className="acting-unit-marker" aria-hidden="true">

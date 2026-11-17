@@ -531,7 +531,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     explicit Attack. Browser checks cover in-place/moved attacks and ineligible
     targets. Existing command feedback handles rejection. Human review pending.
 
-*** TODO Highlight attackable enemy units when a unit is selected
+*** IN-PROGRESS Highlight attackable enemy units when a unit is selected
     Human playtest feedback (2026-11-16): automatically highlight enemy-occupied
     tiles that the selected unit can attack. Distinguish actual eligible targets
     from general weapon coverage, movement destinations, and enemy threat areas.
@@ -540,6 +540,11 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Clear them on cancellation/deselection, preserve readable sprites and HP,
     and expose the target distinction accessibly. Verify eligible/ineligible
     direct and indirect targets, ammo limits, and keyboard/mouse interactions.
+    Implemented: automatic red/white target frames and ATTACK labels use the
+    same eligible target list as the enemy-tile menu. Markers update with routes,
+    state, selection, capability, and pending actions; accessible tile names
+    identify attackable enemies. Browser checks cover direct/indirect routing,
+    ammunition, and cancellation. Human review pending.
 
 *** TODO Show only the HP number in tile health badges
     Human playtest feedback (2026-11-16): remove the visible HP text from each

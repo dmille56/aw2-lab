@@ -32,6 +32,7 @@ export function MapPanel({
   plannedRoute = [],
   dropTargets = new Set<string>(),
   actionTargets,
+  enemyTargets = new Set<string>(),
   dropSelections = {},
 }: {
   battle: BattleState | null;
@@ -48,6 +49,7 @@ export function MapPanel({
   plannedRoute?: Position[];
   dropTargets?: Set<string>;
   actionTargets?: Set<string>;
+  enemyTargets?: Set<string>;
   dropSelections?: Record<string, string>;
 }) {
   const spritePack = useSpritePack(!!battle);
@@ -193,6 +195,13 @@ export function MapPanel({
         HP badges show health out of 10. Inspect a tile for unit and terrain
         ownership.
       </p>
+      {!!enemyTargets.size && (
+        <p className="hint">
+          {actionTargets
+            ? "Choose an ATTACK-marked enemy to execute the selected attack."
+            : "Click an ATTACK-marked enemy to open its Attack menu."}
+        </p>
+      )}
       {(!!route?.length || target) && (
         <p className="hint">
           Route markers: S = start, numbers = steps, D = destination, T = attack
@@ -206,6 +215,7 @@ export function MapPanel({
             <i aria-hidden="true" className="range-swatch movement-range" />
             Movement · translucent turquoise
           </span>
+          {!!enemyTargets.size && <span>ATTACK · eligible enemy</span>}
           {showAttackRange && (
             <span>
               <i aria-hidden="true" className="range-swatch firing-range" />
@@ -272,6 +282,7 @@ export function MapPanel({
             actionTargets ?? (showAttackRange ? attacks : new Set<string>())
           }
           threatened={threats}
+          enemyTargets={enemyTargets}
           actingUnitReference={selectedUnit?.reference ?? null}
           coordinates={coordinates}
           yourSlot={yourSlot}
@@ -284,7 +295,9 @@ export function MapPanel({
           Exact health remains in the inspector. ✓ marks used units. C1/C2 marks
           a loaded transport and its passenger count. Full names and coordinates
           remain available to assistive technology and in the inspector. Terrain
-          colors are illustrative.
+          colors are illustrative. ATTACK markers identify eligible enemy units
+          from the current or planned position, separately from general range
+          coverage.
         </p>
         <p>
           Turquoise outlined tiles with a light translucent fill are reachable

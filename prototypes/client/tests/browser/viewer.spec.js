@@ -1802,3 +1802,58 @@ test("discards an enemy Attack menu when the committed boundary changes", async 
   await expect(page.locator("#board [data-acting-unit]")).toHaveCount(0);
   expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
 });
+
+for (const indirect of [false, true])
+  test(`automatically marks eligible enemies and updates after routing, indirect=${indirect}`, async ({
+    page,
+  }) => {
+    const state = structuredClone(fixture);
+    const battle = state.observation.game_state.battle.value;
+    if (indirect) {
+      battle.units[0].unit_type = 10;
+      battle.units[0].ammo = 9;
+    } else battle.units[1].y = 0;
+    await page.route("**/state", (route) => route.fulfill({ json: state }));
+    await connect(page);
+    const source = page.locator('#board [data-x="0"][data-y="0"]');
+    const enemy = page.locator(
+      `#board [data-x="1"][data-y="${indirect ? 1 : 0}"]`,
+    );
+    await source.click();
+    await expect(enemy).toHaveAttribute("data-attackable-enemy", "true");
+    await expect(enemy).toHaveAccessibleName(/Attackable enemy/);
+    await expect(enemy.locator(".enemy-target-label")).toHaveText("ATTACK");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator("#zoom").fill("36");
+    const tileBox = await enemy.boundingBox();
+    const labelBox = await enemy.locator(".enemy-target-label").boundingBox();
+    expect(labelBox.x).toBeGreaterThanOrEqual(tileBox.x);
+    expect(labelBox.x + labelBox.width).toBeLessThanOrEqual(
+      tileBox.x + tileBox.width,
+    );
+    await expect(source).not.toHaveAttribute("data-attackable-enemy");
+    await expect(page.locator("#attack-range")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await page.locator('#board [data-x="0"][data-y="1"]').click();
+    await expect(page.locator("#board [data-attackable-enemy]")).toHaveCount(0);
+    await source.click();
+    await expect(enemy).toHaveAttribute("data-attackable-enemy", "true");
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#board [data-attackable-enemy]")).toHaveCount(0);
+  });
+
+test("does not highlight an enemy when the selected artillery has no ammunition", async ({
+  page,
+}) => {
+  const state = structuredClone(fixture);
+  const battle = state.observation.game_state.battle.value;
+  battle.units[0].unit_type = 10;
+  battle.units[0].ammo = 0;
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await connect(page);
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  await expect(page.locator("#board [data-attackable-enemy]")).toHaveCount(0);
+});
