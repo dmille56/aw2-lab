@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { humanSlot } from "./presentation";
 import type { ViewState } from "./session";
-import { actionLabels } from "./CommandFeedback";
+import { actionLabel } from "./action_labels";
 import "./GameNotifications.css";
 export type Notice = {
   id: string;
@@ -108,7 +108,7 @@ export function GameNotifications({
     const id = `${requestId}:${command.phase}`;
     if (seen.current.has(id)) return;
     seen.current.add(id);
-    const action = actionLabels[command.request.action.kind];
+    const action = actionLabel(command.request.action);
     const reason = command.result?.error?.message || view.error;
     const notice: Notice = {
       id,

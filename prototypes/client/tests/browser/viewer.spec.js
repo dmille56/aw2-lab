@@ -772,7 +772,7 @@ test("selects a unit and previews destinations without submitting commands", asy
   await expect(
     page
       .getByRole("dialog", { name: "Unit actions" })
-      .getByRole("button", { name: "Move & Wait", exact: true }),
+      .getByRole("button", { name: "Wait", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
 });
@@ -838,7 +838,7 @@ test("keeps inspection available for opponents and used units and announces keyb
   await expect(
     page
       .getByRole("dialog", { name: "Unit actions" })
-      .getByRole("button", { name: "Move & Wait", exact: true }),
+      .getByRole("button", { name: "Wait", exact: true }),
   ).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.locator('#board [data-x="0"][data-y="0"]')).toBeFocused();
@@ -1425,7 +1425,7 @@ test("keeps feedback by the board and blocks repeated input while a receipt is p
     await unit.click();
     await page
       .getByRole("dialog", { name: "Unit actions" })
-      .getByRole("button", { name: "Move & Wait", exact: true })
+      .getByRole("button", { name: "Wait", exact: true })
       .evaluate((button) => {
         button.click();
         button.click();
@@ -1438,7 +1438,7 @@ test("keeps feedback by the board and blocks repeated input while a receipt is p
     ).toBeDisabled();
     await expect(page.locator(".action-progress")).toBeVisible();
     await expect(page.locator(".action-progress")).toContainText(
-      "Sending Move & Wait",
+      "Sending Wait",
     );
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.locator('#board [data-x="1"][data-y="1"]').click();
@@ -1523,6 +1523,7 @@ test("distinguishes translucent movement, red attack coverage, and dashed enemy 
     ...battle.units[0],
     reference: 2,
     army_slot: 2,
+    unit_type: 22,
     x: 1,
     y: 1,
   });
@@ -1532,6 +1533,15 @@ test("distinguishes translucent movement, red attack coverage, and dashed enemy 
   const threat = page.locator("#board .threat-range").first();
   await expect(threat).toHaveCSS("background-color", "rgba(232, 65, 76, 0.65)");
   await expect(threat).toHaveCSS("border-top-style", "dashed");
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  const threatenedMove = page
+    .locator("#board .movement-range.threat-range")
+    .first();
+  await expect(threatenedMove).toBeVisible();
+  await expect(threatenedMove).toHaveCSS("border-top-style", "dashed");
+  expect(
+    await threatenedMove.evaluate((e) => getComputedStyle(e).boxShadow),
+  ).toContain("rgb(45, 226, 176)");
 });
 
 test("does not offer Join into full-health Infantry but accepts a damaged used partner", async ({
@@ -1876,4 +1886,37 @@ test("keeps the used check and number below the enemy target label at minimum ti
   expect(used.y).toBeGreaterThanOrEqual(label.y + label.height);
   expect(hp.x).toBeGreaterThanOrEqual(tile.x);
   expect(hp.x + hp.width).toBeLessThanOrEqual(tile.x + tile.width);
+});
+
+test("uses Wait after cancelling movement and preserves the label in action history", async ({
+  page,
+}) => {
+  await connect(page);
+  const origin = page.locator('#board [data-x="0"][data-y="0"]');
+  await origin.click();
+  await page.locator('#board [data-x="1"][data-y="0"]').click();
+  const menu = page.getByRole("dialog", { name: "Unit actions" });
+  await expect(
+    menu.getByRole("button", { name: "Move & Wait", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await origin.click();
+  await expect(
+    menu.getByRole("button", { name: "Wait", exact: true }),
+  ).toBeVisible();
+  const sent = page.waitForRequest(
+    (req) => req.url().endsWith("/commands") && req.method() === "POST",
+  );
+  await menu.getByRole("button", { name: "Wait", exact: true }).click();
+  expect((await sent).postDataJSON().action.path).toEqual([]);
+  await expect(page.locator(".command-result .activity-action")).toHaveText(
+    "Wait",
+  );
+  await page.getByRole("button", { name: "End turn", exact: true }).click();
+  await page.locator("#submit-action").click();
+  await expect(page.locator(".command-result")).toContainText("completed");
+  await page.locator(".command-history summary").click();
+  await expect(page.locator(".command-history .activity-action")).toHaveText(
+    "Wait",
+  );
 });

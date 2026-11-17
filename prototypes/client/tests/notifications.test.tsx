@@ -132,3 +132,20 @@ it("uses the initial connection as baseline and never notifies snapshot readers 
   rendered.rerender(<GameNotifications view={operator} />);
   expect(screen.queryByText("Your turn")).not.toBeInTheDocument();
 });
+
+it.each([false, true])(
+  "names rejected wait actions according to whether they moved: %s",
+  (moved) => {
+    const initial = view("rejected");
+    initial.command!.request.action = {
+      contract_version: 1,
+      kind: "move_wait",
+      unit_id: "1",
+      path: moved ? [{ contract_version: 1, x: 1, y: 0 }] : [],
+    };
+    render(<GameNotifications view={initial} />);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      `${moved ? "Move & Wait" : "Wait"} could not be executed`,
+    );
+  },
+);

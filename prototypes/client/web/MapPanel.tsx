@@ -302,9 +302,9 @@ export function MapPanel({
         <p>
           Turquoise outlined tiles with a light translucent fill are reachable
           movement destinations; dashed turquoise tiles are allied transit. Red
-          solid borders show potential attack range; turquoise and red inner
-          borders show movement/attack overlap. Red dashed tiles are in the
-          enabled enemy threat estimate. These overlays describe observed
+          solid borders show potential attack range; turquoise inner borders
+          retain movement reach where red ranges overlap. Red dashed tiles are
+          in the enabled enemy threat estimate. These overlays describe observed
           potential coverage, not an action guarantee.
         </p>
         <div id="legend">

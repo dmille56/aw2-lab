@@ -1,12 +1,12 @@
 import type { ViewState } from "./session";
-import { actionLabels } from "./CommandFeedback";
+import { actionLabel } from "./action_labels";
 import "./ActionProgress.css";
 export function ActionProgress({ view }: { view: ViewState }) {
   const command = view.command;
   const busy =
     !!command &&
     ["submitting", "queued", "running", "uncertain"].includes(command.phase);
-  const label = command ? actionLabels[command.request.action.kind] : "Action";
+  const label = command ? actionLabel(command.request.action) : "Action";
   return (
     <div
       className="action-progress"

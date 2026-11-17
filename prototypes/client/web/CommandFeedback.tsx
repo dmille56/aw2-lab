@@ -1,24 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { CommandProgress, ViewState } from "./session";
-import type { ActionKind } from "./gameplay";
-export const actionLabels: Record<ActionKind, string> = {
-  move_wait: "Move & Wait",
-  attack: "Attack in place",
-  move_attack: "Attack",
-  move_capture: "Capture",
-  join: "Join units",
-  supply: "Supply",
-  dive: "Dive",
-  rise: "Rise",
-  silo_launch: "Launch missile",
-  load: "Load",
-  unload: "Unload",
-  purchase: "Purchase unit",
-  activate_normal_power: "Activate normal Power",
-  activate_super_power: "Activate Super Power",
-  end_turn: "End turn",
-  surrender: "Surrender",
-};
+import { actionLabel } from "./action_labels";
 
 export function CommandFeedback({
   view,
@@ -72,7 +54,7 @@ export function CommandFeedback({
             data-status={command.phase}
           >
             <p className="activity-action">
-              {actionLabels[command.request.action.kind]}
+              {actionLabel(command.request.action)}
             </p>
             <h4>Command status: {command.phase}</h4>
             <p className="activity-message" role="status">
@@ -148,7 +130,7 @@ export function CommandFeedback({
                   .map((item) => (
                     <li key={item.request.request_id}>
                       <span className="activity-action">
-                        {actionLabels[item.request.action.kind]}
+                        {actionLabel(item.request.action)}
                       </span>
                       <strong>Command status: {item.phase}</strong>
                       <p>

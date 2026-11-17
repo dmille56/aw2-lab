@@ -558,13 +558,17 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     accessible health descriptions, inspector details, and separate used markers
     remain. Browser checks cover full, partial, and one HP. Human review pending.
 
-*** TODO Label waiting in place as Wait
+*** IN-PROGRESS Label waiting in place as Wait
     Human playtest feedback (2026-11-16): when the selected unit waits without
     moving, label the action Wait. Use Move & Wait when the planned route
     actually changes its position. Keep menu, progress, history, and failure
     feedback consistent with the submitted action, preserving existing gameplay
     behavior. Verify both waiting in place and moving before waiting, including
     cancelling a route back to the starting tile.
+    Implemented: shared action wording uses Wait for an empty submitted path and
+    Move & Wait for movement. Menus, progress, history, and rejection notices use
+    the same distinction. Browser checks cover route cancellation, submission,
+    pending feedback, and history; notification checks cover both labels. Human review pending.
 
 *** IN-PROGRESS Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,
@@ -598,11 +602,12 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     tile-corner label removal, clearer HP badges without player prefixes, and
     stronger movement overlays over sea tiles. All four are implemented; human
     rechecks remain pending. Sea-sprite desktop/narrow previews were reviewed.
-    Further feedback adds five pending TODOs above: red translucent attack/threat
+    Further feedback adds five follow-ups above: red translucent attack/threat
     overlays, Attack menus on eligible enemy tiles, and automatic attackable-enemy
     highlighting, tile health badges displaying only the 1–10 number, and Wait
     wording for units that stay in place.
-    Implement and review these before final acceptance.
+    All five are implemented in separate commits; human visual rechecks remain
+    pending before final acceptance.
     - [ ] Human rechecks the reported usability follow-ups and accepts the redesign.
 
     For every implementation item, add focused behavior checks, run relevant

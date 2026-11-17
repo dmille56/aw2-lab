@@ -722,3 +722,21 @@ preserving terrain detail. Allied transit uses a dashed turquoise outline and a
 lighter fill. Attack overlap keeps sparse red stripes above the same translucent
 turquoise center. Selection retains its thicker cursor and SELECTED label. Human
 visual acceptance remains pending.
+
+
+### Attack interaction and tile-label follow-ups (2026-11-16)
+
+Attack coverage and enemy threat estimates use red centers at 35% transparency
+(65% opacity), as recorded in the requested TODO. Solid versus dashed borders
+separate attack coverage from threat estimates; movement overlap retains a
+turquoise cue. Clicking an eligible enemy opens an Attack menu without submitting
+until Attack is chosen. Cancellation retains the acting unit and planned path.
+Automatic ATTACK markers identify actual eligible enemies independently of the
+optional general range display, sharing the menu's eligibility list.
+
+Tile health badges now show only the rounded number from 1 to 10. Waiting in
+place says Wait; actions with movement say Move & Wait across the menu, progress,
+history, and rejection notices. Browser regressions cover these interactions,
+keyboard use, cancellation, ammunition, indirect-fire restrictions, stale state,
+and tile layouts. Local sprite previews remain outside Git. All five follow-ups
+are implemented; human visual review and final redesign acceptance remain open.

@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { GameplayAction } from "./command_input";
+import { waitLabel } from "./action_labels";
 import type { ViewState } from "./session";
 import { sameTile, type ActionKind, type GameplayModel } from "./gameplay";
 import { unitName, type Position } from "./Board";
@@ -230,7 +231,11 @@ export function ContextActions({
         tile.x === point.x && tile.y === point.y && tile.terrain_class === 17,
     );
   const choices: { kind: ActionKind; label: string; show: boolean }[] = [
-    { kind: "move_wait", label: "Move & Wait", show: model.movementReady },
+    {
+      kind: "move_wait",
+      label: waitLabel(draft.path.length),
+      show: model.movementReady,
+    },
     { kind: "move_capture", label: "Capture", show: model.canCapture },
     { kind: "join", label: "Join", show: model.canJoin },
     {
