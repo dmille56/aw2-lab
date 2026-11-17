@@ -200,6 +200,16 @@
                 "status": "available",
                 "value": 0,
                 "reasons": []
+              },
+              "attack_bonus": {
+                "status": "available",
+                "value": 0,
+                "reasons": []
+              },
+              "defense_bonus": {
+                "status": "available",
+                "value": 0,
+                "reasons": []
               }
             },
             {
@@ -215,6 +225,16 @@
                 "reasons": []
               },
               "power_use_counter": {
+                "status": "available",
+                "value": 0,
+                "reasons": []
+              },
+              "attack_bonus": {
+                "status": "available",
+                "value": 0,
+                "reasons": []
+              },
+              "defense_bonus": {
                 "status": "available",
                 "value": 0,
                 "reasons": []

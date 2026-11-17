@@ -153,6 +153,15 @@ def _decode_battle(snapshot: BattleMemorySnapshot) -> BattleState:
                     active_power=record[0x1E],
                     power_meter=meter,
                     power_use_counter=use_counter,
+                    # Native 0x08024C58 adds these signed player-record bonuses.
+                    attack_bonus=ObservedValue(
+                        ValueStatus.AVAILABLE,
+                        int.from_bytes(record[0x26:0x28], "little", signed=True),
+                    ),
+                    defense_bonus=ObservedValue(
+                        ValueStatus.AVAILABLE,
+                        int.from_bytes(record[0x28:0x2A], "little", signed=True),
+                    ),
                 )
             )
 

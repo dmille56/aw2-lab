@@ -273,3 +273,13 @@ def test_rule_options_are_observed_without_assuming_unknown_encodings(memory, ra
     else:
         assert battle.co_effects_enabled.status is ValueStatus.UNKNOWN
         assert battle.fog_enabled.status is ValueStatus.UNKNOWN
+
+
+def test_player_combat_bonuses_are_signed_observations(memory) -> None:
+    raw = memory[1]
+    pack_into("<h", raw, 0x232E6, -10)
+    pack_into("<h", raw, 0x232E8, 20)
+    battle = decode_snapshot(snapshot(memory)).battle.value
+    assert battle is not None
+    assert battle.players[0].attack_bonus == ObservedValue(ValueStatus.AVAILABLE, -10)
+    assert battle.players[0].defense_bonus == ObservedValue(ValueStatus.AVAILABLE, 20)

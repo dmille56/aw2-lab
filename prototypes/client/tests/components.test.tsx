@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
 import { Board, UnitInspector } from "../web/Board";
+import { DamagePreview } from "../web/DamagePreview";
 import { MapPanel } from "../web/MapPanel";
 import { Health } from "../web/Health";
 import { PlayerHud } from "../web/PlayerHud";
@@ -483,4 +484,35 @@ it("shows a two-passenger cargo badge and accessible count on a loaded Lander", 
       name: /loaded transport, 2 passengers aboard/,
     }),
   ).toBeInTheDocument();
+});
+
+it("renders an accessible damage estimate and explains unavailable observations", () => {
+  const previewBattle = structuredClone(battle);
+  const [attacker, defender] = previewBattle.units;
+  defender.y = 0;
+  const rendered = render(
+    <DamagePreview
+      battle={previewBattle}
+      attacker={attacker}
+      defender={defender}
+      path={[]}
+    />,
+  );
+  expect(screen.getByRole("status")).toHaveTextContent("Estimated damage: 49%");
+  previewBattle.players[0].attack_bonus = {
+    status: "unknown",
+    value: null,
+    reasons: ["not observed"],
+  };
+  rendered.rerender(
+    <DamagePreview
+      battle={previewBattle}
+      attacker={attacker}
+      defender={defender}
+      path={[]}
+    />,
+  );
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "Damage estimate unavailable",
+  );
 });

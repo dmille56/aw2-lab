@@ -531,6 +531,10 @@ for (const kind of ["move_wait", "move_attack", "move_capture"]) {
     if (kind === "move_attack") {
       await menu.getByRole("button", { name: "Attack", exact: true }).click();
       await tile(1, 1).click();
+      await page
+        .getByRole("dialog", { name: "Attack enemy", exact: true })
+        .getByRole("button", { name: "Attack", exact: true })
+        .click();
     } else
       await menu
         .getByRole("button", {
@@ -1211,7 +1215,7 @@ test("clicking a distant destination builds a route without emulator input", asy
 });
 
 for (const kind of ["move_wait", "move_attack"]) {
-  test(`context menu commits ${kind} without an extra confirmation`, async ({
+  test(`context menu previews and commits ${kind}`, async ({
     page,
     request,
   }) => {
@@ -1233,6 +1237,8 @@ for (const kind of ["move_wait", "move_attack"]) {
       await expect(page.locator('#board [data-x="1"][data-y="1"]')).toHaveClass(
         /attackable/,
       );
+      await page.keyboard.press("Enter");
+      await expect(page.locator("#attack-damage-preview")).toBeVisible();
       await page.keyboard.press("Enter");
     } else
       await menu
@@ -2083,3 +2089,48 @@ for (const broken of [false, true])
       page.getByLabel("Commanding officer: Andy", { exact: true }),
     ).toBeVisible();
   });
+
+test("shows damage and luck before confirming an enemy-tile attack", async ({
+  page,
+  request,
+}) => {
+  const state = structuredClone(fixture);
+  state.observation.game_state.battle.value.units[1].y = 0;
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await connect(page);
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  await page.locator('#board [data-x="1"][data-y="0"]').click();
+  await expect(page.locator("#attack-damage-preview")).toContainText(
+    "Estimated damage: 49%",
+  );
+  await expect(page.locator("#attack-damage-preview")).toContainText("49–57%");
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
+  await page
+    .getByRole("dialog", { name: "Attack enemy", exact: true })
+    .getByRole("button", { name: "Attack", exact: true })
+    .click();
+  await expect(page.locator(".command-result")).toContainText("completed");
+});
+
+test("keeps the damage preview and final Attack usable at narrow 200% scale", async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (let i = 0; i < 10; i++) await page.locator("#ui-scale-increase").click();
+  await connect(page);
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  await page.locator('#board [data-x="1"][data-y="0"]').click();
+  await page.locator('#board [data-x="1"][data-y="1"]').click();
+  await expect(page.locator("#attack-damage-preview")).toContainText(
+    "Estimated damage: 38%",
+  );
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
+  const attack = page
+    .getByRole("dialog", { name: "Attack enemy", exact: true })
+    .getByRole("button", { name: "Attack", exact: true });
+  await attack.scrollIntoViewIfNeeded();
+  await expect(attack).toBeInViewport();
+  await attack.click();
+  await expect(page.locator(".command-result")).toContainText("completed");
+});

@@ -688,7 +688,7 @@ it("does not offer occupied or non-adjacent unload tiles", () => {
   ).not.toContainEqual({ x: 1, y: 1 });
 });
 
-it("constructs contextual attacks from the chosen target without waiting for a render", () => {
+it("prepares contextual attacks for preview without submitting on target selection", () => {
   const snapshot = validateState(structuredClone(stateFixture));
   const view: ViewState = {
     ...new MatchSession().getSnapshot(),
@@ -723,14 +723,13 @@ it("constructs contextual attacks from the chosen target without waiting for a r
   expect(onCommit).not.toHaveBeenCalled();
   act(() => result.current.dispatch({ type: "choose", kind: "move_attack" }));
   act(() => result.current.activate({ x: 1, y: 1 }));
-  expect(onCommit).toHaveBeenCalledWith(
-    {
-      contract_version: 1,
-      kind: "move_attack",
-      unit_id: "1",
-      path: [{ contract_version: 1, x: 1, y: 0 }],
-      target: { contract_version: 1, x: 1, y: 1 },
-    },
-    1,
-  );
+  expect(onCommit).not.toHaveBeenCalled();
+  expect(result.current.draft.phase).toBe("enemy_menu");
+  expect(result.current.prepareAction("move_attack", { x: 1, y: 1 })).toEqual({
+    contract_version: 1,
+    kind: "move_attack",
+    unit_id: "1",
+    path: [{ contract_version: 1, x: 1, y: 0 }],
+    target: { contract_version: 1, x: 1, y: 1 },
+  });
 });

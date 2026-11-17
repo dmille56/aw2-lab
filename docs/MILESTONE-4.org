@@ -616,7 +616,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     packs. Decoder, manifest, delivery, and browser checks cover the extension.
     Authentic artwork remains outside Git/Nix. Human review pending.
 
-*** TODO Preview estimated attack damage as a percentage before attacking
+*** IN-PROGRESS Preview estimated attack damage as a percentage before attacking
     Human playtest feedback (2026-11-16): show an AW2-style estimate of the damage
     an attack is likely to inflict before the player executes it.
     User-supplied research references:
@@ -634,6 +634,14 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     enemy-tile Attack menu and explicit target-selection flow. Previewing must not
     send emulator input. Cover representative unit matchups/modifiers with focused
     checks, live cartridge comparisons, and human review.
+    Implemented: cartridge-style forecast and luck range in a preview menu
+    before final Attack, including touch/keyboard target-selection flows. Shared
+    factual damage/CO tables and observed player combat bonuses drive estimates;
+    unknown and counter-first cases report why a preview is unavailable. Chart
+    audit, rounding/modifier tests, and browser checks cover the implementation.
+    Eleven isolated live cartridge comparisons matched native forecasts and
+    observed damage intervals; source ROM/checkpoint bytes were unchanged.
+    See [[file:DAMAGE-PREVIEW.md][damage-preview verification]]. Human review remains pending.
 
 *** TODO Support two-copter Cruiser cargo through the full gameplay flow
     Human playtest feedback (2026-11-16): Cruisers should carry up to two copter

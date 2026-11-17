@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { GameplayAction } from "./command_input";
 import { waitLabel } from "./action_labels";
+import { DamagePreview } from "./DamagePreview";
 import type { ViewState } from "./session";
 import { sameTile, type ActionKind, type GameplayModel } from "./gameplay";
 import { unitName, type Position } from "./Board";
@@ -205,8 +206,17 @@ export function ContextActions({
         <p>
           Target ({point.x}, {point.y}). Your planned route is retained.
         </p>
+        {model.battle && (
+          <DamagePreview
+            battle={model.battle}
+            attacker={model.selectedUnit}
+            defender={enemy}
+            path={draft.path}
+          />
+        )}
         <button
           type="button"
+          aria-describedby="attack-damage-preview"
           disabled={!model.prepareAction(attack, point)}
           onClick={() => send(attack, point)}
         >

@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
+from aw2_lab.aw2_combat_data import BASE_DAMAGE, CO_COMBAT, TERRAIN_STARS, combat_bonuses
 from aw2_lab.aw2_rules_data import (
     CO_MOVEMENT_VARIANTS,
     TERRAIN_COSTS,
@@ -48,6 +49,22 @@ def catalog_text() -> str:
                     (None, 0),
                     *((co, power) for co in range(19) for power in range(3)),
                 ]
+            },
+        },
+        "combat": {
+            "base_damage": BASE_DAMAGE,
+            "terrain_stars": TERRAIN_STARS,
+            "co_profiles": {
+                key: {
+                    "luck": values[0],
+                    "bad_luck": values[1],
+                    "flags": values[2],
+                    "bonuses": {
+                        unit: combat_bonuses(int(key.split(":")[0]), int(key.split(":")[1]), unit)
+                        for unit in UNIT_DATA
+                    },
+                }
+                for key, values in CO_COMBAT.items()
             },
         },
         "units": {

@@ -189,7 +189,7 @@ export function MapPanel({
       {!!enemyTargets.size && (
         <p className="hint">
           {actionTargets
-            ? "Choose an ATTACK-marked enemy to execute the selected attack."
+            ? "Choose an ATTACK-marked enemy to preview damage before attacking."
             : "Click an ATTACK-marked enemy to open its Attack menu."}
         </p>
       )}

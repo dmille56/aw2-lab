@@ -9676,6 +9676,16 @@
             "title": "Active Power",
             "type": "integer"
           },
+          "attack_bonus": {
+            "$ref": "#/components/schemas/ObservedValue_int_",
+            "default": {
+              "reasons": [
+                "Combat attack modifier was not observed"
+              ],
+              "status": "unknown",
+              "value": null
+            }
+          },
           "co_id": {
             "title": "Co Id",
             "type": "integer"
@@ -9683,6 +9693,16 @@
           "control_type": {
             "title": "Control Type",
             "type": "integer"
+          },
+          "defense_bonus": {
+            "$ref": "#/components/schemas/ObservedValue_int_",
+            "default": {
+              "reasons": [
+                "Combat defense modifier was not observed"
+              ],
+              "status": "unknown",
+              "value": null
+            }
           },
           "funds": {
             "title": "Funds",

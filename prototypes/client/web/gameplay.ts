@@ -764,10 +764,22 @@ export function useGameplay(
     if (draft.phase === "target") {
       if (
         draft.contextual &&
+        (draft.kind === "attack" || draft.kind === "move_attack")
+      ) {
+        if (attackableTargets.some((unit) => sameTile(unit, point)))
+          dispatch({ type: "enemy_target", point, kind: draft.kind });
+        else
+          dispatch({
+            type: "notice",
+            notice: "Choose a highlighted compatible enemy target.",
+          });
+        return;
+      }
+
+      if (
+        draft.contextual &&
         onCommit &&
-        (draft.kind === "attack" ||
-          draft.kind === "move_attack" ||
-          draft.kind === "silo_launch") &&
+        draft.kind === "silo_launch" &&
         snapshot
       ) {
         const action = prepareAction(draft.kind, point);

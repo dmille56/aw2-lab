@@ -8096,10 +8096,30 @@ export interface components {
         PlayerState: {
             /** Active Power */
             active_power: number;
+            /**
+             * @default {
+             *       "reasons": [
+             *         "Combat attack modifier was not observed"
+             *       ],
+             *       "status": "unknown",
+             *       "value": null
+             *     }
+             */
+            attack_bonus: components["schemas"]["ObservedValue_int_"];
             /** Co Id */
             co_id: number;
             /** Control Type */
             control_type: number;
+            /**
+             * @default {
+             *       "reasons": [
+             *         "Combat defense modifier was not observed"
+             *       ],
+             *       "status": "unknown",
+             *       "value": null
+             *     }
+             */
+            defense_bonus: components["schemas"]["ObservedValue_int_"];
             /** Funds */
             funds: number;
             power_meter: components["schemas"]["ObservedValue_int_"];

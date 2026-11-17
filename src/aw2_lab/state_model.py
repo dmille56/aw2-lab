@@ -78,6 +78,12 @@ class PlayerState:
     active_power: int
     power_meter: ObservedValue[int]
     power_use_counter: ObservedValue[int]
+    attack_bonus: ObservedValue[int] = ObservedValue(
+        ValueStatus.UNKNOWN, None, ("Combat attack modifier was not observed",)
+    )
+    defense_bonus: ObservedValue[int] = ObservedValue(
+        ValueStatus.UNKNOWN, None, ("Combat defense modifier was not observed",)
+    )
 
 
 @dataclass(frozen=True, slots=True)
