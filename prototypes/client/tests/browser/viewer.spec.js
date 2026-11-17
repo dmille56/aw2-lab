@@ -1455,7 +1455,7 @@ test("keeps feedback by the board and blocks repeated input while a receipt is p
   await page.unroute("**/v1/matches/*/commands");
 });
 
-test("keeps terrain visible under translucent white movement and sparse attack overlap", async ({
+test("keeps terrain visible under translucent turquoise movement and sparse attack overlap", async ({
   page,
 }) => {
   const state = structuredClone(fixture);
@@ -1487,7 +1487,7 @@ test("keeps terrain visible under translucent white movement and sparse attack o
     await page.locator("#zoom").fill("36");
     await expect(movement).toHaveCSS(
       "background-color",
-      "rgba(255, 255, 255, 0.2)",
+      "rgba(45, 226, 176, 0.2)",
     );
     await expect(movement).toBeVisible();
   }
@@ -1495,9 +1495,9 @@ test("keeps terrain visible under translucent white movement and sparse attack o
   await expect(movement).toHaveCSS("background-image", "none");
   expect(
     await movement.evaluate((e) => getComputedStyle(e).boxShadow),
-  ).toContain("rgb(255, 255, 255)");
+  ).toContain("rgb(45, 226, 176)");
   await expect(page.getByLabel("Range legend")).toContainText(
-    "Movement · translucent white",
+    "Movement · translucent turquoise",
   );
   await page
     .getByRole("button", { name: "Show attack range", exact: true })
@@ -1510,7 +1510,7 @@ test("keeps terrain visible under translucent white movement and sparse attack o
   const overlap = page.locator("#board .movement-range.firing-range").first();
   await expect(overlap).toHaveCSS(
     "background-color",
-    "rgba(255, 255, 255, 0.2)",
+    "rgba(45, 226, 176, 0.2)",
   );
   expect(
     await overlap.evaluate((e) => getComputedStyle(e).backgroundImage),

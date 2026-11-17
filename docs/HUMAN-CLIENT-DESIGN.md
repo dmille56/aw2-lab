@@ -715,9 +715,10 @@ visual acceptance remains pending.
 
 ### Translucent movement center (2026-11-16)
 
-Following user feedback, movement now uses a 20%-opacity white fill and white
+Following user feedback requesting blue-green distinct from sea tiles, movement
+now uses a 20%-opacity turquoise (#2de2b0) fill and turquoise
 outlines edged in charcoal. This gives reachable tiles a light tint while
-preserving terrain detail. Allied transit uses a dashed white outline and a
+preserving terrain detail. Allied transit uses a dashed turquoise outline and a
 lighter fill. Attack overlap keeps sparse red stripes above the same translucent
-white center. Selection retains its thicker cursor and SELECTED label. Human
+turquoise center. Selection retains its thicker cursor and SELECTED label. Human
 visual acceptance remains pending.
