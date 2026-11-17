@@ -498,7 +498,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Recheck with local sprites and fallback terrain, both themes, and supported
     scales. Require human confirmation on sea-heavy maps before acceptance.
     Revised after further human feedback: the gold fill obscured terrain.
-    Movement now uses turquoise outlines edged in charcoal with a 20%-opacity turquoise
+    Movement now uses turquoise outlines edged in charcoal with a 35%-opacity turquoise
     center, following the user's request for partial transparency and a blue-green
     color distinct from blue sea tiles. Allied transit is dashed with a lighter fill; overlap uses sparse red
     stripes over the same translucent center. Browser checks cover sea terrain,

@@ -7,7 +7,7 @@
 }
 
 .movement-range {
-  background: #2de2b033;
+  background: rgb(45 226 176 / 35%);
   border: 1px solid #171717;
   box-shadow:
     inset 0 0 0 2px #2de2b0,
@@ -15,7 +15,7 @@
 }
 
 .transit-range {
-  background: #2de2b01a;
+  background: #2de2b033;
   border: 2px dashed #2de2b0;
   box-shadow: inset 0 0 0 1px #171717;
 }
@@ -33,7 +33,7 @@
 .movement-range.firing-range {
   background:
     repeating-linear-gradient(135deg, #d82d2d99 0 2px, transparent 2px 12px),
-    #2de2b033;
+    rgb(45 226 176 / 35%);
   border-color: #171717;
   box-shadow:
     inset 0 0 0 2px #2de2b0,

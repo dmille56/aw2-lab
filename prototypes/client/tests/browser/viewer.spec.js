@@ -1487,7 +1487,7 @@ test("keeps terrain visible under translucent turquoise movement and sparse atta
     await page.locator("#zoom").fill("36");
     await expect(movement).toHaveCSS(
       "background-color",
-      "rgba(45, 226, 176, 0.2)",
+      "rgba(45, 226, 176, 0.35)",
     );
     await expect(movement).toBeVisible();
   }
@@ -1510,7 +1510,7 @@ test("keeps terrain visible under translucent turquoise movement and sparse atta
   const overlap = page.locator("#board .movement-range.firing-range").first();
   await expect(overlap).toHaveCSS(
     "background-color",
-    "rgba(45, 226, 176, 0.2)",
+    "rgba(45, 226, 176, 0.35)",
   );
   expect(
     await overlap.evaluate((e) => getComputedStyle(e).backgroundImage),
