@@ -46,7 +46,7 @@ def test_local_pack_is_complete_deterministic_and_preserves_rom(tmp_path: Path) 
     }
     assert set(manifest["portraits"]) == {str(co_id) for co_id in range(19)}
     assert all(
-        region["width"] == 48 and region["height"] == 16
+        region["width"] == 48 and region["height"] == 48
         for region in manifest["portraits"].values()
     )
     for region in [

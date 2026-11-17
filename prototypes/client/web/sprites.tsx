@@ -65,7 +65,7 @@ export function validateSpriteManifest(value: unknown): Manifest {
         !dimension(r.width) ||
         !dimension(r.height) ||
         r.width > (portraits ? 48 : 32) ||
-        r.height > 32 ||
+        r.height > (portraits ? 48 : 32) ||
         Number(r.x) + r.width > m.width ||
         Number(r.y) + r.height > m.height
       )

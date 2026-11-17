@@ -2061,10 +2061,10 @@ for (const broken of [false, true])
           version: 1,
           atlas,
           width: 48,
-          height: 32,
+          height: 48,
           units: {},
           terrain: {},
-          portraits: { 1: { x: 0, y: 0, width: 48, height: 16 } },
+          portraits: { 1: { x: 0, y: 0, width: 48, height: 48 } },
         },
       }),
     );
@@ -2073,7 +2073,7 @@ for (const broken of [false, true])
         contentType: broken ? "text/plain" : "image/svg+xml",
         body: broken
           ? "invalid image"
-          : '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="32"><rect width="48" height="16" fill="#508060"/></svg>',
+          : '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><rect width="48" height="48" fill="#508060"/></svg>',
       }),
     );
     await connect(page);
@@ -2084,11 +2084,15 @@ for (const broken of [false, true])
       await expect(page.locator('[data-co-portrait="1"]')).toBeVisible();
       const portrait = page.locator('[data-co-portrait="1"]');
       await expect(portrait).toHaveCSS("width", "48px");
-      await expect(portrait).toHaveCSS("height", "16px");
+      await expect(portrait).toHaveCSS("height", "48px");
       const box = await portrait.boundingBox();
       const frame = await page.locator(".co-emblem").first().boundingBox();
       expect(box.x).toBeGreaterThanOrEqual(frame.x);
       expect(box.x + box.width).toBeLessThanOrEqual(frame.x + frame.width);
+      expect(box.y).toBeGreaterThanOrEqual(frame.y);
+      expect(box.y + box.height).toBeLessThanOrEqual(frame.y + frame.height);
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expect(portrait).toBeVisible();
       await expect(page.locator(".co-emblem").first()).toHaveText("");
     }
     await expect(page.locator(".co-emblem").nth(1)).toHaveText("MA");

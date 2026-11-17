@@ -106,7 +106,7 @@ def build_sprite_pack(rom_path: Path, output: Path) -> SpriteManifest:
     map_height = ((map_count + 15) // 16) * 32
     for co_id in range(19):
         frames.append(("portraits", str(co_id), co_portrait_sample(rom, co_id)))
-    width, height = 256, map_height + 4 * 16
+    width, height = 256, map_height + 4 * 48
     pixels = bytearray(width * height * 4)
     units: dict[str, Region] = {}
     terrains: dict[str, Region] = {}
@@ -115,7 +115,7 @@ def build_sprite_pack(rom_path: Path, output: Path) -> SpriteManifest:
     for index, (kind, key, (w, h, frame)) in enumerate(frames):
         if kind == "portraits":
             portrait_index = index - map_count
-            x, y = portrait_index % 5 * 48, map_height + portrait_index // 5 * 16
+            x, y = portrait_index % 5 * 48, map_height + portrait_index // 5 * 48
         else:
             x, y = index % 16 * 16, index // 16 * 32
         for row in range(h):

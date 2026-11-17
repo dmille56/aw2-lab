@@ -20,7 +20,7 @@ class SpriteRegion(BaseModel):
     x: int = Field(ge=0, le=4096, strict=True)
     y: int = Field(ge=0, le=4096, strict=True)
     width: int = Field(ge=1, le=48, strict=True)
-    height: int = Field(ge=1, le=32, strict=True)
+    height: int = Field(ge=1, le=48, strict=True)
 
 
 class SpritePackManifest(BaseModel):
@@ -47,7 +47,7 @@ class SpritePackManifest(BaseModel):
         if len(self.portraits) > 19:
             raise ValueError("Too many CO portrait regions")
         if any(
-            region.width > 32
+            region.width > 32 or region.height > 32
             for collection in (self.units, self.terrain)
             for region in collection.values()
         ):

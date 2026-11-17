@@ -111,25 +111,31 @@ def test_co_portrait_table_and_native_tile_layout(monkeypatch: pytest.MonkeyPatc
     import aw2_lab.sprite_extraction as extraction
 
     monkeypatch.setattr(extraction, "CO_GRAPHICS_TABLE", 0)
-    rom = bytearray(896)
+    graphics = b"".join(
+        bytes([((tile // 15 + 1) << 4) | (tile % 15 + 1)]) * 32 for tile in range(36)
+    )
+    compressed = (
+        b"\x10"
+        + len(graphics).to_bytes(3, "little")
+        + b"".join(b"\0" + graphics[offset : offset + 8] for offset in range(0, len(graphics), 8))
+    )
+    rom = bytearray(512) + compressed
     struct.pack_into("<I", rom, 8, 0x08000100)
-    struct.pack_into("<I", rom, 24, 0x08000200)
+    struct.pack_into("<I", rom, 12, 0x08000200)
     struct.pack_into("<16H", rom, 256, *range(16))
-    for tile in range(12):
-        rom[512 + tile * 32 : 512 + (tile + 1) * 32] = bytes([(tile + 1) * 0x11]) * 32
     width, height, pixels = extraction.co_portrait_sample(bytes(rom), 0)
-    assert (width, height) == (48, 16)
+    assert (width, height) == (48, 48)
     palette = extraction.decode_palette(bytes(rom), 256, transparent=True)
-    tile_rows = [
-        [
-            palette.index(
-                tuple(pixels[((y * 8) * width + x * 8) * 4 : ((y * 8) * width + x * 8) * 4 + 4])
-            )
-            for x in range(6)
-        ]
-        for y in range(2)
-    ]
-    assert tile_rows == [[1, 2, 3, 4, 9, 10], [5, 6, 7, 8, 11, 12]]
+    tile_rows = []
+    for y in range(6):
+        row = []
+        for x in range(6):
+            offset = ((y * 8) * width + x * 8) * 4
+            first = palette.index(tuple(pixels[offset : offset + 4]))
+            second = palette.index(tuple(pixels[offset + 4 : offset + 8]))
+            row.append((second - 1) * 15 + first)
+        tile_rows.append(row)
+    assert tile_rows == [list(range(start, start + 6)) for start in (1, 7, 13, 19, 25, 31)]
     with pytest.raises(ValueError):
         extraction.co_portrait_sample(bytes(rom[:-1]), 0)
     with pytest.raises(ValueError):
