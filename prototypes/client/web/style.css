@@ -55,9 +55,8 @@ body {
 
 header,
 main {
-  max-width: 1500px;
-  margin: auto;
-  padding: 20px;
+  margin: 0;
+  padding: 20px 4px;
 }
 
 header {
@@ -247,11 +246,12 @@ textarea:focus-visible,
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
   align-items: start;
-  gap: 16px;
+  gap: 16px 8px;
 }
 
 .map-panel {
   min-width: 0;
+  padding-inline: 4px;
 }
 
 #map-scroll {

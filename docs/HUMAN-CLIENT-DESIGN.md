@@ -740,3 +740,14 @@ history, and rejection notices. Browser regressions cover these interactions,
 keyboard use, cancellation, ammunition, indirect-fire restrictions, stale state,
 and tile layouts. Local sprite previews remain outside Git. All five follow-ups
 are implemented; human visual review and final redesign acceptance remain open.
+
+
+### Horizontal map space (2026-11-16)
+
+Removed the 1500 px header/main width cap and reduced horizontal page padding
+from 20 to 4 px. The map panel also uses 4 px horizontal padding instead of 18 px,
+and the map/sidebar gap is 8 px instead of 16 px. Other card/control padding stays
+readable. Fit to map responds to the recovered width; its existing height and
+maximum-tile-size limits still apply. Browser checks compare fitted tile sizes
+with the prior layout and cover narrow screens, keyboard focus, and 50–200%
+interface scaling. Human visual acceptance remains pending.

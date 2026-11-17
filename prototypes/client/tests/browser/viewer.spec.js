@@ -1920,3 +1920,82 @@ test("uses Wait after cancelling movement and preserves the label in action hist
     "Wait",
   );
 });
+
+test("uses the full page width and recovers map space for larger fitted tiles", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1920, height: 1200 });
+  const state = structuredClone(fixture);
+  const map = state.observation.game_state.battle.value.map;
+  map.width = 20;
+  map.height = 8;
+  map.tiles = Array.from({ length: 160 }, (_, i) => ({
+    ...map.tiles[0],
+    x: i % 20,
+    y: Math.floor(i / 20),
+  }));
+  await upload(page, state);
+  await expect(page.locator("#board .tile")).toHaveCount(160);
+  const fitted = Number(await page.locator("#zoom").inputValue());
+  const main = await page.locator("main").boundingBox();
+  const scroll = await page.locator("#map-scroll").boundingBox();
+  expect(main.x).toBe(0);
+  expect(main.width).toBe(1920);
+  expect(scroll.x).toBeLessThanOrEqual(10);
+  // Compare with the previous capped/padded layout using the same map and viewport.
+  const previousLayout = await page.addStyleTag({
+    content: `
+    header, main { max-width: 1500px; margin: auto; padding: 20px; }
+    .map-panel { padding-inline: 18px; }
+    .workspace { gap: 16px; }
+  `,
+  });
+  await expect
+    .poll(async () => Number(await page.locator("#zoom").inputValue()))
+    .toBeLessThan(fitted);
+  await previousLayout.evaluate((e) => e.remove());
+  await expect(page.locator("#zoom")).toHaveValue(String(fitted));
+  const board = await page.locator("#board").boundingBox();
+  expect(board.width).toBeLessThanOrEqual(scroll.width);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator("#zoom")).toHaveValue("36");
+  const narrowScroll = await page.locator("#map-scroll").boundingBox();
+  expect(narrowScroll.x).toBeLessThanOrEqual(10);
+  expect(narrowScroll.width).toBeGreaterThanOrEqual(370);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
+for (const scale of [50, 100, 200])
+  test(`keeps compact page margins and controls usable at ${scale}% scale`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const adjust = page.locator(
+      scale < 100 ? "#ui-scale-decrease" : "#ui-scale-increase",
+    );
+    for (
+      let current = 100;
+      current !== scale;
+      current += scale < 100 ? -10 : 10
+    )
+      await adjust.click();
+    await connect(page);
+    const main = await page.locator("main").boundingBox();
+    const map = await page.locator("#map-scroll").boundingBox();
+    expect(main.x).toBe(0);
+    expect(main.width).toBeLessThanOrEqual(391);
+    expect(map.x).toBeLessThanOrEqual(20);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.locator("#board .tile").first().focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.locator('#board [data-x="1"][data-y="0"]')).toBeFocused();
+    await expect(page.locator("#fit-map")).toBeVisible();
+  });

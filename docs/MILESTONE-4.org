@@ -570,6 +570,20 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     the same distinction. Browser checks cover route cancellation, submission,
     pending feedback, and history; notification checks cover both labels. Human review pending.
 
+*** IN-PROGRESS Minimize horizontal margins to maximize map tile size
+    Human playtest feedback (2026-11-16): reduce the left and right margins
+    as much as practical so the map can use more of the available screen width
+    and fit larger, easier-to-see tiles. Review outer page margins, container
+    padding, map-panel padding, and horizontal gaps that unnecessarily constrain
+    the board. Preserve enough spacing for readable controls, focus outlines,
+    and touch interaction; avoid clipping or introducing horizontal page overflow.
+    Verify that Fit to map uses the recovered space at desktop and narrow
+    widths and supported interface scales. Review the result with the user.
+    Implemented: removed the 1500 px page cap, reduced horizontal page/map
+    padding to 4 px, and reduced the workspace gap to 8 px. Fit to map uses
+    the recovered width; browser checks compare larger fitted tiles against the
+    previous layout and verify narrow screens at 50–200% scaling. Human review pending.
+
 *** IN-PROGRESS Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,
     purchasing, unloading, cancellation, end turn, and error recovery against
@@ -608,6 +622,8 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     wording for units that stay in place.
     All five are implemented in separate commits; human visual rechecks remain
     pending before final acceptance.
+    A further TODO requests minimal horizontal margins and padding to give the
+    map more room for larger tiles. Implemented; human visual review remains pending.
     - [ ] Human rechecks the reported usability follow-ups and accepts the redesign.
 
     For every implementation item, add focused behavior checks, run relevant
