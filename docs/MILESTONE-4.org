@@ -504,6 +504,53 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     stripes over the same translucent center. Browser checks cover sea terrain,
     narrow sizes, and both appearances. Human review remains pending.
 
+*** TODO Give attack and enemy threat overlays red borders and translucent centers
+    Human playtest feedback (2026-11-16): style attack coverage and enemy threat
+    areas similarly to the movement overlay, using red instead of turquoise.
+    Use a distinct red border edged for contrast and a center with 35%
+    transparency (65% opacity), as requested. Keep underlying terrain, units,
+    HP, routes, selection, and movement overlap readable. Retain a visual
+    distinction between selected-unit attack coverage and enemy threat estimates;
+    update legends and accessible descriptions. Review sea/land sprites and
+    fallback terrain, light/dark appearances, and narrow tile sizes with the user.
+
+*** TODO Offer Attack when clicking an eligible enemy tile
+    Human playtest feedback (2026-11-16): while a friendly unit is selected,
+    clicking an enemy it can attack should open a context menu with Attack.
+    Preserve the selected acting unit and use the current position or planned
+    destination/path when checking eligibility. Reuse existing attack rules,
+    including direct/indirect restrictions, ammo, ownership, and action state.
+    Clicking the tile must only open the menu; choosing Attack submits through
+    the existing command flow. Support keyboard activation and cancellation,
+    omit Attack for ineligible targets, and handle stale/rejected actions clearly.
+
+*** TODO Highlight attackable enemy units when a unit is selected
+    Human playtest feedback (2026-11-16): automatically highlight enemy-occupied
+    tiles that the selected unit can attack. Distinguish actual eligible targets
+    from general weapon coverage, movement destinations, and enemy threat areas.
+    Share eligibility with the enemy-tile Attack menu and update highlights as
+    the selected unit, planned destination/path, or committed state changes.
+    Clear them on cancellation/deselection, preserve readable sprites and HP,
+    and expose the target distinction accessibly. Verify eligible/ineligible
+    direct and indirect targets, ammo limits, and keyboard/mouse interactions.
+
+*** TODO Show only the HP number in tile health badges
+    Human playtest feedback (2026-11-16): remove the visible HP text from each
+    unit's tile badge and show only its displayed health number from 1 to 10.
+    Preserve rounding from internal health, the high-contrast badge, separate
+    used-unit marker, and readable cargo/selection indicators. Keep health
+    descriptions available to assistive technology and full details in the
+    inspector. Review full and damaged units with sprites and fallback units
+    at narrow tile sizes.
+
+*** TODO Label waiting in place as Wait
+    Human playtest feedback (2026-11-16): when the selected unit waits without
+    moving, label the action Wait. Use Move & Wait when the planned route
+    actually changes its position. Keep menu, progress, history, and failure
+    feedback consistent with the submitted action, preserving existing gameplay
+    behavior. Verify both waiting in place and moving before waiting, including
+    cancelling a route back to the starting tile.
+
 *** IN-PROGRESS Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,
     purchasing, unloading, cancellation, end turn, and error recovery against
@@ -536,6 +583,11 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     tile-corner label removal, clearer HP badges without player prefixes, and
     stronger movement overlays over sea tiles. All four are implemented; human
     rechecks remain pending. Sea-sprite desktop/narrow previews were reviewed.
+    Further feedback adds five pending TODOs above: red translucent attack/threat
+    overlays, Attack menus on eligible enemy tiles, and automatic attackable-enemy
+    highlighting, tile health badges displaying only the 1–10 number, and Wait
+    wording for units that stay in place.
+    Implement and review these before final acceptance.
     - [ ] Human rechecks the reported usability follow-ups and accepts the redesign.
 
     For every implementation item, add focused behavior checks, run relevant
