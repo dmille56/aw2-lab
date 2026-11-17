@@ -27,6 +27,7 @@ from aw2_lab.match_observation import (
     MatchObservationTracker,
 )
 from aw2_lab.state_model import ValueStatus
+from aw2_lab.state_validation import BattleStructure, ValidationStatus
 from aw2_lab.transport_rules import TRANSPORT_CAPACITY, can_carry, free_capacity, is_transport
 from aw2_lab.ui_state import MenuFamily, MenuItem
 
@@ -377,7 +378,23 @@ class UnloadActionExecutor:
                 and drop_index == len(action.drops) - 1
                 and not remaining_cargo
             )
-            if (
+            # The Cruiser's post-drop menu is still an unresolved engine phase.
+            # Keep battle decoding blocked there; verify the complete cargo result
+            # after Wait reaches a settled boundary, before committing anything.
+            deferred_cargo_check = (
+                carrier.unit_type == 22
+                and after_drop.battle.status is ValueStatus.UNAVAILABLE
+                and after_drop.lifecycle.phase is LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+                and all(
+                    getattr(after_drop.validation, structure.value).status is ValidationStatus.VALID
+                    for structure in BattleStructure
+                )
+                and menu_is_carrier
+                and after_drop.ui.menu.actionable
+                and after_drop.ui.menu.items
+                == ((MenuItem.UNLOAD, MenuItem.WAIT) if remaining_cargo else (MenuItem.WAIT,))
+            )
+            if not deferred_cargo_check and (
                 after_drop.battle.status is not ValueStatus.AVAILABLE
                 or final_battle is None
                 or dropped is None

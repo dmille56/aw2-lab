@@ -14,6 +14,7 @@ from aw2_lab.lifecycle import (
     LifecyclePhase,
 )
 from aw2_lab.rom_profile import AW2_US_REVISION_0, UnsupportedRomError
+from aw2_lab.state_decoder import decode_snapshot
 from aw2_lab.state_model import PropertyState
 from aw2_lab.state_validation import (
     BattleLayout,
@@ -351,7 +352,7 @@ def test_unit_movement_overlay_exposes_verified_source_cursor(memory) -> None:
     assert cursor.status is CursorStatus.AVAILABLE
 
 
-@pytest.mark.parametrize("selector_slot", range(3))
+@pytest.mark.parametrize("selector_slot", range(4))
 @pytest.mark.parametrize(
     ("action_ids", "selected_item"),
     [
@@ -362,6 +363,8 @@ def test_unit_movement_overlay_exposes_verified_source_cursor(memory) -> None:
         ((5, 0x0A), MenuItem.LOAD),
         ((5,), MenuItem.LOAD),
         ((6, 0x0A), MenuItem.UNLOAD),
+        ((0, 6, 0x0A), MenuItem.FIRE),
+        ((0, 6, 7, 0x0A), MenuItem.FIRE),
         ((9, 0x0A), MenuItem.SUPPLY),
         ((0x0A, 0x0B), MenuItem.WAIT),
         ((0x0A, 0x0C), MenuItem.WAIT),
@@ -392,8 +395,10 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
         pack_into("<HH", iwram, 0x33E4, 1, 1)
         ewram[0x226A8:0x226B4] = bytes((7, 0, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
     if 6 in action_ids:
-        ewram[0x22690] = 7
+        ewram[0x22690] = 22 if 0 in action_ids else 7
         ewram[0x22697] = 2
+        if len(action_ids) == 4:
+            ewram[0x22698] = 3
     if 9 in action_ids:
         ewram[0x22690] = 7
         ewram[0x226A8:0x226B4] = bytes((1, 0, 2, 1, 100, 0, 99, 0, 0, 0, 0, 0))
@@ -563,7 +568,8 @@ def test_silo_target_prompt_and_cursor_are_observed_only_in_verified_process(
         assert (cursor.x, cursor.y) == (1, 1)
 
 
-def test_lander_load_choice_accepts_recon_on_carrier_tile(memory) -> None:
+@pytest.mark.parametrize(("carrier", "cargo"), [(23, 5), (22, 19), (22, 20)])
+def test_carrier_load_choice_accepts_compatible_cargo(memory, carrier, cargo) -> None:
     _, ewram, iwram = memory
     pack_into("<I", ewram, 0xD610, UNIT_ACTION_MENU_SCRIPT)
     pack_into("<I", iwram, 0x40D8, 0x02022690)
@@ -576,8 +582,8 @@ def test_lander_load_choice_accepts_recon_on_carrier_tile(memory) -> None:
     iwram[0x14A1] = 5
     iwram[0x30F0] = 1
     iwram[0x3140:0x3142] = bytes((1, 1))
-    ewram[0x22690:0x2269C] = bytes((5, 6, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
-    ewram[0x226A8:0x226B4] = bytes((23, 0, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
+    ewram[0x22690:0x2269C] = bytes((cargo, 6, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
+    ewram[0x226A8:0x226B4] = bytes((carrier, 0, 1, 1, 100, 0, 99, 0, 0, 0, 0, 0))
     ewram[0x1E450 + 0x51A + 3] = 1
 
     current = snapshot(memory)
@@ -585,7 +591,7 @@ def test_lander_load_choice_accepts_recon_on_carrier_tile(memory) -> None:
 
     assert menu.family is MenuFamily.UNIT_ACTION_CHOICES
     assert menu.items == (MenuItem.LOAD,)
-    assert menu.selected_unit is not None and menu.selected_unit.unit_type == 5
+    assert menu.selected_unit is not None and menu.selected_unit.unit_type == cargo
 
 
 def test_unload_cursor_uses_observed_source_during_drop_targeting(memory) -> None:
@@ -618,23 +624,26 @@ def test_unload_cursor_uses_observed_source_during_drop_targeting(memory) -> Non
 
 @pytest.mark.parametrize(
     ("carrier_type", "selector_table"),
-    [(carrier, target) for carrier in (7, 20, 23) for target in range(4)],
+    [(carrier, target) for carrier in (7, 20, 22, 23) for target in range(4)],
 )
-@pytest.mark.parametrize("cargo_rows", [0, 1])
+@pytest.mark.parametrize("cargo_rows", [0, 1, 3])
+@pytest.mark.parametrize("input_state", [4, 5])
+@pytest.mark.parametrize("cursor_slot", [2, 3])
 def test_single_tile_drop_cursor_uses_live_source_during_cursor_mode(
-    memory, carrier_type, selector_table, cargo_rows
+    memory, carrier_type, selector_table, cargo_rows, input_state, cursor_slot
 ) -> None:
     _, ewram, iwram = memory
     pack_into("<I", ewram, 0xD610, UNIT_ACTION_MENU_SCRIPT)
     pack_into("<I", iwram, 0x40D8, 0x02022690)
-    pack_into("<H", iwram, 0x3334, 4)
+    pack_into("<H", iwram, 0x3334, input_state)
     pack_into("<HH", iwram, 0x33E4, 1, 1)
     iwram[0x3140:0x3142] = bytes((0, 0))  # The cached cursor is stale here too.
     ewram[0x22690:0x2269C] = bytes((carrier_type, 0x16, 1, 1, 100, 0, 99, 2, 0, 0, 0, 4))
-    offset = 2 * 0x60
+    offset = cursor_slot * 0x60
     pack_into("<I", iwram, 0x1470 + offset, UNLOAD_TARGETING_SELECTOR)
     pack_into("<I", iwram, 0x1490 + offset, selector_table)
     iwram[0x14B1 + offset] = cargo_rows
+    iwram[0x14A1 + offset : 0x14A4 + offset] = bytes((255, 255, 255))
     iwram[0x30F0] = 1
     pack_into("<H", iwram, 0x32D8, 13)
     pack_into("<H", iwram, 0x33EC, 1)
@@ -644,7 +653,17 @@ def test_single_tile_drop_cursor_uses_live_source_during_cursor_mode(
     report = validate_battle_snapshot(current)
     menu = observe_menu(current, report)
     cursor = observe_map_cursor(current, report)
-    if cargo_rows and carrier_type != 7:
+    recognized = (
+        cargo_rows == 0
+        and (input_state == 4 or carrier_type == 22)
+        or cargo_rows == 1
+        and carrier_type == 7
+        and input_state == 4
+        or cargo_rows == 3
+        and input_state == 5
+        and (selector_table == 1 or carrier_type == 22)
+    )
+    if not recognized:
         assert menu.family is not MenuFamily.UNIT_DROP_TARGETING
         return
     assert menu.family is MenuFamily.UNIT_DROP_TARGETING
@@ -1247,3 +1266,44 @@ def test_yellow_airport_and_port_tiles_are_supported(memory, tile, terrain):
     memory[1][0x1F882] = terrain
     updated = (layout, memory[1], memory[2])
     assert validate_battle_snapshot(snapshot(updated)).geometry.status is ValidationStatus.VALID
+
+
+def test_cruiser_cargo_links_decode_both_copter_types(memory) -> None:
+    raw = memory[1]
+    raw[0x22690] = 22
+    raw[0x22697:0x22699] = bytes((2, 3))
+    for reference, kind in ((2, 19), (3, 20)):
+        address = 0x22684 + reference * 12
+        raw[address : address + 12] = bytes((kind, 8, 0, 0, 100, 0, 99, 0, 0, 0, 0, 0))
+    decoded = decode_snapshot(snapshot(memory))
+    assert decoded.battle.value is not None, decoded.battle.reasons
+    cruiser = next(unit for unit in decoded.battle.value.units if unit.reference == 1)
+    assert cruiser.cargo_references == (2, 3)
+
+
+@pytest.mark.parametrize("action_ids", [(6, 10), (10,)])
+def test_cruiser_post_drop_continuation_menu(memory, action_ids) -> None:
+    _, ewram, iwram = memory
+    pack_into("<I", ewram, 0xD610, UNIT_ACTION_MENU_SCRIPT)
+    pack_into("<I", iwram, 0x40D8, 0x02022690)
+    pack_into("<H", iwram, 0x3334, 5)
+    offset = 0x60
+    pack_into("<I", iwram, 0x1470 + offset, 0x0848A42C)
+    pack_into("<I", iwram, 0x1490 + offset, 0x0849AE28)
+    iwram[0x14B1 + offset] = len(action_ids)
+    iwram[0x14B2 + offset] = 0
+    iwram[0x14A1 + offset : 0x14A1 + offset + len(action_ids)] = bytes(action_ids)
+    iwram[0x30F0] = 1
+    ewram[0x22690:0x2269C] = bytes(
+        (22, 6, 1, 1, 100, 0, 99, 2 if 6 in action_ids else 0, 0, 0, 0, 0)
+    )
+    ewram[0x1E450 + 0x51A + 3] = 1
+    current = snapshot(memory)
+    menu = observe_menu(current, validate_battle_snapshot(current))
+    assert menu.family is MenuFamily.UNIT_ACTION_CHOICES
+    assert menu.items == ((MenuItem.UNLOAD, MenuItem.WAIT) if 6 in action_ids else (MenuItem.WAIT,))
+    ewram[0x22690] = 1
+    assert (
+        observe_menu(snapshot(memory), validate_battle_snapshot(snapshot(memory))).family
+        is not MenuFamily.UNIT_ACTION_CHOICES
+    )

@@ -59,7 +59,7 @@ it("refreshes attack availability as routes and committed observations change", 
   expect(result.current.canAttack).toBe(true);
 });
 
-it("matches APC, Transport Copter, and Lander cargo rules", () => {
+it("matches all four carrier cargo rules", () => {
   for (const carrier of [7, 20]) {
     expect(transportCanCarry(carrier, 1)).toBe(true);
     expect(transportCanCarry(carrier, 2)).toBe(true);
@@ -69,6 +69,9 @@ it("matches APC, Transport Copter, and Lander cargo rules", () => {
     expect(transportCanCarry(23, cargo)).toBe(true);
   for (const cargo of [16, 17, 19, 20, 21, 22, 23, 24])
     expect(transportCanCarry(23, cargo)).toBe(false);
+  for (const cargo of [19, 20]) expect(transportCanCarry(22, cargo)).toBe(true);
+  for (const cargo of [1, 5, 16, 17, 21, 22, 23, 24])
+    expect(transportCanCarry(22, cargo)).toBe(false);
   expect(transportCanCarry(7, 23)).toBe(false);
 });
 
@@ -463,63 +466,71 @@ it("builds a silo launch only for an eligible unit on an unused silo", () => {
   unmount();
 });
 
-it("offers Load only on a compatible friendly carrier tile and builds its payload", () => {
-  const capabilities = validateCapabilitiesResponse(capabilityFixture);
-  capabilities.actions = ["load"].map((name) => ({
-    contract_version: 1,
-    name,
-    implemented: true,
-    available: true,
-    verification: "synthetic",
-    unavailable_reason: null,
-  }));
-  const state = structuredClone(stateFixture);
-  const observation = state.observation;
-  const battle = observation.game_state.battle;
-  if (battle.status !== "available" || !battle.value)
-    throw new Error("fixture is not playable");
-  battle.value.units.push({
-    ...battle.value.units[0],
-    reference: 2,
-    unit_slot: 2,
-    unit_type: 7,
-    x: 1,
-    y: 0,
-    used_this_turn: true,
-  });
-  observation.unit_identities.push({
-    reference: 2,
-    identity_id: "3",
-    generation: 1,
-  });
-  const view: ViewState = {
-    ...new MatchSession().getSnapshot(),
-    snapshot: validateState(state),
-    connected: true,
-    ready: true,
-    identity: {
+it.each([
+  [7, 1],
+  [22, 19],
+  [22, 20],
+])(
+  "offers Load for cargo %s/%s and builds its payload",
+  (carrierType, cargoType) => {
+    const capabilities = validateCapabilitiesResponse(capabilityFixture);
+    capabilities.actions = ["load"].map((name) => ({
       contract_version: 1,
-      match_id: state.summary.match_id,
-      role: "player",
-      player_slot: "slot_1",
-    },
-    capabilities,
-  };
-  const { result, unmount } = renderHook(() => useGameplay(view, vi.fn()));
-  act(() => result.current.selectUnit("1"));
-  act(() => result.current.dispatch({ type: "plan" }));
-  act(() => result.current.activate({ x: 1, y: 0 }));
-  expect(result.current.canLoad).toBe(true);
-  expect(result.current.loadAction).toEqual({
-    contract_version: 1,
-    kind: "load",
-    unit_id: "1",
-    transport_id: "3",
-    path: [{ contract_version: 1, x: 1, y: 0 }],
-  });
-  expect(result.current.action).toBeNull();
-  unmount();
-});
+      name,
+      implemented: true,
+      available: true,
+      verification: "synthetic",
+      unavailable_reason: null,
+    }));
+    const state = structuredClone(stateFixture);
+    const observation = state.observation;
+    const battle = observation.game_state.battle;
+    if (battle.status !== "available" || !battle.value)
+      throw new Error("fixture is not playable");
+    battle.value.units[0].unit_type = cargoType;
+    battle.value.units.push({
+      ...battle.value.units[0],
+      reference: 2,
+      unit_slot: 2,
+      unit_type: carrierType,
+      x: 1,
+      y: 0,
+      used_this_turn: true,
+    });
+    observation.unit_identities.push({
+      reference: 2,
+      identity_id: "3",
+      generation: 1,
+    });
+    const view: ViewState = {
+      ...new MatchSession().getSnapshot(),
+      snapshot: validateState(state),
+      connected: true,
+      ready: true,
+      identity: {
+        contract_version: 1,
+        match_id: state.summary.match_id,
+        role: "player",
+        player_slot: "slot_1",
+      },
+      capabilities,
+    };
+    const { result, unmount } = renderHook(() => useGameplay(view, vi.fn()));
+    act(() => result.current.selectUnit("1"));
+    act(() => result.current.dispatch({ type: "plan" }));
+    act(() => result.current.activate({ x: 1, y: 0 }));
+    expect(result.current.canLoad).toBe(true);
+    expect(result.current.loadAction).toEqual({
+      contract_version: 1,
+      kind: "load",
+      unit_id: "1",
+      transport_id: "3",
+      path: [{ contract_version: 1, x: 1, y: 0 }],
+    });
+    expect(result.current.action).toBeNull();
+    unmount();
+  },
+);
 
 function transportView(carrierType: number, cargoCount: number): ViewState {
   const capabilities = validateCapabilitiesResponse(capabilityFixture);
@@ -551,7 +562,7 @@ function transportView(carrierType: number, cargoCount: number): ViewState {
       ...battle.value.units[0],
       reference,
       unit_slot: reference,
-      unit_type: 1,
+      unit_type: carrierType === 22 ? 19 + index : 1,
       x: 1,
       y: 0,
       embarked: true,
@@ -611,44 +622,47 @@ it("plans a legal transport unload and includes the carrier route and cargo iden
   unmount();
 });
 
-it("plans distinct sequential drops for both cargo units in a Lander", () => {
-  const view = transportView(23, 2);
-  const { result, unmount } = renderHook(() => useGameplay(view, vi.fn()));
-  act(() => result.current.selectUnit("1"));
-  act(() => result.current.dispatch({ type: "choose", kind: "unload" }));
-  act(() =>
-    result.current.dispatch({
-      type: "drop_destination",
-      unitId: "4",
-      point: { x: 1, y: 0 },
-    }),
-  );
-  act(() =>
-    result.current.dispatch({
-      type: "drop_destination",
-      unitId: "5",
-      point: { x: 1, y: 0 },
-    }),
-  );
-  expect(result.current.action).toBeNull();
-  expect(result.current.unloadError).toContain("different drop tile");
-  act(() =>
-    result.current.dispatch({
-      type: "drop_destination",
-      unitId: "5",
-      point: { x: 0, y: 1 },
-    }),
-  );
-  expect(result.current.action).toMatchObject({
-    kind: "unload",
-    transport_id: "1",
-    drops: [
-      { unit_id: "4", destination: { x: 1, y: 0 } },
-      { unit_id: "5", destination: { x: 0, y: 1 } },
-    ],
-  });
-  unmount();
-});
+it.each([22, 23])(
+  "plans distinct sequential drops for carrier %s",
+  (carrier) => {
+    const view = transportView(carrier, 2);
+    const { result, unmount } = renderHook(() => useGameplay(view, vi.fn()));
+    act(() => result.current.selectUnit("1"));
+    act(() => result.current.dispatch({ type: "choose", kind: "unload" }));
+    act(() =>
+      result.current.dispatch({
+        type: "drop_destination",
+        unitId: "4",
+        point: { x: 1, y: 0 },
+      }),
+    );
+    act(() =>
+      result.current.dispatch({
+        type: "drop_destination",
+        unitId: "5",
+        point: { x: 1, y: 0 },
+      }),
+    );
+    expect(result.current.action).toBeNull();
+    expect(result.current.unloadError).toContain("different drop tile");
+    act(() =>
+      result.current.dispatch({
+        type: "drop_destination",
+        unitId: "5",
+        point: { x: 0, y: 1 },
+      }),
+    );
+    expect(result.current.action).toMatchObject({
+      kind: "unload",
+      transport_id: "1",
+      drops: [
+        { unit_id: "4", destination: { x: 1, y: 0 } },
+        { unit_id: "5", destination: { x: 0, y: 1 } },
+      ],
+    });
+    unmount();
+  },
+);
 
 it("keeps unload submission disabled until the server advertises support", () => {
   const view = transportView(7, 1);

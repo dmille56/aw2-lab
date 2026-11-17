@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from aw2_lab.state_model import UnitState
 from aw2_lab.transport_rules import can_carry, compatible_cargo_types, free_capacity
 
@@ -7,6 +9,8 @@ def test_transport_cargo_compatibility_and_capacity() -> None:
     assert compatible_cargo_types(20) == frozenset({1, 2})
     assert {1, 2, 3, 5, 6, 7, 8, 10, 11, 14, 15} <= compatible_cargo_types(23)
     assert not compatible_cargo_types(23) & {16, 17, 19, 20, 21, 22, 23, 24}
+    assert compatible_cargo_types(22) == frozenset({19, 20})
+    assert not any(can_carry(22, unit) for unit in (1, 2, 5, 16, 17, 21, 22, 23, 24))
     assert can_carry(20, 1)
     assert can_carry(20, 2)
 
@@ -25,6 +29,10 @@ def test_transport_cargo_compatibility_and_capacity() -> None:
         capture_points=0,
         cargo_references=(),
     )
+    assert [
+        free_capacity(replace(apc, unit_type=22, cargo_references=refs))
+        for refs in ((), (2,), (2, 3))
+    ] == [2, 1, 0]
     assert free_capacity(apc) == 1
     loaded_apc = UnitState(
         reference=1,

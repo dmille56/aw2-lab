@@ -53,6 +53,7 @@ export function transportCanCarry(
 ): boolean {
   if (transportType === 7 || transportType === 20)
     return FOOT_CARRIER_CARGO.has(cargoType);
+  if (transportType === 22) return cargoType === 19 || cargoType === 20;
   if (transportType !== 23) return false;
   const profile = (catalog.units as Record<number, { movement_type: string }>)[
     cargoType
@@ -454,7 +455,7 @@ export function useGameplay(
     !movement?.error &&
     available("silo_launch");
   const selectedTransportCargo =
-    selectedUnit && [7, 20, 23].includes(selectedUnit.unit_type)
+    selectedUnit && [7, 20, 22, 23].includes(selectedUnit.unit_type)
       ? selectedUnit.cargo_references.flatMap((reference) => {
           const unit = battle?.units.find(
             (candidate) =>
@@ -478,7 +479,7 @@ export function useGameplay(
     battle && destination
       ? battle.units.find(
           (unit) =>
-            [7, 20, 23].includes(unit.unit_type) &&
+            [7, 20, 22, 23].includes(unit.unit_type) &&
             !unit.embarked &&
             sameTile(unit, destination),
         )
@@ -490,7 +491,7 @@ export function useGameplay(
   const transportHasCapacity =
     !!transportAtDestination &&
     transportAtDestination.cargo_references.length <
-      (transportAtDestination.unit_type === 23 ? 2 : 1);
+      ([22, 23].includes(transportAtDestination.unit_type) ? 2 : 1);
   const loadTransport =
     transportAtDestination?.army_slot === slot &&
     transportCompatible &&
@@ -517,7 +518,7 @@ export function useGameplay(
     new Set(selectedDrops.map(({ point }) => `${point.x},${point.y}`)).size !==
     selectedDrops.length;
   const unloadError =
-    !selectedUnit || ![7, 20, 23].includes(selectedUnit.unit_type)
+    !selectedUnit || ![7, 20, 22, 23].includes(selectedUnit.unit_type)
       ? "Select a ready transport with cargo to unload."
       : !selectedTransportCargo.length
         ? "This transport has no identified cargo to unload."
@@ -525,7 +526,8 @@ export function useGameplay(
           ? "Choose at least one cargo unit and an adjacent legal drop tile."
           : duplicateDrop
             ? "Each cargo unit needs a different drop tile."
-            : selectedDrops.length > (selectedUnit.unit_type === 23 ? 2 : 1)
+            : selectedDrops.length >
+                ([22, 23].includes(selectedUnit.unit_type) ? 2 : 1)
               ? "This transport cannot unload more cargo than it carries."
               : movement?.error
                 ? movement.error
@@ -687,7 +689,8 @@ export function useGameplay(
     const load =
       occupant?.army_slot === slot &&
       transportCanCarry(occupant.unit_type, selectedUnit.unit_type) &&
-      occupant.cargo_references.length < (occupant.unit_type === 23 ? 2 : 1) &&
+      occupant.cargo_references.length <
+        ([22, 23].includes(occupant.unit_type) ? 2 : 1) &&
       available("load");
     if (report.error || (report.endpointError && !join && !load)) {
       dispatch({

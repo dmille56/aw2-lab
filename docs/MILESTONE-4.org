@@ -643,7 +643,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     observed damage intervals; source ROM/checkpoint bytes were unchanged.
     See [[file:DAMAGE-PREVIEW.md][damage-preview verification]]. Human review remains pending.
 
-*** TODO Support two-copter Cruiser cargo through the full gameplay flow
+*** IN-PROGRESS Support two-copter Cruiser cargo through the full gameplay flow
     Human playtest feedback (2026-11-16): Cruisers should carry up to two copter
     units, supporting Battle Copters and Transport Copters, including mixed cargo.
     Audit supported AW2 behavior and extend shared carrier compatibility/capacity,
@@ -656,6 +656,12 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     movement; and valid aerial drop tiles without ground-only restrictions.
     Keep cargo badges/selection and existing carriers working. Add ROM-independent
     regressions plus isolated live cartridge checks and human playtest evidence.
+    Implemented: shared capacity/compatibility, cargo decoding, client Load/Drop
+    previews, server preflight, native continuation recognition, and final result
+    verification support two mixed copters. Isolated cartridge checks passed
+    sequential loading and both drops over sea in place and after movement.
+    Full/incompatible carriers reject before input. No ROM/artwork was added.
+    See [[file:CRUISER-CARGO.md][Cruiser cargo verification]]. Human review pending.
 
 *** IN-PROGRESS Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,

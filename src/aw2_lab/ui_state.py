@@ -56,7 +56,8 @@ PRODUCTION_SELECTOR_TABLE = 0x03001474
 PRODUCTION_SELECTED_ROW = 0x03001490
 PRODUCTION_CHOICES = PRODUCTION_BY_TERRAIN[14].unit_types
 SELECTOR_STRIDE = 0x60
-SELECTOR_COUNT = 3
+# A moved Cruiser can allocate its second Drop cursor in the fourth slot.
+SELECTOR_COUNT = 4
 FIRE_TARGETING_SCRIPT = 0x0849A9F8
 # Observed while AW2 is choosing a tile for a transport Drop action. The
 # selector is a cursor helper, not one of the action-menu selector tables.
@@ -596,10 +597,10 @@ def _observe_unit_action_choices(
         )
         or snapshot.u16(CONTROLLER_STATE) != 13
         or snapshot.read(CONTROLLER_LOCK, 1)[0] != 1
-        or snapshot.u16(0x03003334) != 4
+        or snapshot.u16(0x03003334) not in (4, 5)
     ):
         return None
-    # The three UI process slots also host graphics loaders. A moved indirect
+    # The UI process slots also host graphics loaders. A moved indirect
     # unit can have its action selector in slot 1 while slot 0 has no selector.
     # Match both original-ROM signatures; row bytes alone can be stale.
     offsets = tuple(
@@ -614,7 +615,7 @@ def _observe_unit_action_choices(
     selected = _observe_selected_unit(snapshot)
     count = snapshot.read(SELECTOR_ROW_COUNT + offset, 1)[0]
     row = snapshot.read(SELECTOR_SELECTED_ROW + offset, 1)[0]
-    ids = tuple(snapshot.read(SELECTOR_ITEM_IDS + offset, count)) if count in (1, 2, 3) else ()
+    ids = tuple(snapshot.read(SELECTOR_ITEM_IDS + offset, count)) if count in (1, 2, 3, 4) else ()
     if (
         selected is None
         or len(ids) != count
@@ -624,17 +625,24 @@ def _observe_unit_action_choices(
         or not _selected_special_unit_action_is_valid(snapshot, ids, selected)
     ):
         return None
+    # After a Cruiser's first Drop, the native continuation menu uses state 5.
+    # Keep this exception limited to its observed Drop/Wait and final Wait rows.
+    if snapshot.u16(0x03003334) == 5 and not (
+        selected.unit_type == 22 and ids in ((6, 0x0A), (0x0A,))
+    ):
+        return None
     if not _menu_rules_allow_dispatch(snapshot):
         return None
     capture_eligible = _selected_unit_can_capture(snapshot, selected)
     load_eligible = _selected_unit_can_load_at_cursor(snapshot, selected)
     has_cargo = any(snapshot.read(selected.record_address + offset, 1)[0] for offset in (7, 8))
     cargo_menu = (
-        selected.unit_type in (7, 20, 23)
+        selected.unit_type in (7, 20, 22, 23)
         and ids
         in (
             (6, 0x0A),
             (6, 7, 0x0A),
+            (0, 6, 0x0A),
         )
         and has_cargo
     )
@@ -650,7 +658,13 @@ def _observe_unit_action_choices(
         and not (9 in ids and _selected_unit_can_supply(snapshot, selected))
     ):
         return None
-    # Three-row menus are accepted only for verified capture or cargo cases.
+    if count == 4 and not (
+        selected.unit_type == 22
+        and ids == (0, 6, 7, 0x0A)
+        and all(snapshot.read(selected.record_address + offset, 1)[0] for offset in (7, 8))
+    ):
+        return None
+    # Larger menus are accepted only for verified capture or cargo cases.
     if count == 3 and not (ids == (0, 2, 0x0A) and capture_eligible) and not cargo_menu:
         return None
     items = (
@@ -666,7 +680,7 @@ def _observe_unit_action_choices(
             else MenuItem.LOAD
             if item_id == 5 and load_eligible
             else MenuItem.UNLOAD
-            if item_id == 6 and selected.unit_type in (7, 20, 23) and has_cargo
+            if item_id == 6 and selected.unit_type in (7, 20, 22, 23) and has_cargo
             else MenuItem.SUPPLY
             if item_id == 9 and _selected_unit_can_supply(snapshot, selected)
             else MenuItem.DIVE
@@ -769,8 +783,6 @@ def _selected_unit_can_load_at_cursor(
     """Require a compatible allied carrier on the reached cursor tile."""
     from aw2_lab.transport_rules import can_carry
 
-    if selected.unit_type in (7, 20, 23):
-        return False
     x, y = snapshot.u16(CURSOR_SOURCE), snapshot.u16(CURSOR_SOURCE + 2)
     width, height = snapshot.u16(MAP_BASE), snapshot.u16(MAP_BASE + 2)
     if not (0 <= x < width and 0 <= y < height):
@@ -782,9 +794,13 @@ def _selected_unit_can_load_at_cursor(
             index = army * 64 + slot
             address = UNIT_BASE + index * UNIT_STRIDE
             record = snapshot.read(address, UNIT_STRIDE)
-            if record[0] not in (7, 20, 23) or record[1] & 8 or (record[2], record[3]) != (x, y):
+            if (
+                record[0] not in (7, 20, 22, 23)
+                or record[1] & 8
+                or (record[2], record[3]) != (x, y)
+            ):
                 continue
-            capacity = 2 if record[0] == 23 else 1
+            capacity = 2 if record[0] in (22, 23) else 1
             if sum(bool(value) for value in record[7:9]) >= capacity:
                 continue
             if not can_carry(record[0], selected.unit_type):
@@ -856,7 +872,7 @@ def _is_unload_targeting(
     if UNIT_ACTION_MENU_SCRIPT not in validation.lifecycle.active_process_scripts:
         return False
     selected = _observe_selected_unit(snapshot)
-    if selected is None or selected.unit_type not in (7, 20, 23):
+    if selected is None or selected.unit_type not in (7, 20, 22, 23):
         return False
     has_cargo = any(
         snapshot.read(selected.record_address + cargo_offset, 1)[0] for cargo_offset in (7, 8)
@@ -869,7 +885,7 @@ def _is_unload_targeting(
     row = snapshot.read(SELECTOR_SELECTED_ROW + offset, 1)[0]
     lander_drop_list = table == 1 and row_count == 3 and row < 3 and snapshot.u16(0x03003334) == 5
     single_tile_drop_cursor = (
-        selected.unit_type in (7, 20, 23)
+        selected.unit_type in (7, 20, 22, 23)
         and table in (0, 1, 2, 3)
         # Carriers use a map cursor while Drop targeting is active. The table
         # field is the target index (up/right/down/left), not a menu table.
@@ -877,8 +893,23 @@ def _is_unload_targeting(
         # three-row cargo selector recognized above.
         # A moved APC keeps its one cargo row while showing the map target;
         # the stationary carrier traces expose zero rows in this same mode.
-        and (row_count == 0 or (selected.unit_type == 7 and row_count == 1 and row == 0))
-        and snapshot.u16(0x03003334) == 4
+        and (
+            row_count == 0
+            or (selected.unit_type == 7 and row_count == 1 and row == 0)
+            # The Cruiser reuses its cleared three-row selector for the second Drop.
+            or (
+                selected.unit_type == 22
+                and row_count == 3
+                and row == 0
+                and snapshot.u16(0x03003334) == 5
+                and snapshot.read(SELECTOR_ITEM_IDS + offset, 3) == bytes((255, 255, 255))
+            )
+        )
+        and (
+            snapshot.u16(0x03003334) == 4
+            or selected.unit_type == 22
+            and snapshot.u16(0x03003334) == 5
+        )
     )
     return lander_drop_list or single_tile_drop_cursor
 

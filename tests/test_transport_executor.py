@@ -14,10 +14,12 @@ from test_state_validation import snapshot
 
 from aw2_lab.action_navigation import ActionNavigator
 from aw2_lab.aw2_unit_profiles import BASELINE_RULES, UNIT_PROFILES, movement_cost
+from aw2_lab.lifecycle import LifecyclePhase
 from aw2_lab.match_contract import (
     CargoDrop,
     CommandRequest,
     Coordinate,
+    LoadAction,
     PlayerSlot,
     UnloadAction,
 )
@@ -25,7 +27,7 @@ from aw2_lab.match_controller import CommandRejected
 from aw2_lab.match_observation import MatchObservationTracker
 from aw2_lab.state_decoder import decode_snapshot
 from aw2_lab.state_model import ObservedValue, ValueStatus, Weather
-from aw2_lab.transport_executor import UnloadActionExecutor
+from aw2_lab.transport_executor import LoadActionExecutor, UnloadActionExecutor
 from aw2_lab.ui_state import MenuFamily, MenuItem, MenuObservation, SelectedUnitObservation
 
 
@@ -139,10 +141,12 @@ def _game_state_at(initial, frame, battle, menu):
 
 
 @pytest.mark.parametrize(
-    ("carrier_type", "cargo_types"), [(7, (1,)), (23, (1, 5))], ids=("apc", "lander-two")
+    ("carrier_type", "cargo_types", "corrupt_result"),
+    [(7, (1,), False), (23, (1, 5), False), (22, (19, 20), False), (22, (19, 20), True)],
+    ids=("apc", "lander-two", "cruiser-mixed", "cruiser-invalid-final"),
 )
 def test_unload_drops_named_cargo_and_commits_identity_stable_state(
-    memory, carrier_type, cargo_types
+    memory, carrier_type, cargo_types, corrupt_result
 ) -> None:
     tracker, initial, carrier, cargoes, carrier_id, cargo_ids, destinations = _setup(
         memory, carrier_type=carrier_type, cargo_types=cargo_types
@@ -226,6 +230,22 @@ def test_unload_drops_named_cargo_and_commits_identity_stable_state(
         assert not landed.embarked and landed.used_this_turn
         assert (landed.x, landed.y) == destinations[index]
 
+    if carrier_type == 22:
+        after_drop_states = [
+            replace(
+                state,
+                validation=replace(
+                    state.validation,
+                    lifecycle=replace(
+                        state.lifecycle, phase=LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+                    ),
+                    live_reasons=("Battle engine is in the Cruiser continuation menu",),
+                ),
+                battle=ObservedValue(ValueStatus.UNAVAILABLE, None, ("Not a settled turn",)),
+            )
+            for state in after_drop_states
+        ]
+
     class Navigator:
         calls: list[tuple[object, ...]]
 
@@ -273,6 +293,31 @@ def test_unload_drops_named_cargo_and_commits_identity_stable_state(
             ),
         ),
     )
+    if corrupt_result:
+        final_state = replace(
+            final_state,
+            battle=replace(
+                final_state.battle,
+                value=replace(
+                    final_battle,
+                    units=tuple(
+                        replace(unit, used_this_turn=False)
+                        if unit.reference == cargoes[0].reference
+                        else unit
+                        for unit in final_battle.units
+                    ),
+                ),
+            ),
+        )
+        with pytest.raises(RuntimeError, match="expected final transport state"):
+            asyncio.run(
+                UnloadActionExecutor(cast(ActionNavigator, navigator), tracker).execute(
+                    request, initial
+                )
+            )
+        assert tracker.revision == initial.revision
+        return
+
     outcome = asyncio.run(
         UnloadActionExecutor(cast(ActionNavigator, navigator), tracker).execute(request, initial)
     )
@@ -327,6 +372,63 @@ def test_unload_rejects_an_occupied_drop_tile_before_emulator_input(memory) -> N
     with pytest.raises(CommandRejected, match="occupied"):
         asyncio.run(
             UnloadActionExecutor(cast(ActionNavigator, NoInputNavigator()), tracker).execute(
+                request, initial
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    ("cargo_type", "message"),
+    [(19, "no free cargo capacity"), (20, "no free cargo capacity"), (1, "cannot carry")],
+)
+def test_cruiser_rejects_full_or_incompatible_loading_before_input(
+    memory, cargo_type, message
+) -> None:
+    tracker, initial, _carrier, cargoes, carrier_id, _, _ = _setup(
+        memory, carrier_type=22, cargo_types=(19, 20)
+    )
+    battle = initial.game_state.battle.value
+    assert battle is not None
+    cargo = replace(
+        cargoes[0],
+        reference=4,
+        unit_slot=4,
+        unit_type=cargo_type,
+        embarked=False,
+        used_this_turn=False,
+    )
+    state = replace(
+        initial.game_state,
+        battle=replace(
+            initial.game_state.battle, value=replace(battle, units=battle.units + (cargo,))
+        ),
+    )
+    tracker = MatchObservationTracker(initial.match_id)
+    initial = tracker.commit_boundary(state)
+    carrier_id = next(
+        identity.identity_id
+        for identity in initial.unit_identities
+        if identity.reference == _carrier.reference
+    )
+    cargo_id = next(
+        identity.identity_id for identity in initial.unit_identities if identity.reference == 4
+    )
+
+    class NoInputNavigator:
+        async def select_unit(self, *args, **kwargs):
+            pytest.fail("invalid loading must be rejected before emulator input")
+
+    request = CommandRequest(
+        match_id=initial.match_id,
+        player_slot=PlayerSlot.SLOT_1,
+        credential=SecretStr("x" * 32),
+        request_id=uuid4(),
+        expected_revision=initial.revision,
+        action=LoadAction(unit_id=cargo_id, transport_id=carrier_id, path=()),
+    )
+    with pytest.raises(CommandRejected, match=message):
+        asyncio.run(
+            LoadActionExecutor(cast(ActionNavigator, NoInputNavigator()), tracker).execute(
                 request, initial
             )
         )

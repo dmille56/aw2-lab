@@ -2134,3 +2134,102 @@ test("keeps the damage preview and final Attack usable at narrow 200% scale", as
   await attack.click();
   await expect(page.locator(".command-result")).toContainText("completed");
 });
+
+test("Cruiser previews two different copter drops over sea before one command", async ({
+  page,
+  request,
+}) => {
+  const state = structuredClone(fixture);
+  const battle = state.observation.game_state.battle.value;
+  battle.units[0].unit_type = 22;
+  for (const tile of battle.map.tiles) tile.terrain_class = 7;
+  battle.units[0].cargo_references = [3, 4];
+  battle.units.push({
+    ...battle.units[0],
+    reference: 3,
+    unit_slot: 3,
+    unit_type: 19,
+    embarked: true,
+    used_this_turn: true,
+    cargo_references: [],
+  });
+  state.observation.unit_identities.push({
+    reference: 3,
+    identity_id: "4",
+    generation: 1,
+  });
+  battle.units.push({
+    ...battle.units.at(-1),
+    reference: 4,
+    unit_slot: 4,
+    unit_type: 20,
+  });
+  state.observation.unit_identities.push({
+    reference: 4,
+    identity_id: "5",
+    generation: 1,
+  });
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await page.route("**/v1/capabilities", async (route) => {
+    const response = await route.fetch();
+    const capabilities = await response.json();
+    capabilities.actions.push({
+      contract_version: 1,
+      name: "unload",
+      implemented: true,
+      available: true,
+      verification: "synthetic",
+      unavailable_reason: null,
+    });
+    await route.fulfill({ response, json: capabilities });
+  });
+  await connect(page);
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  const menu = page.getByRole("dialog", { name: "Unit actions" });
+  await menu.getByRole("button", { name: "Unload", exact: true }).click();
+  await menu
+    .getByRole("button", { name: "Passenger 1: Battle Copter", exact: true })
+    .click();
+  const drop = page.locator('#board [data-x="1"][data-y="0"]');
+  await expect(drop).toHaveAttribute("data-drop-target", "true");
+  await expect(drop).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(drop).toHaveAttribute("data-drop-selected", "D1");
+  await menu
+    .getByRole("button", { name: "Passenger 2: Transport Copter", exact: true })
+    .click();
+  const secondDrop = page.locator('#board [data-x="0"][data-y="1"]');
+  await expect(secondDrop).toHaveAttribute("data-drop-target", "true");
+  await secondDrop.click();
+  await expect(secondDrop).toHaveAttribute("data-drop-selected", "D2");
+  const submit = menu.getByRole("button", { name: "Unload selected cargo" });
+  await expect(submit).toBeFocused();
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
+  await page.unroute("**/state");
+  const command = page.waitForRequest(
+    (req) => req.url().endsWith("/commands") && req.method() === "POST",
+  );
+  await submit.click();
+  expect((await command).postDataJSON().action).toEqual({
+    contract_version: 1,
+    kind: "unload",
+    transport_id: "1",
+    path: [],
+    drops: [
+      {
+        contract_version: 1,
+        unit_id: "4",
+        destination: { contract_version: 1, x: 1, y: 0 },
+      },
+      {
+        contract_version: 1,
+        unit_id: "5",
+        destination: { contract_version: 1, x: 0, y: 1 },
+      },
+    ],
+  });
+  await expect(page.locator(".command-result")).toContainText(
+    "Command status: completed",
+  );
+});

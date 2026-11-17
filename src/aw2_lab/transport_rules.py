@@ -5,7 +5,7 @@ from __future__ import annotations
 from aw2_lab.aw2_unit_profiles import UNIT_PROFILES, MovementType
 from aw2_lab.state_model import UnitState
 
-TRANSPORT_CAPACITY = {7: 1, 20: 1, 23: 2}
+TRANSPORT_CAPACITY = {7: 1, 20: 1, 22: 2, 23: 2}
 _FOOT_CARRIERS = frozenset({1, 2})
 _GROUND_MOVEMENT = frozenset(
     {MovementType.FOOT, MovementType.MECH, MovementType.TREADS, MovementType.WHEELS}
@@ -17,11 +17,13 @@ def is_transport(unit_type: int) -> bool:
 
 
 def compatible_cargo_types(transport_type: int) -> frozenset[int]:
-    """Return cargo classes supported by APC, T-Copter, and Lander."""
+    """Return cargo classes supported by APC, T-Copter, Cruiser, and Lander."""
     if transport_type == 7:  # APC: one Infantry or Mech.
         return _FOOT_CARRIERS
     if transport_type == 20:  # T-Copter: one Infantry or Mech.
         return _FOOT_CARRIERS
+    if transport_type == 22:  # Cruiser: two Battle or Transport Copters.
+        return frozenset({19, 20})
     if transport_type == 23:  # Lander: any two ground units.
         return frozenset(
             unit_type
