@@ -2673,3 +2673,96 @@ for (const missing of [false, true])
       0,
     );
   });
+
+for (const scale of [50, 100, 200])
+  test(`places compact match status beside the board with a usable fallback at ${scale}% scale`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 960 });
+    const adjust = page.locator(
+      scale < 100 ? "#ui-scale-decrease" : "#ui-scale-increase",
+    );
+    for (
+      let current = 100;
+      current !== scale;
+      current += scale < 100 ? -10 : 10
+    )
+      await adjust.click();
+    await connect(page);
+    const board = await page.locator(".board-column").boundingBox();
+    const status = await page.locator("#match").boundingBox();
+    if (scale <= 100) {
+      expect(status.x).toBeGreaterThanOrEqual(board.x + board.width);
+      expect(Math.abs(status.y - board.y)).toBeLessThan(2);
+    } else {
+      expect(status.y + status.height).toBeLessThanOrEqual(board.y);
+      expect(status.width).toBeGreaterThan(1200);
+    }
+    const controls = page.getByRole("group", { name: "Match controls" });
+    await expect(controls.getByRole("button")).toHaveCount(4);
+    await expect(page.locator(".player-hud .hud-player")).toHaveCount(2);
+    await expect(page.getByRole("progressbar")).toHaveCount(2);
+    for (const button of await controls.getByRole("button").all()) {
+      const bounds = await button.boundingBox();
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(1280);
+    }
+    // Keyboard activation still opens a viewport-positioned confirmation.
+    const end = controls.getByRole("button", { name: "End turn", exact: true });
+    await end.focus();
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("dialog", { name: "Confirm action" }),
+    ).toBeInViewport();
+    await page.keyboard.press("Escape");
+    await expect(end).toBeFocused();
+    await page.setViewportSize({ width: 390, height: 844 });
+    const narrowBoard = await page.locator(".board-column").boundingBox();
+    const sidebar = await page.locator(".gameplay-sidebar").boundingBox();
+    expect(sidebar.y + sidebar.height).toBeLessThanOrEqual(narrowBoard.y + 1);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  });
+
+test("keeps the compact sidebar reachable while scrolling a tall board", async ({
+  page,
+}) => {
+  const state = structuredClone(fixture);
+  const map = state.observation.game_state.battle.value.map;
+  map.width = 16;
+  map.height = 30;
+  map.tiles = Array.from({ length: 480 }, (_, i) => ({
+    ...map.tiles[0],
+    x: i % 16,
+    y: Math.floor(i / 16),
+  }));
+  await upload(page, state);
+  await page.locator("#zoom").fill("90");
+  await page.evaluate(() => window.scrollTo(0, 750));
+  await expect(page.locator("#match-title")).toBeInViewport();
+  await expect(
+    page.getByRole("group", { name: "Match controls" }),
+  ).toBeInViewport();
+  const sidebar = page.locator(".gameplay-sidebar");
+  const bounds = await sidebar.boundingBox();
+  expect(bounds.y).toBe(8);
+  expect(bounds.height).toBeLessThanOrEqual(944);
+  await sidebar.evaluate((e) => {
+    e.scrollTop = e.scrollHeight;
+  });
+  await expect(page.locator("#inspector")).toBeInViewport();
+  await sidebar.evaluate((e) => {
+    e.scrollTop = 0;
+  });
+  await expect(
+    page.getByRole("group", { name: "Match controls" }),
+  ).toBeInViewport();
+  expect(
+    await page
+      .locator("#map-scroll")
+      .evaluate((e) => e.scrollHeight <= e.clientHeight),
+  ).toBe(true);
+});

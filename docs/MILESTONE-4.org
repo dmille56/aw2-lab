@@ -772,7 +772,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Reviewed Rainy Haven's 133 coastal cells and 15 shoal shapes with zero gameplay
     commands. No extracted artwork is in Git/Nix. Human review pending.
 
-*** TODO Move compact CO displays and turn controls to the right of the board
+*** IN-PROGRESS Move compact CO displays and turn controls to the right of the board
     Human playtest feedback (2026-11-17): move the CO/player displays and Power,
     Super Power, End turn, and Surrender buttons from above the board into a
     compact panel to its right. Keep portraits, CO names, funds, power-charge
@@ -789,6 +789,16 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Review desktop and tall-map layouts, narrow windows, interface scaling,
     keyboard use, and the vertical space recovered for the board. Human acceptance
     should confirm that CO status and turn controls can be seen with the board.
+    Implemented (2026-11-17): integrated compact CO cards and a two-column turn
+    button grid into the existing 340px sidebar, aligned with the board's top.
+    The sidebar sticks while tall boards scroll, with its own bounded scrolling
+    for inspectors/details. Container width selects a stacked fallback at narrow
+    widths or larger interface scales. Native portraits retain their full face;
+    status, meters, busy/availability checks, and confirmations remain intact.
+    Action menus render outside scrolling/contained panels to avoid clipping.
+    Browser coverage checks desktop placement, 50/100/200% scaling, narrow windows,
+    keyboard confirmation/focus, sticky scrolling, and inspector access. Human
+    acceptance remains pending.
 
 *** IN-PROGRESS Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,

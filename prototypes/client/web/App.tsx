@@ -316,124 +316,207 @@ export function App() {
         <p id="error" role="alert" hidden={!view.error}>
           {view.error}
         </p>
-        <section id="match" className="card" hidden={!snapshot}>
-          <h2 id="match-title">
-            {snapshot
-              ? snapshot.summary.configuration.map_id.replaceAll("_", " ")
-              : "Match overview"}
-          </h2>
-          {battle && (
-            <p className="turn-summary" aria-label="Current turn">
-              Day {battle.day} · {owner(battle.active_player_slot)}’s turn
-              {battle.active_player_slot === humanSlot(view.identity)
-                ? " · Your turn"
-                : ""}
-              {" · "}Funds:{" "}
-              {battle.players.find(
-                (player) => player.slot === battle.active_player_slot,
-              )?.funds ?? "Unavailable"}
-            </p>
-          )}
-          {battle && (
-            <PlayerHud battle={battle} yourSlot={humanSlot(view.identity)} />
-          )}
-          <MatchControls
-            model={gameplay}
-            view={view}
-            onSubmit={session.submitAction}
-          />
-          <p id="perspective">
-            {snapshot && perspective(snapshot, view.identity, view.connected)}
-          </p>
-          <details className="match-details">
-            <summary>Match details and player statistics</summary>
-            <p id="boundary">
-              {snapshot &&
-                `${view.connected ? "Live match" : "Snapshot · read only"} · Revision ${snapshot.summary.revision} · Frame ${obs?.game_state.frame ?? "unavailable"} · ${snapshot.summary.match_id}`}
-            </p>
-
-            <Details
-              entries={[
-                ["Lifecycle", snapshot?.summary.lifecycle ?? "Unavailable"],
-                [
-                  "Day",
-                  battle
-                    ? battle.day
-                    : "Unavailable (battle state not observed)",
-                ],
-                [
-                  "Active player",
-                  battle
-                    ? owner(battle.active_player_slot)
-                    : "Unavailable (battle state not observed)",
-                ],
-                [
-                  "Weather",
-                  battle
-                    ? observed(battle.weather)
-                    : observed(obs?.game_state.battle),
-                ],
-                [
-                  "Fog",
-                  battle
-                    ? observed(battle.fog_enabled)
-                    : observed(obs?.game_state.battle),
-                ],
-                [
-                  "Action readiness",
-                  obs
-                    ? `${obs.action_readiness}${obs.action_readiness_reasons.length ? ` · ${obs.action_readiness_reasons.join("; ")}` : ""}`
-                    : "Unavailable (no committed observation)",
-                ],
-              ]}
-            />
-            <div id="players">
-              {battle?.players.map((player) => (
-                <div
-                  key={player.slot}
-                  className={`player player-${player.slot}${player.slot === humanSlot(view.identity) ? " your-player" : ""}${player.slot === battle.active_player_slot ? " active-player" : ""}`}
-                >
-                  <strong>
-                    {owner(player.slot)} ·{" "}
-                    {snapshot && playerName(snapshot, player.slot)}
-                    {player.slot === humanSlot(view.identity) ? " · You" : ""}
-                    {player.slot === battle.active_player_slot
-                      ? " · Active"
-                      : ""}
-                  </strong>
-                  <p>
-                    Funds: {player.funds} · CO: {coName(player.co_id)} · ID{" "}
-                    {player.co_id}
-                  </p>
-                  <p>CO power: {activePowerLabel(player.active_power)}</p>
-                  <p>Power meter: {powerMeterLabel(player.power_meter)}</p>
-                  <p>Power uses: {observed(player.power_use_counter)}</p>
-                  <p>
-                    Charge thresholds:{" "}
-                    {nextPowerThresholdLabel(
-                      player.co_id,
-                      player.power_use_counter,
-                    )}
-                  </p>
-                  <p>
-                    Units:{" "}
-                    {
-                      battle.units.filter((u) => u.army_slot === player.slot)
-                        .length
-                    }{" "}
-                    · Properties:{" "}
-                    {
-                      battle.properties.filter(
-                        (p) => p.owner_slot === player.slot,
-                      ).length
-                    }
-                  </p>
-                </div>
-              ))}
-            </div>
-          </details>
-        </section>
         <div className="workspace" id="workspace">
+          <div className="gameplay-sidebar">
+            <section id="match" className="card" hidden={!snapshot}>
+              <h2 id="match-title">
+                {snapshot
+                  ? snapshot.summary.configuration.map_id.replaceAll("_", " ")
+                  : "Match overview"}
+              </h2>
+              {battle && (
+                <p className="turn-summary" aria-label="Current turn">
+                  Day {battle.day} · {owner(battle.active_player_slot)}’s turn
+                  {battle.active_player_slot === humanSlot(view.identity)
+                    ? " · Your turn"
+                    : ""}
+                  {" · "}Funds:{" "}
+                  {battle.players.find(
+                    (player) => player.slot === battle.active_player_slot,
+                  )?.funds ?? "Unavailable"}
+                </p>
+              )}
+              {battle && (
+                <PlayerHud
+                  battle={battle}
+                  yourSlot={humanSlot(view.identity)}
+                />
+              )}
+              <MatchControls
+                model={gameplay}
+                view={view}
+                onSubmit={session.submitAction}
+              />
+              <p id="perspective">
+                {snapshot &&
+                  perspective(snapshot, view.identity, view.connected)}
+              </p>
+              <details className="match-details">
+                <summary>Match details and player statistics</summary>
+                <p id="boundary">
+                  {snapshot &&
+                    `${view.connected ? "Live match" : "Snapshot · read only"} · Revision ${snapshot.summary.revision} · Frame ${obs?.game_state.frame ?? "unavailable"} · ${snapshot.summary.match_id}`}
+                </p>
+
+                <Details
+                  entries={[
+                    ["Lifecycle", snapshot?.summary.lifecycle ?? "Unavailable"],
+                    [
+                      "Day",
+                      battle
+                        ? battle.day
+                        : "Unavailable (battle state not observed)",
+                    ],
+                    [
+                      "Active player",
+                      battle
+                        ? owner(battle.active_player_slot)
+                        : "Unavailable (battle state not observed)",
+                    ],
+                    [
+                      "Weather",
+                      battle
+                        ? observed(battle.weather)
+                        : observed(obs?.game_state.battle),
+                    ],
+                    [
+                      "Fog",
+                      battle
+                        ? observed(battle.fog_enabled)
+                        : observed(obs?.game_state.battle),
+                    ],
+                    [
+                      "Action readiness",
+                      obs
+                        ? `${obs.action_readiness}${obs.action_readiness_reasons.length ? ` · ${obs.action_readiness_reasons.join("; ")}` : ""}`
+                        : "Unavailable (no committed observation)",
+                    ],
+                  ]}
+                />
+                <div id="players">
+                  {battle?.players.map((player) => (
+                    <div
+                      key={player.slot}
+                      className={`player player-${player.slot}${player.slot === humanSlot(view.identity) ? " your-player" : ""}${player.slot === battle.active_player_slot ? " active-player" : ""}`}
+                    >
+                      <strong>
+                        {owner(player.slot)} ·{" "}
+                        {snapshot && playerName(snapshot, player.slot)}
+                        {player.slot === humanSlot(view.identity)
+                          ? " · You"
+                          : ""}
+                        {player.slot === battle.active_player_slot
+                          ? " · Active"
+                          : ""}
+                      </strong>
+                      <p>
+                        Funds: {player.funds} · CO: {coName(player.co_id)} · ID{" "}
+                        {player.co_id}
+                      </p>
+                      <p>CO power: {activePowerLabel(player.active_power)}</p>
+                      <p>Power meter: {powerMeterLabel(player.power_meter)}</p>
+                      <p>Power uses: {observed(player.power_use_counter)}</p>
+                      <p>
+                        Charge thresholds:{" "}
+                        {nextPowerThresholdLabel(
+                          player.co_id,
+                          player.power_use_counter,
+                        )}
+                      </p>
+                      <p>
+                        Units:{" "}
+                        {
+                          battle.units.filter(
+                            (u) => u.army_slot === player.slot,
+                          ).length
+                        }{" "}
+                        · Properties:{" "}
+                        {
+                          battle.properties.filter(
+                            (p) => p.owner_slot === player.slot,
+                          ).length
+                        }
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            </section>
+
+            {gameplay.selectedUnit &&
+              gameplay.draft.routeMode === "automatic" &&
+              gameplay.draft.phase === "unit" && (
+                <button
+                  type="button"
+                  disabled={!gameplay.editable}
+                  onClick={() => {
+                    gameplay.dispatch({ type: "plan" });
+                    const point = gameplay.draft.origin;
+                    if (point)
+                      document
+                        .querySelector<HTMLButtonElement>(
+                          `#board button[data-x="${point.x}"][data-y="${point.y}"]`,
+                        )
+                        ?.focus();
+                  }}
+                >
+                  Plan movement
+                </button>
+              )}
+            <CommandPanel model={gameplay} />
+            <aside className="card">
+              <h2>Inspector</h2>
+              <div id="inspector">
+                {snapshot && battle && cargoUnit ? (
+                  <UnitInspector unit={cargoUnit} snapshot={snapshot} />
+                ) : tile && snapshot ? (
+                  <>
+                    <h3>
+                      Tile ({tile.x}, {tile.y})
+                    </h3>
+                    <Details
+                      entries={[
+                        ["Terrain", terrainName(tile.terrain_class)],
+                        ["Owner", owner(tile.owner_slot)],
+                        ...(!unit
+                          ? [
+                              [
+                                "Tile defense",
+                                <TerrainDefense
+                                  terrainClass={tile.terrain_class}
+                                />,
+                              ] as [string, ReactNode],
+                            ]
+                          : []),
+                      ]}
+                    />
+                    {unit && (
+                      <>
+                        <UnitInspector unit={unit} snapshot={snapshot} />
+                        {unit.cargo_references.map((ref) => {
+                          const item = battle?.units.find(
+                            (u) => u.reference === ref,
+                          );
+                          return item ? (
+                            <UnitInspector
+                              key={ref}
+                              unit={item}
+                              snapshot={snapshot}
+                            />
+                          ) : null;
+                        })}
+                      </>
+                    )}
+                  </>
+                ) : snapshot && !battle ? (
+                  "No battle data to inspect."
+                ) : (
+                  "Select a tile or a unit."
+                )}
+              </div>
+            </aside>
+          </div>
+
           <div className="board-column">
             <ActionProgress view={view} />
             <MapPanel
@@ -528,80 +611,6 @@ export function App() {
             view={view}
             onSubmit={session.submitAction}
           />
-          <div className="gameplay-sidebar">
-            {gameplay.selectedUnit &&
-              gameplay.draft.routeMode === "automatic" &&
-              gameplay.draft.phase === "unit" && (
-                <button
-                  type="button"
-                  disabled={!gameplay.editable}
-                  onClick={() => {
-                    gameplay.dispatch({ type: "plan" });
-                    const point = gameplay.draft.origin;
-                    if (point)
-                      document
-                        .querySelector<HTMLButtonElement>(
-                          `#board button[data-x="${point.x}"][data-y="${point.y}"]`,
-                        )
-                        ?.focus();
-                  }}
-                >
-                  Plan movement
-                </button>
-              )}
-            <CommandPanel model={gameplay} />
-            <aside className="card">
-              <h2>Inspector</h2>
-              <div id="inspector">
-                {snapshot && battle && cargoUnit ? (
-                  <UnitInspector unit={cargoUnit} snapshot={snapshot} />
-                ) : tile && snapshot ? (
-                  <>
-                    <h3>
-                      Tile ({tile.x}, {tile.y})
-                    </h3>
-                    <Details
-                      entries={[
-                        ["Terrain", terrainName(tile.terrain_class)],
-                        ["Owner", owner(tile.owner_slot)],
-                        ...(!unit
-                          ? [
-                              [
-                                "Tile defense",
-                                <TerrainDefense
-                                  terrainClass={tile.terrain_class}
-                                />,
-                              ] as [string, ReactNode],
-                            ]
-                          : []),
-                      ]}
-                    />
-                    {unit && (
-                      <>
-                        <UnitInspector unit={unit} snapshot={snapshot} />
-                        {unit.cargo_references.map((ref) => {
-                          const item = battle?.units.find(
-                            (u) => u.reference === ref,
-                          );
-                          return item ? (
-                            <UnitInspector
-                              key={ref}
-                              unit={item}
-                              snapshot={snapshot}
-                            />
-                          ) : null;
-                        })}
-                      </>
-                    )}
-                  </>
-                ) : snapshot && !battle ? (
-                  "No battle data to inspect."
-                ) : (
-                  "Select a tile or a unit."
-                )}
-              </div>
-            </aside>
-          </div>
         </div>
         <section className="card">
           <h2>Unit roster</h2>

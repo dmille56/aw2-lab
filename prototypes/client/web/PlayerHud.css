@@ -1,14 +1,14 @@
 .hud-player {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(100px, 1fr) minmax(110px, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   min-width: 0;
-  gap: 6px 12px;
+  gap: 2px 6px;
   flex: 1 0 260px;
   border: 2px solid var(--border);
   border-top: 6px solid var(--player);
   border-radius: 6px;
-  padding: 8px 12px;
+  padding: 6px 8px;
   background: var(--player-card);
 }
 
@@ -59,7 +59,7 @@
 
 .hud-funds strong {
   font-variant-numeric: tabular-nums;
-  font-size: 1.4rem;
+  font-size: 1.1rem;
 }
 
 .hud-charge {

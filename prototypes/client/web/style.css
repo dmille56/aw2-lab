@@ -244,7 +244,7 @@ textarea:focus-visible,
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: 1fr;
   align-items: start;
   gap: 16px 8px;
 }
@@ -456,10 +456,6 @@ summary {
 }
 
 @media (width <= 800px) {
-  .workspace {
-    grid-template-columns: 1fr;
-  }
-
   header {
     align-items: start;
   }
@@ -792,26 +788,63 @@ summary {
 
 #match-title {
   text-transform: capitalize;
+  margin-bottom: 6px;
+}
+
+/* The existing sidebar also houses match status and turn controls. */
+main {
+  container-type: inline-size;
 }
 
 .player-hud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-block: 12px;
+  display: grid;
+  gap: 6px;
+  margin-block: 8px;
+}
+
+#match {
+  padding: 10px;
+  margin-bottom: 0;
+}
+
+#match .turn-summary {
+  font-size: 0.9rem;
+  margin-block: 6px;
+}
+
+#match #perspective,
+#match .match-details {
+  font-size: 12px;
+}
+
+.match-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+@container (width > 800px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+
+  .board-column {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .gameplay-sidebar {
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: 8px;
+    max-height: calc(100vh / var(--ui-scale-factor, 1) - 16px);
+    overflow: auto;
+    scrollbar-gutter: stable;
+  }
 }
 
 @media (width <= 600px) {
-  .player-hud {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding: 3px;
-  }
-
-  .hud-player {
-    min-width: 180px;
-  }
-
   header {
     flex-wrap: wrap;
   }
@@ -882,6 +915,7 @@ summary {
 }
 
 .match-controls button {
+  padding-inline: 6px;
   min-height: 44px;
 }
 

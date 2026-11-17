@@ -47,7 +47,9 @@ export function saveUiScale(value: number, storage?: Storage): void {
 }
 
 export function applyUiScale(root: HTMLElement, value: number): void {
-  root.style.setProperty("zoom", `${normalizeUiScale(value) / 100}`);
+  const factor = `${normalizeUiScale(value) / 100}`;
+  root.style.setProperty("zoom", factor);
+  root.style.setProperty("--ui-scale-factor", factor);
 }
 
 export function initializeUiScale(): void {

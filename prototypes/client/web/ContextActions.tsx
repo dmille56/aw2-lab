@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { GameplayAction } from "./command_input";
 import { waitLabel } from "./action_labels";
@@ -96,7 +97,7 @@ export function ActionMenu({
       window.removeEventListener("scroll", measure, true);
     };
   }, [point.x, point.y, center]);
-  return (
+  return createPortal(
     <div
       ref={menu}
       className="action-menu card"
@@ -134,7 +135,8 @@ export function ActionMenu({
       }}
     >
       {children}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
