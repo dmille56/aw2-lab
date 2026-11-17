@@ -2381,3 +2381,226 @@ test("held preview uses an enemy indirect unit's observed range", async ({
   await page.mouse.up({ button: "right" });
   await expect(page.locator("#board .attackable")).toHaveCount(0);
 });
+
+test("held middle-click previews either side's movement and restores all prior overlays and drafts", async ({
+  page,
+  request,
+}) => {
+  await connect(page);
+  const origin = page.locator('#board [data-x="0"][data-y="0"]');
+  const enemy = page.locator('#board [data-x="1"][data-y="1"]');
+  await origin.click();
+  await page.locator('#board [data-x="1"][data-y="0"]').click();
+  const menu = page.getByRole("dialog", { name: "Unit actions" });
+  await expect(menu).toBeVisible();
+  await page.locator("#attack-range").click();
+  await page.locator("#enemy-threats").check();
+  const overlays = () =>
+    page
+      .locator("#board .tile")
+      .evaluateAll((nodes) =>
+        nodes.map((n) => [
+          n.dataset.x,
+          n.dataset.y,
+          n.classList.contains("reachable"),
+          n.classList.contains("allied-transit"),
+          n.classList.contains("attackable"),
+          n.classList.contains("threatened"),
+        ]),
+      );
+  const before = await overlays();
+  const status = page
+    .getByRole("status")
+    .filter({ hasText: "Movement range preview:" });
+  for (const unit of [origin, enemy]) {
+    await unit.hover();
+    await page.mouse.down({ button: "middle" });
+    await expect(status).toBeVisible();
+    await expect(page.locator("#board .reachable")).not.toHaveCount(0);
+    await expect(
+      page.locator("#board .attackable, #board .threatened"),
+    ).toHaveCount(0);
+    await expect(menu).toBeVisible();
+    await expect(origin).toHaveAttribute("data-acting-unit", "true");
+    await expect(
+      page.locator('#board [data-x="1"][data-y="0"]'),
+    ).toHaveAttribute("data-destination", "true");
+    await page.mouse.move(4, 4);
+    await page.mouse.up({ button: "middle" });
+    await expect(status).toHaveCount(0);
+    expect(await overlays()).toEqual(before);
+    await expect(menu).toBeVisible();
+    await expect(page.locator("#attack-range")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  }
+  expect(
+    await origin.evaluate(
+      (node) =>
+        !node.dispatchEvent(
+          new MouseEvent("auxclick", {
+            button: 1,
+            bubbles: true,
+            cancelable: true,
+          }),
+        ),
+    ),
+  ).toBe(true);
+  expect(
+    await origin.evaluate(
+      (node) =>
+        !node.dispatchEvent(
+          new MouseEvent("mousedown", {
+            button: 1,
+            bubbles: true,
+            cancelable: true,
+          }),
+        ),
+    ),
+  ).toBe(true);
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
+});
+
+test("middle preview clears on cancel, lost capture, blur, hidden documents and state changes", async ({
+  page,
+  request,
+}) => {
+  await connect(page);
+  const unit = page.locator('#board [data-x="0"][data-y="0"]');
+  const status = page
+    .getByRole("status")
+    .filter({ hasText: "Movement range preview:" });
+  for (const reason of [
+    "pointercancel",
+    "lostpointercapture",
+    "blur",
+    "hidden",
+  ]) {
+    await unit.hover();
+    await page.mouse.down({ button: "middle" });
+    await expect(status).toBeVisible();
+    if (reason === "blur")
+      await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+    else if (reason === "hidden")
+      await page.evaluate(() => {
+        Object.defineProperty(document, "hidden", {
+          value: true,
+          configurable: true,
+        });
+        document.dispatchEvent(new Event("visibilitychange"));
+        delete document.hidden;
+      });
+    else await unit.dispatchEvent(reason, { pointerId: 1 });
+    await expect(status).toHaveCount(0);
+    await page.mouse.up({ button: "middle" });
+    await expect(page.locator("#board .reachable")).toHaveCount(0);
+  }
+  await unit.hover();
+  await page.mouse.down({ button: "middle" });
+  await expect(status).toBeVisible();
+  await request.post("/__test/advance");
+  await expect(page.locator("#boundary")).toContainText("Revision 2");
+  await expect(status).toHaveCount(0);
+  await page.mouse.up({ button: "middle" });
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
+});
+
+for (const [first, second, label] of [
+  ["middle", "right", "Movement"],
+  ["right", "middle", "Attack"],
+])
+  test(`first held range gesture wins: ${first} then ${second}`, async ({
+    page,
+  }) => {
+    await connect(page);
+    const unit = page.locator('#board [data-x="0"][data-y="0"]');
+    const status = page
+      .getByRole("status")
+      .filter({ hasText: `${label} range preview:` });
+    await unit.hover();
+    await page.mouse.down({ button: first });
+    await expect(status).toBeVisible();
+    await page.mouse.down({ button: second });
+    await expect(status).toBeVisible();
+    await page.mouse.up({ button: second });
+    await expect(status).toBeVisible();
+    await page.mouse.down({ button: second });
+    await expect(status).toBeVisible();
+    await page.mouse.up({ button: first });
+    await expect(status).toHaveCount(0);
+    await page.mouse.up({ button: second });
+    await expect(
+      page.getByRole("status").filter({ hasText: "range preview:" }),
+    ).toHaveCount(0);
+    await expect(
+      page.locator("#board .reachable, #board .attackable"),
+    ).toHaveCount(0);
+  });
+
+for (const [unitType, terrain, other, reachable] of [
+  [1, 3, 7, false],
+  [19, 3, 7, true],
+  [22, 7, 3, false],
+  [5, 5, 3, false],
+])
+  test(`middle movement preview follows terrain rules for unit ${unitType}`, async ({
+    page,
+  }) => {
+    const state = structuredClone(fixture);
+    const b = state.observation.game_state.battle.value;
+    b.units[1].unit_type = unitType;
+    b.units[1].fuel = 3;
+    b.map.tiles.find((t) => t.x === 1 && t.y === 0).terrain_class = terrain;
+    b.map.tiles.find((t) => t.x === 0 && t.y === 1).terrain_class = other;
+    if (unitType === 22)
+      b.map.tiles.find((t) => t.x === 1 && t.y === 1).terrain_class = 11;
+    await page.route("**/state", (route) => route.fulfill({ json: state }));
+    await connect(page);
+    const unit = page.locator('#board [data-x="1"][data-y="1"]');
+    await unit.hover();
+    await page.mouse.down({ button: "middle" });
+    await expect(page.locator('#board [data-x="1"][data-y="0"]')).toHaveClass(
+      /reachable/,
+    );
+    if (reachable)
+      await expect(page.locator('#board [data-x="0"][data-y="1"]')).toHaveClass(
+        /reachable/,
+      );
+    else
+      await expect(
+        page.locator('#board [data-x="0"][data-y="1"]'),
+      ).not.toHaveClass(/reachable/);
+    await page.mouse.up({ button: "middle" });
+    await expect(page.locator("#board .reachable")).toHaveCount(0);
+  });
+
+test("middle preview reports unavailable movement rather than guessing through fog", async ({
+  page,
+}) => {
+  const state = structuredClone(fixture);
+  state.observation.game_state.battle.value.fog_enabled.value = true;
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await connect(page);
+  await page.locator('#board [data-x="1"][data-y="1"]').hover();
+  await page.mouse.down({ button: "middle" });
+  await expect(
+    page.getByRole("status").filter({ hasText: "Movement range preview:" }),
+  ).toContainText("Movement range unavailable because fog");
+  await expect(page.locator("#board .reachable")).toHaveCount(0);
+  await page.mouse.up({ button: "middle" });
+});
+
+test("middle movement preview respects exhausted fuel", async ({ page }) => {
+  const state = structuredClone(fixture);
+  state.observation.game_state.battle.value.units[1].fuel = 0;
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await connect(page);
+  await page.locator('#board [data-x="1"][data-y="1"]').hover();
+  await page.mouse.down({ button: "middle" });
+  await expect(
+    page.getByRole("status").filter({ hasText: "Movement range preview:" }),
+  ).toContainText("No reachable movement destinations");
+  await expect(page.locator("#board .reachable")).toHaveCount(0);
+  await page.mouse.up({ button: "middle" });
+});

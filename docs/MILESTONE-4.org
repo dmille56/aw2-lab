@@ -696,7 +696,10 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     target changes, unknown terrain, and desktop/narrow layouts.
     Implemented (2026-11-17): the damage preview includes the defending tile's
     base rating before either attack confirmation flow. Air-unit previews explain
-    that the unit receives no terrain defense. Human review pending.
+    that the unit receives no terrain defense. Lash review (2026-11-17): displayed
+    stars remain the base tile rating; damage estimates separately apply power
+    bonuses and Prime Tactics' doubled terrain stars. There is currently no
+    separate effective-defense readout. Human review pending.
 
 *** IN-PROGRESS Preview a unit's attack range while holding the right mouse button
     Human playtest feedback (2026-11-16): pressing and holding the right mouse
@@ -718,6 +721,32 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     persistent toggles and acting-unit/route state are preserved. Right-clicking
     an empty tile and Escape retain Back/cancel; right-clicking a unit previews
     its range. Browser checks verify no gameplay commands are sent. Human review
+    pending.
+
+*** IN-PROGRESS Preview a unit's movement range while holding the middle mouse button
+    Human playtest feedback (2026-11-17): pressing and holding the middle mouse
+    button on a friendly or enemy unit should temporarily preview that unit's
+    movement range, analogous to the held right-click attack preview. Release
+    removes only the temporary preview and restores the previous movement/range
+    display. Use the shared observed movement rules, including terrain, fuel,
+    occupancy, and available CO/power modifiers; do not guess when data is missing.
+    Preserve the acting unit, inspection selection, planned route, and target;
+    previewing must send no emulator input. Prevent browser middle-click
+    autoscroll/auxiliary-click behavior on units. Handle release outside the board,
+    pointer cancellation, lost capture, blur, hidden documents, and committed-state
+    changes. Define interaction with a simultaneously held attack preview so one
+    gesture cannot leave the other's overlay stuck. Retain keyboard/touch movement
+    controls. Verify friendly/enemy units, movement classes, unavailable movement,
+    cleanup, restored overlays, draft preservation, and absence of gameplay commands.
+    Implemented (2026-11-17): middle-button holds preview either side's movement
+    with the shared observed movement rules. Release restores prior movement,
+    attack, and threat overlays; cancellation, capture loss, blur, hidden documents,
+    and committed-state changes clear the preview. Native autoscroll/auxiliary click
+    is suppressed on units. The first held range gesture wins; releasing its own
+    button closes it even if another range button remains held. The other button
+    does not take over without a fresh gesture. Browser checks cover movement
+    classes, exhausted fuel, unavailable fog data, combined buttons, cleanup,
+    selection/route preservation, and absence of gameplay commands. Human review
     pending.
 
 *** IN-PROGRESS Playtest and accept the redesign

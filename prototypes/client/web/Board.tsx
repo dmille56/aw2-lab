@@ -122,6 +122,10 @@ export function UnitInspector({
     </>
   );
 }
+export interface UnitRangePreview {
+  unit: UnitState;
+  kind: "attack" | "movement";
+}
 export interface Position {
   x: number;
   y: number;
@@ -145,7 +149,7 @@ export function Board({
   dropSelections = {},
   actingUnitReference = null,
   enemyTargets = new Set<string>(),
-  previewAttackRange,
+  previewUnitRange,
 }: {
   battle: BattleState | null;
   selected: Position | null;
@@ -165,33 +169,49 @@ export function Board({
   dropSelections?: Record<string, string>;
   actingUnitReference?: number | null;
   enemyTargets?: Set<string>;
-  previewAttackRange?: (unit: UnitState | null) => void;
+  previewUnitRange?: (preview: UnitRangePreview | null) => void;
 }) {
   const buttons = useRef(new Map<string, HTMLButtonElement>());
-  const heldPointer = useRef<number | null>(null);
+  const heldPointer = useRef<{ id: number; button: number } | null>(null);
   useEffect(() => {
     const clear = () => {
       heldPointer.current = null;
-      previewAttackRange?.(null);
+      previewUnitRange?.(null);
     };
     const release = (event: PointerEvent) => {
-      if (event.pointerId === heldPointer.current) clear();
+      if (event.pointerId === heldPointer.current?.id) clear();
+    };
+    const changedButtons = (event: PointerEvent) => {
+      const held = heldPointer.current;
+      if (
+        held &&
+        event.pointerId === held.id &&
+        !(event.buttons & (held.button === 1 ? 4 : 2))
+      )
+        clear();
+    };
+    const releaseMouse = (event: MouseEvent) => {
+      if (event.button === heldPointer.current?.button) clear();
     };
     const visibility = () => {
       if (document.hidden) clear();
     };
     window.addEventListener("pointerup", release);
+    window.addEventListener("mouseup", releaseMouse);
+    window.addEventListener("pointermove", changedButtons);
     window.addEventListener("pointercancel", release);
     window.addEventListener("blur", clear);
     document.addEventListener("visibilitychange", visibility);
     return () => {
       window.removeEventListener("pointerup", release);
+      window.removeEventListener("mouseup", releaseMouse);
+      window.removeEventListener("pointermove", changedButtons);
       window.removeEventListener("pointercancel", release);
       window.removeEventListener("blur", clear);
       document.removeEventListener("visibilitychange", visibility);
       clear();
     };
-  }, [battle, previewAttackRange]);
+  }, [battle, previewUnitRange]);
   const occupancy = new Map(
     battle?.units.filter((u) => !u.embarked).map((u) => [`${u.x},${u.y}`, u]),
   );
@@ -259,21 +279,41 @@ export function Board({
                 aria-label={`${isEnemyTarget ? "Attackable enemy, " : ""}${isActing ? "Selected acting unit, " : ""}${dropLabel ? `Cargo drop ${dropLabel}, ` : ""}${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}${unit.cargo_references.length ? `, loaded transport, ${unit.cargo_references.length} passenger${unit.cargo_references.length === 1 ? "" : "s"} aboard` : ""}` : ""}`}
                 onClick={() => (activate ?? select)(tile)}
                 onPointerDown={(event) => {
-                  if (event.button !== 2 || !unit || !previewAttackRange)
+                  if (
+                    ![1, 2].includes(event.button) ||
+                    !unit ||
+                    !previewUnitRange
+                  )
                     return;
                   event.preventDefault();
-                  heldPointer.current = event.pointerId;
+                  // The first held range gesture wins until its own button is released.
+                  if (heldPointer.current) return;
+                  heldPointer.current = {
+                    id: event.pointerId,
+                    button: event.button,
+                  };
                   event.currentTarget.setPointerCapture?.(event.pointerId);
-                  previewAttackRange(unit);
+                  previewUnitRange({
+                    unit,
+                    kind: event.button === 1 ? "movement" : "attack",
+                  });
+                }}
+                onMouseDown={(event) => {
+                  if (unit && previewUnitRange && [1, 2].includes(event.button))
+                    event.preventDefault();
+                }}
+                onAuxClick={(event) => {
+                  if (event.button === 1 && unit && previewUnitRange)
+                    event.preventDefault();
                 }}
                 onLostPointerCapture={() => {
                   if (heldPointer.current !== null) {
                     heldPointer.current = null;
-                    previewAttackRange?.(null);
+                    previewUnitRange?.(null);
                   }
                 }}
                 onContextMenu={(event) => {
-                  if (unit && previewAttackRange) {
+                  if (unit && previewUnitRange) {
                     event.preventDefault();
                     return;
                   }
@@ -285,7 +325,7 @@ export function Board({
                 onKeyDown={(event) => {
                   if (event.key === "Escape") {
                     heldPointer.current = null;
-                    previewAttackRange?.(null);
+                    previewUnitRange?.(null);
                     cancel?.();
                     return;
                   }

@@ -6,7 +6,13 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import { Board, terrainName, unitName, type Position } from "./Board";
+import {
+  Board,
+  terrainName,
+  unitName,
+  type Position,
+  type UnitRangePreview,
+} from "./Board";
 import { fitTileSize, terrainLabel, unitLabel } from "./presentation";
 import type { BattleState } from "./state";
 import type { UnitState } from "./state";
@@ -57,11 +63,14 @@ export function MapPanel({
   const [heldRange, setHeldRange] = useState<{
     battle: BattleState;
     reference: number;
+    kind: UnitRangePreview["kind"];
   } | null>(null);
-  const previewAttackRange = useCallback(
-    (unit: UnitState | null) => {
+  const previewUnitRange = useCallback(
+    (preview: UnitRangePreview | null) => {
       setHeldRange(
-        unit && battle ? { battle, reference: unit.reference } : null,
+        preview && battle
+          ? { battle, reference: preview.unit.reference, kind: preview.kind }
+          : null,
       );
     },
     [battle],
@@ -71,7 +80,13 @@ export function MapPanel({
       ? battle?.units.find((unit) => unit.reference === heldRange.reference)
       : null;
   const heldCoverage =
-    battle && heldUnit ? selectedAttackCoverage(battle, heldUnit, []) : null;
+    battle && heldUnit && heldRange?.kind === "attack"
+      ? selectedAttackCoverage(battle, heldUnit, [])
+      : null;
+  const heldMovement =
+    battle && heldUnit && heldRange?.kind === "movement"
+      ? movementReach(battle, heldUnit)
+      : null;
   const [size, setSize] = useState(58);
   const [fit, setFit] = useState(true);
   const [coordinates, setCoordinates] = useState(false);
@@ -206,14 +221,20 @@ export function MapPanel({
         ownership.
       </p>
       <p className="hint">
-        Hold the right mouse button on a unit to preview its attack range.
-        Release to hide the preview; right-click empty tiles or press Escape to
-        go back.
+        Hold right-click on a unit for attack range or middle-click for movement
+        range. Release to close. Escape or right-click an empty tile goes back.
       </p>
       {heldUnit && (
         <p className="hint" role="status">
-          Attack range preview: {unitName(heldUnit)} · Player{" "}
-          {heldUnit.army_slot}. Release the right mouse button to close.
+          {heldMovement ? "Movement" : "Attack"} range preview:{" "}
+          {unitName(heldUnit)} · Player {heldUnit.army_slot}. Release the{" "}
+          {heldMovement ? "middle" : "right"} mouse button to close.
+          {heldMovement &&
+            (movementUnavailable
+              ? ` Movement range unavailable because ${movementUnavailable}.`
+              : heldMovement.destinations.size === 0
+                ? " No reachable movement destinations in the observed rules."
+                : "")}
           {heldCoverage?.size === 0 &&
             " No attack coverage is available for this unit."}
         </p>
@@ -234,20 +255,20 @@ export function MapPanel({
       )}
       {(selectedUnit || heldUnit) && (
         <div className="range-key" aria-label="Range legend">
-          {selectedUnit && (
+          {(selectedUnit || heldMovement) && (
             <span>
               <i aria-hidden="true" className="range-swatch movement-range" />
               Movement · translucent turquoise
             </span>
           )}
           {!!enemyTargets.size && <span>ATTACK · eligible enemy</span>}
-          {(showAttackRange || heldUnit) && (
+          {!heldMovement && (showAttackRange || heldCoverage) && (
             <span>
               <i aria-hidden="true" className="range-swatch firing-range" />
               Attack · solid red border
             </span>
           )}
-          {showThreats && (
+          {showThreats && !heldMovement && (
             <span>
               <i aria-hidden="true" className="range-swatch threat-range" />
               Enemy threats · dashed
@@ -301,15 +322,17 @@ export function MapPanel({
           target={target}
           dropTargets={dropTargets}
           dropSelections={dropSelections}
-          reachable={reach.destinations}
-          transit={reach.alliedTransit}
-          previewAttackRange={previewAttackRange}
+          reachable={heldMovement?.destinations ?? reach.destinations}
+          transit={heldMovement?.alliedTransit ?? reach.alliedTransit}
+          previewUnitRange={previewUnitRange}
           attackable={
-            heldCoverage ??
-            actionTargets ??
-            (showAttackRange ? attacks : new Set<string>())
+            heldMovement
+              ? new Set<string>()
+              : (heldCoverage ??
+                actionTargets ??
+                (showAttackRange ? attacks : new Set<string>()))
           }
-          threatened={threats}
+          threatened={heldMovement ? new Set<string>() : threats}
           enemyTargets={enemyTargets}
           actingUnitReference={selectedUnit?.reference ?? null}
           coordinates={coordinates}
