@@ -72,7 +72,6 @@
 
 .tile .unit,
 .tile .unit-health,
-.tile .owner-tag,
 .tile .coords {
   z-index: 3;
 }

@@ -113,6 +113,10 @@ test("inspects the board, navigates with keyboard, filters units, and passes acc
 }) => {
   await connect(page);
   await expect(page.locator("#token")).toHaveValue("");
+  await expect(page.locator("#board .owner-tag")).toHaveCount(0);
+  await expect(page.locator("#board .tile").first()).toHaveAccessibleName(
+    /Player 1/,
+  );
   await page.locator("#board .tile").first().click();
   await expect(page.locator("#inspector")).toContainText("Infantry");
   await expect(page.locator("#players")).toContainText("Power meter: 0");

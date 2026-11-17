@@ -190,8 +190,8 @@ export function MapPanel({
         {fit
           ? `Fits automatically on resize; tiles stay at least ${coordinates ? 44 : 36} px for legibility. Scroll if needed.`
           : "Manual tile size; enable Fit to map to resize automatically."}{" "}
-        Property owners appear at the top; unit owners and HP out of 10 appear
-        below. Your units have underlined health badges.
+        Unit owners and HP out of 10 appear below. Your units have underlined
+        health badges. Inspect a tile for its terrain ownership.
       </p>
       {(!!route?.length || target) && (
         <p className="hint">

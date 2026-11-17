@@ -471,11 +471,14 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     feedback. Existing submission/keyboard browser scenarios check the wording.
     Human wording review remains pending.
 
-*** TODO Hide the tile-corner player labels
+*** IN-PROGRESS Hide the tile-corner player labels
     Human playtest feedback (2026-11-16): the top-right P-, P1, and P2 labels
     clutter the board. Hide these labels on tiles, retaining ownership details
     in accessible inspection and other useful ownership cues. Review the board
     with sprites and the fallback display for reduced clutter.
+    Implemented: removed tile-corner labels and their styles; ownership stays
+    available in tile accessible names and inspection. Browser regression and
+    reviewed fallback screenshot cover the change. Human visual review pending.
 
 *** TODO Give unit HP a distinct readable badge without player prefixes
     Human playtest feedback (2026-11-16): make unit HP immediately identifiable

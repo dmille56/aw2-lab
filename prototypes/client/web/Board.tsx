@@ -276,7 +276,6 @@ export function Board({
                     C{unit.cargo_references.length}
                   </span>
                 )}
-                <span className="owner-tag">P{tile.owner_slot || "–"}</span>
                 {spritePack && terrainRegion && (
                   <Sprite
                     pack={spritePack}

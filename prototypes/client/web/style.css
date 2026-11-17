@@ -365,14 +365,6 @@ textarea:focus-visible,
   border-left: 4px solid #74b8fa;
 }
 
-.owner-tag {
-  position: absolute;
-  top: 1px;
-  right: 2px;
-  font-weight: bold;
-  font-size: 9px;
-}
-
 .coords {
   font-size: 9px;
   opacity: 0.8;
@@ -750,7 +742,6 @@ summary {
   filter: grayscale(0.8) brightness(0.65);
 }
 
-.sprite-tile .owner-tag,
 .sprite-tile .unit-health,
 .sprite-tile .coords {
   z-index: 3;
