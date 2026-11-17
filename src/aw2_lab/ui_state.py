@@ -246,6 +246,16 @@ class UnrecognizedUIState:
     reason: str
 
 
+def _movement_selector_ready(snapshot: BattleMemorySnapshot) -> bool:
+    """Require one initialized movement selector in the bounded UI slots."""
+    offsets = tuple(
+        index * SELECTOR_STRIDE
+        for index in range(SELECTOR_COUNT)
+        if snapshot.u32(SELECTOR_OBJECT + index * SELECTOR_STRIDE) == UNIT_MOVEMENT_SELECTOR
+    )
+    return len(offsets) == 1 and snapshot.u16(CURSOR_GRAPHICS_PROGRESS + offsets[0]) == 8
+
+
 def observe_map_cursor(
     snapshot: BattleMemorySnapshot, validation: BattleValidationReport
 ) -> MapCursorObservation:
@@ -264,8 +274,7 @@ def observe_map_cursor(
     movement_cursor = (
         validation.lifecycle.phase is LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
         and validation.lifecycle.engine is LifecycleEngine.BATTLE
-        and snapshot.u32(SELECTOR_OBJECT) == UNIT_MOVEMENT_SELECTOR
-        and snapshot.u16(CURSOR_GRAPHICS_PROGRESS) == 8
+        and _movement_selector_ready(snapshot)
         and snapshot.read(CONTROLLER_LOCK, 1)[0] == 0
         and snapshot.u16(CONTROLLER_STATE) == 13
         and snapshot.u16(0x03003334) == 1
@@ -559,8 +568,7 @@ def _observe_unit_movement(
     snapshot: BattleMemorySnapshot, validation: BattleValidationReport
 ) -> MenuObservation | None:
     if (
-        snapshot.u32(SELECTOR_OBJECT) != UNIT_MOVEMENT_SELECTOR
-        or snapshot.u16(CURSOR_GRAPHICS_PROGRESS) != 8
+        not _movement_selector_ready(snapshot)
         or snapshot.read(CONTROLLER_LOCK, 1)[0] != 0
         or snapshot.u16(CONTROLLER_STATE) != 13
         or snapshot.u16(0x03003334) != 1
@@ -880,38 +888,19 @@ def _is_unload_targeting(
     if not has_cargo:
         return False
 
-    table = snapshot.u32(SELECTOR_TABLE + offset)
-    row_count = snapshot.read(SELECTOR_ROW_COUNT + offset, 1)[0]
-    row = snapshot.read(SELECTOR_SELECTED_ROW + offset, 1)[0]
-    lander_drop_list = table == 1 and row_count == 3 and row < 3 and snapshot.u16(0x03003334) == 5
-    single_tile_drop_cursor = (
-        selected.unit_type in (7, 20, 22, 23)
-        and table in (0, 1, 2, 3)
-        # Carriers use a map cursor while Drop targeting is active. The table
-        # field is the target index (up/right/down/left), not a menu table.
-        # The Lander also has a separate
-        # three-row cargo selector recognized above.
-        # A moved APC keeps its one cargo row while showing the map target;
-        # the stationary carrier traces expose zero rows in this same mode.
-        and (
-            row_count == 0
-            or (selected.unit_type == 7 and row_count == 1 and row == 0)
-            # The Cruiser reuses its cleared three-row selector for the second Drop.
-            or (
-                selected.unit_type == 22
-                and row_count == 3
-                and row == 0
-                and snapshot.u16(0x03003334) == 5
-                and snapshot.read(SELECTOR_ITEM_IDS + offset, 3) == bytes((255, 255, 255))
-            )
-        )
-        and (
-            snapshot.u16(0x03003334) == 4
-            or selected.unit_type == 22
-            and snapshot.u16(0x03003334) == 5
-        )
+    target_index = snapshot.u32(SELECTOR_TABLE + offset)
+    input_state = snapshot.u16(0x03003334)
+    # Native 0x080294FC cycles +0x20 through adjacent target indices 0..3.
+    # This object is a cursor helper: its old action-menu row bytes are stale,
+    # including the 5-row/row-4 values in the Rainy Haven Cruiser trace.
+    cursor_mode = input_state == 4 or (selected.unit_type == 22 and input_state == 5)
+    legacy_continuation = (
+        input_state == 5
+        and target_index == 1
+        and snapshot.read(SELECTOR_ROW_COUNT + offset, 1)[0] == 3
+        and snapshot.read(SELECTOR_SELECTED_ROW + offset, 1)[0] < 3
     )
-    return lander_drop_list or single_tile_drop_cursor
+    return target_index in (0, 1, 2, 3) and (cursor_mode or legacy_continuation)
 
 
 def _is_silo_targeting(snapshot: BattleMemorySnapshot, validation: BattleValidationReport) -> bool:

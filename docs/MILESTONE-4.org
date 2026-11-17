@@ -665,6 +665,10 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     verification support two mixed copters. Isolated cartridge checks passed
     sequential loading and both drops over sea in place and after movement.
     Full/incompatible carriers reject before input. No ROM/artwork was added.
+    Rainy Haven follow-up: locate movement selectors across all four UI slots
+    and ignore unused stale menu-row bytes in native Drop cursor helpers.
+    Replayed two movement and two move/unload requests from the actual human
+    checkpoint in isolation; all passed without changing the source checkpoint.
     See [[file:CRUISER-CARGO.md][Cruiser cargo verification]]. Human review pending.
 
 *** IN-PROGRESS Playtest and accept the redesign

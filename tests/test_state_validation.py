@@ -317,12 +317,14 @@ def test_unit_action_menu_rejects_a_pointer_from_another_army(memory) -> None:
     assert "does not match the active player" in menu.reasons[0]
 
 
-def test_unit_movement_overlay_exposes_verified_source_cursor(memory) -> None:
+@pytest.mark.parametrize("selector_slot", range(4))
+def test_unit_movement_overlay_exposes_verified_source_cursor(memory, selector_slot) -> None:
     _, ewram, iwram = memory
     pack_into("<I", ewram, 0xD610, 0x0849BE38)
     pack_into("<I", iwram, 0x40D8, 0x02022690)
-    pack_into("<I", iwram, 0x1470, 0x08499B4C)
-    pack_into("<I", iwram, 0x1490, 8)
+    offset = selector_slot * 0x60
+    pack_into("<I", iwram, 0x1470 + offset, 0x08499B4C)
+    pack_into("<I", iwram, 0x1490 + offset, 8)
     iwram[0x14B1] = 6
     iwram[0x14B2] = 2
     iwram[0x30F0] = 0
@@ -350,6 +352,23 @@ def test_unit_movement_overlay_exposes_verified_source_cursor(memory) -> None:
     assert menu.family is MenuFamily.UNIT_MOVEMENT
     assert menu.selected_unit is not None, menu.reasons
     assert cursor.status is CursorStatus.AVAILABLE
+
+    # An incomplete/invalid graphics loader or ambiguous active selectors must
+    # not authorize movement or expose a usable movement cursor.
+    for progress in (0, 7, 9):
+        pack_into("<I", iwram, 0x1490 + offset, progress)
+        current = snapshot(memory)
+        report = validate_battle_snapshot(current)
+        assert observe_menu(current, report).family is not MenuFamily.UNIT_MOVEMENT
+        assert observe_map_cursor(current, report).status is CursorStatus.UNAVAILABLE
+    pack_into("<I", iwram, 0x1490 + offset, 8)
+    other_offset = ((selector_slot + 1) % 4) * 0x60
+    pack_into("<I", iwram, 0x1470 + other_offset, 0x08499B4C)
+    pack_into("<I", iwram, 0x1490 + other_offset, 8)
+    current = snapshot(memory)
+    report = validate_battle_snapshot(current)
+    assert observe_menu(current, report).family is not MenuFamily.UNIT_MOVEMENT
+    assert observe_map_cursor(current, report).status is CursorStatus.UNAVAILABLE
 
 
 @pytest.mark.parametrize("selector_slot", range(4))
@@ -626,7 +645,7 @@ def test_unload_cursor_uses_observed_source_during_drop_targeting(memory) -> Non
     ("carrier_type", "selector_table"),
     [(carrier, target) for carrier in (7, 20, 22, 23) for target in range(4)],
 )
-@pytest.mark.parametrize("cargo_rows", [0, 1, 3])
+@pytest.mark.parametrize("cargo_rows", [0, 1, 3, 5, 255])
 @pytest.mark.parametrize("input_state", [4, 5])
 @pytest.mark.parametrize("cursor_slot", [2, 3])
 def test_single_tile_drop_cursor_uses_live_source_during_cursor_mode(
@@ -643,7 +662,8 @@ def test_single_tile_drop_cursor_uses_live_source_during_cursor_mode(
     pack_into("<I", iwram, 0x1470 + offset, UNLOAD_TARGETING_SELECTOR)
     pack_into("<I", iwram, 0x1490 + offset, selector_table)
     iwram[0x14B1 + offset] = cargo_rows
-    iwram[0x14A1 + offset : 0x14A4 + offset] = bytes((255, 255, 255))
+    iwram[0x14A1 + offset : 0x14A4 + offset] = bytes((0, 6, 10))
+    iwram[0x14B2 + offset] = 4 if cargo_rows == 5 else 0
     iwram[0x30F0] = 1
     pack_into("<H", iwram, 0x32D8, 13)
     pack_into("<H", iwram, 0x33EC, 1)
@@ -653,16 +673,7 @@ def test_single_tile_drop_cursor_uses_live_source_during_cursor_mode(
     report = validate_battle_snapshot(current)
     menu = observe_menu(current, report)
     cursor = observe_map_cursor(current, report)
-    recognized = (
-        cargo_rows == 0
-        and (input_state == 4 or carrier_type == 22)
-        or cargo_rows == 1
-        and carrier_type == 7
-        and input_state == 4
-        or cargo_rows == 3
-        and input_state == 5
-        and (selector_table == 1 or carrier_type == 22)
-    )
+    recognized = input_state == 4 or carrier_type == 22 or cargo_rows == 3 and selector_table == 1
     if not recognized:
         assert menu.family is not MenuFamily.UNIT_DROP_TARGETING
         return
