@@ -711,3 +711,13 @@ transit also has a transparent center and a dashed border. Movement/attack
 overlap uses narrow red stripes separated by wide transparent gaps, preserving
 the gold movement outline. The legend describes the revised markings. Human
 visual acceptance remains pending.
+
+
+### Translucent movement center (2026-11-16)
+
+Following user feedback, movement now uses a 20%-opacity white fill and white
+outlines edged in charcoal. This gives reachable tiles a light tint while
+preserving terrain detail. Allied transit uses a dashed white outline and a
+lighter fill. Attack overlap keeps sparse red stripes above the same translucent
+white center. Selection retains its thicker cursor and SELECTED label. Human
+visual acceptance remains pending.

@@ -498,10 +498,11 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Recheck with local sprites and fallback terrain, both themes, and supported
     scales. Require human confirmation on sea-heavy maps before acceptance.
     Revised after further human feedback: the gold fill obscured terrain.
-    Movement now uses gold outlines edged in black around fully transparent
-    centers. Allied transit is dashed; overlap uses sparse red stripes with
-    transparent gaps. Browser checks cover sea terrain, narrow sizes, and both
-    appearances. Human review remains pending.
+    Movement now uses white outlines edged in charcoal with a 20%-opacity white
+    center, following the user's request for partial transparency and a different
+    color. Allied transit is dashed with a lighter fill; overlap uses sparse red
+    stripes over the same translucent center. Browser checks cover sea terrain,
+    narrow sizes, and both appearances. Human review remains pending.
 
 *** IN-PROGRESS Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,

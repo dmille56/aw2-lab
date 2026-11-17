@@ -1455,7 +1455,7 @@ test("keeps feedback by the board and blocks repeated input while a receipt is p
   await page.unroute("**/v1/matches/*/commands");
 });
 
-test("keeps terrain visible inside gold movement outlines and sparse attack overlap", async ({
+test("keeps terrain visible under translucent white movement and sparse attack overlap", async ({
   page,
 }) => {
   const state = structuredClone(fixture);
@@ -1485,16 +1485,19 @@ test("keeps terrain visible inside gold movement outlines and sparse attack over
     await page.emulateMedia({ colorScheme });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator("#zoom").fill("36");
-    await expect(movement).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(movement).toHaveCSS(
+      "background-color",
+      "rgba(255, 255, 255, 0.2)",
+    );
     await expect(movement).toBeVisible();
   }
   await page.setViewportSize({ width: 1280, height: 960 });
   await expect(movement).toHaveCSS("background-image", "none");
   expect(
     await movement.evaluate((e) => getComputedStyle(e).boxShadow),
-  ).toContain("rgb(255, 227, 109)");
+  ).toContain("rgb(255, 255, 255)");
   await expect(page.getByLabel("Range legend")).toContainText(
-    "Movement · gold outline",
+    "Movement · translucent white",
   );
   await page
     .getByRole("button", { name: "Show attack range", exact: true })
@@ -1505,7 +1508,10 @@ test("keeps terrain visible inside gold movement outlines and sparse attack over
     await attack.evaluate((e) => getComputedStyle(e).backgroundImage),
   ).toContain("repeating-linear-gradient");
   const overlap = page.locator("#board .movement-range.firing-range").first();
-  await expect(overlap).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(overlap).toHaveCSS(
+    "background-color",
+    "rgba(255, 255, 255, 0.2)",
+  );
   expect(
     await overlap.evaluate((e) => getComputedStyle(e).backgroundImage),
   ).toContain("12px");
