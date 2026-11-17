@@ -209,7 +209,7 @@ export function MapPanel({
           {showAttackRange && (
             <span>
               <i aria-hidden="true" className="range-swatch firing-range" />
-              Attack · diagonal stripes
+              Attack · solid red border
             </span>
           )}
           {showThreats && (
@@ -288,11 +288,11 @@ export function MapPanel({
         </p>
         <p>
           Turquoise outlined tiles with a light translucent fill are reachable
-          movement destinations; dashed turquoise tiles are allied transit.
-          Diagonal stripes show potential attack range; white outlines with
-          sparse red stripes show overlap. Red dashed tiles are in the enabled
-          enemy threat estimate. These overlays describe observed potential
-          coverage, not an action guarantee.
+          movement destinations; dashed turquoise tiles are allied transit. Red
+          solid borders show potential attack range; turquoise and red inner
+          borders show movement/attack overlap. Red dashed tiles are in the
+          enabled enemy threat estimate. These overlays describe observed
+          potential coverage, not an action guarantee.
         </p>
         <div id="legend">
           {terrains.map((id) => (

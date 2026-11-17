@@ -504,7 +504,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     stripes over the same translucent center. Browser checks cover sea terrain,
     narrow sizes, and both appearances. Human review remains pending.
 
-*** TODO Give attack and enemy threat overlays red borders and translucent centers
+*** IN-PROGRESS Give attack and enemy threat overlays red borders and translucent centers
     Human playtest feedback (2026-11-16): style attack coverage and enemy threat
     areas similarly to the movement overlay, using red instead of turquoise.
     Use a distinct red border edged for contrast and a center with 35%
@@ -513,6 +513,9 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     distinction between selected-unit attack coverage and enemy threat estimates;
     update legends and accessible descriptions. Review sea/land sprites and
     fallback terrain, light/dark appearances, and narrow tile sizes with the user.
+    Implemented: red 65%-opacity centers with dark-edged solid attack borders
+    and dashed threat borders; movement overlap retains a turquoise outer cue.
+    Browser checks cover fill, borders, overlap, and threat estimates. Human review pending.
 
 *** TODO Offer Attack when clicking an eligible enemy tile
     Human playtest feedback (2026-11-16): while a friendly unit is selected,

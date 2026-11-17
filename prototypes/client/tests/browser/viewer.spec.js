@@ -1455,7 +1455,7 @@ test("keeps feedback by the board and blocks repeated input while a receipt is p
   await page.unroute("**/v1/matches/*/commands");
 });
 
-test("keeps terrain visible under translucent turquoise movement and sparse attack overlap", async ({
+test("distinguishes translucent movement, red attack coverage, and dashed enemy threats", async ({
   page,
 }) => {
   const state = structuredClone(fixture);
@@ -1504,20 +1504,33 @@ test("keeps terrain visible under translucent turquoise movement and sparse atta
     .click();
   const attack = page.locator("#board .firing-range").first();
   await expect(attack).toBeVisible();
-  expect(
-    await attack.evaluate((e) => getComputedStyle(e).backgroundImage),
-  ).toContain("repeating-linear-gradient");
+  await expect(attack).toHaveCSS("background-color", "rgba(232, 65, 76, 0.65)");
+  await expect(attack).toHaveCSS("border-top-style", "solid");
   const overlap = page.locator("#board .movement-range.firing-range").first();
   await expect(overlap).toHaveCSS(
     "background-color",
-    "rgba(45, 226, 176, 0.35)",
+    "rgba(232, 65, 76, 0.65)",
   );
   expect(
-    await overlap.evaluate((e) => getComputedStyle(e).backgroundImage),
-  ).toContain("12px");
+    await overlap.evaluate((e) => getComputedStyle(e).boxShadow),
+  ).toContain("rgb(45, 226, 176)");
   await expect(page.getByLabel("Range legend")).toContainText(
-    "Attack · diagonal stripes",
+    "Attack · solid red border",
   );
+  // An observed enemy supplies threat coverage independently of selected attacks.
+  battle.units.push({
+    ...battle.units[0],
+    reference: 2,
+    army_slot: 2,
+    x: 1,
+    y: 1,
+  });
+  state.summary.revision = state.observation.revision = 2;
+  await page.locator("#refresh").click();
+  await page.getByLabel("Show enemy threat area").check();
+  const threat = page.locator("#board .threat-range").first();
+  await expect(threat).toHaveCSS("background-color", "rgba(232, 65, 76, 0.65)");
+  await expect(threat).toHaveCSS("border-top-style", "dashed");
 });
 
 test("does not offer Join into full-health Infantry but accepts a damaged used partner", async ({
