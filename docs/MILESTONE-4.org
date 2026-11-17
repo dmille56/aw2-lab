@@ -600,7 +600,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Browser checks cover large tiles, full-height rendering, and keyboard access
     to the last row. Human review pending.
 
-*** TODO Display local game portraits for commanding officers when available
+*** IN-PROGRESS Display local game portraits for commanding officers when available
     Human playtest feedback (2026-11-16): use each CO's game portrait in the HUD
     instead of initials when a matching portrait is available. Extend the local
     ROM sprite-pack extraction/manifest and client lookup as needed, preserving
@@ -610,6 +610,11 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     screenshots in Git or the Nix store. Keep assets in the external local pack;
     commit only extraction/rendering code and synthetic test fixtures. Verify
     correct CO-to-portrait mappings and both asset-present and fallback behavior.
+    Implemented: all 19 native 32x24 HUD portraits are extracted through the
+    supported ROM graphics table into an optional external atlas collection.
+    The HUD uses available portraits and retains initials for old/missing/broken
+    packs. Decoder, manifest, delivery, and browser checks cover the extension.
+    Authentic artwork remains outside Git/Nix. Human review pending.
 
 *** TODO Preview estimated attack damage as a percentage before attacking
     Human playtest feedback (2026-11-16): show an AW2-style estimate of the damage

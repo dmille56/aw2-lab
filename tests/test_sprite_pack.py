@@ -44,7 +44,16 @@ def test_local_pack_is_complete_deterministic_and_preserves_rom(tmp_path: Path) 
     assert set(manifest["terrain"]) == {
         f"{terrain}:{army}" for terrain in DECODED_TERRAIN_CLASSES for army in range(6)
     }
-    for region in [*manifest["units"].values(), *manifest["terrain"].values()]:
+    assert set(manifest["portraits"]) == {str(co_id) for co_id in range(19)}
+    assert all(
+        region["width"] == 32 and region["height"] == 24
+        for region in manifest["portraits"].values()
+    )
+    for region in [
+        *manifest["units"].values(),
+        *manifest["terrain"].values(),
+        *manifest["portraits"].values(),
+    ]:
         assert 0 <= region["x"] <= manifest["width"] - region["width"]
         assert 0 <= region["y"] <= manifest["height"] - region["height"]
     png = (tmp_path / manifest["atlas"]).read_bytes()

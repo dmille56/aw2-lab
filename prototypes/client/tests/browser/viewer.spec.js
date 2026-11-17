@@ -2042,3 +2042,44 @@ test("expands the board to its full height at large manual tile sizes", async ({
     "true",
   );
 });
+
+for (const broken of [false, true])
+  test(`uses a local CO portrait when available and initials otherwise, broken=${broken}`, async ({
+    page,
+  }) => {
+    const atlas = `atlas-${"b".repeat(64)}.png`;
+    await page.route("**/client-sprites/manifest.json", (route) =>
+      route.fulfill({
+        json: {
+          kind: "aw2-client-sprites",
+          version: 1,
+          atlas,
+          width: 32,
+          height: 32,
+          units: {},
+          terrain: {},
+          portraits: { 1: { x: 0, y: 0, width: 32, height: 24 } },
+        },
+      }),
+    );
+    await page.route(`**/client-sprites/${atlas}`, (route) =>
+      route.fulfill({
+        contentType: broken ? "text/plain" : "image/svg+xml",
+        body: broken
+          ? "invalid image"
+          : '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="24" fill="#508060"/></svg>',
+      }),
+    );
+    await connect(page);
+    if (broken) {
+      await expect(page.locator(".co-emblem").first()).toHaveText("AN");
+      await expect(page.locator("[data-co-portrait]")).toHaveCount(0);
+    } else {
+      await expect(page.locator('[data-co-portrait="1"]')).toBeVisible();
+      await expect(page.locator(".co-emblem").first()).toHaveText("");
+    }
+    await expect(page.locator(".co-emblem").nth(1)).toHaveText("MA");
+    await expect(
+      page.getByLabel("Commanding officer: Andy", { exact: true }),
+    ).toBeVisible();
+  });

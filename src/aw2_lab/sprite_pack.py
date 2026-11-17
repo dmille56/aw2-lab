@@ -11,6 +11,7 @@ from typing import TypedDict
 from aw2_lab.aw2_rules_data import UNIT_DATA
 from aw2_lab.rom_profile import select_rom_profile
 from aw2_lab.sprite_extraction import (
+    co_portrait_sample,
     compose_tiles,
     decode_palette,
     decode_tile,
@@ -48,6 +49,7 @@ class SpriteManifest(TypedDict):
     height: int
     units: dict[str, Region]
     terrain: dict[str, Region]
+    portraits: dict[str, Region]
 
 
 def property_frame(rom: bytes, terrain: int, army: int) -> tuple[int, int, bytes]:
@@ -100,16 +102,26 @@ def build_sprite_pack(rom_path: Path, output: Path) -> SpriteManifest:
     for terrain in TERRAIN_CLASSES:
         for army in range(6):
             frames.append(("terrain", f"{terrain}:{army}", terrain_frame(rom, terrain, army)))
-    width, height = 256, ((len(frames) + 15) // 16) * 32
+    map_count = len(frames)
+    map_height = ((map_count + 15) // 16) * 32
+    for co_id in range(19):
+        frames.append(("portraits", str(co_id), co_portrait_sample(rom, co_id)))
+    width, height = 256, map_height + 3 * 32
     pixels = bytearray(width * height * 4)
     units: dict[str, Region] = {}
     terrains: dict[str, Region] = {}
+    portraits: dict[str, Region] = {}
+    collections = {"units": units, "terrain": terrains, "portraits": portraits}
     for index, (kind, key, (w, h, frame)) in enumerate(frames):
-        x, y = index % 16 * 16, index // 16 * 32
+        if kind == "portraits":
+            portrait_index = index - map_count
+            x, y = portrait_index % 8 * 32, map_height + portrait_index // 8 * 32
+        else:
+            x, y = index % 16 * 16, index // 16 * 32
         for row in range(h):
             start = ((y + row) * width + x) * 4
             pixels[start : start + w * 4] = frame[row * w * 4 : (row + 1) * w * 4]
-        (units if kind == "units" else terrains)[key] = {
+        collections[kind][key] = {
             "x": x,
             "y": y,
             "width": w,
@@ -128,6 +140,7 @@ def build_sprite_pack(rom_path: Path, output: Path) -> SpriteManifest:
         "height": height,
         "units": units,
         "terrain": terrains,
+        "portraits": portraits,
     }
     output.mkdir(parents=True, exist_ok=True)
     (output / atlas).write_bytes(png)
@@ -146,7 +159,10 @@ def main() -> None:
         manifest = build_sprite_pack(args.rom, args.output_dir)
     except (OSError, ValueError) as error:
         parser.exit(1, f"Sprite pack extraction failed: {error}\n")
-    print(f"Extracted {len(manifest['units'])} unit and {len(manifest['terrain'])} terrain frames")
+    print(
+        f"Extracted {len(manifest['units'])} unit, {len(manifest['terrain'])} terrain, "
+        f"and {len(manifest['portraits'])} CO portrait frames"
+    )
 
 
 if __name__ == "__main__":

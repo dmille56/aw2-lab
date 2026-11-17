@@ -127,6 +127,25 @@ def encode_png(width: int, height: int, pixels: bytes) -> bytes:
     )
 
 
+# US rev-0 CO graphics table: 0x44-byte entries, palette +8, small portrait +24.
+CO_GRAPHICS_TABLE = 0x4A0090
+
+
+def co_portrait_sample(rom: bytes, co_id: int) -> tuple[int, int, bytes]:
+    """Decode a CO's native 32x24 HUD portrait (four columns of 4bpp tiles)."""
+    if not 0 <= co_id < 19:
+        raise ValueError("Unsupported commanding officer portrait")
+    entry = CO_GRAPHICS_TABLE + co_id * 0x44
+    if entry + 28 > len(rom):
+        raise ValueError("Truncated CO graphics table")
+    palette_offset = struct.unpack_from("<I", rom, entry + 8)[0] - 0x08000000
+    graphics_offset = struct.unpack_from("<I", rom, entry + 24)[0] - 0x08000000
+    palette = decode_palette(rom, palette_offset, transparent=True)
+    return compose_tiles(
+        [decode_tile(rom, graphics_offset + tile * 32, palette) for tile in range(12)], 4
+    )
+
+
 def unit_sample(rom: bytes, unit_type: int, army: int) -> tuple[int, int, bytes]:
     """First idle frame using the game's per-nation unit lookup (armies 1..5)."""
     if not 1 <= army <= 5 or not 1 <= unit_type <= 24:

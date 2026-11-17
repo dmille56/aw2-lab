@@ -35,6 +35,12 @@
   font-weight: 900;
 }
 
+.co-portrait {
+  display: block;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+
 .hud-funds {
   text-align: right;
 }

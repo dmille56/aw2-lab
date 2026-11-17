@@ -1,6 +1,7 @@
 import "./PlayerHud.css";
 import type { CSSProperties } from "react";
 import type { BattleState } from "./state";
+import { useSpritePack } from "./sprites";
 import { coName } from "./presentation";
 import {
   activePowerLabel,
@@ -16,11 +17,13 @@ export function PlayerHud({
   battle: BattleState;
   yourSlot: number | null;
 }) {
+  const pack = useSpritePack(true);
   return (
     <div className="player-hud" aria-label="Player status">
       {battle.players.map((player) => {
         const name = coName(player.co_id),
-          charge = powerCharge(player);
+          charge = powerCharge(player),
+          portrait = pack?.portraits?.[String(player.co_id)];
         const readiness =
           powerReadiness(player, "super") === "ready"
             ? "Super Power ready"
@@ -38,7 +41,21 @@ export function PlayerHud({
             </strong>
             <div className="hud-co" aria-label={`Commanding officer: ${name}`}>
               <span className="co-emblem" aria-hidden="true">
-                {name.slice(0, 2).toUpperCase()}
+                {pack && portrait ? (
+                  <span
+                    className="co-portrait"
+                    data-co-portrait={player.co_id}
+                    style={{
+                      width: portrait.width,
+                      height: portrait.height,
+                      backgroundImage: `url("${pack.image}")`,
+                      backgroundSize: `${pack.width}px ${pack.height}px`,
+                      backgroundPosition: `${-portrait.x}px ${-portrait.y}px`,
+                    }}
+                  />
+                ) : (
+                  name.slice(0, 2).toUpperCase()
+                )}
               </span>
               <strong>{name}</strong>
             </div>

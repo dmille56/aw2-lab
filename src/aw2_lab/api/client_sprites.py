@@ -34,6 +34,7 @@ class SpritePackManifest(BaseModel):
     height: int = Field(ge=1, le=4096, strict=True)
     units: dict[str, SpriteRegion]
     terrain: dict[str, SpriteRegion]
+    portraits: dict[str, SpriteRegion] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def validate_pack(self) -> Self:
@@ -43,11 +44,18 @@ class SpritePackManifest(BaseModel):
             raise ValueError("Invalid sprite atlas filename")
         if len(self.units) > 256 or len(self.terrain) > 256:
             raise ValueError("Too many sprite regions")
-        for key, region in [*self.units.items(), *self.terrain.items()]:
-            if not re.fullmatch(r"[0-9]{1,2}:[0-5]", key):
-                raise ValueError("Invalid sprite region key")
-            if region.x + region.width > self.width or region.y + region.height > self.height:
-                raise ValueError("Sprite region is outside the atlas")
+        if len(self.portraits) > 19:
+            raise ValueError("Too many CO portrait regions")
+        for collection, pattern in (
+            (self.units, r"[0-9]{1,2}:[0-5]"),
+            (self.terrain, r"[0-9]{1,2}:[0-5]"),
+            (self.portraits, r"(?:[0-9]|1[0-8])"),
+        ):
+            for key, region in collection.items():
+                if not re.fullmatch(pattern, key):
+                    raise ValueError("Invalid sprite region key")
+                if region.x + region.width > self.width or region.y + region.height > self.height:
+                    raise ValueError("Sprite region is outside the atlas")
         return self
 
 
@@ -74,7 +82,7 @@ def configure_sprite_assets(app: FastAPI, directory: Path | None) -> None:
     @app.get("/client-sprites/manifest.json", include_in_schema=False)
     async def sprite_manifest() -> JSONResponse:
         return JSONResponse(
-            content=manifest.model_dump(mode="json") if manifest else None,
+            content=manifest.model_dump(mode="json", exclude_unset=True) if manifest else None,
             headers={"Cache-Control": "no-store"},
         )
 

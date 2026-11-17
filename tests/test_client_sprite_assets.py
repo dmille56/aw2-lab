@@ -84,3 +84,23 @@ def test_invalid_pack_fails_before_serving(tmp_path: Path, failure: str) -> None
     (tmp_path / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(ValueError):
         configure_sprite_assets(FastAPI(), tmp_path)
+
+
+def test_optional_co_portraits_are_validated_and_served(tmp_path: Path) -> None:
+    manifest = write_synthetic_pack(tmp_path)
+    manifest["portraits"] = {"1": {"x": 0, "y": 0, "width": 16, "height": 24}}
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+    app = FastAPI()
+    configure_sprite_assets(app, tmp_path)
+
+    async def scenario() -> None:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            assert (await client.get("/client-sprites/manifest.json")).json() == manifest
+
+    asyncio.run(scenario())
+    manifest["portraits"]["19"] = manifest["portraits"]["1"]
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError):
+        configure_sprite_assets(FastAPI(), tmp_path)

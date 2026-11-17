@@ -12,6 +12,7 @@ export interface SpritePack {
   height: number;
   units: Record<string, SpriteRegion>;
   terrain: Record<string, SpriteRegion>;
+  portraits?: Record<string, SpriteRegion>;
   image: string;
 }
 interface Manifest extends Omit<SpritePack, "image"> {
@@ -34,7 +35,14 @@ export function validateSpriteManifest(value: unknown): Manifest {
     !/^atlas-[0-9a-f]{64}\.png$/.test(m.atlas)
   )
     throw new Error("Unsupported local sprite pack.");
-  for (const collection of [m.units, m.terrain]) {
+  const collections = [
+    { value: m.units, portraits: false },
+    { value: m.terrain, portraits: false },
+    ...(m.portraits === undefined
+      ? []
+      : [{ value: m.portraits, portraits: true }]),
+  ];
+  for (const { value: collection, portraits } of collections) {
     if (
       !collection ||
       typeof collection !== "object" ||
@@ -43,7 +51,10 @@ export function validateSpriteManifest(value: unknown): Manifest {
     )
       throw new Error("Invalid sprite regions.");
     for (const [key, raw] of Object.entries(collection)) {
-      if (!/^\d{1,2}:[0-5]$/.test(key) || !raw || typeof raw !== "object")
+      const validKey = portraits
+        ? /^(?:[0-9]|1[0-8])$/.test(key)
+        : /^\d{1,2}:[0-5]$/.test(key);
+      if (!validKey || !raw || typeof raw !== "object")
         throw new Error("Invalid sprite region.");
       const r = raw as Record<string, unknown>;
       if (

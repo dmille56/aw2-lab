@@ -105,3 +105,21 @@ def test_local_rom_sample_extraction(tmp_path: Path) -> None:
         (tmp_path / name).read_bytes().startswith(b"\x89PNG") for name in manifest["samples"]
     )
     assert rom.read_bytes() == before
+
+
+def test_co_portrait_table_and_native_tile_layout(monkeypatch: pytest.MonkeyPatch) -> None:
+    import aw2_lab.sprite_extraction as extraction
+
+    monkeypatch.setattr(extraction, "CO_GRAPHICS_TABLE", 0)
+    rom = bytearray(896)
+    struct.pack_into("<I", rom, 8, 0x08000100)
+    struct.pack_into("<I", rom, 24, 0x08000200)
+    struct.pack_into("<16H", rom, 256, 0, 0x7FFF, *([0] * 14))
+    rom[512:] = bytes([0x11]) * 384
+    width, height, pixels = extraction.co_portrait_sample(bytes(rom), 0)
+    assert (width, height) == (32, 24)
+    assert pixels == bytes((255, 255, 255, 255)) * 32 * 24
+    with pytest.raises(ValueError):
+        extraction.co_portrait_sample(bytes(rom[:-1]), 0)
+    with pytest.raises(ValueError):
+        extraction.co_portrait_sample(bytes(rom), 19)
