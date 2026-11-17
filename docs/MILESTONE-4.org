@@ -749,6 +749,20 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     selection/route preservation, and absence of gameplay commands. Human review
     pending.
 
+*** TODO Render shoals with coherent coastline orientation and connections
+    Human playtest feedback (2026-11-17): shoals currently appear in a fixed
+    down-to-up configuration, which looks wrong when they meet land from another
+    direction. Select the appropriate native shoal artwork using the observed
+    graphical tile variant and/or neighboring land, water, and shore connections,
+    rather than repeating one canonical sprite for every shoal. Cover all four
+    shoreline orientations, corners, and continuous shoal/coast sections so land
+    and water edges line up between tiles. Preserve the underlying terrain class,
+    movement rules, inspection, and overlays. Keep extracted game artwork in the
+    external local sprite pack, outside Git and the Nix store; retain the symbolic
+    fallback when artwork is unavailable. Add synthetic orientation/connection
+    checks and visually review representative real-map coastlines, including
+    Rainy Haven, before human acceptance.
+
 *** IN-PROGRESS Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,
     purchasing, unloading, cancellation, end turn, and error recovery against

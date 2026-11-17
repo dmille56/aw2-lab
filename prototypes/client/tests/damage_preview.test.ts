@@ -111,6 +111,33 @@ describe("AW2 damage preview", () => {
       forecast: 120,
     });
   });
+  it("applies Lash normal and Super Power defense to the forecast", () => {
+    const { battle, attacker, defender } = scenario();
+    battle.co_effects_enabled.value = true;
+    battle.players[0].co_id = 1;
+    battle.players[1].co_id = 12;
+    battle.players[1].defense_bonus = {
+      status: "available",
+      value: 10,
+      reasons: [],
+    };
+    const tile = battle.map.tiles.find(
+      (t) => t.x === defender.x && t.y === defender.y,
+    )!;
+    tile.terrain_class = 4; // Woods: two base stars, four during Prime Tactics.
+    battle.players[1].active_power = 1;
+    expect(estimateAttackDamage(battle, attacker, defender, [])).toMatchObject({
+      status: "available",
+      forecast: 38,
+    });
+    battle.players[1].active_power = 2;
+    expect(estimateAttackDamage(battle, attacker, defender, [])).toMatchObject({
+      status: "available",
+      forecast: 27,
+      minimum: 27,
+      maximum: 32,
+    });
+  });
   it("reflects bad luck and declares missing data or counter-first powers unavailable", () => {
     const { battle, attacker, defender } = scenario();
     battle.co_effects_enabled.value = true;

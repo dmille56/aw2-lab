@@ -60,3 +60,34 @@ it("does not give embarked cargo terrain defense from its stale coordinates", ()
   render(<UnitInspector unit={unit} snapshot={snapshot} />);
   expect(screen.getByText("Unavailable while embarked")).toBeInTheDocument();
 });
+
+it("labels Lash's base terrain separately from the Prime Tactics damage estimate", () => {
+  const b = structuredClone(
+    validateState(fixture).observation!.game_state.battle.value!,
+  );
+  const [attacker, defender] = b.units;
+  defender.y = 0;
+  b.co_effects_enabled.value = true;
+  b.players[0].co_id = 1;
+  b.players[1].co_id = 12;
+  b.players[1].active_power = 2;
+  b.players[1].defense_bonus = { status: "available", value: 10, reasons: [] };
+  b.map.tiles.find(
+    (t) => t.x === defender.x && t.y === defender.y,
+  )!.terrain_class = 4;
+  const { container } = render(
+    <DamagePreview
+      battle={b}
+      attacker={attacker}
+      defender={defender}
+      path={[]}
+    />,
+  );
+  expect(container.querySelector("[data-terrain-defense]")).toHaveTextContent(
+    "2/4",
+  );
+  expect(screen.getByRole("status")).toHaveTextContent("Estimated damage: 27%");
+  expect(
+    screen.getByText("Base terrain rating, before unit and CO modifiers."),
+  ).toBeInTheDocument();
+});
