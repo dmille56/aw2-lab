@@ -204,7 +204,7 @@ export function MapPanel({
         <div className="range-key" aria-label="Range legend">
           <span>
             <i aria-hidden="true" className="range-swatch movement-range" />
-            Movement · solid
+            Movement · gold dots
           </span>
           {showAttackRange && (
             <span>
@@ -287,10 +287,10 @@ export function MapPanel({
           colors are illustrative.
         </p>
         <p>
-          Blue solid tiles are reachable movement destinations; dashed blue
+          Gold dotted tiles are reachable movement destinations; dashed gold
           tiles are allied transit. Diagonal stripes show potential attack
-          range; blue/orange stripes show overlap. Red dashed tiles are in the
-          enabled enemy threat estimate. These overlays describe observed
+          range; gold/orange dotted stripes show overlap. Red dashed tiles are
+          in the enabled enemy threat estimate. These overlays describe observed
           potential coverage, not an action guarantee.
         </p>
         <div id="legend">

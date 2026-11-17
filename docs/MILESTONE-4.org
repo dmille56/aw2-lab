@@ -490,13 +490,16 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     no player prefix, and consistent placement with sprites and fallback units.
     Browser checks cover full, partial, and one HP at narrow sizes. Human review pending.
 
-*** TODO Strengthen movement range visibility over sea tiles
+*** IN-PROGRESS Strengthen movement range visibility over sea tiles
     Human playtest feedback (2026-11-16): the revised movement overlay still
     blends into sea terrain when selecting a unit. Increase contrast and use
     distinct patterns or outlines so reachable tiles are obvious over water
     and land, while preserving readable units, HP, routes, and attack overlap.
     Recheck with local sprites and fallback terrain, both themes, and supported
     scales. Require human confirmation on sea-heavy maps before acceptance.
+    Implemented: strong gold tint with dark dots, dark borders, and pale inner
+    outlines replaces blue movement fill; gold/orange dotted stripes distinguish
+    attack overlap. Browser regression covers a sea battlefield. Human review pending.
 
 *** IN-PROGRESS Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,
@@ -528,7 +531,8 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     status now tracks pending human visual review.
     Further human review (2026-11-16) added four TODOs above: Move & Wait wording,
     tile-corner label removal, clearer HP badges without player prefixes, and
-    stronger movement overlays over sea tiles. Implement and recheck these too.
+    stronger movement overlays over sea tiles. All four are implemented; human
+    rechecks remain pending. Sea-sprite desktop/narrow previews were reviewed.
     - [ ] Human rechecks the reported usability follow-ups and accepts the redesign.
 
     For every implementation item, add focused behavior checks, run relevant

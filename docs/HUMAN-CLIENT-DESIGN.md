@@ -685,3 +685,19 @@ for this incident, not general live fault-injection acceptance.
 All eight usability changes are implemented, with focused regressions and
 per-item commits. Their task status remains in progress pending user visual
 review. Final redesign acceptance and native visual verification remain open.
+
+
+### Further usability feedback (2026-11-16)
+
+The movement menu and command feedback now say Move & Wait. Tile-corner player
+labels are removed; tile inspection and accessible names retain ownership.
+Unit health uses a compact, outlined white-on-black HP badge without a player
+prefix, with the used-unit checkmark separate from the number. Browser checks
+cover full, partial, and one HP, minimum tile sizes, cargo, and selection.
+
+Movement coverage now uses a strong gold fill, dark dots and borders, and pale
+inner outlines. Movement/attack overlap combines dots and diagonal gold/orange
+stripes; the visible legend describes both. Reviewed local sea-sprite previews
+at desktop and narrow sizes and checked light/dark appearances. Authentic
+artwork and previews remain outside Git. These four follow-ups are implemented;
+human visual review and final redesign acceptance remain pending.

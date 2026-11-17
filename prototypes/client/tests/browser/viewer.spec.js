@@ -1455,14 +1455,44 @@ test("keeps feedback by the board and blocks repeated input while a receipt is p
   await page.unroute("**/v1/matches/*/commands");
 });
 
-test("distinguishes solid movement and striped attack overlays above terrain", async ({
+test("distinguishes gold dotted movement and striped attack overlays above sea", async ({
   page,
 }) => {
+  const state = structuredClone(fixture);
+  const battle = state.observation.game_state.battle.value;
+  battle.map.tiles.forEach((tile) => {
+    tile.terrain_class = 7;
+    tile.owner_slot = 0;
+  });
+  battle.properties = [];
+  battle.units.forEach((unit) => {
+    unit.unit_type = 21;
+    unit.ammo = 9;
+  });
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
   await connect(page);
   await page.locator('#board [data-x="0"][data-y="0"]').click();
   const movement = page.locator("#board .movement-range").first();
   await expect(movement).toBeVisible();
   await expect(movement).toHaveCSS("border-top-style", "solid");
+  await expect(movement).toHaveCSS("border-top-color", "rgb(48, 38, 0)");
+  for (const colorScheme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator("#zoom").fill("36");
+    await expect(movement).toHaveCSS(
+      "background-color",
+      "rgba(255, 227, 109, 0.8)",
+    );
+    await expect(movement).toBeVisible();
+  }
+  await page.setViewportSize({ width: 1280, height: 960 });
+  expect(
+    await movement.evaluate((e) => getComputedStyle(e).backgroundImage),
+  ).toContain("radial-gradient");
+  await expect(page.getByLabel("Range legend")).toContainText(
+    "Movement · gold dots",
+  );
   await page
     .getByRole("button", { name: "Show attack range", exact: true })
     .click();
