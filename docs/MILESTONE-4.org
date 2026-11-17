@@ -610,10 +610,14 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     screenshots in Git or the Nix store. Keep assets in the external local pack;
     commit only extraction/rendering code and synthetic test fixtures. Verify
     correct CO-to-portrait mappings and both asset-present and fallback behavior.
-    Implemented: all 19 native 32x24 HUD portraits are extracted through the
+    Implemented: all 19 native 48x16 HUD face strips are extracted through the
     supported ROM graphics table into an optional external atlas collection.
     The HUD uses available portraits and retains initials for old/missing/broken
     packs. Decoder, manifest, delivery, and browser checks cover the extension.
+    Corrected after human review: the native portrait combines a 32x16 object
+    with a 16x16 object. Extraction now follows that tile order instead of
+    scrambling it into a 32x24 rectangle. Distinct synthetic tile colors cover
+    the arrangement; the HUD and external atlas accommodate the full strip.
     Authentic artwork remains outside Git/Nix. Human review pending.
 
 *** IN-PROGRESS Preview estimated attack damage as a percentage before attacking

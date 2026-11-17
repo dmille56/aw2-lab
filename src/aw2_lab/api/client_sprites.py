@@ -19,7 +19,7 @@ class SpriteRegion(BaseModel):
     model_config = ConfigDict(extra="forbid")
     x: int = Field(ge=0, le=4096, strict=True)
     y: int = Field(ge=0, le=4096, strict=True)
-    width: int = Field(ge=1, le=32, strict=True)
+    width: int = Field(ge=1, le=48, strict=True)
     height: int = Field(ge=1, le=32, strict=True)
 
 
@@ -46,6 +46,12 @@ class SpritePackManifest(BaseModel):
             raise ValueError("Too many sprite regions")
         if len(self.portraits) > 19:
             raise ValueError("Too many CO portrait regions")
+        if any(
+            region.width > 32
+            for collection in (self.units, self.terrain)
+            for region in collection.values()
+        ):
+            raise ValueError("Map sprite regions cannot exceed 32 pixels")
         for collection, pattern in (
             (self.units, r"[0-9]{1,2}:[0-5]"),
             (self.terrain, r"[0-9]{1,2}:[0-5]"),

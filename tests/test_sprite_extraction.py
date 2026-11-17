@@ -114,11 +114,22 @@ def test_co_portrait_table_and_native_tile_layout(monkeypatch: pytest.MonkeyPatc
     rom = bytearray(896)
     struct.pack_into("<I", rom, 8, 0x08000100)
     struct.pack_into("<I", rom, 24, 0x08000200)
-    struct.pack_into("<16H", rom, 256, 0, 0x7FFF, *([0] * 14))
-    rom[512:] = bytes([0x11]) * 384
+    struct.pack_into("<16H", rom, 256, *range(16))
+    for tile in range(12):
+        rom[512 + tile * 32 : 512 + (tile + 1) * 32] = bytes([(tile + 1) * 0x11]) * 32
     width, height, pixels = extraction.co_portrait_sample(bytes(rom), 0)
-    assert (width, height) == (32, 24)
-    assert pixels == bytes((255, 255, 255, 255)) * 32 * 24
+    assert (width, height) == (48, 16)
+    palette = extraction.decode_palette(bytes(rom), 256, transparent=True)
+    tile_rows = [
+        [
+            palette.index(
+                tuple(pixels[((y * 8) * width + x * 8) * 4 : ((y * 8) * width + x * 8) * 4 + 4])
+            )
+            for x in range(6)
+        ]
+        for y in range(2)
+    ]
+    assert tile_rows == [[1, 2, 3, 4, 9, 10], [5, 6, 7, 8, 11, 12]]
     with pytest.raises(ValueError):
         extraction.co_portrait_sample(bytes(rom[:-1]), 0)
     with pytest.raises(ValueError):

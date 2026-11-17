@@ -14,8 +14,8 @@ from aw2_lab.rom_profile import AW2_US_REVISION_0
 from aw2_lab.sprite_extraction import encode_png
 
 
-def write_synthetic_pack(directory: Path) -> dict:
-    png = encode_png(16, 32, bytes((40, 140, 80, 255)) * 16 * 32)
+def write_synthetic_pack(directory: Path, width: int = 16) -> dict:
+    png = encode_png(width, 32, bytes((40, 140, 80, 255)) * width * 32)
     digest = hashlib.sha256(png).hexdigest()
     manifest = {
         "kind": "aw2-client-sprites",
@@ -23,7 +23,7 @@ def write_synthetic_pack(directory: Path) -> dict:
         "rom_sha256": AW2_US_REVISION_0.sha256,
         "atlas": f"atlas-{digest}.png",
         "atlas_sha256": digest,
-        "width": 16,
+        "width": width,
         "height": 32,
         "units": {"1:1": {"x": 0, "y": 0, "width": 16, "height": 16}},
         "terrain": {"1:0": {"x": 0, "y": 0, "width": 16, "height": 32}},
@@ -87,8 +87,8 @@ def test_invalid_pack_fails_before_serving(tmp_path: Path, failure: str) -> None
 
 
 def test_optional_co_portraits_are_validated_and_served(tmp_path: Path) -> None:
-    manifest = write_synthetic_pack(tmp_path)
-    manifest["portraits"] = {"1": {"x": 0, "y": 0, "width": 16, "height": 24}}
+    manifest = write_synthetic_pack(tmp_path, width=48)
+    manifest["portraits"] = {"1": {"x": 0, "y": 0, "width": 48, "height": 16}}
     (tmp_path / "manifest.json").write_text(json.dumps(manifest))
     app = FastAPI()
     configure_sprite_assets(app, tmp_path)
@@ -103,4 +103,12 @@ def test_optional_co_portraits_are_validated_and_served(tmp_path: Path) -> None:
     manifest["portraits"]["19"] = manifest["portraits"]["1"]
     (tmp_path / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(ValueError):
+        configure_sprite_assets(FastAPI(), tmp_path)
+
+
+def test_wide_map_sprite_still_fails_before_serving(tmp_path: Path) -> None:
+    manifest = write_synthetic_pack(tmp_path, width=48)
+    manifest["units"]["1:1"]["width"] = 48
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="Map sprite regions"):
         configure_sprite_assets(FastAPI(), tmp_path)

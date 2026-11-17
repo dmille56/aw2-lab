@@ -40,3 +40,18 @@ it("accepts optional CO portraits and rejects invalid IDs or atlas bounds", () =
     }),
   ).toThrow();
 });
+
+it("allows 48-pixel native portrait strips while retaining map sprite limits", () => {
+  const wide = {
+    ...pack,
+    width: 64,
+    portraits: { 1: { x: 0, y: 0, width: 48, height: 16 } },
+  };
+  expect(validateSpriteManifest(wide)).toEqual(wide);
+  expect(() =>
+    validateSpriteManifest({
+      ...wide,
+      units: { "1:1": { x: 0, y: 0, width: 48, height: 16 } },
+    }),
+  ).toThrow();
+});

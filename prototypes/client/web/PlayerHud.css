@@ -35,6 +35,11 @@
   font-weight: 900;
 }
 
+.co-emblem:has(.co-portrait) {
+  width: 54px;
+  flex-shrink: 0;
+}
+
 .co-portrait {
   display: block;
   background-repeat: no-repeat;

@@ -127,12 +127,12 @@ def encode_png(width: int, height: int, pixels: bytes) -> bytes:
     )
 
 
-# US rev-0 CO graphics table: 0x44-byte entries, palette +8, small portrait +24.
+# US rev-0 CO graphics table: 0x44-byte entries, palette +8, HUD face strip +24.
 CO_GRAPHICS_TABLE = 0x4A0090
 
 
 def co_portrait_sample(rom: bytes, co_id: int) -> tuple[int, int, bytes]:
-    """Decode a CO's native 32x24 HUD portrait (four columns of 4bpp tiles)."""
+    """Decode the native 48x16 HUD strip from its 32x16 and 16x16 objects."""
     if not 0 <= co_id < 19:
         raise ValueError("Unsupported commanding officer portrait")
     entry = CO_GRAPHICS_TABLE + co_id * 0x44
@@ -142,7 +142,13 @@ def co_portrait_sample(rom: bytes, co_id: int) -> tuple[int, int, bytes]:
     graphics_offset = struct.unpack_from("<I", rom, entry + 24)[0] - 0x08000000
     palette = decode_palette(rom, palette_offset, transparent=True)
     return compose_tiles(
-        [decode_tile(rom, graphics_offset + tile * 32, palette) for tile in range(12)], 4
+        # Native OAM at 0x084A07DA places a 32x16 object (tiles 0..7)
+        # beside a 16x16 object (tiles 8..11), rather than a flat tile grid.
+        [
+            decode_tile(rom, graphics_offset + tile * 32, palette)
+            for tile in (0, 1, 2, 3, 8, 9, 4, 5, 6, 7, 10, 11)
+        ],
+        6,
     )
 
 
