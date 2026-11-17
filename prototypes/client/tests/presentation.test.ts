@@ -12,10 +12,10 @@ import { validateState } from "../web/state";
 import fixture from "./fixtures/state.json";
 const state = validateState(fixture);
 it("fits width and height, preserves legibility, and supports coordinate space", () => {
-  expect(fitTileSize(900, 600, 16, 15)).toBe(39);
-  expect(fitTileSize(320, 600, 16, 15)).toBe(36);
-  expect(fitTileSize(900, 600, 16, 15, 44)).toBe(44);
-  expect(fitTileSize(900, 600, 2, 2)).toBe(90);
+  expect(fitTileSize(900, 16)).toBe(55);
+  expect(fitTileSize(320, 16)).toBe(36);
+  expect(fitTileSize(320, 16, 44)).toBe(44);
+  expect(fitTileSize(900, 2)).toBe(90);
 });
 it("keeps names and unknown numeric identities explicit", () => {
   expect(coName(1)).toBe("Andy");

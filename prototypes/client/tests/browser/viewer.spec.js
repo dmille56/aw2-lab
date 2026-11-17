@@ -1044,7 +1044,12 @@ test("fits a full board, responds to resize, and preserves keyboard selection", 
   const board = await page.locator("#board").boundingBox();
   const viewport = await page.locator("#map-scroll").boundingBox();
   expect(board.width).toBeLessThanOrEqual(viewport.width);
-  expect(board.height).toBeLessThanOrEqual(600);
+  expect(board.height).toBeGreaterThan(600);
+  expect(
+    await page
+      .locator("#map-scroll")
+      .evaluate((e) => e.scrollHeight <= e.clientHeight),
+  ).toBe(true);
   await page.locator("#board .tile").first().click();
   await page.setViewportSize({ width: 900, height: 960 });
   await expect(page.locator("#zoom")).toHaveValue("36");
@@ -1999,3 +2004,41 @@ for (const scale of [50, 100, 200])
     await expect(page.locator('#board [data-x="1"][data-y="0"]')).toBeFocused();
     await expect(page.locator("#fit-map")).toBeVisible();
   });
+
+test("expands the board to its full height at large manual tile sizes", async ({
+  page,
+}) => {
+  const state = structuredClone(fixture);
+  const map = state.observation.game_state.battle.value.map;
+  map.width = 16;
+  map.height = 15;
+  map.tiles = Array.from({ length: 240 }, (_, i) => ({
+    ...map.tiles[0],
+    x: i % 16,
+    y: Math.floor(i / 16),
+  }));
+  await upload(page, state);
+  await page.locator("#zoom").fill("90");
+  const board = await page.locator("#board").boundingBox();
+  expect(board.height).toBe(1364);
+  expect(
+    await page
+      .locator("#map-scroll")
+      .evaluate((e) => e.scrollHeight <= e.clientHeight),
+  ).toBe(true);
+  expect(
+    await page
+      .locator("#map-scroll")
+      .evaluate((e) => e.scrollWidth > e.clientWidth),
+  ).toBe(true);
+  await page.locator('#board [data-x="0"][data-y="0"]').focus();
+  for (let row = 0; row < 14; row++) await page.keyboard.press("ArrowDown");
+  const last = page.locator('#board [data-x="0"][data-y="14"]');
+  await expect(last).toBeFocused();
+  await expect(last).toBeInViewport();
+  await page.getByRole("button", { name: "Fit to width", exact: true }).click();
+  await expect(page.locator("#fit-map")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});

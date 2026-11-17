@@ -62,22 +62,13 @@ export function MapPanel({
   );
   useEffect(() => setAttackRangeUnitKey(null), [selectedUnitKey]);
   const scroll = useRef<HTMLDivElement>(null);
-  const width = battle?.map.width,
-    height = battle?.map.height;
+  const width = battle?.map.width;
   useLayoutEffect(() => {
     const node = scroll.current;
-    if (!node || !fit || !width || !height) return;
+    if (!node || !fit || !width) return;
     const measure = () => {
       if (node.clientWidth > 0)
-        setSize(
-          fitTileSize(
-            node.clientWidth,
-            Math.min(600, window.innerHeight * 0.65),
-            width,
-            height,
-            coordinates ? 44 : 36,
-          ),
-        );
+        setSize(fitTileSize(node.clientWidth, width, coordinates ? 44 : 36));
     };
     measure();
     const observer =
@@ -90,7 +81,7 @@ export function MapPanel({
       observer?.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [fit, width, height, coordinates]);
+  }, [fit, width, coordinates]);
   const terrains = [
     ...new Set(battle?.map.tiles.map((tile) => tile.terrain_class)),
   ].sort((a, b) => a - b);
@@ -136,7 +127,7 @@ export function MapPanel({
           aria-pressed={fit}
           onClick={() => setFit((value) => !value)}
         >
-          Fit to map
+          Fit to width
         </button>
         <label className="checkbox-label">
           <input
@@ -191,7 +182,7 @@ export function MapPanel({
       <p className="hint">
         {fit
           ? `Fits automatically on resize; tiles stay at least ${coordinates ? 44 : 36} px for legibility. Scroll if needed.`
-          : "Manual tile size; enable Fit to map to resize automatically."}{" "}
+          : "Manual tile size; enable Fit to width to resize automatically."}{" "}
         HP badges show health out of 10. Inspect a tile for unit and terrain
         ownership.
       </p>

@@ -256,7 +256,6 @@ textarea:focus-visible,
 
 #map-scroll {
   overflow: auto;
-  max-height: min(65vh, 600px);
   margin: 16px 0;
 }
 

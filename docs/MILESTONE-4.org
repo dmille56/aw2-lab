@@ -584,7 +584,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     the recovered width; browser checks compare larger fitted tiles against the
     previous layout and verify narrow screens at 50–200% scaling. Human review pending.
 
-*** TODO Let the board expand vertically for larger tiles
+*** IN-PROGRESS Let the board expand vertically for larger tiles
     Human playtest feedback (2026-11-16): allow the board/map panel to grow
     vertically so larger tiles do not force unnecessary up/down scrolling inside
     a height-capped board viewport. Review the current 600 px / 65vh limits and
@@ -594,6 +594,11 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     board physically exceeds the screen instead of clipping tiles or controls.
     Verify tall maps, large tiles, desktop/narrow layouts, and keyboard navigation
     with the user, including the distinction between page and board scrolling.
+    Implemented: removed the internal vertical height cap. Fit to width uses
+    available width while the board grows to its natural height; manual sizing
+    also grows the panel. Oversized boards retain page/horizontal scrolling.
+    Browser checks cover large tiles, full-height rendering, and keyboard access
+    to the last row. Human review pending.
 
 *** TODO Display local game portraits for commanding officers when available
     Human playtest feedback (2026-11-16): use each CO's game portrait in the HUD

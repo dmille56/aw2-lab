@@ -83,21 +83,10 @@ export function perspective(
     ? `You: Player ${slot} · ${playerName(snapshot, slot)}`
     : "Your player slot is unknown · server identity unavailable";
 }
-export function fitTileSize(
-  width: number,
-  height: number,
-  columns: number,
-  rows: number,
-  minimum = 36,
-) {
+export function fitTileSize(width: number, columns: number, minimum = 36) {
   // Preserve legible labels; huge maps retain scrolling rather than shrinking text away.
   return Math.max(
     minimum,
-    Math.min(
-      90,
-      Math.floor(
-        Math.min((width - columns + 1) / columns, (height - rows + 1) / rows),
-      ),
-    ),
+    Math.min(90, Math.floor((width - columns + 1) / columns)),
   );
 }
