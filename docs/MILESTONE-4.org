@@ -671,6 +671,41 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     checkpoint in isolation; all passed without changing the source checkpoint.
     See [[file:CRUISER-CARGO.md][Cruiser cargo verification]]. Human review pending.
 
+*** TODO Show terrain defense rating when inspecting a tile or unit
+    Human playtest feedback (2026-11-16): the inspector should display the tile's
+    defense rating, from 0 to 4, including the terrain underneath an inspected
+    unit. Use the verified terrain-defense catalog and a clear numeric/star label;
+    do not infer the rating from ownership or the unit's HP. Show an explicit
+    unknown state if the terrain is unavailable. Check representative terrain
+    classes across the 0-4 range, occupied/empty tiles, keyboard inspection, and
+    narrow/scaled layouts. Keep the tile rating distinct from unit/CO modifiers.
+
+*** TODO Show the defender's terrain defense rating before attack confirmation
+    Human playtest feedback (2026-11-16): show the defending tile's 0-4 defense
+    rating alongside estimated damage before the player confirms an attack.
+    Cover both the enemy-tile Attack menu and explicit attack-target selection.
+    Update or clear the rating when the target, route, or committed state changes.
+    Label the base terrain rating separately from effective damage modifiers,
+    including cases where the defending unit receives no terrain cover. Reuse
+    the inspector's verified rating source and accessible presentation; previewing
+    must not submit a gameplay action. Verify display before final confirmation,
+    target changes, unknown terrain, and desktop/narrow layouts.
+
+*** TODO Preview a unit's attack range while holding the right mouse button
+    Human playtest feedback (2026-11-16): pressing and holding the right mouse
+    button on a friendly or enemy unit should temporarily show that unit's attack
+    range; releasing the button should remove the temporary preview. Use the same
+    verified coverage rules as the existing attack-range display. Inspect the
+    pointed-at unit without changing the acting unit, planned route, or target,
+    and send no emulator input. Restore any previously enabled range overlay on
+    release rather than clearing an intentional persistent display. Handle release
+    outside the tile/board, pointer cancellation, lost capture, and window blur
+    so the preview cannot stick. Resolve the existing right-click Back/cancel
+    gesture and browser context-menu behavior so this preview does not cancel an
+    action draft unexpectedly. Retain existing keyboard/touch range controls.
+    Verify friendly/enemy and direct/indirect units, release/cancellation cleanup,
+    selection/draft preservation, and interaction with persistent range toggles.
+
 *** IN-PROGRESS Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,
     purchasing, unloading, cancellation, end turn, and error recovery against
@@ -714,6 +749,9 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Four more TODOs request vertical board expansion, local CO portraits,
     pre-attack damage estimates, and two-copter Cruiser cargo. Implement and
     review these before final acceptance; keep all game assets outside Git/Nix.
+    Three further TODOs request inspector terrain-defense ratings, defender
+    terrain-defense ratings before attack confirmation, and a temporary attack
+    range preview while holding the right mouse button on friendly/enemy units.
     - [ ] Human rechecks the reported usability follow-ups and accepts the redesign.
 
     For every implementation item, add focused behavior checks, run relevant
