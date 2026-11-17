@@ -1,0 +1,36 @@
+.tile .unit-health {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+  padding: 1px 2px;
+  border: 1px solid #fff;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px #171717;
+  background: #171717;
+  color: #fff;
+  font-size: clamp(11px, calc(var(--cell) * 0.24), 20px);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.unit-health .hp-label {
+  font-size: clamp(6px, calc(var(--cell) * 0.12), 10px);
+  font-weight: 700;
+}
+
+.unit-health .used-mark {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 3px);
+  padding: 1px 2px;
+  border: 1px solid #fff;
+  border-radius: 2px;
+  background: #171717;
+  font-size: 10px;
+}

@@ -190,8 +190,8 @@ export function MapPanel({
         {fit
           ? `Fits automatically on resize; tiles stay at least ${coordinates ? 44 : 36} px for legibility. Scroll if needed.`
           : "Manual tile size; enable Fit to map to resize automatically."}{" "}
-        Unit owners and HP out of 10 appear below. Your units have underlined
-        health badges. Inspect a tile for its terrain ownership.
+        HP badges show health out of 10. Inspect a tile for unit and terrain
+        ownership.
       </p>
       {(!!route?.length || target) && (
         <p className="hint">
@@ -280,9 +280,9 @@ export function MapPanel({
       <details>
         <summary>Legend</summary>
         <p>
-          Unit badges show HP out of 10, rounded up from internal health. Exact
-          health remains in the inspector. ✓ marks used units. C1/C2 marks a
-          loaded transport and its passenger count. Full names and coordinates
+          HP badges show health out of 10, rounded up from internal health.
+          Exact health remains in the inspector. ✓ marks used units. C1/C2 marks
+          a loaded transport and its passenger count. Full names and coordinates
           remain available to assistive technology and in the inspector. Terrain
           colors are illustrative.
         </p>

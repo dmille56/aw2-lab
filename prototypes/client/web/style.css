@@ -497,12 +497,6 @@ summary {
   font-weight: bold;
 }
 
-.unit-health {
-  white-space: nowrap;
-  font-size: clamp(8px, calc(var(--cell) * 0.17), 12px);
-  line-height: 1.1;
-}
-
 .tile .unit {
   font-size: clamp(10px, calc(var(--cell) * 0.23), 16px);
   line-height: 1;
@@ -742,22 +736,12 @@ summary {
   filter: grayscale(0.8) brightness(0.65);
 }
 
-.sprite-tile .unit-health,
 .sprite-tile .coords {
   z-index: 3;
   color: #fff;
   background: #17232f;
   padding: 1px 2px;
   border-radius: 2px;
-}
-
-.sprite-tile .unit-health {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-}
-
-.sprite-tile .coords {
   position: absolute;
   bottom: 0;
   left: 0;
@@ -785,11 +769,6 @@ summary {
   margin-block: 8px;
   font-size: 13px;
   color: var(--muted);
-}
-
-.tile[data-your-unit="true"] .unit-health {
-  text-decoration: underline 2px var(--accent);
-  text-underline-offset: 2px;
 }
 
 .session-controls {

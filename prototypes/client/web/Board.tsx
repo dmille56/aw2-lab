@@ -1,4 +1,5 @@
 import "./CargoBadge.css";
+import "./UnitHealth.css";
 import "./UnitSelection.css";
 import "./RangeOverlay.css";
 import { Fragment, useRef, type ReactNode } from "react";
@@ -307,8 +308,11 @@ export function Board({
                       </span>
                     )}
                     <span className="unit-health" aria-hidden="true">
-                      P{unit.army_slot}·{Math.ceil(unit.internal_health / 10)}
-                      {unit.used_this_turn ? "✓" : ""}
+                      <span className="hp-label">HP</span>
+                      <strong>{Math.ceil(unit.internal_health / 10)}</strong>
+                      {unit.used_this_turn && (
+                        <span className="used-mark">✓</span>
+                      )}
                     </span>
                   </>
                 )}

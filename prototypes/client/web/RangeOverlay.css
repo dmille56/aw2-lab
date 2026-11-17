@@ -71,7 +71,6 @@
 }
 
 .tile .unit,
-.tile .unit-health,
 .tile .coords {
   z-index: 3;
 }

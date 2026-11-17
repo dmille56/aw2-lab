@@ -480,12 +480,15 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     available in tile accessible names and inspection. Browser regression and
     reviewed fallback screenshot cover the change. Human visual review pending.
 
-*** TODO Give unit HP a distinct readable badge without player prefixes
+*** IN-PROGRESS Give unit HP a distinct readable badge without player prefixes
     Human playtest feedback (2026-11-16): make unit HP immediately identifiable
     on each occupied tile. Use a visually distinct, high-contrast HP badge and
     remove the P1/P2 prefix from its displayed value. Keep the number readable
     alongside cargo, selection, used status, and range overlays at supported
     tile sizes; retain accessible unit ownership and HP information.
+    Implemented: white-on-black outlined HP badge with a larger numeric value,
+    no player prefix, and consistent placement with sprites and fallback units.
+    Browser checks cover full, partial, and one HP at narrow sizes. Human review pending.
 
 *** TODO Strengthen movement range visibility over sea tiles
     Human playtest feedback (2026-11-16): the revised movement overlay still

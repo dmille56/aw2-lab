@@ -1638,3 +1638,23 @@ test("announces a new own turn without stealing focus or repeating on refresh/re
   await connect(page);
   await expect(page.locator(".toast-turn")).toHaveCount(0);
 });
+
+for (const health of [100, 51, 1])
+  test(`shows a distinct HP badge without a player prefix at health ${health}`, async ({
+    page,
+  }) => {
+    const state = structuredClone(fixture);
+    state.observation.game_state.battle.value.units[0].internal_health = health;
+    await page.route("**/state", (route) => route.fulfill({ json: state }));
+    await connect(page);
+    const unit = page.locator('#board [data-x="0"][data-y="0"]');
+    const badge = unit.locator(".unit-health");
+    await expect(badge).toHaveText(`HP${Math.ceil(health / 10)}`);
+    await expect(badge).toHaveCSS("background-color", "rgb(23, 23, 23)");
+    await expect(unit).toHaveAccessibleName(new RegExp(`health ${health}`));
+    await page.setViewportSize({ width: 390, height: 844 });
+    const badgeBox = await badge.boundingBox();
+    const tileBox = await unit.boundingBox();
+    expect(badgeBox.width).toBeLessThan(tileBox.width);
+    expect(badgeBox.height).toBeLessThan(tileBox.height);
+  });
