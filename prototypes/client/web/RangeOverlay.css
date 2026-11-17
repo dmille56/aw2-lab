@@ -7,17 +7,17 @@
 }
 
 .movement-range {
-  background:
-    radial-gradient(circle, #302600cc 1px, transparent 1.5px) 0 0 / 8px 8px,
-    #ffe36dcc;
-  border-color: #302600;
-  box-shadow: inset 0 0 0 2px #fff4bf;
+  background: transparent;
+  border: 1px solid #171717;
+  box-shadow:
+    inset 0 0 0 2px #ffe36d,
+    inset 0 0 0 3px #171717;
 }
 
 .transit-range {
-  background: #ffe36d88;
-  border: 3px dashed #302600;
-  box-shadow: inset 0 0 0 1px #fff4bf;
+  background: transparent;
+  border: 2px dashed #ffe36d;
+  box-shadow: inset 0 0 0 1px #171717;
 }
 
 .firing-range {
@@ -31,10 +31,15 @@
 }
 
 .movement-range.firing-range {
-  background:
-    radial-gradient(circle, #302600cc 1px, transparent 1.5px) 0 0 / 8px 8px,
-    repeating-linear-gradient(135deg, #ffe36ddd 0 5px, #f07849dd 5px 10px);
-  border-color: #302600 #861114 #861114 #302600;
+  background: repeating-linear-gradient(
+    135deg,
+    #d82d2d99 0 2px,
+    transparent 2px 12px
+  );
+  border-color: #171717;
+  box-shadow:
+    inset 0 0 0 2px #ffe36d,
+    inset 0 0 0 3px #171717;
 }
 
 .threat-range {

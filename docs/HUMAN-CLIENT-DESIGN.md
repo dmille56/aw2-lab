@@ -701,3 +701,13 @@ stripes; the visible legend describes both. Reviewed local sea-sprite previews
 at desktop and narrow sizes and checked light/dark appearances. Authentic
 artwork and previews remain outside Git. These four follow-ups are implemented;
 human visual review and final redesign acceptance remain pending.
+
+
+### Movement terrain readability follow-up (2026-11-16)
+
+Human review found that the gold movement fill obscured terrain. Movement now
+uses gold outlines edged in black with fully transparent centers. Allied
+transit also has a transparent center and a dashed border. Movement/attack
+overlap uses narrow red stripes separated by wide transparent gaps, preserving
+the gold movement outline. The legend describes the revised markings. Human
+visual acceptance remains pending.
