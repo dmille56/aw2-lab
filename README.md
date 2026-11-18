@@ -1,11 +1,66 @@
 # AW2 Lab
 
-Initial Python backend scaffold for the emulator-backed AW2 platform.
+Python backend and game client for the emulator-backed AW2 platform.
+
+## Start a local match
+
+With your local ROM configured (`AW2_ROM_PATH`, and optionally
+`AW2_SAVE_PROFILE_PATH` for unlocked maps), run these from `nix shell`:
+
+```sh
+aw2-lab play pvp
+aw2-lab play ai-vs-player --human-slot 1 --model openai/gpt-6-luna
+aw2-lab play ai-vs-ai --model-1 openai/gpt-6-luna --model-2 openai/gpt-6-luna
+```
+
+The helper creates a fresh private match, starts its own API and emulator on
+available loopback ports, and opens authenticated player tabs or a read-only
+watch tab. AI slots use external Pi model hosts, not the cartridge's CPU AI.
+AI modes require Pi with built-in MCP support and an existing provider login;
+`--model` defaults to your existing Pi provider/model setting. Each AI slot has
+its own MCP configuration and conversation history. Provider login files are
+shared with Pi in the same way as the [existing host launcher](examples/pi-host/README.md).
+`--pi-bin` can select an unwrapped executable if your usual `pi` wrapper changes
+global settings. Model calls use your configured provider account.
+
+Use `--map rainy_haven`, `--co-1 lash`, `--co-2 max`, `--income 5000`,
+`--day-limit none`, `--weather rain`, `--no-co-powers`, and
+`--emulator-mode windowed` to choose supported game settings. Run
+`aw2-lab play --help` for all options. Maps requiring unlocks need a suitable
+local save profile. AI strategy and provider/model compatibility are host concerns.
+
+Source-tree runs need a production browser build: set `AW2_CLIENT_DIST` or use
+`--client-dist /path/to/dist` after building `.#client-web`. The Nix package sets
+this path automatically. `--sprite-pack /path/to/extracted/pack` enables your
+external game artwork; symbols work without a pack. No ROM or extracted artwork
+is packaged or copied into the repository.
+
+`--no-browser` writes private launch links to the printed run directory's
+`views.json`. Links are one use and expire after five minutes; their fragment is
+removed before exchanging it for a player credential. Credentials remain in
+page memory, so reloading requires connecting again with the appropriate private
+`slot_1.token`, `slot_2.token`, or `watch.token` file. Watch access is enforced
+read-only by the server. Do not share these files or launch links.
+
+The match helper currently targets Linux/NixOS.
+
+Press Ctrl-C to stop the helper's server, emulator, and AI subprocesses. Data is
+retained under `$XDG_STATE_HOME/aw2-lab/play/` (normally
+`~/.local/state/aw2-lab/play/`), including checkpoints, private tokens, and AI logs.
+`--run-dir` selects a new private directory; existing directories are rejected
+rather than resetting a saved match. This command starts new matches; it does
+not resume existing runs or attach to another running server. Existing games
+and their processes are untouched. `--max-ai-turns N` bounds AI execution for
+short checks; `--ai-turn-timeout` bounds each host invocation. A failed host or
+an unfinished turn stops the helper with the private log path instead of silently
+repeating actions or model calls.
+
 
 ## Launch the client prototype
 
-The current client checks connectivity to the API. The React gameplay UI is
-planned; this prototype displays the server and emulator health response.
+The React client supports board inspection and gameplay through the local API.
+Use the match helper above for automatic setup, or launch the prototype server
+for manual setup and existing API workflows.
 Run these commands from the repository root on Nix/NixOS.
 
 In one terminal, start the prototype server with your own supported AW2 ROM

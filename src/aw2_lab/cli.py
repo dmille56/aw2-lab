@@ -29,6 +29,11 @@ from aw2_lab.rom_profile import UnsupportedRomError
 
 
 def main() -> None:
+    if sys.argv[1:2] == ["play"]:
+        from aw2_lab.play import main as play_main
+
+        play_main(sys.argv[2:])
+        return
     if sys.argv[1:2] == ["record-cold-boot"]:
         _record_cold_boot(sys.argv[2:])
         return
@@ -44,7 +49,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         prog="aw2-lab",
         epilog=(
-            "Research tools: aw2-lab dump-memory --help; aw2-lab diff-memory --help; "
+            "Start a match: aw2-lab play --help. Research tools: aw2-lab dump-memory --help; aw2-lab diff-memory --help; "
             "aw2-lab watch-memory --help; aw2-lab record-cold-boot --help"
         ),
     )

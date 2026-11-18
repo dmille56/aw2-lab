@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 const fixture = JSON.parse(
   await readFile(new URL("../fixtures/state.json", import.meta.url), "utf8"),
 );
-const token = "synthetic-player-token";
+const token = "synthetic-player-token-0123456789abcdef";
 const diagnostics = new WeakMap();
 async function connect(page) {
   await page.locator("#match-id").fill(fixture.summary.match_id);
@@ -2899,3 +2899,31 @@ for (const theme of ["light", "dark"])
       .analyze();
     expect(results.violations).toEqual([]);
   });
+
+test("claims a local launch link once and connects without persisting its credential", async ({
+  page,
+}) => {
+  let claims = 0;
+  await page.route("**/local-launch/claim", async (route) => {
+    claims++;
+    expect(new URL(page.url()).hash).toBe("");
+    expect(route.request().postDataJSON()).toEqual({ ticket: "t".repeat(40) });
+    await route.fulfill({
+      json: { match_id: fixture.summary.match_id, token },
+    });
+  });
+  await page.goto("/client/#launch=" + "t".repeat(40));
+  await expect(page.locator("#connection")).toContainText("Live");
+  await expect(page.locator("#board-turn")).toContainText("Your turn");
+  await expect(page.locator("#token")).toHaveValue("");
+  expect(new URL(page.url()).hash).toBe("");
+  expect(
+    await page.evaluate(
+      (value) => JSON.stringify([localStorage, sessionStorage]).includes(value),
+      token,
+    ),
+  ).toBe(false);
+  await page.reload();
+  await expect(page.locator("#board-turn")).toContainText("Turn unavailable");
+  expect(claims).toBe(1);
+});

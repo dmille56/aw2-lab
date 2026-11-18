@@ -13,7 +13,7 @@ local bridge = {
     max_message_bytes = 4718592,
     max_state_bytes = 3145728,
     max_screenshot_bytes = 3145728,
-    port = 43128,
+    port = rawget(_G, "AW2_BRIDGE_PORT") or 43128,
 }
 
 -- Load the vendored pure-Lua library beside this script; mGBA embeds Lua and

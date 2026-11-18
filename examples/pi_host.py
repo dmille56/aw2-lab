@@ -1,7 +1,6 @@
 """Prepare or launch an isolated local Pi host for one AW2 player."""
 
 import argparse
-import json
 import os
 import shutil
 import subprocess
@@ -10,6 +9,9 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 import httpx
+
+from aw2_lab.ai_host import prepare_pi
+from aw2_lab.match_contract import PlayerSlot
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -48,21 +50,16 @@ def main() -> int:
         parser.error("player token must contain 32–128 non-whitespace characters")
 
     run_dir = ROOT / ".local" / "aw2-pi" / str(args.match_id) / args.slot
-    run_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-    run_dir.chmod(0o700)
-    agent_dir = run_dir / "agent"
-    agent_dir.mkdir(exist_ok=True, mode=0o700)
-    config = json.loads((ROOT / "examples" / "pi-host" / "mcp.json").read_text())
-    config["mcpServers"]["aw2"]["url"] = args.url
-    (agent_dir / "mcp.json").write_text(json.dumps(config, indent=2) + "\n")
-    # Share provider login/custom model definitions, but no global MCP servers,
-    # extensions, settings, context files, or session histories.
-    global_dir = Path(os.environ.get("PI_CODING_AGENT_DIR", Path.home() / ".pi" / "agent"))
-    for name in ("auth.json", "models.json"):
-        source = global_dir / name
-        target = agent_dir / name
-        if source.exists() and not target.exists() and not target.is_symlink():
-            target.symlink_to(source.resolve())
+    command, env = prepare_pi(
+        run_dir,
+        url=args.url,
+        token=token,
+        match_id=args.match_id,
+        slot=PlayerSlot(args.slot),
+        executable=args.pi_bin,
+        model=args.model,
+        prompt=(ROOT / "examples" / "pi-host" / "system.md").read_text(),
+    )
     if args.prepare_only:
         print(f"Prepared Pi host: {run_dir}")
         return 0
@@ -82,32 +79,11 @@ def main() -> int:
         or identity.get("player_slot") != args.slot
     ):
         parser.error("token does not identify the assigned match/player slot")
-    env = dict(os.environ, PI_CODING_AGENT_DIR=str(agent_dir), AW2_PLAYER_TOKEN=token)
     if args.check:
         return subprocess.run(
             [executable, "mcp", "list", "--json"], cwd=run_dir, env=env, check=False, timeout=120
         ).returncode
-    prompt = (ROOT / "examples" / "pi-host" / "system.md").read_text()
-    prompt += f"\nYour match ID is {args.match_id}. Your player slot is {args.slot}.\n"
-    command = [
-        executable,
-        "--no-extensions",
-        "--extension",
-        "builtin:mcp",
-        "--no-skills",
-        "--no-prompt-templates",
-        "--no-context-files",
-        "--no-themes",
-        "--no-builtin-tools",
-        "--tools",
-        "mcp__aw2__*",
-        "--session-dir",
-        str(run_dir / "sessions"),
-        "--system-prompt",
-        prompt,
-    ]
-    if args.model:
-        command.extend(["--model", args.model])
+    command[0] = executable
     os.chdir(run_dir)
     os.execvpe(executable, command, env)
     return 0

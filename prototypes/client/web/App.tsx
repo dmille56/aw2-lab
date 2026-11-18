@@ -6,6 +6,7 @@ import {
   type ReactNode,
   type CSSProperties,
 } from "react";
+import { claimLocalLaunch } from "./launch_handoff";
 import { TerrainDefense } from "./TerrainDefense";
 import { MapPanel } from "./MapPanel";
 import { coName, humanSlot, perspective, playerName } from "./presentation";
@@ -54,6 +55,36 @@ import {
 export function App() {
   const [session] = useState(() => new MatchSession());
   const view = useSyncExternalStore(session.subscribe, session.getSnapshot);
+  const [launchError, setLaunchError] = useState("");
+  const launch = useRef<ReturnType<typeof claimLocalLaunch> | null>(null);
+  useEffect(() => {
+    let active = true;
+    const claim = () => {
+      if (new URLSearchParams(window.location.hash.slice(1)).has("launch"))
+        launch.current = claimLocalLaunch();
+      else launch.current ??= claimLocalLaunch();
+      const pending = launch.current;
+      void pending
+        .then((handoff) => {
+          if (active && launch.current === pending && handoff) {
+            setLaunchError("");
+            void session.connect(handoff.match_id, handoff.token);
+          }
+        })
+        .catch(() => {
+          if (active && launch.current === pending)
+            setLaunchError(
+              "Local launch failed or link expired. Connect manually or use a new launch link.",
+            );
+        });
+    };
+    claim();
+    window.addEventListener("hashchange", claim);
+    return () => {
+      active = false;
+      window.removeEventListener("hashchange", claim);
+    };
+  }, [session]);
   const [selected, setSelected] = useState<Position | null>(null);
   const [cargo, setCargo] = useState<number | null>(null);
   const [filter, setFilter] = useState("");
@@ -177,6 +208,7 @@ export function App() {
                     token = data.get("token");
                   const input = form.elements.namedItem("token");
                   if (input instanceof HTMLInputElement) input.value = "";
+                  setLaunchError("");
                   setSelected(null);
                   setCargo(null);
                   if (typeof id === "string" && typeof token === "string")
@@ -302,6 +334,7 @@ export function App() {
                     event.currentTarget.value = "";
                     if (file) {
                       clearToken();
+                      setLaunchError("");
                       setSelected(null);
                       setCargo(null);
                       void session.openSnapshot(file);
@@ -315,8 +348,8 @@ export function App() {
             </p>
           </section>
         </details>
-        <p id="error" role="alert" hidden={!view.error}>
-          {view.error}
+        <p id="error" role="alert" hidden={!view.error && !launchError}>
+          {view.error || launchError}
         </p>
         <div
           className="workspace"

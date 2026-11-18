@@ -52,6 +52,10 @@
             pyproject = true;
             build-system = [ pythonPackages.hatchling ];
             dependencies = runtimeDependencies;
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+            postFixup = ''
+              wrapProgram "$out/bin/aw2-lab" --set-default AW2_CLIENT_DIST ${clientPrototype.web}
+            '';
             nativeCheckInputs = [ pythonPackages.pytestCheckHook ];
             pythonImportsCheck = [ "aw2_lab" ];
             meta.mainProgram = "aw2-lab";

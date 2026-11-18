@@ -35,6 +35,7 @@ class EmulatorSettings:
     suppress_emulator_output: bool = False
     bridge_ready_timeout: float = 15.0
     save_profile_path: Path | None = None
+    bridge_port: int = 43128
 
 
 class EmulatorLaunchError(RuntimeError):
@@ -114,7 +115,11 @@ class EmulatorLauncher:
                         "Configured save profile must be an mGBA .sav or .sps"
                     )
 
-            if self._isolate_saves or profile_path is not None:
+            if (
+                self._isolate_saves
+                or profile_path is not None
+                or self.settings.bridge_port != 43128
+            ):
                 self._workspace = tempfile.TemporaryDirectory(prefix="aw2-runtime-")
                 root = Path(self._workspace.name)
                 local_rom = root / rom_path.name
@@ -133,6 +138,13 @@ class EmulatorLauncher:
                         f"assert(emu:loadSaveFile({_lua_string(str(local_save))}, false), "
                         "'Cannot load isolated cartridge save')\n"
                         "emu:reset()\n"
+                        f"dofile({_lua_string(str(script.resolve()))})\n"
+                    )
+                    script = bootstrap
+                if self.settings.bridge_port != 43128:
+                    bootstrap = root / "bridge-port.lua"
+                    bootstrap.write_text(
+                        f"AW2_BRIDGE_PORT = {self.settings.bridge_port}\n"
                         f"dofile({_lua_string(str(script.resolve()))})\n"
                     )
                     script = bootstrap
@@ -178,7 +190,7 @@ class EmulatorLauncher:
                 f"Could not start mGBA executable {executable!r}: {error}"
             ) from error
         self.process = process
-        bridge = LuaBridgeClient(timeout=1.0)
+        bridge = LuaBridgeClient(port=self.settings.bridge_port, timeout=1.0)
         self.bridge = bridge
         deadline = asyncio.get_running_loop().time() + self.settings.bridge_ready_timeout
         last_error = "no response"
@@ -229,7 +241,7 @@ class EmulatorLauncher:
                     f"{self.settings.bridge_ready_timeout:g} seconds "
                     f"(executable {executable!r}, last error: {last_error}); "
                     "check that the selected mGBA frontend supports Lua scripting and that "
-                    "bridge port 43128 is available"
+                    f"bridge port {self.settings.bridge_port} is available"
                 )
             await asyncio.sleep(0.05)
 

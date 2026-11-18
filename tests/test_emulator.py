@@ -411,3 +411,33 @@ async def test_launcher_rejects_sps_for_different_rom_without_launching(
 
     with pytest.raises(EmulatorLaunchError, match="belongs to a different ROM"):
         await launcher.start()
+
+
+@pytest.mark.anyio
+async def test_private_bridge_port_uses_owned_bootstrap_and_client(monkeypatch, tmp_path):
+    rom = tmp_path / "original.gba"
+    rom.write_bytes(b"test rom")
+    script = tmp_path / "bridge.lua"
+    script.touch()
+    process = FakeProcess()
+    bootstraps = []
+
+    async def create_process(*args, **kwargs):
+        bootstrap = Path(args[2])
+        bootstraps.append(bootstrap)
+        text = bootstrap.read_text()
+        assert "AW2_BRIDGE_PORT = 54321" in text
+        assert str(script) in text
+        assert Path(args[-1]) != rom
+        return process
+
+    monkeypatch.setattr("asyncio.create_subprocess_exec", create_process)
+    monkeypatch.setattr("aw2_lab.emulator.LuaBridgeClient.connect", bridge_ready)
+    launcher = EmulatorLauncher(
+        EmulatorSettings(rom_path=rom, bridge_script=script, bridge_port=54321)
+    )
+    await launcher.start()
+    assert launcher.bridge.port == 54321
+    await launcher.stop()
+    assert not bootstraps[0].exists()
+    assert rom.read_bytes() == b"test rom"

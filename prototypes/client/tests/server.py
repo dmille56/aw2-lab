@@ -46,7 +46,7 @@ revoked = False
 mismatch = False
 connections = 0
 watchers: set[asyncio.Queue[str | None]] = set()
-TOKEN = "synthetic-player-token"
+TOKEN = "synthetic-player-token-0123456789abcdef"
 
 
 def available(name: str) -> FeatureAvailability:
