@@ -141,7 +141,7 @@ async def test_startup_failure_stops_owned_server_and_keeps_private_state(tmp_pa
     rom, assets = tmp_path / "rom.gba", tmp_path / "assets"
     rom.touch()
     assets.mkdir()
-    (assets / "index.html").touch()
+    (assets / "index.html").write_text('<meta name="aw2-local-launch" content="1">')
     root = tmp_path / "run"
     args = play.parser().parse_args(
         ["pvp", "--rom", str(rom), "--client-dist", str(assets), "--run-dir", str(root)]
@@ -293,3 +293,40 @@ async def test_ai_turn_scheduling_follows_authoritative_state_and_cleans_up(
     assert "--print" in command and "--session-id" in command
     assert "p" * 40 not in " ".join(command)
     assert options["env"]["AW2_PLAYER_TOKEN"] == "p" * 40
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("mode", ["pvp", "ai-vs-player", "ai-vs-ai"])
+async def test_stale_client_is_rejected_before_creating_or_starting_a_match(
+    tmp_path, monkeypatch, mode
+):
+    rom = tmp_path / "rom.gba"
+    rom.touch()
+    assets = tmp_path / "old-client"
+    assets.mkdir()
+    (assets / "index.html").write_text('<html><div id="root"></div></html>')
+    root = tmp_path / "run"
+    args = play.parser().parse_args(
+        [mode, "--rom", str(rom), "--client-dist", str(assets), "--run-dir", str(root)]
+    )
+
+    def unexpected(*args, **kwargs):
+        raise AssertionError("A stale client must fail before binding ports or starting anything")
+
+    monkeypatch.setattr(play, "bind_local", unexpected)
+    monkeypatch.setattr(play, "create_app", unexpected)
+    with pytest.raises(play.PlayError, match="automatic match connection"):
+        await play.run(args)
+    assert not root.exists()
+
+
+def test_client_handoff_version_is_required_and_parsed_as_html(tmp_path):
+    index = tmp_path / "index.html"
+    index.write_text("<META content='1' name='aw2-local-launch'>")
+    play.validate_client_assets(tmp_path)
+    index.write_text('<meta name="aw2-local-launch" content="2">')
+    with pytest.raises(play.PlayError, match="incompatible"):
+        play.validate_client_assets(tmp_path)
+    index.unlink()
+    with pytest.raises(play.PlayError, match="Client build missing"):
+        play.validate_client_assets(tmp_path)

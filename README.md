@@ -35,6 +35,19 @@ this path automatically. `--sprite-pack /path/to/extracted/pack` enables your
 external game artwork; symbols work without a pack. No ROM or extracted artwork
 is packaged or copied into the repository.
 
+The launcher checks that the selected browser build supports automatic connection
+before creating a match. If an older Nix shell loads current Python source via
+`PYTHONPATH` but still uses an old `prototypes/client/dist` symlink, rebuild it:
+
+```sh
+nix build .#client-web --out-link prototypes/client/dist
+```
+
+Then start the launcher again. A fresh `nix shell` also supplies the current
+packaged browser build. A running server keeps the build selected at startup;
+rebuilding affects new launches. Stopping and starting this helper creates a new
+match, while the previous match's checkpoints remain in its private run directory.
+
 `--no-browser` writes private launch links to the printed run directory's
 `views.json`. Links are one use and expire after five minutes; their fragment is
 removed before exchanging it for a player credential. Credentials remain in

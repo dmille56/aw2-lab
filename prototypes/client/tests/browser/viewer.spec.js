@@ -2903,6 +2903,10 @@ for (const theme of ["light", "dark"])
 test("claims a local launch link once and connects without persisting its credential", async ({
   page,
 }) => {
+  await expect(page.locator('meta[name="aw2-local-launch"]')).toHaveAttribute(
+    "content",
+    "1",
+  );
   let claims = 0;
   await page.route("**/local-launch/claim", async (route) => {
     claims++;

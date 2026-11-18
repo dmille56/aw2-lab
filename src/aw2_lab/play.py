@@ -15,6 +15,7 @@ import webbrowser
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from importlib.resources import files
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -37,6 +38,36 @@ from aw2_lab.sdk import AsyncAW2Client, SDKError, WaitTimeout
 
 class PlayError(RuntimeError):
     """An actionable local startup or host failure."""
+
+
+class ClientLaunchMetadata(HTMLParser):
+    """The selected browser build must understand the helper's launch handoff."""
+
+    version: str | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = dict(attrs)
+        if tag == "meta" and values.get("name") == "aw2-local-launch":
+            self.version = values.get("content")
+
+
+def validate_client_assets(directory: Path) -> None:
+    index = directory.expanduser() / "index.html"
+    rebuild = "nix build .#client-web --out-link prototypes/client/dist"
+    if not index.is_file():
+        raise PlayError(
+            f"Client build missing; run `{rebuild}` or set --client-dist/AW2_CLIENT_DIST"
+        )
+    try:
+        metadata = ClientLaunchMetadata()
+        metadata.feed(index.read_text())
+    except OSError, UnicodeError:
+        raise PlayError(f"Cannot read client build; rebuild with `{rebuild}`") from None
+    if metadata.version != "1":
+        raise PlayError(
+            "Client build is out of date or incompatible with automatic match connection. "
+            f"Run `{rebuild}`, use a fresh nix shell, or select a current --client-dist."
+        )
 
 
 def positive(value: str) -> float:
@@ -345,10 +376,7 @@ async def run(args: argparse.Namespace) -> None:
     config = configuration(args)
     if not args.rom or not args.rom.expanduser().is_file():
         raise PlayError("Provide --rom or AW2_ROM_PATH pointing to your local ROM")
-    if not (args.client_dist.expanduser() / "index.html").is_file():
-        raise PlayError(
-            "Client build missing; set --client-dist/AW2_CLIENT_DIST or build .#client-web"
-        )
+    validate_client_assets(args.client_dist)
     if args.save_profile and (
         not args.save_profile.expanduser().is_file()
         or args.save_profile.suffix.lower() not in {".sav", ".sps"}

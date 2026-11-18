@@ -252,6 +252,11 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    handoffs, read-only watch access, per-slot Pi sessions, bounded turn execution,
    and owned-process shutdown. Supported game settings and model/slot selection
    are CLI flags. The packaged command includes the browser asset path.
+   Automatic-connection fix: reject stale browser builds before creating a match
+   using a versioned HTML handoff marker. This catches source Python loaded from
+   an older shell whose default client symlink lacks the launch handler; rebuild
+   =.#client-web= or select a current client build. Regression checks cover all
+   matchup modes and the browser's matching capability marker.
    Existing Pi example setup shares the same host preparation implementation.
    ROM-independent tests cover orchestration, failures, credential isolation,
    handoff expiry/replay, watch restrictions, and browser auto-connect.
