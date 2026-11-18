@@ -117,7 +117,7 @@ def test_wide_map_sprite_still_fails_before_serving(tmp_path: Path) -> None:
 def test_optional_coastal_variants_are_served(tmp_path: Path) -> None:
     manifest = write_synthetic_pack(tmp_path)
     manifest["terrain_variants"] = {
-        key: {"x": 0, "y": 0, "width": 16, "height": 32} for key in ("13:16", "7:42")
+        key: {"x": 0, "y": 0, "width": 16, "height": 32} for key in ("5:64", "13:16", "7:42")
     }
     (tmp_path / "manifest.json").write_text(json.dumps(manifest))
     app = FastAPI()
@@ -132,7 +132,7 @@ def test_optional_coastal_variants_are_served(tmp_path: Path) -> None:
     asyncio.run(scenario())
 
 
-@pytest.mark.parametrize("key", ["13:1024", "13:-1", "13:0016", "6:16"])
+@pytest.mark.parametrize("key", ["13:1024", "13:-1", "13:0016", "6:16", "5:1024"])
 def test_invalid_coastal_variant_keys_are_rejected(tmp_path: Path, key: str) -> None:
     manifest = write_synthetic_pack(tmp_path)
     manifest["terrain_variants"] = {key: {"x": 0, "y": 0, "width": 16, "height": 32}}

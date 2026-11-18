@@ -89,10 +89,14 @@ def terrain_frame(rom: bytes, terrain: int, army: int) -> tuple[int, int, bytes]
     return 16, 32, bytes(result)
 
 
-def coastal_terrain_frame(rom: bytes, graphical_tile_id: int) -> tuple[int, int, bytes]:
-    """Keep the native shoal/water orientation, connections, palettes, and flips."""
-    if not 0 <= graphical_tile_id < 1024 or rom[0x0C1BC4 + graphical_tile_id] & 31 not in (7, 13):
-        raise ValueError("Expected a verified sea or shoal graphical tile")
+def terrain_variant_frame(rom: bytes, graphical_tile_id: int) -> tuple[int, int, bytes]:
+    """Keep a native road/water/shoal tile's orientation, connections, and flips."""
+    if not 0 <= graphical_tile_id < 1024 or rom[0x0C1BC4 + graphical_tile_id] & 31 not in (
+        5,
+        7,
+        13,
+    ):
+        raise ValueError("Expected a verified road, sea, or shoal graphical tile")
     _, _, ground = terrain_sample(rom, graphical_tile_id)
     return 16, 32, bytes(16 * 16 * 4) + ground
 
@@ -115,14 +119,14 @@ def build_sprite_pack(rom_path: Path, output: Path) -> SpriteManifest:
     map_height = ((map_count + 15) // 16) * 32
     for co_id in range(19):
         frames.append(("portraits", str(co_id), co_portrait_sample(rom, co_id)))
-    coastal_ids = [
-        tile for tile, value in enumerate(rom[0x0C1BC4:0x0C1FC4]) if value & 31 in (7, 13)
+    variant_ids = [
+        tile for tile, value in enumerate(rom[0x0C1BC4:0x0C1FC4]) if value & 31 in (5, 7, 13)
     ]
-    for tile in coastal_ids:
+    for tile in variant_ids:
         terrain = rom[0x0C1BC4 + tile] & 31
-        frames.append(("terrain_variants", f"{terrain}:{tile}", coastal_terrain_frame(rom, tile)))
-    coastal_y = map_height + 4 * 48
-    width, height = 256, coastal_y + ((len(coastal_ids) + 15) // 16) * 32
+        frames.append(("terrain_variants", f"{terrain}:{tile}", terrain_variant_frame(rom, tile)))
+    variants_y = map_height + 4 * 48
+    width, height = 256, variants_y + ((len(variant_ids) + 15) // 16) * 32
     pixels = bytearray(width * height * 4)
     units: dict[str, Region] = {}
     terrains: dict[str, Region] = {}
@@ -139,8 +143,8 @@ def build_sprite_pack(rom_path: Path, output: Path) -> SpriteManifest:
             portrait_index = index - map_count
             x, y = portrait_index % 5 * 48, map_height + portrait_index // 5 * 48
         elif kind == "terrain_variants":
-            coastal_index = index - map_count - 19
-            x, y = coastal_index % 16 * 16, coastal_y + coastal_index // 16 * 32
+            variant_index = index - map_count - 19
+            x, y = variant_index % 16 * 16, variants_y + variant_index // 16 * 32
         else:
             x, y = index % 16 * 16, index // 16 * 32
         for row in range(h):
@@ -187,7 +191,7 @@ def main() -> None:
         parser.exit(1, f"Sprite pack extraction failed: {error}\n")
     print(
         f"Extracted {len(manifest['units'])} unit, {len(manifest['terrain'])} terrain, "
-        f"{len(manifest['portraits'])} CO portraits, and {len(manifest['terrain_variants'])} coastal variants"
+        f"{len(manifest['portraits'])} CO portraits, and {len(manifest['terrain_variants'])} terrain variants"
     )
 
 

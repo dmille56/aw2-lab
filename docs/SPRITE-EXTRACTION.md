@@ -97,6 +97,13 @@ checksum, atlas checksum and dimensions, and regions with `x`, `y`, `width`, and
 each terrain frame occupies 16x32, with ground at its bottom and foreground
 anchored at the bottom. The manifest contains no local machine paths.
 
+Road, sea, and shoal terrain variants use their observed graphical tile IDs from
+the terrain/owner lookup. Each frame composes the exact four native ground tiles,
+preserving orientation, connections, palette indices, and flips. The supported
+ROM contains 40 road IDs; packs generated before road variants remain compatible
+and use their representative road sprite. Regenerate an external pack to render
+road bends, straights, and junctions correctly.
+
 Additional property sources, relative to `0x0CFFC4`, are Base `+0x80` (four tiles),
 Airport `+0x140`, Port `+0x240`, City `+0x440`, and Missile Silo `+0xA40` (six tiles
 each), and Spent Silo `+0xB00` (four tiles). HQ sources are at

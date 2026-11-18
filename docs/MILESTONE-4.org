@@ -813,7 +813,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Reviewed Rainy Haven's 133 coastal cells and 15 shoal shapes with zero gameplay
     commands. No extracted artwork is in Git/Nix. Human review pending.
 
-*** TODO Render roads with correct orientation and connections
+*** IN-PROGRESS Render roads with correct orientation and connections
     Human playtest feedback (2026-11-18, Bean Island): roads currently repeat a
     north-to-south sprite, so horizontal sections and turns look incorrect.
     Render the appropriate native road artwork for the observed graphical tile
@@ -822,6 +822,12 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Verify extraction and client selection with representative tile IDs, then
     visually compare Bean Island against the native game. Keep extracted artwork
     outside Git and the Nix store; do not change terrain classes or gameplay rules.
+    Implemented (2026-11-18): the external sprite pack includes all 40 road
+    graphical IDs and preserves native metatile orientation/flip data. Client
+    selection uses the exact map tile ID and falls back to the ordinary road
+    sprite for older packs. ROM extraction and browser selection regressions
+    cover distinct road variants and legacy fallback. Native Bean Island visual
+    acceptance remains pending.
 
 *** TODO Correct mountain tile rendering
     Human playtest feedback (2026-11-18, Bean Island): some mountain tiles look

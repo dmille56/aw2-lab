@@ -46,7 +46,7 @@ class SpritePackManifest(BaseModel):
         if len(self.units) > 256 or len(self.terrain) > 256:
             raise ValueError("Too many sprite regions")
         if len(self.terrain_variants) > 256:
-            raise ValueError("Too many coastal terrain variants")
+            raise ValueError("Too many terrain variants")
         if len(self.portraits) > 19:
             raise ValueError("Too many CO portrait regions")
         if any(
@@ -59,13 +59,13 @@ class SpritePackManifest(BaseModel):
             (self.units, r"[0-9]{1,2}:[0-5]"),
             (self.terrain, r"[0-9]{1,2}:[0-5]"),
             (self.portraits, r"(?:[0-9]|1[0-8])"),
-            (self.terrain_variants, r"(?:7|13):(?:0|[1-9][0-9]{0,3})"),
+            (self.terrain_variants, r"(?:5|7|13):(?:0|[1-9][0-9]{0,3})"),
         ):
             for key, region in collection.items():
                 if not re.fullmatch(pattern, key):
                     raise ValueError("Invalid sprite region key")
                 if collection is self.terrain_variants and int(key.split(":")[1]) > 1023:
-                    raise ValueError("Coastal graphical tile ID is outside the lookup")
+                    raise ValueError("Graphical tile ID is outside the lookup")
                 if region.x + region.width > self.width or region.y + region.height > self.height:
                     raise ValueError("Sprite region is outside the atlas")
         return self

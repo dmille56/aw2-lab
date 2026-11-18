@@ -60,6 +60,7 @@ it("allows complete 48x48 native portraits while retaining map sprite limits", (
 it("selects native coastal variants and keeps safe legacy/symbolic fallbacks", () => {
   const region = { x: 0, y: 0, width: 16, height: 32 };
   const variants = {
+    "5:64": { ...region, x: 16 },
     "13:16": region,
     "13:46": { ...region, x: 16 },
     "13:47": { ...region, x: 32 },
@@ -70,10 +71,17 @@ it("selects native coastal variants and keeps safe legacy/symbolic fallbacks", (
     ...pack,
     width: 64,
     image: "synthetic",
-    terrain: { ...pack.terrain, "7:0": region, "13:0": region },
+    terrain: { ...pack.terrain, "5:0": region, "7:0": region, "13:0": region },
     terrain_variants: variants,
   };
   expect(validateSpriteManifest(coastal)).toEqual(coastal);
+  expect(
+    terrainSpriteRegion(coastal, {
+      terrain_class: 5,
+      graphical_tile_id: 64,
+      owner_slot: 0,
+    }),
+  ).toBe(variants["5:64"]);
   for (const id of [16, 46, 47, 50])
     expect(
       terrainSpriteRegion(coastal, {
@@ -98,6 +106,13 @@ it("selects native coastal variants and keeps safe legacy/symbolic fallbacks", (
     }),
   ).toBe(region);
   expect(
+    terrainSpriteRegion(legacy, {
+      terrain_class: 5,
+      graphical_tile_id: 64,
+      owner_slot: 0,
+    }),
+  ).toBe(legacy.terrain["5:0"]);
+  expect(
     terrainSpriteRegion(coastal, {
       terrain_class: 13,
       graphical_tile_id: 999,
@@ -105,7 +120,7 @@ it("selects native coastal variants and keeps safe legacy/symbolic fallbacks", (
     }),
   ).toBeUndefined();
 });
-it.each(["13:1024", "13:-1", "13:0016", "6:16"])(
+it.each(["13:1024", "13:-1", "13:0016", "6:16", "5:1024"])(
   "rejects invalid coastal variant key %s",
   (key) => {
     expect(() =>

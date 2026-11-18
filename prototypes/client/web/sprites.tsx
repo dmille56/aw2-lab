@@ -58,7 +58,7 @@ export function validateSpriteManifest(value: unknown): Manifest {
       const validKey = portraits
         ? /^(?:[0-9]|1[0-8])$/.test(key)
         : variants
-          ? /^(?:7|13):(?:0|[1-9][0-9]{0,3})$/.test(key) &&
+          ? /^(?:5|7|13):(?:0|[1-9][0-9]{0,3})$/.test(key) &&
             Number(key.split(":")[1]) <= 1023
           : /^\d{1,2}:[0-5]$/.test(key);
       if (!validKey || !raw || typeof raw !== "object")
@@ -89,15 +89,12 @@ export function terrainSpriteRegion(
     graphical_tile_id: number;
   },
 ): SpriteRegion | undefined {
-  // Shoals must use their exact map variant; a generic sprite can face the wrong way.
-  // Legacy packs keep their ordinary sea artwork until regenerated.
-  if (
-    tile.terrain_class === 13 ||
-    (tile.terrain_class === 7 && pack?.terrain_variants !== undefined)
-  )
-    return pack?.terrain_variants?.[
-      `${tile.terrain_class}:${tile.graphical_tile_id}`
-    ];
+  // Roads, seas, and shoals use their exact map variant when present.
+  const variant =
+    pack?.terrain_variants?.[`${tile.terrain_class}:${tile.graphical_tile_id}`];
+  if (tile.terrain_class === 13) return variant;
+  if ((tile.terrain_class === 5 || tile.terrain_class === 7) && variant)
+    return variant;
   return pack?.terrain[`${tile.terrain_class}:${tile.owner_slot}`];
 }
 

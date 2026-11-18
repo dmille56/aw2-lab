@@ -13,8 +13,8 @@ from aw2_lab.sprite_extraction import terrain_sample
 from aw2_lab.sprite_pack import (
     TERRAIN_CLASSES,
     build_sprite_pack,
-    coastal_terrain_frame,
     terrain_frame,
+    terrain_variant_frame,
 )
 from aw2_lab.state_validation import TERRAIN_CLASSES as DECODED_TERRAIN_CLASSES
 
@@ -46,16 +46,19 @@ def test_local_pack_is_complete_deterministic_and_preserves_rom(tmp_path: Path) 
     expected_variants = {
         f"{value & 31}:{tile}"
         for tile, value in enumerate(source[0x0C1BC4:0x0C1FC4])
-        if value & 31 in (7, 13)
+        if value & 31 in (5, 7, 13)
     }
     manifest = build_sprite_pack(rom, tmp_path)
     assert set(manifest["terrain_variants"]) == expected_variants
     shoals = [int(key.split(":")[1]) for key in expected_variants if key.startswith("13:")]
     assert len(shoals) == 36
-    assert len({coastal_terrain_frame(source, tile)[2] for tile in shoals}) >= 4
+    assert len({terrain_variant_frame(source, tile)[2] for tile in shoals}) >= 4
+    roads = [int(key.split(":")[1]) for key in expected_variants if key.startswith("5:")]
+    assert len(roads) == 40
+    assert len({terrain_variant_frame(source, tile)[2] for tile in roads}) >= 4
     for key in expected_variants:
         tile = int(key.split(":")[1])
-        width, height, frame = coastal_terrain_frame(source, tile)
+        width, height, frame = terrain_variant_frame(source, tile)
         assert (width, height) == (16, 32)
         assert frame[:1024] == bytes(1024)
         assert frame[1024:] == terrain_sample(source, tile)[2]
@@ -86,6 +89,6 @@ def test_local_pack_is_complete_deterministic_and_preserves_rom(tmp_path: Path) 
 
 
 @pytest.mark.parametrize("tile", [-1, 1024])
-def test_coastal_frame_rejects_invalid_graphical_ids(tile: int) -> None:
-    with pytest.raises(ValueError, match="verified sea or shoal"):
-        coastal_terrain_frame(b"", tile)
+def test_terrain_variant_frame_rejects_invalid_graphical_ids(tile: int) -> None:
+    with pytest.raises(ValueError, match="verified road, sea, or shoal"):
+        terrain_variant_frame(b"", tile)
