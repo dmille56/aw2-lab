@@ -114,6 +114,16 @@ Base, Airport, Port, City, Missile Silo, Spent Silo, and HQ artwork is selected 
 army rather than by map cell, so those seven classes stay keyed by owner slot and
 cannot be packed per cell without an army-specific overlay.
 
+Live check on 2026-11-18: a Bean Island match rendered all 240 tiles from the atlas,
+212 through a per-cell variant and 28 through an army-selected representative, with
+no tile using a region other than the one its state data selects. Comparing the 150
+tiles inside the emulator's 240x160 screen with the atlas region the client used, the
+plain cell at (3,2) improved from an 8204-point RGB difference against the flat
+representative to 497 points with its own `1:67` variant — the same tolerance as the
+mountain cells beside it. Tiles underneath unit sprites or the emulator's status
+panel still differ because those overlays are drawn by the emulator rather than by
+the ground region.
+
 Additional property sources, relative to `0x0CFFC4`, are Base `+0x80` (four tiles),
 Airport `+0x140`, Port `+0x240`, City `+0x440`, and Missile Silo `+0xA40` (six tiles
 each), and Spent Silo `+0xB00` (four tiles). HQ sources are at

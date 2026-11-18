@@ -332,15 +332,11 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Depends on the static pack. Key terrain regions by each cell's graphical tile ID
     for every class whose art varies per cell, keep the seven army-selected property
     classes on their owner-slot representatives, and fall back to the representative
-    when a variant is missing. Plain cells beside a mountain range carry the peak's
-    tip, so class-only sprites cut mountain ranges in half.
-    Evidence (2026-11-18): [[file:SPRITE-EXTRACTION.md::*Complete static client pack][pack guide]]; 248 terrain
-    variant regions in the regenerated external atlas, pack checks proving each new
-    variant differs from its class representative, and a live Bean Island match where
-    all 240 rendered tiles resolve to the manifest region their state tile selects
-    (212 per-cell variants, 28 army-selected representatives). The plain cell at (3,2),
-    previously a flat green square, now shows the mountain tip and matches the mGBA
-    ground within the same tolerance as the already-verified mountain cells.
+    when a variant is missing.
+    Evidence (2026-11-18): [[file:SPRITE-EXTRACTION.md::*Complete static client pack][pack guide]]; the regenerated
+    external atlas carries 248 variant regions, and the ROM-gated pack checks compare
+    each variant with its class representative. See [[file:MILESTONE-4.org::*Correct mountain tile rendering][correct
+    mountain tile rendering]] for the live Bean Island verification.
 
 *** DONE Introduce the compact gameplay layout
     Depends on sprite rendering. Give the board most of the play area; add a
@@ -855,7 +851,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Human playtest confirmation (2026-11-18): user reviewed the updated Bean
     Island board and confirmed the woods now look normal.
 
-*** IN-PROGRESS Correct mountain tile rendering
+*** DONE Correct mountain tile rendering
     Human playtest feedback (2026-11-18, Bean Island): some mountain tiles look
     visually wrong. Compare affected tiles with the native game and investigate
     graphical variants, tile composition, palette selection, flips, vertical
@@ -904,8 +900,30 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     rejects =3:= variant keys, so its board fell back to symbolic labels; the check
     used a current =vite= build passed with =--client-dist= until =.#client-web=
     is rebuilt.
-    Pending human visual review (2026-11-18): compare Bean Island's mountain tiles
-    with the native mGBA board before closing this item.
+    Remaining human report (2026-11-18): the cell above a mountain range still read
+    as flat grass, so the peak looked cut off. The mountain itself was correct; the
+    cell at (3,2) is terrain class 1 (plain) with graphical ID =67=, whose native
+    frame carries the tip of the range in its lower half. Class-only sprites cannot
+    draw that tip, and =1:67= was not in the pack.
+    Implemented (2026-11-18): every terrain class whose art is chosen per map cell
+    rather than per army now packs all of its lookup IDs, so the atlas carries 248
+    variants across plain, river, mountain, wood, road, sea, bridge, shoal, pipe,
+    pipe-seam, and reef. Army-selected property classes (city, airport, port, base,
+    missile silo, spent silo, HQ) stay keyed by owner slot. The client prefers the
+    cell's own variant and falls back to the representative for older packs.
+    Checks (2026-11-18): =pre-commit run --all-files= passes, including the ROM-free
+    variant tests, the ROM-gated pack tests that compare =1:67= and =1:33= against
+    their plain representative, and the client Vitest suite. Regenerated pack
+    =atlas-f142293738a228aad852570ffcf32c5f576b552bb68b5d5db2276a70ce5cd9cf.png=
+    (256x1120, 248 terrain variants).
+    Live render check (2026-11-18): a Bean Island pvp match with the regenerated pack
+    rendered all 240 tiles, 212 from per-cell variants and 28 from army-selected
+    representatives, and every tile's atlas region matched the region its state data
+    selects. Comparing the emulator's ground pixels with the atlas region used, the
+    plain cell at (3,2) went from an 8,204-point RGB difference with the flat
+    representative to 497 points with its own tip variant, the same tolerance as the
+    verified mountain cells. Tiles under unit sprites or the emulator status panel
+    still differ because those overlays are not part of the ground region.
 
 *** DONE Correct woods tile rendering
     Human playtest feedback (2026-11-18, Bean Island): some woods tiles looked
