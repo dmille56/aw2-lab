@@ -813,6 +813,34 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Reviewed Rainy Haven's 133 coastal cells and 15 shoal shapes with zero gameplay
     commands. No extracted artwork is in Git/Nix. Human review pending.
 
+*** TODO Render roads with correct orientation and connections
+    Human playtest feedback (2026-11-18, Bean Island): roads currently repeat a
+    north-to-south sprite, so horizontal sections and turns look incorrect.
+    Render the appropriate native road artwork for the observed graphical tile
+    ID, including horizontal/vertical sections, bends, and junctions present on
+    supported maps. Reuse the external terrain-variant pipeline where practical.
+    Verify extraction and client selection with representative tile IDs, then
+    visually compare Bean Island against the native game. Keep extracted artwork
+    outside Git and the Nix store; do not change terrain classes or gameplay rules.
+
+*** TODO Correct mountain tile rendering
+    Human playtest feedback (2026-11-18, Bean Island): some mountain tiles look
+    visually wrong. Compare affected tiles with the native game and investigate
+    graphical variants, tile composition, palette selection, flips, vertical
+    alignment, and overlap/layering to identify the actual cause before fixing it.
+    Add focused extraction/rendering regression checks and visually review the
+    affected Bean Island tiles. Keep extracted artwork outside Git/Nix and retain
+    unit, HP, selection, and range-overlay readability.
+
+*** TODO Correct woods tile rendering
+    Human playtest feedback (2026-11-18, Bean Island): some woods tiles look
+    visually wrong. Identify affected tiles and compare their native graphical
+    variants, composition, palettes, alignment, and any neighboring connections
+    with the game's rendering. Correct the extraction or client selection based
+    on those findings. Add focused regression checks and visually review Bean
+    Island. Keep extracted artwork outside Git/Nix and preserve gameplay terrain
+    values, unit visibility, and selection/range overlays.
+
 *** IN-PROGRESS Move compact CO displays and turn controls to the right of the board
     Human playtest feedback (2026-11-17): move the CO/player displays and Power,
     Super Power, End turn, and Surrender buttons from above the board into a
