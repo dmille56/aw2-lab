@@ -813,7 +813,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Reviewed Rainy Haven's 133 coastal cells and 15 shoal shapes with zero gameplay
     commands. No extracted artwork is in Git/Nix. Human review pending.
 
-*** IN-PROGRESS Render roads with correct orientation and connections
+*** DONE Render roads with correct orientation and connections
     Human playtest feedback (2026-11-18, Bean Island): roads currently repeat a
     north-to-south sprite, so horizontal sections and turns look incorrect.
     Render the appropriate native road artwork for the observed graphical tile
@@ -826,8 +826,18 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     graphical IDs and preserves native metatile orientation/flip data. Client
     selection uses the exact map tile ID and falls back to the ordinary road
     sprite for older packs. ROM extraction and browser selection regressions
-    cover distinct road variants and legacy fallback. Native Bean Island visual
-    acceptance remains pending.
+    cover distinct road variants and legacy fallback.
+    Visual acceptance (2026-11-18): compared the native mGBA Bean Island board
+    with the client rendering of the decoded 16x15 map. The map has 22 road
+    cells using graphical IDs 64, 66, 96, 97, 98, 128, 129, 160, and 163; the
+    horizontal runs, vertical sections, bends, and junctions align in both
+    screenshots. Native screenshot: =/tmp/aw2-road-bean-island-native.png=,
+    SHA-256 =e46f2755e8cbebf67a067d7195b4476b3acd28a78f61271917f007be7199414c=;
+    client screenshot: =/tmp/aw2-road-bean-island-client.png=, SHA-256
+    =d7a602b767557fb836ff1cb9e421a1d7f4754fda51eacbd44c8aa853abf442dd=.
+    The auxiliary screenshot boot reported a saved CO selection mismatch
+    (Max/Sami rather than Andy/Max); map ID 1 and 16x15 geometry were verified,
+    and this did not affect the terrain rendering comparison.
 
 *** TODO Correct mountain tile rendering
     Human playtest feedback (2026-11-18, Bean Island): some mountain tiles look
