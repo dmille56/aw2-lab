@@ -118,7 +118,7 @@ def test_optional_terrain_variants_are_served(tmp_path: Path) -> None:
     manifest = write_synthetic_pack(tmp_path)
     manifest["terrain_variants"] = {
         key: {"x": 0, "y": 0, "width": 16, "height": 32}
-        for key in ("3:2", "3:34", "4:134", "5:64", "13:16", "7:42")
+        for key in ("3:2", "3:34", "4:134", "5:64", "13:16", "7:42", "1:67", "2:12", "16:2")
     }
     (tmp_path / "manifest.json").write_text(json.dumps(manifest))
     app = FastAPI()
@@ -134,7 +134,20 @@ def test_optional_terrain_variants_are_served(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "key", ["13:1024", "13:-1", "13:0016", "6:16", "5:1024", "4:1024", "3:1024", "3:0032", "2:32"]
+    "key",
+    [
+        "13:1024",
+        "13:-1",
+        "13:0016",
+        "6:16",
+        "8:16",
+        "12:1024",
+        "4:1024",
+        "3:0032",
+        "1:1024",
+        "0:1",
+        "32:1",
+    ],
 )
 def test_invalid_terrain_variant_keys_are_rejected(tmp_path: Path, key: str) -> None:
     manifest = write_synthetic_pack(tmp_path)

@@ -97,14 +97,22 @@ checksum, atlas checksum and dimensions, and regions with `x`, `y`, `width`, and
 each terrain frame occupies 16x32, with ground at its bottom and foreground
 anchored at the bottom. The manifest contains no local machine paths.
 
-Mountain, woods, road, sea, and shoal terrain variants use their observed graphical
-tile IDs from the terrain/owner lookup. Each frame composes the exact four native
-ground tiles, preserving orientation, neighboring connections, palette indices,
-and flips. The supported ROM contains 4 mountain IDs, 19 woods IDs, 40 road IDs, 52
-sea IDs, and 36 shoal IDs (151 variants); packs generated before these variants
-remain compatible and use their representative terrain sprite when a variant is
-unavailable. Regenerate an external pack to render each map's native mountain
-shapes, woods shapes, and road bends, straights, and junctions.
+Every non-property terrain class is packed per graphical tile ID, not just per
+class. Each variant frame composes the exact four native ground tiles, preserving
+orientation, neighboring connections, palette indices, and flips, and is keyed
+`terrain_class:graphical_tile_id` in the manifest's `terrain_variants` table. The
+supported ROM contains 248 such IDs: 68 river, 52 sea, 40 road, 36 shoal, 19 wood,
+11 plain, 10 pipe, 5 bridge, 4 mountain, 2 pipe seam, and 1 reef. Plains cells are
+not flat: the tile ID they reference carries the tip of a mountain range that spills
+out of the mountain cell below it, so class-only sprites cut mountain peaks in
+half. Packs generated before `terrain_variants` remain compatible because clients
+fall back to `terrain_class:owner_slot` when a variant is absent. Regenerate an
+external pack to render each map's native mountain shapes, woods shapes, and road
+bends, straights, and junctions.
+
+Base, Airport, Port, City, Missile Silo, Spent Silo, and HQ artwork is selected by
+army rather than by map cell, so those seven classes stay keyed by owner slot and
+cannot be packed per cell without an army-specific overlay.
 
 Additional property sources, relative to `0x0CFFC4`, are Base `+0x80` (four tiles),
 Airport `+0x140`, Port `+0x240`, City `+0x440`, and Missile Silo `+0xA40` (six tiles
@@ -117,6 +125,13 @@ except Sea: graphical tile 42 is open water observed at Bean Island (0,0).
 Tile 8 is a shoreline/island transition and is unsuitable for a repeated sea
 fill. The 2026-11-16 full-board live preview caught this selection issue.
 Regenerate existing external packs to obtain the corrected sea region.
+
+Rendered regions were compared with mGBA for a live Bean Island match on
+2026-11-18: all 240 client tiles used the atlas region selected by their state
+tile, and the plain cell at (3,2) changed from a flat green square to the mountain
+peak tip that the emulator draws above the mountain at (3,3). Cells under unit
+sprites or the emulator's status panel still differ because the client does not yet
+composite those overlays into the ground region.
 
 On 2026-11-15, all three pack checks passed with the live-ROM opt-in: coverage
 matches the current observation/rules contract, every region is within the atlas,

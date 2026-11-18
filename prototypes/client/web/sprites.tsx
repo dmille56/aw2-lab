@@ -58,8 +58,9 @@ export function validateSpriteManifest(value: unknown): Manifest {
       const validKey = portraits
         ? /^(?:[0-9]|1[0-8])$/.test(key)
         : variants
-          ? /^(?:3|4|5|7|13):(?:0|[1-9][0-9]{0,3})$/.test(key) &&
-            Number(key.split(":")[1]) <= 1023
+          ? /^(?:1|2|3|4|5|7|12|13|15|16|19):(?:0|[1-9][0-9]{0,3})$/.test(
+              key,
+            ) && Number(key.split(":")[1]) <= 1023
           : /^\d{1,2}:[0-5]$/.test(key);
       if (!validKey || !raw || typeof raw !== "object")
         throw new Error("Invalid sprite region.");
@@ -89,20 +90,15 @@ export function terrainSpriteRegion(
     graphical_tile_id: number;
   },
 ): SpriteRegion | undefined {
-  // Mountains, woods, roads, seas, and shoals use their exact map variant when
-  // present. Shoals have no representative sprite, so a missing variant stays
-  // symbolic instead of repeating a wrongly oriented generic tile.
+  // Terrain artwork is chosen per cell for every class that is not selected by army,
+  // so each such cell uses its exact map variant when present: plains cells carry the
+  // tip of the mountain range below them, and mountains, woods, roads, seas, and
+  // shoals each have several shapes. Shoals have no representative sprite, so a
+  // missing shoal variant stays symbolic instead of repeating a wrongly oriented tile.
   const variant =
     pack?.terrain_variants?.[`${tile.terrain_class}:${tile.graphical_tile_id}`];
   if (tile.terrain_class === 13) return variant;
-  if (
-    (tile.terrain_class === 3 ||
-      tile.terrain_class === 4 ||
-      tile.terrain_class === 5 ||
-      tile.terrain_class === 7) &&
-    variant
-  )
-    return variant;
+  if (variant) return variant;
   return pack?.terrain[`${tile.terrain_class}:${tile.owner_slot}`];
 }
 

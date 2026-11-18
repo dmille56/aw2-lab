@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from aw2_lab.aw2_rules_data import UNIT_DATA
-from aw2_lab.map_catalog import CLASSIC_MAPS
+from aw2_lab.map_catalog import ALL_MAPS
 from aw2_lab.rom_profile import UnsupportedRomError
 from aw2_lab.sprite_extraction import (
     compose_tiles,
@@ -54,7 +54,10 @@ def test_pack_covers_the_decoded_terrain_contract() -> None:
 
 
 def test_every_variant_bearing_terrain_class_is_packed() -> None:
-    assert TERRAIN_VARIANT_CLASSES == (3, 4, 5, 7, 13)
+    assert TERRAIN_VARIANT_CLASSES == (1, 2, 3, 4, 5, 7, 12, 13, 15, 16, 19)
+    # City, headquarters, and other property artwork is chosen per army, so its cells
+    # cannot be keyed by graphical tile ID alone.
+    assert not set(TERRAIN_VARIANT_CLASSES) & {6, 8, 10, 11, 14, 17, 18}
 
 
 def test_pack_rejects_unknown_rom_before_writing(tmp_path: Path) -> None:
@@ -84,9 +87,13 @@ def test_local_pack_is_complete_deterministic_and_preserves_rom(tmp_path: Path) 
     }
     manifest = build_sprite_pack(rom, tmp_path)
     assert set(manifest["terrain_variants"]) == expected_variants
+    assert len(expected_variants) == 248
     shoals = [int(key.split(":")[1]) for key in expected_variants if key.startswith("13:")]
     assert len(shoals) == 36
     assert len({terrain_variant_frame(source, tile)[2] for tile in shoals}) >= 4
+    plains = [int(key.split(":")[1]) for key in expected_variants if key.startswith("1:")]
+    assert len(plains) == 11
+    assert len({terrain_variant_frame(source, tile)[2] for tile in plains}) >= 4
     roads = [int(key.split(":")[1]) for key in expected_variants if key.startswith("5:")]
     assert len(roads) == 40
     assert len({terrain_variant_frame(source, tile)[2] for tile in roads}) >= 4
@@ -130,7 +137,7 @@ def test_local_pack_is_complete_deterministic_and_preserves_rom(tmp_path: Path) 
 
 @pytest.mark.parametrize("tile", [-1, 1024])
 def test_terrain_variant_frame_rejects_invalid_graphical_ids(tile: int) -> None:
-    with pytest.raises(ValueError, match="verified mountain, woods, road, sea, or shoal"):
+    with pytest.raises(ValueError, match="verified per-cell terrain graphical tile"):
         terrain_variant_frame(b"", tile)
 
 
@@ -150,7 +157,7 @@ def test_synthetic_rom_packs_mountain_variants_with_native_composition() -> None
     rom[0x0BD1EC : 0x0BD1EC + len(compressed)] = compressed
     struct.pack_into("<16H", rom, 0x0BF8C4, *(index * 2 for index in range(16)))
     struct.pack_into("<16H", rom, 0x0BF8C4 + 32, *(31 - index * 2 for index in range(16)))
-    for tile, terrain_class in ((1, 1), (2, 3), (3, 3), (4, 3), (6, 2)):
+    for tile, terrain_class in ((1, 1), (2, 3), (3, 3), (4, 3), (6, 6), (8, 8)):
         rom[0x0C1BC4 + tile] = terrain_class
     struct.pack_into("<4H", rom, 0x0BFBC4 + 2 * 8, 4, 5, 36, 37)
     struct.pack_into("<4H", rom, 0x0BFBC4 + 3 * 8, 4 | 1024, 5, 36, 37 | 2048)
@@ -189,9 +196,10 @@ def test_synthetic_rom_packs_mountain_variants_with_native_composition() -> None
     assert alternative_ground[:4] == bytes(army_palette[8])
     assert alternative_ground != ground[1024:]
 
-    with pytest.raises(ValueError, match="mountain, woods, road, sea, or shoal"):
-        terrain_variant_frame(source, 1)
-    with pytest.raises(ValueError, match="mountain, woods, road, sea, or shoal"):
+    with pytest.raises(ValueError, match="verified per-cell terrain graphical tile"):
+        terrain_variant_frame(source, 8)
+    # Property artwork belongs to the army, not to the cell's graphical tile ID.
+    with pytest.raises(ValueError, match="verified per-cell terrain graphical tile"):
         terrain_variant_frame(source, 6)
 
 
@@ -218,8 +226,8 @@ def test_bean_island_mountain_cells_get_their_native_variants(tmp_path: Path) ->
     assert distinct_shapes == {32, 34, 35}
     assert sum(mountain_cells[tile] for tile in distinct_shapes) == 28
 
-    # Guard against any other built-in map cell whose artwork is not packed.
-    for entry in CLASSIC_MAPS:
+    # Guard against any built-in map cell whose artwork is not packed.
+    for entry in ALL_MAPS:
         map_width, map_height, map_cells = built_in_map_cells(rom, entry.rom_id)
         assert (map_width, map_height) == (entry.width, entry.height)
         missing = {
@@ -229,3 +237,34 @@ def test_bean_island_mountain_cells_get_their_native_variants(tmp_path: Path) ->
             and f"{lookup[tile] & 31}:{tile}" not in manifest["terrain_variants"]
         }
         assert not missing, f"map {entry.id} has unpacked terrain variants: {missing}"
+
+
+@pytest.mark.skipif(
+    os.environ.get("AW2_RUN_SPRITE_ACCEPTANCE") != "1" or not os.environ.get("AW2_ROM_PATH"),
+    reason="requires explicit opt-in and a supported local ROM",
+)
+def test_plains_cells_carry_the_mountain_tip_above_a_range(tmp_path: Path) -> None:
+    """A mountain range spills its rocky tip into the plains cell directly above it."""
+    rom_path = Path(os.environ["AW2_ROM_PATH"])
+    rom = rom_path.read_bytes()
+    lookup = rom[0x0C1BC4:0x0C1FC4]
+    width, height, cells = built_in_map_cells(rom, 1)  # Bean Island
+    plains = {tile for tile in cells if lookup[tile] & 31 == 1}
+    assert plains == {1, 33, 67}
+
+    manifest = build_sprite_pack(rom_path, tmp_path)
+    assert all(f"1:{tile}" in manifest["terrain_variants"] for tile in plains)
+
+    flat, tip = terrain_variant_frame(rom, 1)[2][1024:], terrain_variant_frame(rom, 67)[2][1024:]
+    assert tip != flat
+    changed_rows = {
+        row
+        for row in range(16)
+        for column in range(16)
+        if tip[(row * 16 + column) * 4 : (row * 16 + column) * 4 + 4]
+        != flat[(row * 16 + column) * 4 : (row * 16 + column) * 4 + 4]
+    }
+    # The tip is the bottom band of the plains cell, touching the mountain cell below it.
+    assert changed_rows == set(range(11, 16))
+    grid = [[cells[y * width + x] for x in range(width)] for y in range(height)]
+    assert grid[2][3] == 67 and lookup[grid[3][3]] & 31 == 3

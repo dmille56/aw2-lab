@@ -21,12 +21,9 @@ from aw2_lab.sprite_extraction import (
 )
 
 TERRAIN_CLASSES = tuple(range(1, 9)) + tuple(range(10, 20))
-# Terrain classes whose artwork varies per map cell rather than per army. Mountain,
-# woods, road, sea, and shoal cells reference distinct graphical tile IDs whose
-# four-tile composition, palette index, or flips differ from the class
-# representative.
-TERRAIN_VARIANT_CLASSES = (3, 4, 5, 7, 13)
-# Sources selected by the original terrain information renderer at 0x0803F6BC.
+# Sources selected by the original terrain information renderer at 0x0803F6BC. Their
+# artwork is chosen by army (headquarters, cities, and other property classes), so
+# their per-cell graphical IDs cannot be packed without an army-specific overlay.
 PROPERTY_SOURCES = {
     6: (0x0CFFC4 + 0x440, 6),
     10: (0x0CFFC4 + 0x140, 6),
@@ -35,6 +32,15 @@ PROPERTY_SOURCES = {
     17: (0x0CFFC4 + 0xA40, 6),
     18: (0x0CFFC4 + 0xB00, 4),
 }
+
+# Terrain classes whose artwork varies per map cell rather than per army. Cells of
+# these classes reference distinct graphical tile IDs whose four-tile composition,
+# palette index, or flips differ from the class representative. Plains cells are not
+# flat: the ID they reference carries the tip of a mountain range that spills out of
+# the mountain cell below, so every non-property class needs per-cell artwork.
+TERRAIN_VARIANT_CLASSES = tuple(
+    terrain for terrain in TERRAIN_CLASSES if terrain not in PROPERTY_SOURCES and terrain != 8
+)
 
 
 class Region(TypedDict):
@@ -95,11 +101,11 @@ def terrain_frame(rom: bytes, terrain: int, army: int) -> tuple[int, int, bytes]
 
 
 def terrain_variant_frame(rom: bytes, graphical_tile_id: int) -> tuple[int, int, bytes]:
-    """Keep native mountain/woods/road/water/shoal composition, orientation, and flips."""
-    if not 0 <= graphical_tile_id < 1024 or rom[0x0C1BC4 + graphical_tile_id] & 31 not in (
-        TERRAIN_VARIANT_CLASSES
+    """Keep a map cell's own ground composition, palette, orientation, and flips."""
+    if not 0 <= graphical_tile_id < 1024 or (
+        rom[0x0C1BC4 + graphical_tile_id] & 31 not in TERRAIN_VARIANT_CLASSES
     ):
-        raise ValueError("Expected a verified mountain, woods, road, sea, or shoal graphical tile")
+        raise ValueError("Expected a verified per-cell terrain graphical tile")
     _, _, ground = terrain_sample(rom, graphical_tile_id)
     return 16, 32, bytes(16 * 16 * 4) + ground
 

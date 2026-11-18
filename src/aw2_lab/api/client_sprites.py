@@ -13,6 +13,15 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from aw2_lab.rom_profile import AW2_US_REVISION_0
+from aw2_lab.sprite_pack import TERRAIN_VARIANT_CLASSES
+
+# Terrain variant keys are "<terrain class>:<graphical tile ID>". Only classes whose
+# artwork varies per map cell can appear; property classes are keyed by army instead.
+TERRAIN_VARIANT_KEY_PATTERN = (
+    r"(?:"
+    + "|".join(str(terrain) for terrain in TERRAIN_VARIANT_CLASSES)
+    + r"):(?:0|[1-9][0-9]{0,3})"
+)
 
 
 class SpriteRegion(BaseModel):
@@ -59,7 +68,7 @@ class SpritePackManifest(BaseModel):
             (self.units, r"[0-9]{1,2}:[0-5]"),
             (self.terrain, r"[0-9]{1,2}:[0-5]"),
             (self.portraits, r"(?:[0-9]|1[0-8])"),
-            (self.terrain_variants, r"(?:3|4|5|7|13):(?:0|[1-9][0-9]{0,3})"),
+            (self.terrain_variants, TERRAIN_VARIANT_KEY_PATTERN),
         ):
             for key, region in collection.items():
                 if not re.fullmatch(pattern, key):

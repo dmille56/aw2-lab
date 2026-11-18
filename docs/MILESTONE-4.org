@@ -328,6 +328,20 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     authentic-atlas browser preview with synthetic state, and synthetic asset
     browser checks. Native Tauri visual and live emulator play remain unverified.
 
+*** DONE Pack each cell's own terrain artwork
+    Depends on the static pack. Key terrain regions by each cell's graphical tile ID
+    for every class whose art varies per cell, keep the seven army-selected property
+    classes on their owner-slot representatives, and fall back to the representative
+    when a variant is missing. Plain cells beside a mountain range carry the peak's
+    tip, so class-only sprites cut mountain ranges in half.
+    Evidence (2026-11-18): [[file:SPRITE-EXTRACTION.md::*Complete static client pack][pack guide]]; 248 terrain
+    variant regions in the regenerated external atlas, pack checks proving each new
+    variant differs from its class representative, and a live Bean Island match where
+    all 240 rendered tiles resolve to the manifest region their state tile selects
+    (212 per-cell variants, 28 army-selected representatives). The plain cell at (3,2),
+    previously a flat green square, now shows the mountain tip and matches the mGBA
+    ground within the same tolerance as the already-verified mountain cells.
+
 *** DONE Introduce the compact gameplay layout
     Depends on sprite rendering. Give the board most of the play area; add a
     compact day/player/funds/CO HUD and concise unit/terrain inspection. Put

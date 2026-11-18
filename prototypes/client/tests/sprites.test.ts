@@ -60,6 +60,8 @@ it("allows complete 48x48 native portraits while retaining map sprite limits", (
 it("selects native terrain variants and keeps safe legacy/symbolic fallbacks", () => {
   const region = { x: 0, y: 0, width: 16, height: 32 };
   const variants = {
+    "1:1": region,
+    "1:67": { ...region, x: 16 },
     "3:2": region,
     "3:34": { ...region, x: 64 },
     "3:35": { ...region, x: 80 },
@@ -78,9 +80,11 @@ it("selects native terrain variants and keeps safe legacy/symbolic fallbacks", (
     image: "synthetic",
     terrain: {
       ...pack.terrain,
+      "1:0": region,
       "3:0": region,
       "4:0": region,
       "5:0": region,
+      "6:3": region,
       "7:0": region,
       "13:0": region,
     },
@@ -134,6 +138,36 @@ it("selects native terrain variants and keeps safe legacy/symbolic fallbacks", (
     }),
   ).toBe(legacy.terrain["3:0"]);
   expect(
+    terrainSpriteRegion(coastal, {
+      terrain_class: 1,
+      graphical_tile_id: 67,
+      owner_slot: 0,
+    }),
+  ).toBe(variants["1:67"]);
+  // Plains cells with an unlisted graphical ID still fall back to the class sprite.
+  expect(
+    terrainSpriteRegion(coastal, {
+      terrain_class: 1,
+      graphical_tile_id: 262,
+      owner_slot: 0,
+    }),
+  ).toBe(region);
+  // Property artwork follows the owning army, never a per-cell graphical ID.
+  expect(
+    terrainSpriteRegion(coastal, {
+      terrain_class: 6,
+      graphical_tile_id: 455,
+      owner_slot: 3,
+    }),
+  ).toBe(coastal.terrain["6:3"]);
+  expect(
+    terrainSpriteRegion(legacy, {
+      terrain_class: 1,
+      graphical_tile_id: 67,
+      owner_slot: 0,
+    }),
+  ).toBe(legacy.terrain["1:0"]);
+  expect(
     terrainSpriteRegion(legacy, {
       terrain_class: 13,
       graphical_tile_id: 16,
@@ -174,11 +208,14 @@ it.each([
   "13:-1",
   "13:0016",
   "6:16",
+  "8:16",
+  "11:16",
+  "20:1",
   "5:1024",
   "4:1024",
   "3:1024",
   "3:0032",
-  "2:32",
+  "1:1024",
 ])("rejects invalid terrain variant key %s", (key) => {
   expect(() =>
     validateSpriteManifest({
