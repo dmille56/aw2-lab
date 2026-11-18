@@ -254,6 +254,16 @@ textarea:focus-visible,
   padding-inline: 4px;
 }
 
+.map-panel .toolbar > * {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.map-panel input[type="range"] {
+  width: 100%;
+}
+
 #map-scroll {
   overflow: auto;
   margin: 16px 0;
@@ -826,6 +836,8 @@ main {
 @container (width > 800px) {
   .workspace {
     grid-template-columns: minmax(0, 1fr) 340px;
+    width: min(100%, calc(var(--board-width, 10000px) + 348px));
+    margin-inline: auto;
   }
 
   .board-column {

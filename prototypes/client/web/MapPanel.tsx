@@ -26,6 +26,7 @@ import {
 
 export function MapPanel({
   battle,
+  onBoardWidthChange,
   selected,
   select,
   empty,
@@ -43,6 +44,7 @@ export function MapPanel({
   dropSelections = {},
 }: {
   battle: BattleState | null;
+  onBoardWidthChange?: (width: number | null) => void;
   selected: Position | null;
   select: (position: Position) => void;
   empty: string;
@@ -99,23 +101,59 @@ export function MapPanel({
   const width = battle?.map.width;
   useLayoutEffect(() => {
     const node = scroll.current;
-    if (!node || !fit || !width) return;
+    if (!node || !width) {
+      onBoardWidthChange?.(null);
+      return;
+    }
+    const panel = node.closest<HTMLElement>(".map-panel");
+    const workspace = node.closest<HTMLElement>(".workspace");
+    const host = node.closest("main") ?? node;
     const measure = () => {
-      if (node.clientWidth > 0)
-        setSize(fitTileSize(node.clientWidth, width, coordinates ? 44 : 36));
+      const panelStyle = panel && getComputedStyle(panel);
+      const inset = panelStyle
+        ? parseFloat(panelStyle.paddingLeft) +
+          parseFloat(panelStyle.paddingRight) +
+          parseFloat(panelStyle.borderLeftWidth) +
+          parseFloat(panelStyle.borderRightWidth)
+        : 0;
+      let available = node.clientWidth;
+      if (workspace && host !== node) {
+        const hostStyle = getComputedStyle(host);
+        const sidebar =
+          workspace.querySelector<HTMLElement>(".gameplay-sidebar");
+        const beside =
+          sidebar && getComputedStyle(sidebar).gridColumnStart === "2";
+        // Fit against the full outer space, not the centered, shrink-wrapped
+        // column. Otherwise a smaller board cannot grow again on resize.
+        available =
+          host.clientWidth -
+          parseFloat(hostStyle.paddingLeft) -
+          parseFloat(hostStyle.paddingRight) -
+          inset -
+          (beside
+            ? sidebar.offsetWidth +
+              parseFloat(getComputedStyle(workspace).columnGap)
+            : 0);
+      }
+      if (available <= 0) return;
+      const next = fit
+        ? fitTileSize(available, width, coordinates ? 44 : 36)
+        : size;
+      if (fit) setSize(next);
+      onBoardWidthChange?.(width * next + width - 1 + inset);
     };
     measure();
     const observer =
       typeof ResizeObserver === "undefined"
         ? null
         : new ResizeObserver(measure);
-    observer?.observe(node);
+    observer?.observe(host);
     window.addEventListener("resize", measure);
     return () => {
       observer?.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [fit, width, coordinates]);
+  }, [fit, width, coordinates, size, onBoardWidthChange]);
   const terrains = [
     ...new Set(battle?.map.tiles.map((tile) => tile.terrain_class)),
   ].sort((a, b) => a - b);

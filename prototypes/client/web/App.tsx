@@ -4,6 +4,7 @@ import {
   useState,
   useSyncExternalStore,
   type ReactNode,
+  type CSSProperties,
 } from "react";
 import { TerrainDefense } from "./TerrainDefense";
 import { MapPanel } from "./MapPanel";
@@ -56,6 +57,7 @@ export function App() {
   const [selected, setSelected] = useState<Position | null>(null);
   const [cargo, setCargo] = useState<number | null>(null);
   const [filter, setFilter] = useState("");
+  const [boardWidth, setBoardWidth] = useState<number | null>(null);
   const [themePreference, setThemePreference] = useState(readThemePreference);
   const [uiScale, setUiScale] = useState(readUiScale);
   const tokenInput = useRef<HTMLInputElement>(null);
@@ -316,7 +318,16 @@ export function App() {
         <p id="error" role="alert" hidden={!view.error}>
           {view.error}
         </p>
-        <div className="workspace" id="workspace">
+        <div
+          className="workspace"
+          id="workspace"
+          style={
+            {
+              "--board-width":
+                boardWidth === null ? undefined : `${boardWidth}px`,
+            } as CSSProperties
+          }
+        >
           <div className="gameplay-sidebar">
             <section id="match" className="card" hidden={!snapshot}>
               <h2 id="match-title">
@@ -520,6 +531,7 @@ export function App() {
           <div className="board-column">
             <ActionProgress view={view} />
             <MapPanel
+              onBoardWidthChange={setBoardWidth}
               battle={battle}
               selected={selected}
               select={gameplay.inspectTile}

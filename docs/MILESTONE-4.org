@@ -800,6 +800,20 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     keyboard confirmation/focus, sticky scrolling, and inspector access. Human
     acceptance remains pending.
 
+*** IN-PROGRESS Center the board and keep the CO sidebar close to the tiles
+    Human feedback: a full-width map column leaves a large empty gap when tile
+    sizes reach their maximum or manual zoom is reduced. Center the map and
+    existing sidebar together, with the sidebar immediately beside the tiles.
+    Implemented: shrink the desktop board column to its rendered grid width,
+    padding, and borders; retain the 8px column gap and 340px sidebar. Fit sizes
+    are calculated from the full outer space so the centered group grows again
+    on resize. Preserve 36/44px minimums, 90px maximum, horizontal scrolling for
+    oversized boards, full board height, sticky controls, and stacked fallback.
+    Map tools wrap within the narrower column. Browser checks cover small and
+    15/20-column maps, normal and ultrawide windows, manual zoom, coordinates,
+    scale, resizing, keyboard/menu behavior, and accessibility. No assets added.
+    Human acceptance remains pending.
+
 *** IN-PROGRESS Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,
     purchasing, unloading, cancellation, end turn, and error recovery against

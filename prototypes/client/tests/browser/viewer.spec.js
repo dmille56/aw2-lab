@@ -1955,7 +1955,9 @@ test("uses the full page width and recovers map space for larger fitted tiles", 
   const scroll = await page.locator("#map-scroll").boundingBox();
   expect(main.x).toBe(0);
   expect(main.width).toBe(1920);
-  expect(scroll.x).toBeLessThanOrEqual(10);
+  const workspace = await page.locator(".workspace").boundingBox();
+  expect(Math.abs(workspace.x + workspace.width / 2 - 960)).toBeLessThan(1);
+  expect(scroll.width).toBeGreaterThan(1500);
   // Compare with the previous capped/padded layout using the same map and viewport.
   const previousLayout = await page.addStyleTag({
     content: `
@@ -2766,3 +2768,63 @@ test("keeps the compact sidebar reachable while scrolling a tall board", async (
       .evaluate((e) => e.scrollHeight <= e.clientHeight),
   ).toBe(true);
 });
+
+for (const columns of [2, 15, 20])
+  test(`centers ${columns}-column boards with controls close to the tiles across wide windows`, async ({
+    page,
+  }) => {
+    const state = structuredClone(fixture);
+    const map = state.observation.game_state.battle.value.map;
+    map.width = columns;
+    map.height = 8;
+    map.tiles = Array.from({ length: columns * 8 }, (_, i) => ({
+      ...map.tiles[0],
+      x: i % columns,
+      y: Math.floor(i / columns),
+    }));
+    await upload(page, state);
+    for (const viewport of [1440, 1920, 3840, 1280, 2560]) {
+      await page.setViewportSize({ width: viewport, height: 1100 });
+      await expect
+        .poll(async () => {
+          const board = await page.locator("#board").boundingBox();
+          const side = await page.locator(".gameplay-sidebar").boundingBox();
+          return Math.abs(side.x - board.x - board.width - 13);
+        })
+        .toBeLessThan(1);
+      const group = await page.locator(".workspace").boundingBox();
+      expect(Math.abs(group.x + group.width / 2 - viewport / 2)).toBeLessThan(
+        1,
+      );
+      const tile = Number(await page.locator("#zoom").inputValue());
+      const available = viewport - 8 - 348 - 10;
+      expect(tile).toBe(
+        Math.min(90, Math.floor((available - columns + 1) / columns)),
+      );
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+    }
+    await page.locator("#zoom").fill("36");
+    const manual = await page.locator("#board").boundingBox();
+    const side = await page.locator(".gameplay-sidebar").boundingBox();
+    expect(Math.abs(side.x - manual.x - manual.width - 13)).toBeLessThan(1);
+    await page.locator("#coordinates").check();
+    await expect(page.locator("#zoom")).toHaveValue("44");
+    await page.locator("#fit-map").click();
+    await expect(page.locator("#zoom")).toHaveValue("90");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator("#zoom")).toHaveValue(
+      columns === 2 ? "90" : "44",
+    );
+    const narrow = await page.locator("#map-scroll").boundingBox();
+    expect(narrow.x).toBeLessThanOrEqual(10);
+    expect(narrow.width).toBeGreaterThan(370);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  });
