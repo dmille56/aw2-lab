@@ -834,6 +834,10 @@ main {
 }
 
 @container (width > 800px) {
+  .map-panel {
+    padding-inline: 10px;
+  }
+
   .workspace {
     grid-template-columns: minmax(0, 1fr) 340px;
     width: min(100%, calc(var(--board-width, 10000px) + 348px));

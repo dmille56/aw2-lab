@@ -2691,6 +2691,10 @@ for (const scale of [50, 100, 200])
     )
       await adjust.click();
     await connect(page);
+    await expect(page.locator(".map-panel")).toHaveCSS(
+      "padding-left",
+      scale <= 100 ? "10px" : "4px",
+    );
     const board = await page.locator(".board-column").boundingBox();
     const status = await page.locator("#match").boundingBox();
     if (scale <= 100) {
@@ -2719,6 +2723,7 @@ for (const scale of [50, 100, 200])
     await page.keyboard.press("Escape");
     await expect(end).toBeFocused();
     await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator(".map-panel")).toHaveCSS("padding-left", "4px");
     const narrowBoard = await page.locator(".board-column").boundingBox();
     const sidebar = await page.locator(".gameplay-sidebar").boundingBox();
     expect(sidebar.y + sidebar.height).toBeLessThanOrEqual(narrowBoard.y + 1);
@@ -2789,14 +2794,14 @@ for (const columns of [2, 15, 20])
         .poll(async () => {
           const board = await page.locator("#board").boundingBox();
           const side = await page.locator(".gameplay-sidebar").boundingBox();
-          return Math.abs(side.x - board.x - board.width - 13);
+          return Math.abs(side.x - board.x - board.width - 19);
         })
         .toBeLessThan(1);
       const group = await page.locator(".workspace").boundingBox();
       expect(Math.abs(group.x + group.width / 2 - viewport / 2)).toBeLessThan(
         1,
       );
-      const available = viewport - 8 - 348 - 10;
+      const available = viewport - 8 - 348 - 22;
       await expect(page.locator("#zoom")).toHaveValue(
         String(Math.min(90, Math.floor((available - columns + 1) / columns))),
       );
@@ -2809,7 +2814,7 @@ for (const columns of [2, 15, 20])
     await page.locator("#zoom").fill("36");
     const manual = await page.locator("#board").boundingBox();
     const side = await page.locator(".gameplay-sidebar").boundingBox();
-    expect(Math.abs(side.x - manual.x - manual.width - 13)).toBeLessThan(1);
+    expect(Math.abs(side.x - manual.x - manual.width - 19)).toBeLessThan(1);
     await page.locator("#coordinates").check();
     await expect(page.locator("#zoom")).toHaveValue("44");
     await page.locator("#fit-map").click();

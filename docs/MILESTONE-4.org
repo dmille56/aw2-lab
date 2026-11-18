@@ -815,6 +815,10 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Follow-up: moved fitting/HP instructions, held-range instructions, range
     swatches, and overlay explanations below the tiles, keeping board controls
     above the map so explanatory text no longer pushes the tiles down.
+    Spacing follow-up: desktop board horizontal padding is 10px per side to
+    match the CO panel; stacked layouts retain 4px to preserve tile space.
+    Fitting includes the new inset, with centered placement and the 8px panel
+    gap retained. Browser checks cover desktop/stacked padding and scaling.
     Human acceptance remains pending.
 
 *** IN-PROGRESS Playtest and accept the redesign
