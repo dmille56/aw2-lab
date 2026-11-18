@@ -876,6 +876,20 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     =atlas-895dbb36af37879a13814734a1a202165e79cfd2f0c2d252e1c5ffedd3b3e6e0.png=
     (256x928) carries the four mountain regions. Terrain classes, defense values,
     and unit/HP/range overlays are unchanged.
+    Live render check (2026-11-18): connecting the browser client to a Bean Island
+    match with the regenerated pack draws 33 mountain tiles from four distinct
+    atlas regions, 5, 19, 6, and 3 tiles for IDs =2=, =34=, =35=, and =32=
+    respectively, matching the decoded cell counts. The packaged client build in
+    =nix shell= predates this change and rejects =3:= variant keys, so terrain
+    art falls back to symbolic labels until =.#client-web= is rebuilt; the check
+    used a locally built =vite= dist passed with =--client-dist=.
+    Live render check (2026-11-18): a Bean Island pvp match launched with the
+    regenerated pack drew all 33 mountain tiles from four distinct atlas regions,
+    5, 19, 6, and 3 tiles for IDs =2=, =34=, =35=, and =32=, matching the decoded
+    cell counts. The client build shipped by =nix shell= predates this change and
+    rejects =3:= variant keys, so its board fell back to symbolic labels; the check
+    used a current =vite= build passed with =--client-dist= until =.#client-web=
+    is rebuilt.
     Pending human visual review (2026-11-18): compare Bean Island's mountain tiles
     with the native mGBA board before closing this item.
 
