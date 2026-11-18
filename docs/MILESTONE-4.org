@@ -812,6 +812,9 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Map tools wrap within the narrower column. Browser checks cover small and
     15/20-column maps, normal and ultrawide windows, manual zoom, coordinates,
     scale, resizing, keyboard/menu behavior, and accessibility. No assets added.
+    Follow-up: moved fitting/HP instructions, held-range instructions, range
+    swatches, and overlay explanations below the tiles, keeping board controls
+    above the map so explanatory text no longer pushes the tiles down.
     Human acceptance remains pending.
 
 *** IN-PROGRESS Playtest and accept the redesign

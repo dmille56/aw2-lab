@@ -251,6 +251,48 @@ export function MapPanel({
           Show enemy threat area
         </label>
       </div>
+      <p id="empty" hidden={!!battle}>
+        {empty}
+      </p>
+      {!spritePack && battle && (
+        <details className="sprite-setup">
+          <summary>Map artwork: symbols</summary>
+          <p>
+            Extract a local sprite pack and start the prototype server with its
+            sprite-pack directory to use game artwork. Symbols remain available
+            for unmapped tiles and units.
+          </p>
+        </details>
+      )}
+      <div id="map-scroll" ref={scroll}>
+        <Board
+          battle={battle}
+          spritePack={spritePack}
+          selected={selected}
+          select={select}
+          activate={activate}
+          cancel={cancel}
+          route={route}
+          target={target}
+          dropTargets={dropTargets}
+          dropSelections={dropSelections}
+          reachable={heldMovement?.destinations ?? reach.destinations}
+          transit={heldMovement?.alliedTransit ?? reach.alliedTransit}
+          previewUnitRange={previewUnitRange}
+          attackable={
+            heldMovement
+              ? new Set<string>()
+              : (heldCoverage ??
+                actionTargets ??
+                (showAttackRange ? attacks : new Set<string>()))
+          }
+          threatened={heldMovement ? new Set<string>() : threats}
+          enemyTargets={enemyTargets}
+          actingUnitReference={selectedUnit?.reference ?? null}
+          coordinates={coordinates}
+          yourSlot={yourSlot}
+        />
+      </div>
       <p className="hint">
         {fit
           ? `Fits automatically on resize; tiles stay at least ${coordinates ? 44 : 36} px for legibility. Scroll if needed.`
@@ -335,48 +377,6 @@ export function MapPanel({
             " Assumes each observed enemy could act on a future turn."}
         </p>
       )}
-      <p id="empty" hidden={!!battle}>
-        {empty}
-      </p>
-      {!spritePack && battle && (
-        <details className="sprite-setup">
-          <summary>Map artwork: symbols</summary>
-          <p>
-            Extract a local sprite pack and start the prototype server with its
-            sprite-pack directory to use game artwork. Symbols remain available
-            for unmapped tiles and units.
-          </p>
-        </details>
-      )}
-      <div id="map-scroll" ref={scroll}>
-        <Board
-          battle={battle}
-          spritePack={spritePack}
-          selected={selected}
-          select={select}
-          activate={activate}
-          cancel={cancel}
-          route={route}
-          target={target}
-          dropTargets={dropTargets}
-          dropSelections={dropSelections}
-          reachable={heldMovement?.destinations ?? reach.destinations}
-          transit={heldMovement?.alliedTransit ?? reach.alliedTransit}
-          previewUnitRange={previewUnitRange}
-          attackable={
-            heldMovement
-              ? new Set<string>()
-              : (heldCoverage ??
-                actionTargets ??
-                (showAttackRange ? attacks : new Set<string>()))
-          }
-          threatened={heldMovement ? new Set<string>() : threats}
-          enemyTargets={enemyTargets}
-          actingUnitReference={selectedUnit?.reference ?? null}
-          coordinates={coordinates}
-          yourSlot={yourSlot}
-        />
-      </div>
       <details>
         <summary>Legend</summary>
         <p>

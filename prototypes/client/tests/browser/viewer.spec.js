@@ -2796,10 +2796,9 @@ for (const columns of [2, 15, 20])
       expect(Math.abs(group.x + group.width / 2 - viewport / 2)).toBeLessThan(
         1,
       );
-      const tile = Number(await page.locator("#zoom").inputValue());
       const available = viewport - 8 - 348 - 10;
-      expect(tile).toBe(
-        Math.min(90, Math.floor((available - columns + 1) / columns)),
+      await expect(page.locator("#zoom")).toHaveValue(
+        String(Math.min(90, Math.floor((available - columns + 1) / columns))),
       );
       expect(
         await page.evaluate(
