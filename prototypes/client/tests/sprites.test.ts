@@ -57,9 +57,11 @@ it("allows complete 48x48 native portraits while retaining map sprite limits", (
   ).toThrow();
 });
 
-it("selects native coastal variants and keeps safe legacy/symbolic fallbacks", () => {
+it("selects native terrain variants and keeps safe legacy/symbolic fallbacks", () => {
   const region = { x: 0, y: 0, width: 16, height: 32 };
   const variants = {
+    "4:134": { ...region, x: 48 },
+    "4:135": { ...region, x: 32 },
     "5:64": { ...region, x: 16 },
     "13:16": region,
     "13:46": { ...region, x: 16 },
@@ -71,10 +73,24 @@ it("selects native coastal variants and keeps safe legacy/symbolic fallbacks", (
     ...pack,
     width: 64,
     image: "synthetic",
-    terrain: { ...pack.terrain, "5:0": region, "7:0": region, "13:0": region },
+    terrain: {
+      ...pack.terrain,
+      "4:0": region,
+      "5:0": region,
+      "7:0": region,
+      "13:0": region,
+    },
     terrain_variants: variants,
   };
   expect(validateSpriteManifest(coastal)).toEqual(coastal);
+  for (const id of [134, 135])
+    expect(
+      terrainSpriteRegion(coastal, {
+        terrain_class: 4,
+        graphical_tile_id: id,
+        owner_slot: 0,
+      }),
+    ).toBe(variants[`4:${id}` as keyof typeof variants]);
   expect(
     terrainSpriteRegion(coastal, {
       terrain_class: 5,
@@ -113,6 +129,13 @@ it("selects native coastal variants and keeps safe legacy/symbolic fallbacks", (
     }),
   ).toBe(legacy.terrain["5:0"]);
   expect(
+    terrainSpriteRegion(legacy, {
+      terrain_class: 4,
+      graphical_tile_id: 134,
+      owner_slot: 0,
+    }),
+  ).toBe(legacy.terrain["4:0"]);
+  expect(
     terrainSpriteRegion(coastal, {
       terrain_class: 13,
       graphical_tile_id: 999,
@@ -120,8 +143,8 @@ it("selects native coastal variants and keeps safe legacy/symbolic fallbacks", (
     }),
   ).toBeUndefined();
 });
-it.each(["13:1024", "13:-1", "13:0016", "6:16", "5:1024"])(
-  "rejects invalid coastal variant key %s",
+it.each(["13:1024", "13:-1", "13:0016", "6:16", "5:1024", "4:1024"])(
+  "rejects invalid terrain variant key %s",
   (key) => {
     expect(() =>
       validateSpriteManifest({

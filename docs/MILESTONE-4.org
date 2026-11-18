@@ -838,6 +838,8 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     The auxiliary screenshot boot reported a saved CO selection mismatch
     (Max/Sami rather than Andy/Max); map ID 1 and 16x15 geometry were verified,
     and this did not affect the terrain rendering comparison.
+    Human playtest confirmation (2026-11-18): user reviewed the updated Bean
+    Island board and confirmed the woods now look normal.
 
 *** TODO Correct mountain tile rendering
     Human playtest feedback (2026-11-18, Bean Island): some mountain tiles look
@@ -848,14 +850,28 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     affected Bean Island tiles. Keep extracted artwork outside Git/Nix and retain
     unit, HP, selection, and range-overlay readability.
 
-*** TODO Correct woods tile rendering
-    Human playtest feedback (2026-11-18, Bean Island): some woods tiles look
-    visually wrong. Identify affected tiles and compare their native graphical
-    variants, composition, palettes, alignment, and any neighboring connections
-    with the game's rendering. Correct the extraction or client selection based
-    on those findings. Add focused regression checks and visually review Bean
-    Island. Keep extracted artwork outside Git/Nix and preserve gameplay terrain
-    values, unit visibility, and selection/range overlays.
+*** DONE Correct woods tile rendering
+    Human playtest feedback (2026-11-18, Bean Island): some woods tiles looked
+    visually wrong because every woods cell used the same representative tile
+    (graphical ID 36), even when the map referenced a different native variant.
+    The terrain metatile decoder already preserves palette selection, flips, and
+    the four-tile composition. Add the observed graphical ID to the existing
+    terrain-variant pack and select by map cell, retaining the generic sprite for
+    older packs. Preserve gameplay terrain values, unit visibility, and overlays.
+    Implemented (2026-11-18): all 19 woods graphical IDs are packed, and the
+    client selects the exact woods variant when present. Focused ROM and client
+    regressions cover complete variant extraction and generic fallback. Bean
+    Island's 13 woods cells use graphical IDs 134 and 135.
+    Visual acceptance (2026-11-18): compared the native mGBA screenshot against
+    the client rendering of the same decoded 16x15 Bean Island map. Both woods
+    variants match the game's forest shapes and align with neighboring cells.
+    Native screenshot: =/tmp/aw2-woods-bean-island-native.png=, SHA-256
+    =e46f2755e8cbebf67a067d7195b4476b3acd28a78f61271917f007be7199414c=;
+    client screenshot: =/tmp/aw2-woods-bean-island-client.png=, SHA-256
+    =ab8524af8ef096d8c2c0fcd90045ccb54dcddec1bac896a2e5f42657fafd42b9=.
+    The auxiliary screenshot boot reported a saved CO selection mismatch
+    (Max/Sami rather than Andy/Max); map ID 1 and 16x15 geometry were verified,
+    and this did not affect the terrain rendering comparison.
 
 *** IN-PROGRESS Move compact CO displays and turn controls to the right of the board
     Human playtest feedback (2026-11-17): move the CO/player displays and Power,

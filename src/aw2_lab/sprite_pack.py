@@ -90,13 +90,14 @@ def terrain_frame(rom: bytes, terrain: int, army: int) -> tuple[int, int, bytes]
 
 
 def terrain_variant_frame(rom: bytes, graphical_tile_id: int) -> tuple[int, int, bytes]:
-    """Keep a native road/water/shoal tile's orientation, connections, and flips."""
+    """Keep native woods/road/water/shoal composition, orientation, and flips."""
     if not 0 <= graphical_tile_id < 1024 or rom[0x0C1BC4 + graphical_tile_id] & 31 not in (
+        4,
         5,
         7,
         13,
     ):
-        raise ValueError("Expected a verified road, sea, or shoal graphical tile")
+        raise ValueError("Expected a verified woods, road, sea, or shoal graphical tile")
     _, _, ground = terrain_sample(rom, graphical_tile_id)
     return 16, 32, bytes(16 * 16 * 4) + ground
 
@@ -120,7 +121,7 @@ def build_sprite_pack(rom_path: Path, output: Path) -> SpriteManifest:
     for co_id in range(19):
         frames.append(("portraits", str(co_id), co_portrait_sample(rom, co_id)))
     variant_ids = [
-        tile for tile, value in enumerate(rom[0x0C1BC4:0x0C1FC4]) if value & 31 in (5, 7, 13)
+        tile for tile, value in enumerate(rom[0x0C1BC4:0x0C1FC4]) if value & 31 in (4, 5, 7, 13)
     ]
     for tile in variant_ids:
         terrain = rom[0x0C1BC4 + tile] & 31
