@@ -229,7 +229,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
   competitive visibility filtering, strategy, authoritative server-side legal-move enumeration, and
   speculative rollouts remain outside this milestone.
 
-** IN-PROGRESS Add a match-launch helper CLI for human and AI players
+** DONE Add a match-launch helper CLI for human and AI players
    Provide a simple supported command to start any of these two-player matchups:
    - [X] Human versus human: open a separate authenticated game-client tab for each player.
    - [X] AI versus human: launch one AI-controlled slot and one human client, allowing the human to choose their slot.
@@ -255,13 +255,15 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    Existing Pi example setup shares the same host preparation implementation.
    ROM-independent tests cover orchestration, failures, credential isolation,
    handoff expiry/replay, watch restrictions, and browser auto-connect.
-   Live checks use separate real-emulator matches; AI-mode orchestration is
-   verified with explicitly scripted local hosts, not model strategy. Actual
-   external-model acceptance is pending: automatic approval review rejected the
-   live OpenAI test because it sends observations to an external provider and
-   uses a local player credential in the Pi workflow. No provider call was made.
-   User approval is required before that bounded model test. Human acceptance
-   and model-host strategy quality are not claimed.
+   Live acceptance (2026-11-17, PST): [[file:MATCH-LAUNCHER-ACCEPTANCE.md][bounded live model checks]] passed
+   with the packaged helper, Pi 1.5.2, and =openai/gpt-6-luna=. One AI-vs-human
+   turn and two AI-vs-AI turns completed, with separate player credentials and
+   sessions, terminal receipt tracking, an authenticated human tab, and a
+   server-enforced read-only watch view. Both runtimes exited successfully,
+   released their API/bridge ports, and retained checkpoints. Existing PvP
+   checks cover both human tabs and a completed native turn change. No tool or
+   assistant errors occurred. These bounded end-turn checks do not claim model
+   strategy quality, unit-action planning, full matches, or manual UX acceptance.
 
 ** IN-PROGRESS Redesign the human client UI for usability and ergonomics
    Complete this usability redesign before starting the deferred cross-platform
