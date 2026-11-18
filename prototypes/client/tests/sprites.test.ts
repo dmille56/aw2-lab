@@ -60,6 +60,9 @@ it("allows complete 48x48 native portraits while retaining map sprite limits", (
 it("selects native terrain variants and keeps safe legacy/symbolic fallbacks", () => {
   const region = { x: 0, y: 0, width: 16, height: 32 };
   const variants = {
+    "3:2": region,
+    "3:34": { ...region, x: 64 },
+    "3:35": { ...region, x: 80 },
     "4:134": { ...region, x: 48 },
     "4:135": { ...region, x: 32 },
     "5:64": { ...region, x: 16 },
@@ -71,10 +74,11 @@ it("selects native terrain variants and keeps safe legacy/symbolic fallbacks", (
   };
   const coastal = {
     ...pack,
-    width: 64,
+    width: 96,
     image: "synthetic",
     terrain: {
       ...pack.terrain,
+      "3:0": region,
       "4:0": region,
       "5:0": region,
       "7:0": region,
@@ -83,6 +87,21 @@ it("selects native terrain variants and keeps safe legacy/symbolic fallbacks", (
     terrain_variants: variants,
   };
   expect(validateSpriteManifest(coastal)).toEqual(coastal);
+  for (const id of [2, 34, 35])
+    expect(
+      terrainSpriteRegion(coastal, {
+        terrain_class: 3,
+        graphical_tile_id: id,
+        owner_slot: 0,
+      }),
+    ).toBe(variants[`3:${id}` as keyof typeof variants]);
+  expect(
+    terrainSpriteRegion(coastal, {
+      terrain_class: 3,
+      graphical_tile_id: 7,
+      owner_slot: 0,
+    }),
+  ).toBe(region);
   for (const id of [134, 135])
     expect(
       terrainSpriteRegion(coastal, {
@@ -107,6 +126,13 @@ it("selects native terrain variants and keeps safe legacy/symbolic fallbacks", (
       }),
     ).toBe(variants[`13:${id}` as keyof typeof variants]);
   const legacy = { ...pack, image: "synthetic", terrain: coastal.terrain };
+  expect(
+    terrainSpriteRegion(legacy, {
+      terrain_class: 3,
+      graphical_tile_id: 34,
+      owner_slot: 0,
+    }),
+  ).toBe(legacy.terrain["3:0"]);
   expect(
     terrainSpriteRegion(legacy, {
       terrain_class: 13,
@@ -143,14 +169,21 @@ it("selects native terrain variants and keeps safe legacy/symbolic fallbacks", (
     }),
   ).toBeUndefined();
 });
-it.each(["13:1024", "13:-1", "13:0016", "6:16", "5:1024", "4:1024"])(
-  "rejects invalid terrain variant key %s",
-  (key) => {
-    expect(() =>
-      validateSpriteManifest({
-        ...pack,
-        terrain_variants: { [key]: { x: 0, y: 0, width: 16, height: 32 } },
-      }),
-    ).toThrow();
-  },
-);
+it.each([
+  "13:1024",
+  "13:-1",
+  "13:0016",
+  "6:16",
+  "5:1024",
+  "4:1024",
+  "3:1024",
+  "3:0032",
+  "2:32",
+])("rejects invalid terrain variant key %s", (key) => {
+  expect(() =>
+    validateSpriteManifest({
+      ...pack,
+      terrain_variants: { [key]: { x: 0, y: 0, width: 16, height: 32 } },
+    }),
+  ).toThrow();
+});

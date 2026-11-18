@@ -21,6 +21,11 @@ from aw2_lab.sprite_extraction import (
 )
 
 TERRAIN_CLASSES = tuple(range(1, 9)) + tuple(range(10, 20))
+# Terrain classes whose artwork varies per map cell rather than per army. Mountain,
+# woods, road, sea, and shoal cells reference distinct graphical tile IDs whose
+# four-tile composition, palette index, or flips differ from the class
+# representative.
+TERRAIN_VARIANT_CLASSES = (3, 4, 5, 7, 13)
 # Sources selected by the original terrain information renderer at 0x0803F6BC.
 PROPERTY_SOURCES = {
     6: (0x0CFFC4 + 0x440, 6),
@@ -90,14 +95,11 @@ def terrain_frame(rom: bytes, terrain: int, army: int) -> tuple[int, int, bytes]
 
 
 def terrain_variant_frame(rom: bytes, graphical_tile_id: int) -> tuple[int, int, bytes]:
-    """Keep native woods/road/water/shoal composition, orientation, and flips."""
+    """Keep native mountain/woods/road/water/shoal composition, orientation, and flips."""
     if not 0 <= graphical_tile_id < 1024 or rom[0x0C1BC4 + graphical_tile_id] & 31 not in (
-        4,
-        5,
-        7,
-        13,
+        TERRAIN_VARIANT_CLASSES
     ):
-        raise ValueError("Expected a verified woods, road, sea, or shoal graphical tile")
+        raise ValueError("Expected a verified mountain, woods, road, sea, or shoal graphical tile")
     _, _, ground = terrain_sample(rom, graphical_tile_id)
     return 16, 32, bytes(16 * 16 * 4) + ground
 
@@ -121,7 +123,9 @@ def build_sprite_pack(rom_path: Path, output: Path) -> SpriteManifest:
     for co_id in range(19):
         frames.append(("portraits", str(co_id), co_portrait_sample(rom, co_id)))
     variant_ids = [
-        tile for tile, value in enumerate(rom[0x0C1BC4:0x0C1FC4]) if value & 31 in (4, 5, 7, 13)
+        tile
+        for tile, value in enumerate(rom[0x0C1BC4:0x0C1FC4])
+        if value & 31 in TERRAIN_VARIANT_CLASSES
     ]
     for tile in variant_ids:
         terrain = rom[0x0C1BC4 + tile] & 31

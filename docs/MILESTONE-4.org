@@ -841,7 +841,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Human playtest confirmation (2026-11-18): user reviewed the updated Bean
     Island board and confirmed the woods now look normal.
 
-*** TODO Correct mountain tile rendering
+*** IN-PROGRESS Correct mountain tile rendering
     Human playtest feedback (2026-11-18, Bean Island): some mountain tiles look
     visually wrong. Compare affected tiles with the native game and investigate
     graphical variants, tile composition, palette selection, flips, vertical
@@ -849,6 +849,35 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Add focused extraction/rendering regression checks and visually review the
     affected Bean Island tiles. Keep extracted artwork outside Git/Nix and retain
     unit, HP, selection, and range-overlay readability.
+    Investigation (2026-11-18): the terrain/owner lookup at =0x0C1BC4= defines
+    exactly four mountain graphical IDs (=2=, =32=, =34=, =35=), each with its own
+    four-tile ground composition in palette 0 and no flip flags, so the difference
+    is the shape itself rather than alignment, layering, or palette selection.
+    Bean Island's decompressed cell array (header =0x085C77A0 + 1 * 0x5C= pointing
+    at =0x081BA084=) draws 33 mountain cells: ID =34= 19 times, =35= 6 times, =2=
+    5 times, and =32= 3 times. The pack shipped only the class representative (ID
+    =2=, the first class-3 lookup entry), so the other 28 cells reused the wrong
+    mountain shape. Neither vertical alignment nor foreground overlap is involved:
+    mountains have no property foreground layer.
+    Implemented (2026-11-18): mountain graphical IDs join woods, roads, sea, and
+    shoals in the terrain-variant pack, giving 151 variants including all four
+    mountain shapes. The client selects =terrain_class:graphical_tile_id= for
+    mountains and falls back to the representative sprite for older packs. Both
+    manifest validators accept =3:<id>= keys with the same bounds as the other
+    variant classes.
+    Checks (2026-11-18): =AW2_RUN_SPRITE_ACCEPTANCE=1 AW2_ROM_PATH=... pytest
+    tests/test_sprite_pack.py tests/test_sprite_extraction.py
+    tests/test_client_sprite_assets.py= passes, including a ROM-free synthetic-ROM
+    test that verifies per-metatile composition, palette selection, and the tile
+    flip flags, and a ROM-gated test that decodes Bean Island and requires every
+    mountain cell and every variant-bearing cell of the 17 classic maps to be
+    packed. The client Vitest sprite suite (19 cases) covers mountain variant
+    selection and the legacy fallback. Regenerated external pack
+    =atlas-895dbb36af37879a13814734a1a202165e79cfd2f0c2d252e1c5ffedd3b3e6e0.png=
+    (256x928) carries the four mountain regions. Terrain classes, defense values,
+    and unit/HP/range overlays are unchanged.
+    Pending human visual review (2026-11-18): compare Bean Island's mountain tiles
+    with the native mGBA board before closing this item.
 
 *** DONE Correct woods tile rendering
     Human playtest feedback (2026-11-18, Bean Island): some woods tiles looked

@@ -58,7 +58,7 @@ export function validateSpriteManifest(value: unknown): Manifest {
       const validKey = portraits
         ? /^(?:[0-9]|1[0-8])$/.test(key)
         : variants
-          ? /^(?:4|5|7|13):(?:0|[1-9][0-9]{0,3})$/.test(key) &&
+          ? /^(?:3|4|5|7|13):(?:0|[1-9][0-9]{0,3})$/.test(key) &&
             Number(key.split(":")[1]) <= 1023
           : /^\d{1,2}:[0-5]$/.test(key);
       if (!validKey || !raw || typeof raw !== "object")
@@ -89,12 +89,15 @@ export function terrainSpriteRegion(
     graphical_tile_id: number;
   },
 ): SpriteRegion | undefined {
-  // Woods, roads, seas, and shoals use their exact map variant when present.
+  // Mountains, woods, roads, seas, and shoals use their exact map variant when
+  // present. Shoals have no representative sprite, so a missing variant stays
+  // symbolic instead of repeating a wrongly oriented generic tile.
   const variant =
     pack?.terrain_variants?.[`${tile.terrain_class}:${tile.graphical_tile_id}`];
   if (tile.terrain_class === 13) return variant;
   if (
-    (tile.terrain_class === 4 ||
+    (tile.terrain_class === 3 ||
+      tile.terrain_class === 4 ||
       tile.terrain_class === 5 ||
       tile.terrain_class === 7) &&
     variant
