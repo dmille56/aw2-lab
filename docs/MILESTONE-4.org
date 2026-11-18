@@ -821,6 +821,29 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     gap retained. Browser checks cover desktop/stacked padding and scaling.
     Human acceptance remains pending.
 
+*** IN-PROGRESS Replace the Board heading with a prominent current-turn indicator
+    Human feedback: replace the word "Board" at the top left above the map tiles
+    with an immediately recognizable indication of whose turn it is. Show the
+    active player explicitly, for example "Your turn · Player 1" or
+    "Player 2's turn", based on the observed turn and the connected player's
+    identity. Use prominent, high-contrast text and a distinct visual treatment;
+    player color may reinforce the indicator but must not be its only cue.
+    Keep it consistent with the CO sidebar and update after confirmed turn
+    changes without stealing focus. For spectators, show the active player;
+    identify snapshots as read-only and use neutral wording when turn data is
+    unavailable. Keep the indicator readable in desktop/stacked layouts, both
+    themes, and at supported interface scales, without crowding board controls.
+    Verify own/opponent turns, live turn changes, and accessibility. Human
+    acceptance should confirm that whose turn it is is obvious at a glance.
+    Implemented: bold, bordered turn heading replaces "Board" at the map's top
+    left, with explicit own/other-player wording and day context. Player color
+    reinforces text; themes use existing high-contrast tokens. Snapshot/read-only,
+    unknown observation, spectator, and finished-match states have explicit labels.
+    Committed state updates drive the heading; existing turn notifications announce
+    turn changes, without adding another live region or moving keyboard focus.
+    Unit/browser checks cover context, updates, contrast, narrow layouts, and scale.
+    Human visual acceptance remains pending.
+
 *** IN-PROGRESS Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,
     purchasing, unloading, cancellation, end turn, and error recovery against

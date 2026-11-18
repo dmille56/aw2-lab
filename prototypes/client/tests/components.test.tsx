@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
 import { Board, UnitInspector } from "../web/Board";
 import { DamagePreview } from "../web/DamagePreview";
+import { BoardTurn } from "../web/BoardTurn";
 import { MapPanel } from "../web/MapPanel";
 import { Health } from "../web/Health";
 import { PlayerHud } from "../web/PlayerHud";
@@ -515,4 +516,41 @@ it("renders an accessible damage estimate and explains unavailable observations"
   expect(screen.getByRole("status")).toHaveTextContent(
     "Damage estimate unavailable",
   );
+});
+
+describe("board turn heading", () => {
+  it.each([
+    [1, 1, "live", "Your turn", true],
+    [2, 2, "live", "Your turn", true],
+    [2, 1, "live", "Player 2’s turn", false],
+    [1, null, "live", "Player 1’s turn", false],
+    [1, 1, "snapshot", "Player 1’s turn", false],
+    [1, 1, "unavailable", "Turn unavailable", false],
+    [99, 1, "live", "Turn unavailable", false],
+  ] as const)(
+    "labels slot %s for viewer %s in %s mode",
+    (active, yourSlot, mode, title, own) => {
+      const observed = structuredClone(battle);
+      observed.active_player_slot = active;
+      render(<BoardTurn battle={observed} yourSlot={yourSlot} mode={mode} />);
+      const heading = screen.getByRole("heading", { name: new RegExp(title) });
+      expect(heading.hasAttribute("data-your-turn")).toBe(own);
+      if (mode === "snapshot")
+        expect(heading).toHaveTextContent("Snapshot · read only");
+      if (mode === "live" && active === 2 && yourSlot === 1)
+        expect(heading).toHaveTextContent("Not your turn");
+      if (yourSlot === null)
+        expect(heading).not.toHaveTextContent("Not your turn");
+    },
+  );
+  it("uses a neutral heading without battle observations", () => {
+    render(<BoardTurn battle={null} yourSlot={1} mode="live" />);
+    expect(screen.getByRole("heading")).toHaveTextContent("Turn unavailable");
+    expect(screen.getByRole("heading")).not.toHaveAttribute("data-your-turn");
+  });
+  it("does not advertise a playable turn after the match finishes", () => {
+    render(<BoardTurn battle={battle} yourSlot={1} mode="live" finished />);
+    expect(screen.getByRole("heading")).toHaveTextContent("Match finished");
+    expect(screen.getByRole("heading")).not.toHaveAttribute("data-your-turn");
+  });
 });

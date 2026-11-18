@@ -532,6 +532,10 @@ export function App() {
             <ActionProgress view={view} />
             <MapPanel
               onBoardWidthChange={setBoardWidth}
+              turnMode={
+                view.connected ? "live" : snapshot ? "snapshot" : "unavailable"
+              }
+              finished={snapshot?.summary.lifecycle === "finished"}
               battle={battle}
               selected={selected}
               select={gameplay.inspectTile}

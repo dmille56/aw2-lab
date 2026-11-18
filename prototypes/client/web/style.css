@@ -260,6 +260,36 @@ textarea:focus-visible,
   overflow-wrap: anywhere;
 }
 
+/* Keep the active turn readable at the map's top left, independently of color. */
+.toolbar .board-turn {
+  display: grid;
+  gap: 3px;
+  flex: 1 1 200px;
+  padding: 8px 10px;
+  border: 2px solid var(--border);
+  border-left: 6px solid var(--player, var(--accent));
+  border-radius: 6px;
+  background: var(--control);
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.board-turn > span {
+  font-size: 22px;
+  font-weight: 850;
+}
+
+.board-turn > small {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.board-turn[data-your-turn] {
+  border-color: var(--accent);
+  border-left-color: var(--player, var(--accent));
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
 .map-panel input[type="range"] {
   width: 100%;
 }

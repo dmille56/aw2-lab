@@ -80,6 +80,8 @@ test("keeps turn context visible while connection and match details can be expan
 }) => {
   await connect(page);
   await expect(page.getByLabel("Current turn")).toContainText("Your turn");
+  await expect(page.locator("#board-turn")).toContainText("Your turn");
+  await expect(page.locator("#board-turn")).toContainText("Player 1");
   await expect(page.getByLabel("Player status")).toContainText("Andy");
   await expect(page.getByLabel("Player status")).toContainText("funds");
   await expect(page.locator("#theme")).toBeHidden();
@@ -1022,6 +1024,8 @@ test("distinguishes your slot from the active player and toggles visible coordin
   await expect(page.locator("#players .active-player")).toContainText(
     "Player 2",
   );
+  await expect(page.locator("#board-turn")).toContainText("Player 2’s turn");
+  await expect(page.locator("#board-turn")).toContainText("Not your turn");
   await expect(page.locator("#players .your-player")).toContainText("Player 1");
   await expect(
     page.locator("#board button[data-your-unit='true']"),
@@ -1711,6 +1715,8 @@ test("announces a new own turn without stealing focus or repeating on refresh/re
   state.summary.revision = state.observation.revision = 3;
   await request.post("/__test/advance");
   await expect(page.locator(".toast-turn")).toContainText("Your turn");
+  await expect(page.locator("#board-turn")).toContainText("Your turn");
+  await expect(page.locator("#board-turn")).toContainText("Day 2");
   await expect(tile).toBeFocused();
   await expect(page.locator(".toast-turn")).toContainText("Day 2");
   await page.getByRole("button", { name: "Dismiss Your turn" }).click();
@@ -2831,4 +2837,65 @@ for (const columns of [2, 15, 20])
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
+  });
+
+test("keeps turn context clear for spectators, snapshots, and disconnected views", async ({
+  page,
+}) => {
+  await expect(page.locator("#board-turn")).toContainText("Turn unavailable");
+  await upload(page, fixture);
+  await expect(page.locator("#board-turn")).toContainText("Player 1’s turn");
+  await expect(page.locator("#board-turn")).toContainText(
+    "Snapshot · read only",
+  );
+  await expect(page.locator("#board-turn")).not.toHaveAttribute(
+    "data-your-turn",
+  );
+  await page.route("**/identity", (route) =>
+    route.fulfill({
+      json: {
+        contract_version: 1,
+        match_id: fixture.summary.match_id,
+        role: "operator",
+        player_slot: null,
+      },
+    }),
+  );
+  await page
+    .getByText("Connection, display, and snapshots", { exact: true })
+    .click();
+  await page.locator("#match-id").fill(fixture.summary.match_id);
+  await page.locator("#token").fill(token);
+  await page.locator("#connect button").click();
+  await expect(page.locator("#connection")).toContainText("Live");
+  await expect(page.locator("#board-turn")).toContainText("Player 1’s turn");
+  await expect(page.locator("#board-turn")).not.toContainText("Not your turn");
+  await expect(page.locator("#board-turn")).not.toContainText("read only");
+  await page.locator("#disconnect").click();
+  await expect(page.locator("#board-turn")).toContainText("Turn unavailable");
+  await expect(page.locator("#board-turn")).not.toHaveAttribute(
+    "data-your-turn",
+  );
+});
+
+for (const theme of ["light", "dark"])
+  test(`keeps the turn heading readable in ${theme} appearance at large scale`, async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: theme });
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (let i = 0; i < 10; i++)
+      await page.locator("#ui-scale-increase").click();
+    await connect(page);
+    const heading = page.locator("#board-turn");
+    await heading.scrollIntoViewIfNeeded();
+    await expect(heading).toContainText("Your turn");
+    const rect = await heading.boundingBox();
+    expect(rect.x).toBeGreaterThanOrEqual(0);
+    expect(rect.x + rect.width).toBeLessThanOrEqual(390);
+    const results = await new AxeBuilder({ page })
+      .include("#board-turn")
+      .withTags(["wcag2a", "wcag2aa"])
+      .analyze();
+    expect(results.violations).toEqual([]);
   });

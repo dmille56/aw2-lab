@@ -13,6 +13,7 @@ import {
   type Position,
   type UnitRangePreview,
 } from "./Board";
+import { BoardTurn, type BoardTurnMode } from "./BoardTurn";
 import { fitTileSize, terrainLabel, unitLabel } from "./presentation";
 import type { BattleState } from "./state";
 import type { UnitState } from "./state";
@@ -27,6 +28,8 @@ import {
 export function MapPanel({
   battle,
   onBoardWidthChange,
+  turnMode = "snapshot",
+  finished = false,
   selected,
   select,
   empty,
@@ -45,6 +48,8 @@ export function MapPanel({
 }: {
   battle: BattleState | null;
   onBoardWidthChange?: (width: number | null) => void;
+  turnMode?: BoardTurnMode;
+  finished?: boolean;
   selected: Position | null;
   select: (position: Position) => void;
   empty: string;
@@ -192,7 +197,12 @@ export function MapPanel({
       style={{ "--cell": `${size}px` } as CSSProperties}
     >
       <div className="toolbar">
-        <h2>Board</h2>
+        <BoardTurn
+          battle={battle}
+          yourSlot={yourSlot}
+          mode={turnMode}
+          finished={finished}
+        />
         <button
           type="button"
           id="fit-map"
