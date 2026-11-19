@@ -124,6 +124,21 @@ mountain cells beside it. Tiles underneath unit sprites or the emulator's status
 panel still differ because those overlays are drawn by the emulator rather than by
 the ground region.
 
+Full-catalog audit (2026-11-19): the verified ROM's original map table at
+`0x005C77A0 + rom_map_id * 0x5C` points at an LZ77 stream whose payload starts with
+the width and height bytes and continues with `width * height` little-endian graphical tile
+IDs. Decoding all 133 catalog maps (64,027 cells) and resolving each
+cell through the client's lookup found no cell without artwork. Only classes 1-8,
+10-17, and 19 occur in Versus maps, so class 9, class 18 (spent silo, packed but
+unused), and the campaign-only classes 20-31 never appear. The complete pipe and seam
+set is 258, 259, 288, 289, 320, 321, 322, 323, 352, 353 (pipe) and 354, 355 (seam),
+all of which are packed; Pipe Maze (map ID 104, 22x22) is the only pipe map and is
+four-player, so its artwork is not yet comparable against mGBA because `aw2-lab play`
+launches two-player matches. 43 distinct river IDs occur across the catalog, all
+within the 68 packed river variants: a Lost River match matched 20 of its 27 in-window
+river cells within 1,500 points (median 254, minimum 108), the outliers being cells
+covered by unit sprites or the emulator status panel.
+
 Additional property sources, relative to `0x0CFFC4`, are Base `+0x80` (four tiles),
 Airport `+0x140`, Port `+0x240`, City `+0x440`, and Missile Silo `+0xA40` (six tiles
 each), and Spent Silo `+0xB00` (four tiles). HQ sources are at

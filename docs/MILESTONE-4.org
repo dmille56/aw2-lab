@@ -948,6 +948,35 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     (Max/Sami rather than Andy/Max); map ID 1 and 16x15 geometry were verified,
     and this did not affect the terrain rendering comparison.
 
+*** DONE Audit terrain variant coverage for every catalog map
+    Human question (2026-11-19): are any tile variants still missing, and do pipe and
+    river cells draw correctly?
+    Audit method: the verified ROM's original map table at =0x005C77A0 +
+    rom_map_id * 0x5C= points at an LZ77 stream whose payload starts with the width
+    and height bytes and continues with =width * height= little-endian graphical tile
+    IDs. Decoding all 133 catalog maps (64,027 cells) and resolving each cell through
+    the same lookup the client uses leaves no cell without artwork: variant classes
+    select their exact =terrain_class:graphical_tile_id= region and property classes
+    select their army-selected representative. Catalog classes are 1-8, 10-17, and 19
+    only, so class 9 and the campaign-only classes 20-31 never appear, and spent silo
+    (18) is packed but unused in Versus maps.
+    Pipes: the complete pipe and seam set used anywhere in the catalog is =258=, =259=,
+    =288=, =289=, =320=, =321=, =322=, =323=, =352=, =353= (pipe) and =354=, =355=
+    (seam), and all twelve are already packed. Pipe Maze (map ID 104, 22x22) is the
+    only pipe map and is four-player, while =aw2-lab play --map= accepts two-player
+    maps, so pipe artwork has no live mGBA comparison yet.
+    Rivers: 43 distinct river IDs appear in catalog maps, all inside the 68 packed
+    river variants. Live check on a Lost River match (32x15, emulator window at
+    offset =0,2=): 27 river cells in view, 20 inside the 1,500-point tolerance, median
+    254 points, minimum 108. The seven outliers all sit under unit sprites or the
+    emulator status panel. In the same window bridges matched at 338 and 1,943 points
+    and mountains at 360-1,882. A Wrench Island match (22x13, window at =0,0=) put 19
+    of 23 shoal cells inside tolerance (median 362, minimum 241), all six mountain
+    cells at 360-396, and reef cells as low as 238.
+    Limitation: the pack stores only the first frame of animated terrain pages, and
+    the client does not composite the emulator's status panel or unit sprites into the
+    ground region, so pixel comparison only holds on unobstructed cells.
+
 *** IN-PROGRESS Move compact CO displays and turn controls to the right of the board
     Human playtest feedback (2026-11-17): move the CO/player displays and Power,
     Super Power, End turn, and Surrender buttons from above the board into a

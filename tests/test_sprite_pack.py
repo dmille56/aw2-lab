@@ -268,3 +268,52 @@ def test_plains_cells_carry_the_mountain_tip_above_a_range(tmp_path: Path) -> No
     assert changed_rows == set(range(11, 16))
     grid = [[cells[y * width + x] for x in range(width)] for y in range(height)]
     assert grid[2][3] == 67 and lookup[grid[3][3]] & 31 == 3
+
+
+@pytest.mark.skipif(
+    os.environ.get("AW2_RUN_SPRITE_ACCEPTANCE") != "1" or not os.environ.get("AW2_ROM_PATH"),
+    reason="requires explicit opt-in and a supported local ROM",
+)
+def test_every_catalog_map_cell_resolves_to_packed_artwork(tmp_path: Path) -> None:
+    """No built-in Versus map cell may fall back to the client's symbolic board."""
+    rom_path = Path(os.environ["AW2_ROM_PATH"])
+    rom = rom_path.read_bytes()
+    lookup = rom[0x0C1BC4:0x0C1FC4]
+    manifest = build_sprite_pack(rom_path, tmp_path)
+    variants = manifest["terrain_variants"]
+    representatives = manifest["terrain"]
+
+    parsed_maps = 0
+    cells = 0
+    classes: Counter[int] = Counter()
+    pipe_tiles: set[int] = set()
+    for entry in ALL_MAPS:
+        try:
+            _, _, tile_ids = built_in_map_cells(rom, entry.rom_id)
+        except ValueError:
+            continue
+        parsed_maps += 1
+        for tile_id in tile_ids:
+            terrain_class = lookup[tile_id] & 31
+            classes[terrain_class] += 1
+            cells += 1
+            if terrain_class in TERRAIN_VARIANT_CLASSES:
+                assert f"{terrain_class}:{tile_id}" in variants, (
+                    f"{entry.id} uses unpacked variant {terrain_class}:{tile_id}"
+                )
+            else:
+                assert any(f"{terrain_class}:{army}" in representatives for army in range(6)), (
+                    f"{entry.id} has no representative for terrain class {terrain_class}"
+                )
+            if terrain_class in (15, 16):
+                pipe_tiles.add(tile_id)
+
+    assert parsed_maps == len(ALL_MAPS)
+    assert cells > 60_000
+    assert set(classes) <= set(TERRAIN_CLASSES)
+    # Pipes and seams appear only in four-player maps, which the two-player CLI cannot
+    # launch yet, so packing every observed pipe cell is the available guarantee.
+    packed_pipe_ids = {
+        int(key.split(":")[1]) for key in variants if key.split(":")[0] in ("15", "16")
+    }
+    assert pipe_tiles and pipe_tiles <= packed_pipe_ids
