@@ -11,7 +11,7 @@ from fastapi import FastAPI
 
 from aw2_lab import play
 from aw2_lab.ai_host import prepare_pi
-from aw2_lab.match_contract import CommandStatus, PlayerSlot
+from aw2_lab.match_contract import CO_ID_VALUES, CommandStatus, PlayerSlot
 
 
 @pytest.mark.parametrize(
@@ -39,12 +39,34 @@ def test_configuration_and_invalid_combinations():
         play.configuration(play.parser().parse_args(["pvp", "--day-limit", "2"]))
     for flags in (
         ["invalid"],
-        ["pvp", "--map", "delta_heights"],
+        ["pvp", "--map", "not_a_catalog_map"],
         ["pvp", "--port", "99999"],
         ["pvp", "--ai-turn-timeout", "nan"],
     ):
         with pytest.raises(SystemExit):
             play.parser().parse_args(flags)
+
+
+@pytest.mark.parametrize("map_id,count", [("bean_island", 2), ("pipe_maze", 4)])
+def test_multislot_maps_use_every_advertised_slot(map_id, count):
+    config = play.configuration(play.parser().parse_args(["pvp", "--map", map_id]))
+    assert len(config.players) == count
+    assert tuple(player.slot for player in config.players) == play.slots_for(count)
+    assert play.selected_slots(map_id) == tuple(player.slot for player in config.players)
+    assert {player.co_id for player in config.players} <= set(CO_ID_VALUES)
+
+
+def test_four_player_ai_mode_drives_the_other_three_slots():
+    args = play.parser().parse_args(["ai-vs-player", "--map", "pipe_maze", "--human-slot", "3"])
+    config = play.configuration(args)
+    assert play.ai_slots(args.mode, args.human_slot, len(config.players)) == (
+        PlayerSlot.SLOT_1,
+        PlayerSlot.SLOT_2,
+        PlayerSlot.SLOT_4,
+    )
+    bad = play.parser().parse_args(["ai-vs-player", "--map", "bean_island", "--human-slot", "3"])
+    with pytest.raises(play.PlayError):
+        play.configuration(bad)
 
 
 def test_private_files_and_default_model(tmp_path, monkeypatch):

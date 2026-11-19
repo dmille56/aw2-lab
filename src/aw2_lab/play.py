@@ -27,7 +27,7 @@ from pydantic import SecretStr
 from aw2_lab.ai_host import prepare_pi
 from aw2_lab.api.app import create_app
 from aw2_lab.api.client_web import configure_client
-from aw2_lab.api_contract import VERIFIED_CONFIGURATION, MatchConfiguration
+from aw2_lab.api_contract import VERIFIED_CONFIGURATION, MatchConfiguration, default_players
 from aw2_lab.api_validation import validate_configuration
 from aw2_lab.emulator import EmulatorMode, EmulatorSettings
 from aw2_lab.local_launch import LocalLaunch
@@ -91,13 +91,14 @@ def optional_limit(value: str) -> int | None:
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(prog="aw2-lab play", description=__doc__)
     result.add_argument("mode", choices=("pvp", "ai-vs-player", "ai-vs-ai"))
-    result.add_argument("--human-slot", type=int, choices=(1, 2), default=1)
     result.add_argument(
         "--map",
-        choices=tuple(k for k, v in MAPS_BY_ID.items() if v.player_count == 2),
+        choices=tuple(MAPS_BY_ID),
         default="bean_island",
+        help="catalog map identifier; three- and four-player maps use that many CO slots",
     )
-    for slot, co in ((1, "andy"), (2, "max")):
+    result.add_argument("--human-slot", type=int, choices=(1, 2, 3, 4), default=1)
+    for slot, co in ((1, "andy"), (2, "max"), (3, "sami"), (4, "flak")):
         result.add_argument(f"--co-{slot}", choices=CO_ID_VALUES, default=co)
         result.add_argument(
             f"--model-{slot}", help=f"Pi provider/model for slot {slot}; overrides --model"
@@ -153,19 +154,34 @@ def parser() -> argparse.ArgumentParser:
     return result
 
 
-def ai_slots(mode: str, human_slot: int) -> tuple[PlayerSlot, ...]:
+def slots_for(player_count: int) -> tuple[PlayerSlot, ...]:
+    return tuple(PlayerSlot(f"slot_{index}") for index in range(1, player_count + 1))
+
+
+def selected_slots(map_id: str) -> tuple[PlayerSlot, ...]:
+    """Every slot the selected map advertises, in contract order."""
+    return slots_for(MAPS_BY_ID[map_id].player_count)
+
+
+def ai_slots(mode: str, human_slot: int, player_count: int = 2) -> tuple[PlayerSlot, ...]:
     return tuple(
         slot
-        for index, slot in enumerate((PlayerSlot.SLOT_1, PlayerSlot.SLOT_2), 1)
+        for index, slot in enumerate(slots_for(player_count), 1)
         if mode == "ai-vs-ai" or (mode == "ai-vs-player" and index != human_slot)
     )
 
 
 def configuration(args: argparse.Namespace) -> MatchConfiguration:
+    player_count = MAPS_BY_ID[args.map].player_count
+    if args.mode != "pvp" and args.human_slot > player_count:
+        raise PlayError(
+            f"--human-slot {args.human_slot} exceeds the {player_count}-slot map {args.map}"
+        )
     data = VERIFIED_CONFIGURATION.model_dump(mode="json")
     data["map_id"] = args.map
-    data["players"][0]["co_id"] = args.co_1
-    data["players"][1]["co_id"] = args.co_2
+    data["players"] = [player.model_dump(mode="json") for player in default_players(player_count)]
+    for index in range(player_count):
+        data["players"][index]["co_id"] = getattr(args, f"co_{index + 1}")
     data["rules"].update(
         fog=args.fog,
         weather=args.weather,
@@ -210,7 +226,7 @@ async def provision(
 ) -> tuple[UUID, dict[PlayerSlot, str]]:
     summary = await client.create_match(config)
     credentials = {}
-    for slot in (PlayerSlot.SLOT_1, PlayerSlot.SLOT_2):
+    for slot in selected_slots(config.map_id):
         invitation, token = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
         await client.invite(summary.match_id, slot, SecretStr(invitation))
         async with AsyncAW2Client(base_url, credential=token) as player:
@@ -384,7 +400,7 @@ async def run(args: argparse.Namespace) -> None:
         raise PlayError("Save profile must be an existing .sav or .sps file")
     if args.max_ai_turns < 0:
         raise PlayError("--max-ai-turns must be nonnegative")
-    slots = ai_slots(args.mode, args.human_slot)
+    slots = ai_slots(args.mode, args.human_slot, MAPS_BY_ID[args.map].player_count)
     executable = shutil.which(args.pi_bin) if slots else None
     models = {
         slot: getattr(args, f"model_{slot.value[-1]}") or args.model or default_model()
