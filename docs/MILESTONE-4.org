@@ -962,9 +962,12 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     (18) is packed but unused in Versus maps.
     Pipes: the complete pipe and seam set used anywhere in the catalog is =258=, =259=,
     =288=, =289=, =320=, =321=, =322=, =323=, =352=, =353= (pipe) and =354=, =355=
-    (seam), and all twelve are already packed. Pipe Maze (map ID 104, 22x22) is the
-    only pipe map and is four-player, while =aw2-lab play --map= accepts two-player
-    maps, so pipe artwork has no live mGBA comparison yet.
+    (seam), and all twelve are already packed. Six catalog maps contain pipe or seam
+    cells: Missile Plains (60), Pipe Maze (88, four-player), The Trident (35),
+    Wyrms Eye (16, three-player), Big Daddy (12), and Nest Egg (12). Pipe Maze holds
+    ten of the twelve IDs; =320= and =353= appear only on Big Daddy, Nest Egg, The
+    Trident, and Wyrms Eye. At the time of the audit =aw2-lab play --map= accepted only
+    two-player maps, so pipe artwork had no live mGBA comparison.
     Rivers: 43 distinct river IDs appear in catalog maps, all inside the 68 packed
     river variants. Live check on a Lost River match (32x15, emulator window at
     offset =0,2=): 27 river cells in view, 20 inside the 1,500-point tolerance, median
@@ -977,17 +980,52 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     the client does not composite the emulator's status panel or unit sprites into the
     ground region, so pixel comparison only holds on unobstructed cells.
 
-*** TODO Verify pipe and seam artwork against mGBA
-    The audit found pipe and seam artwork is complete for every map the catalog can
-    produce, but no launchable match contains pipes: Pipe Maze (map ID 104, 22x22) is
-    four-player and =aw2-lab play --map= accepts only =player_count == 2= maps.
-    - [ ] Let the launcher accept three- and four-player catalog maps with matching
-      player slots, colors, and teams, reusing the existing profile validation.
-    - [ ] Launch Pipe Maze with an external sprite pack and compare the emulator's
-      ground pixels with the atlas regions selected for the twelve pipe and seam IDs
-      =258, 259, 288, 289, 320, 321, 322, 323, 352, 353= and =354, 355=.
-    - [ ] Record per-cell differences and human acceptance; add a ROM-gated test only
-      after the four-player path exists.
+*** DONE Verify pipe and seam artwork against mGBA
+    Human request (2026-11-19): commit the audit TODOs and work the first one.
+    Launcher: =aw2-lab play --map= now accepts every catalog map. The player list comes
+    from the selected map's advertised =player_count=, so three- and four-player maps get
+    consecutive slots with the contract's default colors and teams, and =--co-1= to
+    =--co-4= set their COs (Andy, Max, Sami, Flak). =--human-slot= takes 1-4 and
+    =configuration()= rejects a human slot beyond the map's slots. Each advertised slot
+    is invited and joined in =provision()= instead of a hardcoded two-slot pair.
+    =tests/test_play.py= covers the two- and four-slot configurations and the invalid
+    human slot; the full suite passed (1,585 checks, =pre-commit run --all-files= green).
+    Unlock caveat: Pipe Maze is =requires_unlock=, so it needs a save profile that has
+    unlocked Versus maps. Cold boot refuses it otherwise with "Pipe Maze is not
+    selectable in this save"; the check used
+    =~/Downloads/aw2/game-saves/aw2-everything-unlocked.sav=.
+    Comparison method: the Lua bridge =press_keys= D-pad taps move the battle cursor, and
+    the view pans with it. Each screenshot's 15x10 cell window is identified by sampling
+    cells against their packed atlas region and taking the offset with the lowest median
+    per-cell difference, then each pipe or seam cell in view is compared pixel by pixel
+    with its own =terrain_class:graphical_tile_id= region and with the other eleven
+    pipe/seam regions as decoys.
+    Results (2026-11-19), day 1, Andy/Max/Sami/Flak on Pipe Maze (22x22, 88 pipe/seam
+    cells) and Andy/Max on Big Daddy (19x15, 12 pipe/seam cells):
+    - Pipe Maze: 185 screenshots over 27 distinct viewport offsets put every pipe or seam
+      cell in view at least once. 85 of 88 matched their own variant, maximum 591 points
+      over 256 pixels and never more than =+-1= per channel, the same screenshot rounding
+      seen on clean plains tiles. The three unmatched cells, =9,0=, =9,1= and =9,14=, were
+      under unit sprites or the status panel.
+      Verified IDs =258=, =259=, =288=, =289=, =321=, =322=, =323=, =352=, =354=, =355=.
+    - Big Daddy: 11 of 12 cells matched (maximum 598, again within one unit per channel);
+      cell =9,5= was under a unit. It supplied =320= and =353=, the two IDs Pipe Maze lacks.
+    - All twelve packed pipe and seam IDs therefore have a live mGBA match, and the
+      variant choice is not incidental: on every clean cell the correct variant beat the
+      closest of the other eleven pipe/seam variants by at least 8,850 points - for
+      instance cell =8,7=, =15:323= at 575 points against 8,864 for the nearest decoy.
+    Remaining: four cells hidden under unit sprites or the panel are still unverified, and
+    only 27 of the 104 possible viewport offsets were reached. The repeatable-tool TODO
+    below is the place to close them.
+
+*** TODO Close the remaining pipe-cell gaps
+    Four pipe cells were occluded and never compared: Pipe Maze =9,0=, =9,1=, and =9,14=
+    (all at 7,020-16,576 points, consistent with a unit sprite or the status panel drawn
+    over the tile) and Big Daddy =9,5= (5,264 points).
+    - [ ] Move the covering units, or compare after enough turns that the ground is
+      exposed, and re-measure those four cells.
+    - [ ] Drive the cursor to every viewport offset so all =width * height= cells appear
+      in at least one screenshot.
 
 *** TODO Confirm spent-silo artwork after a silo is fired
     Class 18 never appears in the static map data, so the audit cannot reach it, but a

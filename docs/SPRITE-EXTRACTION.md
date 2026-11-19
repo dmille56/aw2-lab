@@ -132,14 +132,19 @@ cell through the client's lookup found no cell without artwork. Only classes 1-8
 10-17, and 19 occur in Versus maps, so class 9, class 18 (spent silo, packed but
 unused), and the campaign-only classes 20-31 never appear. The complete pipe and seam
 set is 258, 259, 288, 289, 320, 321, 322, 323, 352, 353 (pipe) and 354, 355 (seam),
-all of which are packed; Pipe Maze (map ID 104, 22x22) is the only pipe map and is
-four-player, so its artwork is not yet comparable against mGBA because `aw2-lab play`
-launches two-player matches. 43 distinct river IDs occur across the catalog, all
+all of which are packed. Six maps contain pipe or seam cells - Missile Plains (60),
+Pipe Maze (88), The Trident (35), Wyrms Eye (16), Big Daddy (12), and Nest Egg (12) -
+and `aw2-lab play` now launches three- and four-player maps, so Pipe Maze (map ID 104,
+22x22) and Big Daddy were compared cell by cell against the emulator: 96 of the 100
+pipe and seam cells across those two maps matched their exact atlas region within one
+unit per channel, and the four outliers sit under unit sprites or the status panel. See
+[Milestone 4](MILESTONE-4.org) for the method and the numbers. 43 distinct river IDs occur
+across the catalog, all
 within the 68 packed river variants: a Lost River match matched 20 of its 27 in-window
 river cells within 1,500 points (median 254, minimum 108), the outliers being cells
 covered by unit sprites or the emulator status panel. Follow-up work for the parts this
-audit cannot reach — four-player pipe maps, spent silos, animated terrain frames,
-per-cell property art, unit and portrait comparison — is tracked as TODO items in
+audit cannot reach - spent silos, animated terrain frames, per-cell property art, unit
+and portrait comparison, and the four occluded pipe cells - is tracked as TODO items in
 [Milestone 4](MILESTONE-4.org).
 
 Additional property sources, relative to `0x0CFFC4`, are Base `+0x80` (four tiles),
