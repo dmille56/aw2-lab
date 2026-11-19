@@ -977,6 +977,65 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     the client does not composite the emulator's status panel or unit sprites into the
     ground region, so pixel comparison only holds on unobstructed cells.
 
+*** TODO Verify pipe and seam artwork against mGBA
+    The audit found pipe and seam artwork is complete for every map the catalog can
+    produce, but no launchable match contains pipes: Pipe Maze (map ID 104, 22x22) is
+    four-player and =aw2-lab play --map= accepts only =player_count == 2= maps.
+    - [ ] Let the launcher accept three- and four-player catalog maps with matching
+      player slots, colors, and teams, reusing the existing profile validation.
+    - [ ] Launch Pipe Maze with an external sprite pack and compare the emulator's
+      ground pixels with the atlas regions selected for the twelve pipe and seam IDs
+      =258, 259, 288, 289, 320, 321, 322, 323, 352, 353= and =354, 355=.
+    - [ ] Record per-cell differences and human acceptance; add a ROM-gated test only
+      after the four-player path exists.
+
+*** TODO Confirm spent-silo artwork after a silo is fired
+    Class 18 never appears in the static map data, so the audit cannot reach it, but a
+    fired missile silo becomes a spent silo during play. The pack carries four spent
+    silo regions keyed by owner slot.
+    - [ ] Fire a silo in a live match and decode the resulting cell's graphical tile
+      ID and terrain class.
+    - [ ] Compare the emulator's cell with the selected =18:owner_slot= region, and
+      confirm the symbolic fallback is not used.
+
+*** TODO Capture animated terrain frames
+    =terrain_sample= composes only the first frame of the animated terrain pages, so a
+    cell whose art cycles in the game renders statically in the client.
+    - [ ] Capture consecutive frames of the same unobstructed cell through the bridge
+      =advance_frames= operation and diff them.
+    - [ ] If frames differ, pack the additional frames and animate the affected tiles,
+      keeping older manifests readable.
+
+*** TODO Check per-cell property artwork
+    City, HQ, airport, port, base, missile silo, and spent silo art is selected by army
+    rather than by map cell, which matched on the maps checked so far.
+    - [ ] Extend the pixel comparison to captured properties, whose graphical tile ID
+      and owner change during play.
+    - [ ] If a property cell's ground or shape differs from its army representative,
+      extract an army-and-cell overlay for that class.
+
+*** TODO Make the emulator-versus-atlas comparison repeatable
+    The checks in this audit ran from ad hoc scripts outside the repository.
+    - [ ] Turn the comparison into a documented, opt-in tool that fetches a match
+      state and screenshot, finds the emulator viewport offset, and reports per-class
+      differences while skipping cells covered by unit sprites or the status panel.
+    - [ ] Run it across the two-player maps already available and record the results
+      in this milestone.
+
+*** TODO Verify unit and CO portrait sprites against mGBA
+    The 95 unit frames (19 unit types by five armies) and 19 CO portraits were inspected
+    in the generated atlas but never compared with what the emulator draws.
+    - [ ] Compare each unit type and army silhouette, and each CO portrait, with a live
+      emulator render.
+    - [ ] Note any frame, palette, or scaling mismatch for follow-up extraction work.
+
+*** TODO Decide how campaign-only terrain classes render
+    Classes 9 and 20-31 (lab, minicannons, laser, volcano, black hole factory, deathray,
+    and similar) never appear in Versus maps and have no artwork, so the client falls
+    back to symbolic labels.
+    - [ ] Record whether campaign or War Room maps are ever expected to run here.
+    - [ ] If they are, extract those classes' artwork rather than guessing a mapping.
+
 *** IN-PROGRESS Move compact CO displays and turn controls to the right of the board
     Human playtest feedback (2026-11-17): move the CO/player displays and Power,
     Super Power, End turn, and Surrender buttons from above the board into a

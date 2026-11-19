@@ -137,7 +137,10 @@ four-player, so its artwork is not yet comparable against mGBA because `aw2-lab 
 launches two-player matches. 43 distinct river IDs occur across the catalog, all
 within the 68 packed river variants: a Lost River match matched 20 of its 27 in-window
 river cells within 1,500 points (median 254, minimum 108), the outliers being cells
-covered by unit sprites or the emulator status panel.
+covered by unit sprites or the emulator status panel. Follow-up work for the parts this
+audit cannot reach — four-player pipe maps, spent silos, animated terrain frames,
+per-cell property art, unit and portrait comparison — is tracked as TODO items in
+[Milestone 4](MILESTONE-4.org).
 
 Additional property sources, relative to `0x0CFFC4`, are Base `+0x80` (four tiles),
 Airport `+0x140`, Port `+0x240`, City `+0x440`, and Missile Silo `+0xA40` (six tiles
