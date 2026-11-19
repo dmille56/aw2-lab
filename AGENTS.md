@@ -24,6 +24,16 @@ Use pytest and name tests `test_*.py`; place them under `tests/`. Cover observab
 
 ## Commit & Pull Request Guidelines
 
+### Review before committing
+
+Never commit until the user has reviewed the change. Leave edits unstaged in the working
+tree, run `pre-commit run --all-files`, then open a Plannotator review of the uncommitted
+diff with `plannotator-agent review` (the `plannotator-review` skill; TUI mode opens a
+tmux popup, browser mode prints a localhost/Tailscale link). Apply every actionable
+annotation, rerun `plannotator-agent review` on the updated tree, and repeat until no
+actionable findings remain. Then summarize the diff and commit only after the user
+approves. This applies to every commit, including documentation-only and one-line fixes.
+
 Recent commits use short, lowercase imperative or action-oriented summaries (for example, `add initial flake.nix`). Keep commits focused. Pull requests should explain the change, list relevant checks and their results, link related issues when applicable, and include screenshots only for visual changes. Call out behavior that remains planned or unverified against mGBA.
 
 ## Security & Local Configuration
