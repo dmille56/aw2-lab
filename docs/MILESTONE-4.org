@@ -1113,10 +1113,31 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     The four base cells flagged by the first run (=0,0=, =0,2=, =2,1= against =14:3=, and
     =21,0= against =14:2=, 1,728 points each) matched once the audit started measuring every
     screenshot of a view instead of only the first, so they were occlusion, not artwork gaps.
-    - [ ] Decode which of the eight HQ tiles, six city tiles, or four base tiles each cell
+    Root cause (2026-11-20): property artwork is not offset by army at all. Each property
+    class has one artwork block and the game paints it with the owning army's palette.
+    HQ art is the eight blocks at =0x0CFFC4 + 0x1700=, and every owner draws the first one:
+    the emulator's pixels at HQ =20,2= (army 2) and HQ =1,2= (army 3) equal the first block
+    with their own palette to 0 points, while the pack's =8:2= and =8:3= regions - blocks 1
+    and 2 of that group - do not. =property_frame= in =src/aw2_lab/sprite_pack.py= used to
+    add =(owner_slot - 1) * 0x100= to the HQ source; it now uses one block per class and
+    only changes palette. Re-running the Pipe Maze audit against the regenerated pack (528
+    screenshots, 104 views, every matched cell at 0 points): 457 cells matched and 27 did
+    not, and no property cell the camera can see is among the 27. Cities match 18 of 18,
+    airports 4 of 4, headquarters 3 of 4 and bases 17 of 20 and silos 3 of 4 - each cell the
+    audit still reports on those classes, such as HQ =20,19= and silo =20,20=, is covered by
+    the HUD or cursor in every view rather than painted with different artwork. Big Daddy's
+    =8:2= headquarters cell now matches too; the one property cell left there, city =1,12=
+    against =6:1= (5,671 points), differs only in its two lowest rows, which mGBA paints in
+    red and orange rather than with city art.
+    - [x] Decode which of the eight HQ tiles, six city tiles, or four base tiles each cell
       references, and pack them by =terrain_class:graphical_tile_id= instead of by owner.
+      Decoded: each cell references the whole block for its class, and only the palette
+      depends on the owner, so per-cell keys are neither needed nor possible. The pack keeps
+      =terrain_class:owner_slot= keys; only the headquarters geometry was wrong.
     - [ ] Extend the pixel comparison to captured properties, whose graphical tile ID and
-      owner change during play.
+      owner change during play. The audit already reads tile IDs and owners from the live
+      battle state rather than from the ROM, and =--spent-silo= measures a silo after a
+      launch changes its cell, but the sweep measures one snapshot taken before the pan.
     - [ ] If a property cell's ground or shape still differs, extract an army-and-cell
       overlay for that class.
 

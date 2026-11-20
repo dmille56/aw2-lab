@@ -30,10 +30,13 @@ from aw2_lab.sprite_extraction import (
 
 TERRAIN_CLASSES = tuple(range(1, 9)) + tuple(range(10, 20))
 # Sources selected by the original terrain information renderer at 0x0803F6BC. Their
-# artwork is chosen by army (headquarters, cities, and other property classes), so
-# their per-cell graphical IDs cannot be packed without an army-specific overlay.
+# artwork is drawn from one block per class and painted with the owning army's palette,
+# so their per-cell graphical IDs cannot be packed without an owner-specific palette.
+# Headquarters art is the eight 256-byte blocks starting at 0x0D16C4. The audit sees
+# every owner draw the first one; only its windows blink from frame to frame.
 PROPERTY_SOURCES = {
     6: (0x0CFFC4 + 0x440, 6),
+    8: (0x0CFFC4 + 0x1700, 8),
     10: (0x0CFFC4 + 0x140, 6),
     11: (0x0CFFC4 + 0x240, 6),
     14: (0x0CFFC4 + 0x80, 4),
@@ -47,7 +50,7 @@ PROPERTY_SOURCES = {
 # flat: the ID they reference carries the tip of a mountain range that spills out of
 # the mountain cell below, so every non-property class needs per-cell artwork.
 TERRAIN_VARIANT_CLASSES = tuple(
-    terrain for terrain in TERRAIN_CLASSES if terrain not in PROPERTY_SOURCES and terrain != 8
+    terrain for terrain in TERRAIN_CLASSES if terrain not in PROPERTY_SOURCES
 )
 
 
@@ -356,10 +359,14 @@ def attach_animation_frames(
 
 
 def property_frame(rom: bytes, terrain: int, army: int) -> tuple[int, int, bytes]:
-    if terrain == 8:
-        offset, count = 0x0D16C4 + max(0, army - 1) * 256, 8
-    else:
-        offset, count = PROPERTY_SOURCES[terrain]
+    """Compose a property cell: fixed geometry per class, palette per owner.
+
+    Live audits on Pipe Maze and Big Daddy show the engine paints the headquarters block
+    at 0x0D16C4 for every owning army, recolored with that army's palette. The previous
+    per-army offset (owner 2 drawing block 1, owner 3 drawing block 2) is not what the
+    emulator renders.
+    """
+    offset, count = PROPERTY_SOURCES[terrain]
     palette = decode_palette(rom, 0x0D3EE4 + army * 32, transparent=True)
     return compose_tiles([decode_tile(rom, offset + i * 32, palette) for i in range(count)], 2)
 

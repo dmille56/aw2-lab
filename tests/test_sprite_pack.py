@@ -22,10 +22,12 @@ from aw2_lab.sprite_extraction import (
     terrain_sample,
 )
 from aw2_lab.sprite_pack import (
+    PROPERTY_SOURCES,
     TERRAIN_CLASSES,
     TERRAIN_VARIANT_CLASSES,
     attach_animation_frames,
     build_sprite_pack,
+    property_frame,
     terrain_frame,
     terrain_variant_frame,
 )
@@ -61,6 +63,36 @@ def test_every_variant_bearing_terrain_class_is_packed() -> None:
     # City, headquarters, and other property artwork is chosen per army, so its cells
     # cannot be keyed by graphical tile ID alone.
     assert not set(TERRAIN_VARIANT_CLASSES) & {6, 8, 10, 11, 14, 17, 18}
+
+
+def test_property_classes_have_one_artwork_block_each() -> None:
+    """Property art is indexed by terrain class; the owner only selects a palette."""
+    assert set(PROPERTY_SOURCES) == {6, 8, 10, 11, 14, 17, 18}
+    # Headquarters art starts at 0x0D16C4 and spans eight tiles, the wide 16x32 sprite.
+    assert PROPERTY_SOURCES[8] == (0x0CFFC4 + 0x1700, 8)
+
+
+@pytest.mark.skipif(
+    os.environ.get("AW2_RUN_SPRITE_ACCEPTANCE") != "1" or not os.environ.get("AW2_ROM_PATH"),
+    reason="requires explicit opt-in and a supported local ROM",
+)
+def test_property_artwork_recolors_without_changing_shape() -> None:
+    """Live audits show the game draws one shape per property class in the owner's colors.
+
+    Pipe Maze headquarters cells owned by armies 2 and 3 render the block at 0x0D16C4
+    byte-for-byte with their own palette; the per-army block each owner used to be drawn
+    from is a different shape.
+    """
+    rom = Path(os.environ["AW2_ROM_PATH"]).read_bytes()
+    for terrain in PROPERTY_SOURCES:
+        frames = [property_frame(rom, terrain, army) for army in range(1, 6)]
+        shapes = {bytes(pixels[3::4]) for _, _, pixels in frames}
+        colors = {
+            frozenset(pixels[i : i + 3] for i in range(0, len(pixels), 4) if pixels[i + 3])
+            for _, _, pixels in frames
+        }
+        assert len(shapes) == 1, f"terrain {terrain} art should not change shape by army"
+        assert len(colors) > 1, f"terrain {terrain} art should differ by owner palette"
 
 
 def test_pack_rejects_unknown_rom_before_writing(tmp_path: Path) -> None:

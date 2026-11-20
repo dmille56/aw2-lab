@@ -110,9 +110,10 @@ fall back to `terrain_class:owner_slot` when a variant is absent. Regenerate an
 external pack to render each map's native mountain shapes, woods shapes, and road
 bends, straights, and junctions.
 
-Base, Airport, Port, City, Missile Silo, Spent Silo, and HQ artwork is selected by
-army rather than by map cell, so those seven classes stay keyed by owner slot and
-cannot be packed per cell without an army-specific overlay.
+Base, Airport, Port, City, Missile Silo, Spent Silo, and HQ artwork is drawn from one
+block per class and painted with the owning army's palette, so those seven classes stay
+keyed by owner slot and cannot be packed per cell without a per-cell overlay. Only the
+colors change with the owner; the shape does not.
 
 Live check on 2026-11-18: a Bean Island match rendered all 240 tiles from the atlas,
 212 through a per-cell variant and 28 through an army-selected representative, with
@@ -151,10 +152,12 @@ and portrait comparison, and the four occluded pipe cells - is tracked as TODO i
 
 Additional property sources, relative to `0x0CFFC4`, are Base `+0x80` (four tiles),
 Airport `+0x140`, Port `+0x240`, City `+0x440`, and Missile Silo `+0xA40` (six tiles
-each), and Spent Silo `+0xB00` (four tiles). HQ sources are at
-`0x0D16C4 + (army_id - 1) * 0x100` (eight tiles); neutral uses the first HQ shape
-with the neutral palette. These regions were checked against the original source
-selection routine and visually inspected in the generated atlas. Terrain ground
+each), and Spent Silo `+0xB00` (four tiles). HQ art is the eight 256-byte blocks starting
+at `0x0CFFC4 + 0x1700`. Every owner draws the first block, recolored with its own palette;
+the audit's headquarters cells in Pipe Maze and Big Daddy all match it to 0 points. A pack
+that offsets the HQ shape by `army_id - 1` draws artwork the game never paints. These
+regions were checked against the original source selection routine and verified pixel for
+pixel against mGBA. Terrain ground
 regions use the first graphical tile matching each class in the verified lookup,
 except Sea: graphical tile 42 is open water observed at Bean Island (0,0).
 Tile 8 is a shoreline/island transition and is unsuitable for a repeated sea
@@ -272,6 +275,18 @@ match what mGBA draws pixel for pixel. Every pipe (15) and seam (16) cell on Pip
 matched, which closes the four pipe cells left unverified by the earlier manual checks:
 Pipe Maze 9,0, 9,1, and 9,14 now match their packed regions, and Big Daddy 9,5 turns out to
 be animated pipe art rather than missing artwork.
+
+Headquarters geometry (2026-11-20): the three Pipe Maze HQ cells and the Big Daddy HQ cell
+that the first audits flagged came from the pack drawing a different shape for each owner.
+The emulator draws the block at `0x0CFFC4 + 0x1700` for every army, only swapping palette:
+army 2's HQ cell and army 3's HQ cell both match that block with their own palette at 0
+points. Re-auditing Pipe Maze with the corrected pack (528 screenshots, 104 views) matched
+457 of 484 cells, every matched cell at 0 points, and left no property cell the camera can
+see unmatched: cities 18 of 18, airports 4 of 4, headquarters 3 of 4, bases 17 of 20, silos
+3 of 4. Each property cell still reported is covered by the HUD or the cursor in every
+view, not painted with different artwork. The HQ region also cycles: the animation
+probe captured a second frame differing from the packed one in nine pixels, all in the
+building's upper rows (16, 18, 20 and 22), which is why the pack stores frames for `8:1`.
 
 Big Daddy audit the same day (isolated audit emulator, 284 screenshots, 30 viewport
 offsets, all 285 cells in view): 229 matched and 56 did not - 36 cells are covered by a unit
