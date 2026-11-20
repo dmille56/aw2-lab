@@ -32,13 +32,16 @@ import os
 import signal
 import socket
 import zlib
-from collections import Counter
+from collections import Counter, deque
 from collections.abc import AsyncIterator, Awaitable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
+from aw2_lab.action_navigation import ActionNavigator, NavigationError, NavigationLimits
+from aw2_lab.aw2_unit_profiles import BASELINE_RULES, UNIT_PROFILES, RuleContext, movement_cost
 from aw2_lab.bridge import BridgeError, LuaBridgeClient
 from aw2_lab.cold_boot import ColdBootError, boot_fixed_versus_match
 from aw2_lab.emulator import (
@@ -49,11 +52,12 @@ from aw2_lab.emulator import (
 )
 from aw2_lab.map_catalog import MAPS_BY_ID, VersusMap
 from aw2_lab.match_contract import CoId
+from aw2_lab.match_observation import MatchObservationTracker
 from aw2_lab.sprite_extraction import decode_lz77, encode_png
 from aw2_lab.state_decoder import capture_game_state
-from aw2_lab.state_model import BattleState, GameState, ValueStatus
+from aw2_lab.state_model import BattleState, GameState, ValueStatus, Weather
 from aw2_lab.state_validation import BATTLE_MAP_ID_ADDRESS
-from aw2_lab.ui_state import CursorStatus
+from aw2_lab.ui_state import CursorStatus, MenuItem
 
 MAP_TABLE = 0x005C77A0
 MAP_TABLE_STRIDE = 0x5C
@@ -74,6 +78,14 @@ WRONG_REGION = "atlas region wrong"
 # pack keeps one representative per class and army, so these cells are the ones where a
 # mismatch means "the packed army art differs from what the emulator draws".
 PROPERTY_CLASSES = {6, 8, 10, 11, 14, 17, 18}
+SILO_CLASS = 17
+SPENT_SILO_CLASS = 18
+# Only bases produce units, and a silo fires only when a unit is standing on it, so the
+# spent-silo check needs a silo directly beside a base the active army owns.
+PRODUCTION_CLASSES = {14}
+INFANTRY_UNIT_TYPE = 1
+SPENT_SILO_WALL_TIMEOUT = 60.0
+SPENT_SILO_RESOLUTION_WALL_TIMEOUT = 300.0
 DIRECTIONS = {"up": 64, "down": 128, "left": 32, "right": 16}
 PRESS_FRAMES = 6
 SETTLE_FRAMES = 12
@@ -86,8 +98,8 @@ AUDIT_CO_IDS: tuple[CoId, ...] = ("andy", "max", "sami", "flak")
 # Commanders the Teams screen offers on a blank cartridge. Selecting any other CO from a
 # fresh save silently lands on a different commander, so the audit refuses those maps.
 FRESH_SAVE_CO_IDS: tuple[CoId, ...] = ("andy", "max")
-# A packed region must paint at least this many of a cell's 256 pixels before its changed
-# pixels can be read as terrain animation rather than as an overlay drawn on top of it.
+# Require ground artwork to cover at least three quarters of a cell before using it
+# as evidence of terrain animation or confirming the spent-silo tile.
 MIN_GROUND_COVERAGE = TILE * TILE * 3 // 4
 # The largest catalog map is 45x30 cells, and the sweep needs roughly one screenshot per
 # cell, so the default leaves room for any map plus the animation probes.
@@ -146,7 +158,7 @@ class CellMeasurement:
     @property
     def partial_artwork(self) -> bool:
         """The atlas covers part, but not most, of this cell's pixels."""
-        return 0 < self.covered < TILE * TILE * 3 // 4
+        return 0 < self.covered < MIN_GROUND_COVERAGE
 
 
 @dataclass(slots=True)
@@ -163,6 +175,7 @@ class AuditReport:
     cells: dict[tuple[int, int], CellMeasurement] = field(default_factory=dict)
     never_in_view: list[tuple[int, int]] = field(default_factory=list)
     animation: dict[str, Any] | None = None
+    spent_silo: dict[str, Any] | None = None
     tile_images: list[str] = field(default_factory=list)
 
     def verdict(self, cell: CellMeasurement) -> str:
@@ -259,6 +272,7 @@ class AuditReport:
             "verdicts": dict(sorted(verdicts.items())),
             "comparison_tiles": self.tile_images,
             "animation": self.animation,
+            "spent_silo": self.spent_silo,
         }
 
 
@@ -1240,6 +1254,374 @@ async def check_animation(
     }
 
 
+def spent_silo_pair(cells: list[GroundCell], army: int) -> tuple[GroundCell, GroundCell] | None:
+    """Return ``(silo, base)`` for a missile silo beside a base owned by ``army``.
+
+    Terrain class 18 has no entry in any Versus map's static data: a silo only becomes
+    spent after a unit standing on it launches. Producing infantry on a neighbouring base
+    is the shortest way to get a unit onto the silo, so the check needs the two cells to
+    touch.
+    """
+    bases = {
+        (cell.x, cell.y)
+        for cell in cells
+        if cell.terrain_class in PRODUCTION_CLASSES and cell.owner_slot == army
+    }
+    grid = {(cell.x, cell.y): cell for cell in cells}
+    for cell in cells:
+        if cell.terrain_class != SILO_CLASS:
+            continue
+        for direction in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            neighbour = (cell.x + direction[0], cell.y + direction[1])
+            if neighbour in bases:
+                return cell, grid[neighbour]
+    return None
+
+
+def silo_launch_target(silo: GroundCell, map: VersusMap) -> tuple[int, int]:
+    """Pick a cell the launch cursor reaches directly above or below the silo."""
+    for offset in (-1, 1, -2, 2):
+        y = silo.y + offset
+        if 0 <= y < map.height:
+            return silo.x, y
+    raise AuditError(f"The silo at ({silo.x},{silo.y}) has no cell beside it to launch at")
+
+
+def step_off_path(
+    silo: GroundCell,
+    cells: list[GroundCell],
+    occupied: set[tuple[int, int]],
+    *,
+    friendly: set[tuple[int, int]],
+    weather: Weather,
+    context: RuleContext,
+    fuel: int,
+) -> list[tuple[int, int]] | None:
+    """Find an infantry route to a free cell that leaves the spent silo visible.
+
+    A unit sprite overhangs its own cell, so standing directly beside the spent silo would
+    cover part of it. Two or more cells away keeps the cell's 256 ground pixels clean.
+    """
+    movement_type = UNIT_PROFILES[INFANTRY_UNIT_TYPE].movement_type
+    allowance = min(fuel, context.unit_limits(INFANTRY_UNIT_TYPE)[0])
+    terrain = {(cell.x, cell.y): cell.terrain_class for cell in cells}
+    origin = (silo.x, silo.y)
+    frontier: deque[tuple[tuple[int, int], int, list[tuple[int, int]]]] = deque([(origin, 0, [])])
+    best_cost = {origin: 0}
+    while frontier:
+        (x, y), spent, path = frontier.popleft()
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            position = (x + dx, y + dy)
+            if position not in terrain or (position in occupied and position not in friendly):
+                continue
+            cost = movement_cost(terrain[position], movement_type, weather, context=context)
+            if cost is None:
+                continue
+            total = spent + cost
+            if total >= best_cost.get(position, allowance + 1):
+                continue
+            next_path = [*path, position]
+            distance = max(abs(position[0] - silo.x), abs(position[1] - silo.y))
+            if position not in occupied and distance >= 2:
+                return next_path
+            best_cost[position] = total
+            frontier.append((position, total, next_path))
+    return None
+
+
+def compare_regions(
+    pack: SpritePack, regions: dict[str, dict[str, int]], rendered: bytes
+) -> list[list[Any]]:
+    """Difference the emulator's pixels with each named atlas region, closest first."""
+    scores = []
+    for key, region in regions.items():
+        tile = pack.tile(region)
+        if opaque_pixels(tile):
+            scores.append([key, difference(tile, rendered)])
+    return sorted(scores, key=lambda item: item[1])
+
+
+async def fire_silo(
+    bridge: LuaBridgeClient,
+    rom_path: Path,
+    map_id: str,
+    screenshots_dir: Path,
+) -> dict[str, Any]:
+    """Launch a silo in the match the bridge serves and report the cell it leaves behind.
+
+    Class 18 never appears in a static map, so the camera sweep can never reach a spent
+    silo on its own. This produces infantry beside a silo, walks it onto the silo, fires
+    it, and then steps the unit off the cell so the sweep can see the spent ground. The
+    audit's sweep measures the cell like any other; `spent_silo_evidence` turns that
+    measurement into the artwork verdict.
+    """
+    map = MAPS_BY_ID[map_id]
+    screenshots_dir = screenshots_dir.expanduser().resolve()
+    navigator = ActionNavigator(
+        bridge,
+        lambda: capture_game_state(bridge, rom_path=rom_path),
+        limits=NavigationLimits(
+            # Each cursor step takes eight release frames and one input frame.
+            # Leave another 180 frames for the A press and menu observation.
+            frame_budget=9 * (map.width + map.height - 2) + 180,
+            wall_timeout=SPENT_SILO_WALL_TIMEOUT,
+            resolution_wall_timeout=SPENT_SILO_RESOLUTION_WALL_TIMEOUT,
+        ),
+        screenshot_writer=bridge.save_screenshot,
+        screenshot_directory=screenshots_dir / "spent-silo",
+    )
+
+    async def turn() -> BattleState:
+        state = await capture_game_state(bridge, rom_path=rom_path)
+        value = state.battle.value
+        if value is None:
+            raise AuditError(
+                "The audit emulator left the battle turn while firing the silo: "
+                + "; ".join(state.battle.reasons)
+            )
+        return value
+
+    async def end_turn() -> None:
+        await navigator.open_command_menu()
+        await navigator.navigate_menu(MenuItem.END)
+        await navigator.confirm_end_turn()
+
+    async def return_to_army(army: int) -> int:
+        """End at least one turn, then keep ending until ``army`` is active again.
+
+        A unit that was just produced or that just launched is spent for the turn it
+        acted on, so the audit must always end the current turn before that unit can
+        move again.
+        """
+        ends = 0
+        while True:
+            await end_turn()
+            ends += 1
+            if (await turn()).active_player_slot == army:
+                return ends
+            if ends >= 8:
+                raise AuditError(f"The match never returned to army {army} after firing")
+
+    state = await capture_game_state(bridge, rom_path=rom_path)
+    battle = state.battle.value
+    if battle is None:
+        raise AuditError(
+            "Cannot fire a silo because the bridge is not in a validated battle turn: "
+            + "; ".join(state.battle.reasons)
+        )
+    snapshot = await bridge.read_memory_snapshot([(BATTLE_MAP_ID_ADDRESS, 1)])
+    rom_map = snapshot.ranges[0][0]
+    cells = cells_from_state(battle, rom_map, map)
+    army = battle.active_player_slot
+    pair = spent_silo_pair(cells, army)
+    if pair is None:
+        raise AuditError(
+            f"{map.name} has no missile silo beside a base owned by army {army}. The "
+            "spent-silo check needs a unit to reach a silo in one move, so audit a map "
+            "where a silo touches a production base (Pipe Maze)."
+        )
+    silo, base = pair
+    target = silo_launch_target(silo, map)
+    before = {
+        "x": silo.x,
+        "y": silo.y,
+        "terrain_class": silo.terrain_class,
+        "graphical_tile_id": silo.graphical_tile_id,
+        "owner_slot": silo.owner_slot,
+    }
+
+    await navigator.open_production_menu(base.x, base.y)
+    await navigator.choose_purchase_unit(INFANTRY_UNIT_TYPE)
+    produced = next(
+        (unit for unit in (await turn()).units if (unit.x, unit.y) == (base.x, base.y)),
+        None,
+    )
+    if produced is None:
+        raise AuditError(f"Production did not put a unit on the base at ({base.x},{base.y})")
+
+    ends_before_launch = await return_to_army(army)
+    observation = MatchObservationTracker(uuid4()).commit_boundary(
+        await capture_game_state(bridge, rom_path=rom_path)
+    )
+    identity_id = next(
+        entry.identity_id
+        for entry in observation.unit_identities
+        if entry.reference == produced.reference
+    )
+    selected = await navigator.select_unit(identity_id, observation)
+    selected_unit = selected.ui.menu.selected_unit
+    if selected_unit is None:
+        raise AuditError("Selecting the produced unit did not open its movement menu")
+    key = (
+        selected_unit.army_slot,
+        selected_unit.unit_slot,
+        selected_unit.unit_type,
+        selected_unit.record_address,
+    )
+    await navigator.move_selected_unit_along_path(
+        [(silo.x, silo.y)], unit=key, width=map.width, height=map.height
+    )
+    launched = await navigator.choose_silo_launch(
+        target, unit=key, width=map.width, height=map.height
+    )
+    fired = launched.battle.value
+    if fired is None:
+        raise AuditError("The launch never settled into a validated battle turn")
+    spent_cells = cells_from_state(fired, rom_map, map)
+    spent_cell = spent_cells[silo.y * map.width + silo.x]
+    after = {
+        "x": spent_cell.x,
+        "y": spent_cell.y,
+        "terrain_class": spent_cell.terrain_class,
+        "graphical_tile_id": spent_cell.graphical_tile_id,
+        "owner_slot": spent_cell.owner_slot,
+    }
+
+    ends_after_launch = await return_to_army(army)
+    state = await capture_game_state(bridge, rom_path=rom_path)
+    battle = state.battle.value
+    if battle is None:
+        raise AuditError("The audit emulator left the battle turn before uncovering the silo")
+    infantry = next((unit for unit in battle.units if unit.reference == produced.reference), None)
+    if infantry is None:
+        raise AuditError("The produced infantry is missing after the silo launch")
+    player = next((player for player in battle.players if player.slot == army), None)
+    context = (
+        RuleContext(player.co_id, player.active_power)
+        if player is not None and battle.co_effects_enabled.value is not False
+        else BASELINE_RULES
+    )
+    path = step_off_path(
+        silo,
+        cells_from_state(battle, rom_map, map),
+        {(unit.x, unit.y) for unit in battle.units if not unit.embarked},
+        friendly={
+            (unit.x, unit.y)
+            for unit in battle.units
+            if unit.army_slot == army and not unit.embarked
+        },
+        weather=battle.weather.value or Weather.CLEAR,
+        context=context,
+        fuel=infantry.fuel,
+    )
+    if path is None:
+        raise AuditError(
+            f"No free cell two or more cells away from the spent silo at ({silo.x},{silo.y}) "
+            "is reachable in one infantry move"
+        )
+    observation = MatchObservationTracker(uuid4()).commit_boundary(state)
+    identity_id = next(
+        entry.identity_id
+        for entry in observation.unit_identities
+        if entry.reference == produced.reference
+    )
+    selected = await navigator.select_unit(identity_id, observation)
+    selected_unit = selected.ui.menu.selected_unit
+    if selected_unit is None:
+        raise AuditError("Selecting the silo unit again did not open its movement menu")
+    key = (
+        selected_unit.army_slot,
+        selected_unit.unit_slot,
+        selected_unit.unit_type,
+        selected_unit.record_address,
+    )
+    await navigator.move_selected_unit_along_path(
+        path, unit=key, width=map.width, height=map.height
+    )
+    await navigator.choose_wait()
+    return {
+        "map_id": map_id,
+        "silo_cell": [silo.x, silo.y],
+        "base_cell": [base.x, base.y],
+        "launch_target": list(target),
+        "army": army,
+        "end_turns_before_launch": ends_before_launch,
+        "end_turns_after_launch": ends_after_launch,
+        "unit_stopped_at": list(path[-1]),
+        "before": before,
+        "after": after,
+        "became_spent": spent_cell.terrain_class == SPENT_SILO_CLASS,
+    }
+
+
+def spent_silo_evidence(
+    pack: SpritePack, report: AuditReport, fired: dict[str, Any]
+) -> dict[str, Any]:
+    """Add the sweep's own measurement of the cell a fired silo left behind.
+
+    The camera sweep visits every window the map can show, so it measures the spent cell
+    in each view that contains it and keeps the cleanest one. Comparing that view with
+    every region of the cell's terrain class shows whether the atlas's spent-silo artwork
+    for the owning army matches what mGBA drew, and whether the client shows its
+    symbolic terrain label.
+    """
+    silo_x, silo_y = fired["silo_cell"]
+    measurement = report.cells.get((silo_x, silo_y))
+    result = dict(fired)
+    if measurement is None:
+        result["measured"] = False
+        return result
+    cell = GroundCell(
+        silo_x,
+        silo_y,
+        measurement.graphical_tile_id,
+        measurement.terrain_class,
+        measurement.owner_slot,
+    )
+    selection = pack.region_identity(cell)
+    other_regions_of_the_class = {
+        key: region
+        for key, region in pack.manifest["terrain"].items()
+        if key.split(":", 1)[0] == str(measurement.terrain_class) and selection != ("terrain", key)
+    }
+    region = pack.region_for(cell)
+    ground = pack.tile(region) if region is not None else TRANSPARENT_TILE
+    identical_pixels = sum(
+        1
+        for offset in range(0, len(ground), 4)
+        if ground[offset + 3]
+        and ground[offset : offset + 3] == measurement.rendered[offset : offset + 3]
+    )
+    enough_artwork = measurement.covered >= MIN_GROUND_COVERAGE
+    artwork_confirmed = (
+        cell.terrain_class == SPENT_SILO_CLASS
+        and enough_artwork
+        and measurement.difference <= MATCH_TOLERANCE
+    )
+    if artwork_confirmed:
+        verdict = "mGBA drew the packed atlas region"
+    elif selection is None:
+        verdict = "the pack selects no artwork region for this cell"
+    elif measurement.covered == 0:
+        verdict = "the selected region has transparent ground and hides the client's symbolic label"
+    elif not enough_artwork:
+        verdict = "the selected region covers too little ground to confirm the spent-silo artwork"
+    else:
+        verdict = report.verdict(measurement)
+    result.update(
+        {
+            "measured": True,
+            "atlas_region": selection[1] if selection else None,
+            "atlas_collection": selection[0] if selection else None,
+            "atlas_opaque_pixels": measurement.covered,
+            "client_symbolic_fallback_needed": selection is None,
+            "best_view": list(measurement.view),
+            "views": measurement.views,
+            "difference": measurement.difference,
+            "identical_pixels": identical_pixels,
+            "artwork_confirmed": artwork_confirmed,
+            "matched": enough_artwork and measurement.matched,
+            "occluded": measurement.occluded,
+            "unit_on_cell": measurement.unit_on_cell,
+            "verdict": verdict,
+            "nearest_other_region_of_the_same_class": compare_regions(
+                pack, other_regions_of_the_class, measurement.rendered
+            )[:3],
+        }
+    )
+    return result
+
+
 def bridge_identity_from_run(run_dir: Path) -> tuple[int, str]:
     match_file = run_dir / "match.json"
     if not match_file.is_file():
@@ -1422,6 +1804,13 @@ def parser() -> argparse.ArgumentParser:
         help="also diff two screenshots this many frames apart (0 disables)",
     )
     result.add_argument(
+        "--spent-silo",
+        action="store_true",
+        help="fire a missile silo before the sweep so the audit can measure the spent cell "
+        "(terrain class 18), which no static map contains. This plays turns - it produces "
+        "infantry, ends turns, and launches - so with --attach-live it changes the match",
+    )
+    result.add_argument(
         "--tiles-dir",
         type=Path,
         help="write a side-by-side atlas-versus-emulator PNG for each mismatch here",
@@ -1460,7 +1849,11 @@ def main(argv: list[str] | None = None) -> None:
             )
             snapshot = await bridge.save_state_buffer_with_frame()
             try:
-                return await audit_map(
+                spent_silo = None
+                if args.spent_silo:
+                    print("Firing a silo so the audit can measure the spent cell it leaves")
+                    spent_silo = await fire_silo(bridge, rom_path, args.map, screenshots)
+                report = await audit_map(
                     bridge,
                     pack,
                     args.map,
@@ -1470,6 +1863,10 @@ def main(argv: list[str] | None = None) -> None:
                     args.animation_frames,
                     tiles_dir,
                 )
+                report.spent_silo = (
+                    spent_silo_evidence(pack, report, spent_silo) if spent_silo else None
+                )
+                return report
             finally:
                 restore = asyncio.create_task(restore_bridge_state(bridge, snapshot))
                 try:
@@ -1511,7 +1908,11 @@ def main(argv: list[str] | None = None) -> None:
                     f"The audit emulator reached ROM map {boot.map_id} instead of {map.name} "
                     f"(ROM map {map.rom_id})"
                 )
-            return await audit_map(
+            spent_silo = None
+            if args.spent_silo:
+                print("Firing a silo so the audit can measure the spent cell it leaves")
+                spent_silo = await fire_silo(bridge, rom_path, args.map, screenshots)
+            report = await audit_map(
                 bridge,
                 pack,
                 args.map,
@@ -1521,11 +1922,18 @@ def main(argv: list[str] | None = None) -> None:
                 args.animation_frames,
                 tiles_dir,
             )
+            report.spent_silo = (
+                spent_silo_evidence(pack, report, spent_silo) if spent_silo else None
+            )
+            return report
 
     try:
         report = asyncio.run(finish_on_sigterm(run()))
-    except (AuditError, BridgeError, EmulatorLaunchError, ColdBootError) as error:
-        arguments.exit(1, f"Sprite audit failed: {error}\n")
+    except (AuditError, BridgeError, EmulatorLaunchError, ColdBootError, NavigationError) as error:
+        message = f"Sprite audit failed: {error}"
+        if isinstance(error, NavigationError) and error.context.screenshot:
+            message += f"\nDiagnostic screenshot: {error.context.screenshot}"
+        arguments.exit(1, f"{message}\n")
         return
     summary = report.summary()
     if args.output:
@@ -1548,6 +1956,30 @@ def main(argv: list[str] | None = None) -> None:
             f"  {summary['cells_partial_artwork']} cells have a packed region covering less "
             "than three quarters of the cell"
         )
+    if summary["spent_silo"]:
+        spent = summary["spent_silo"]
+        silo_x, silo_y = spent["silo_cell"]
+        before, after = spent["before"], spent["after"]
+        print(
+            f"  spent silo ({silo_x},{silo_y}) changed from {before['terrain_class']}:"
+            f"{before['graphical_tile_id']} to {after['terrain_class']}:{after['graphical_tile_id']}"
+        )
+        if spent["measured"]:
+            print(
+                f"    the sweep saw it in {spent['views']} views (best view at "
+                f"({spent['best_view'][0]},{spent['best_view'][1]}), difference "
+                f"{spent['difference']} points, {spent['identical_pixels']} of "
+                f"{TILE * TILE} pixels identical); atlas region {spent['atlas_region']} "
+                f"has {spent['atlas_opaque_pixels']} opaque pixels: {spent['verdict']}"
+            )
+            if spent["nearest_other_region_of_the_same_class"]:
+                closest = spent["nearest_other_region_of_the_same_class"][0]
+                print(
+                    f"    nearest other region of class {after['terrain_class']} is "
+                    f"{closest[0]} at {closest[1]} points"
+                )
+        else:
+            print("    the sweep never saw the spent cell, so its artwork is unmeasured")
     for terrain_class, counts in summary["by_terrain_class"].items():
         print(
             f"  class {terrain_class}: {counts['cells']} cells, {counts['matched']} matched, "

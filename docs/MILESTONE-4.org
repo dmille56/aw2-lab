@@ -1037,13 +1037,28 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     ground came from the frame of the cell below, so a covered cell is reported as covered
     instead of counted as missing artwork.
 
-*** TODO Confirm spent-silo artwork after a silo is fired
+*** DONE Confirm spent-silo artwork after a silo is fired
     Class 18 never appears in the static map data, so the audit cannot reach it, but a
-    fired missile silo becomes a spent silo during play. The pack carries four spent
-    silo regions keyed by owner slot.
-    - [ ] Fire a silo in a live match and decode the resulting cell's graphical tile
+    fired missile silo becomes a spent silo during play. The pack carries six spent silo
+    regions keyed by owner slot (=18:0= through =18:5=), each composed from four source
+    tiles at =0x0CFFC4 + 0xB00=.
+    Implemented (2026-11-19): =aw2-lab sprite-audit --spent-silo= produces infantry on a
+    base beside a missile silo, walks it onto the silo, launches, ends turns until the
+    firing army can move again, and steps the unit two cells away so the sweep can see the
+    ground the launch leaves behind. The sweep then measures the cell like any other, and
+    the report's =spent_silo= key adds the class-18 comparison: the selected atlas region,
+    how many of its pixels are opaque, the difference from the emulator, the count of
+    identical pixels, and the closest other region of the same class.
+    Results (2026-11-19, isolated audit emulator, Pipe Maze, army 1): the silo at =1,20=
+    changed from =17:384= to =18:416= with owner slot 0, and the sweep saw it in 44 of the
+    104 viewport offsets. Its packed region =terrain/18:0= has 256 opaque pixels and
+    differs from what mGBA drew by 0 points - all 256 pixels identical - while the closest
+    other class-18 region, =18:2=, is 26,717 points away (=18:4= 35,439, =18:5= 36,299).
+    Class 18 reports 1 cell, 1 matched, 0 mismatched, so the client's symbolic terrain
+    fallback is not used for a spent silo.
+    - [x] Fire a silo in a live match and decode the resulting cell's graphical tile
       ID and terrain class.
-    - [ ] Compare the emulator's cell with the selected =18:owner_slot= region, and
+    - [x] Compare the emulator's cell with the selected =18:owner_slot= region, and
       confirm the symbolic fallback is not used.
 
 *** TODO Capture animated terrain frames

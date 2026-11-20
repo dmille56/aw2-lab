@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import dataclasses
 import json
 import os
 import signal
@@ -15,6 +16,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from aw2_lab.action_navigation import ActionNavigator, NavigationError, NavigationFailureContext
+from aw2_lab.aw2_unit_profiles import BASELINE_RULES
 from aw2_lab.bridge import BridgeError, LuaBridgeClient, MemorySnapshot
 from aw2_lab.cli import main
 from aw2_lab.emulator import EmulatorMode, EmulatorSettings
@@ -37,8 +40,10 @@ from aw2_lab.sprite_audit import (
     camera_window,
     cells_from_state,
     check_animation,
+    compare_regions,
     decode_png,
     difference,
+    encode_png,
     expected_tile,
     find_camera_offset,
     isolated_bridge,
@@ -47,11 +52,15 @@ from aw2_lab.sprite_audit import (
     move_cursor,
     rendered_tile,
     rom_map_cells,
+    silo_launch_target,
+    spent_silo_evidence,
+    spent_silo_pair,
+    step_off_path,
     sweep_moves,
     terrain_overhang,
     write_comparison_tiles,
 )
-from aw2_lab.state_model import ValueStatus
+from aw2_lab.state_model import ValueStatus, Weather
 from aw2_lab.state_validation import BATTLE_MAP_ID_ADDRESS
 from aw2_lab.ui_state import CursorStatus
 
@@ -871,6 +880,269 @@ def test_nearest_artwork_is_not_truncated_by_a_transparent_region(tmp_path: Path
     assert report.verdict(measurement) == "the atlas region for this cell is transparent"
 
 
+def test_spent_silo_pair_needs_the_base_to_belong_to_the_active_army() -> None:
+    cells = [
+        GroundCell(1, 20, 384, 17, 0),
+        GroundCell(2, 20, 454, 14, 2),
+        GroundCell(1, 19, 454, 14, 1),
+        GroundCell(5, 5, 384, 17, 0),
+    ]
+    silo, base = spent_silo_pair(cells, 1)
+    assert (silo.x, silo.y) == (1, 20)
+    assert (base.x, base.y) == (1, 19)
+    assert spent_silo_pair(cells, 3) is None
+    distant = [
+        GroundCell(0, 0, 384, 17, 0),
+        GroundCell(3, 0, 454, 14, 1),
+        GroundCell(0, 4, 454, 14, 1),
+    ]
+    assert spent_silo_pair(distant, 1) is None
+
+
+def test_silo_launch_target_is_the_cell_clear_above_a_silo() -> None:
+    narrow = dataclasses.replace(MAPS_BY_ID["pipe_maze"], height=1)
+    assert silo_launch_target(GroundCell(1, 20, 384, 17, 0), MAPS_BY_ID["pipe_maze"]) == (1, 19)
+    assert silo_launch_target(GroundCell(1, 0, 384, 17, 0), MAPS_BY_ID["pipe_maze"]) == (1, 1)
+    with pytest.raises(AuditError):
+        silo_launch_target(GroundCell(1, 0, 384, 17, 0), narrow)
+
+
+def _spent_pack(directory: Path, *, slot_one_coverage: int = TILE * TILE) -> SpritePack:
+    """Write a two-region pack: one spent-silo tile for slot 1, one for slot 2."""
+    rows = bytearray()
+    for row in range(32):
+        line = bytearray()
+        for column in range(2 * TILE):
+            if row < 16:
+                line.extend((0, 0, 0, 0))
+            elif column < TILE:
+                if (row - TILE) * TILE + column < slot_one_coverage:
+                    line.extend((10, 20, 30, 255))  # the 18:1 ground tile
+                else:
+                    line.extend((0, 0, 0, 0))
+            else:
+                line.extend((200, 60, 40, 255))  # the 18:2 ground tile
+        rows.extend(line)
+    manifest = {
+        "atlas": "atlas.png",
+        "terrain": {
+            # Regions are anchored at the top of a 32-row frame; tile() reads the bottom
+            # 16 rows, so the ground art for each slot lives in atlas rows 16..31.
+            "18:1": {"key": "18:1", "x": 0, "y": 0, "width": TILE, "height": TILE * 2},
+            "18:2": {"key": "18:2", "x": TILE, "y": 0, "width": TILE, "height": TILE * 2},
+        },
+    }
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "manifest.json").write_text(json.dumps(manifest))
+    (directory / "atlas.png").write_bytes(encode_png(2 * TILE, 32, bytes(rows)))
+    return SpritePack(directory)
+
+
+def test_spent_silo_evidence_uses_the_sweep_measurement_of_the_cell(tmp_path: Path) -> None:
+    pack = _spent_pack(tmp_path)
+    own_tile = pack.tile(pack.region_for(GroundCell(1, 20, 345, 18, 1)))
+    measurement = CellMeasurement(
+        x=1,
+        y=20,
+        terrain_class=18,
+        graphical_tile_id=345,
+        difference=0,
+        views=3,
+        owner_slot=1,
+        covered=TILE * TILE,
+        has_own_artwork=True,
+        view=(0, 12),
+        row=8,
+        column=1,
+        rendered=own_tile,
+    )
+    report = AuditReport("pipe_maze", "Pipe Maze", 22, 22, str(pack.directory))
+    report.cells[(1, 20)] = measurement
+    evidence = spent_silo_evidence(
+        pack,
+        report,
+        {
+            "silo_cell": [1, 20],
+            "before": {"terrain_class": 17, "graphical_tile_id": 384},
+            "after": {"terrain_class": 18, "graphical_tile_id": 416},
+            "became_spent": True,
+        },
+    )
+    assert evidence["measured"] is True
+    assert evidence["atlas_region"] == "18:1"
+    assert evidence["matched"] is True
+    assert evidence["artwork_confirmed"] is True
+    assert evidence["identical_pixels"] == TILE * TILE
+    assert evidence["client_symbolic_fallback_needed"] is False
+    assert evidence["verdict"] == "mGBA drew the packed atlas region"
+    assert evidence["nearest_other_region_of_the_same_class"][0][0] == "18:2"
+    assert evidence["nearest_other_region_of_the_same_class"][0][1] > MATCH_TOLERANCE
+
+
+def test_spent_silo_evidence_says_when_the_pack_has_no_artwork_for_the_cell(tmp_path: Path) -> None:
+    pack = _spent_pack(tmp_path)
+    measurement = CellMeasurement(
+        x=1,
+        y=20,
+        terrain_class=18,
+        graphical_tile_id=416,
+        difference=0,
+        views=1,
+        owner_slot=5,
+        covered=0,
+        has_own_artwork=False,
+        view=(0, 12),
+        row=8,
+        column=1,
+        rendered=bytes((70, 70, 70, 255) * TILE * TILE),
+    )
+    report = AuditReport("pipe_maze", "Pipe Maze", 22, 22, str(pack.directory))
+    report.cells[(1, 20)] = measurement
+    evidence = spent_silo_evidence(pack, report, {"silo_cell": [1, 20]})
+    assert evidence["atlas_region"] is None
+    assert evidence["client_symbolic_fallback_needed"] is True
+    assert evidence["matched"] is False
+    assert evidence["artwork_confirmed"] is False
+    assert evidence["identical_pixels"] == 0
+    assert evidence["nearest_other_region_of_the_same_class"][0][0] == "18:1"
+    assert report.verdict(measurement) == "the pack selects no artwork region for this cell"
+
+
+def test_spent_silo_evidence_confirms_artwork_under_the_status_panel(tmp_path: Path) -> None:
+    """Pipe Maze's spent cell is always seen with the terrain panel on it.
+
+    The panel box is transparent over the ground, so the sweep still gets a pixel-exact
+    match even though the generic occlusion rule flags the cell. The spent-silo verdict
+    reports the pixel count and difference rather than the occlusion flag.
+    """
+    pack = _spent_pack(tmp_path)
+    own_tile = pack.tile(pack.region_for(GroundCell(1, 20, 416, 18, 1)))
+    measurement = CellMeasurement(
+        x=1,
+        y=20,
+        terrain_class=18,
+        graphical_tile_id=416,
+        difference=0,
+        views=8,
+        owner_slot=1,
+        covered=TILE * TILE,
+        has_own_artwork=True,
+        view=(0, 12),
+        row=8,
+        column=1,
+        rendered=own_tile,
+        occluded=True,
+    )
+    report = AuditReport("pipe_maze", "Pipe Maze", 22, 22, str(pack.directory))
+    report.cells[(1, 20)] = measurement
+    evidence = spent_silo_evidence(
+        pack,
+        report,
+        {"silo_cell": [1, 20], "after": {"terrain_class": 18, "graphical_tile_id": 416}},
+    )
+    assert evidence["occluded"] is True
+    assert evidence["matched"] is False
+    assert evidence["artwork_confirmed"] is True
+    assert evidence["identical_pixels"] == TILE * TILE
+    assert evidence["difference"] == 0
+    assert evidence["verdict"] == "mGBA drew the packed atlas region"
+
+
+def test_spent_silo_evidence_reports_a_cell_the_sweep_never_saw(tmp_path: Path) -> None:
+    pack = _spent_pack(tmp_path)
+    evidence = spent_silo_evidence(
+        pack,
+        AuditReport("pipe_maze", "Pipe Maze", 22, 22, str(pack.directory)),
+        {"silo_cell": [1, 20]},
+    )
+    assert evidence["measured"] is False
+    assert evidence["silo_cell"] == [1, 20]
+
+
+@pytest.mark.parametrize(
+    ("coverage", "verdict"),
+    [(0, "hides the client's symbolic label"), (1, "covers too little ground")],
+)
+def test_spent_silo_evidence_rejects_insufficient_ground_artwork(
+    tmp_path: Path, coverage: int, verdict: str
+) -> None:
+    pack = _spent_pack(tmp_path, slot_one_coverage=coverage)
+    cell = GroundCell(1, 20, 416, 18, 1)
+    ground = pack.tile(pack.region_for(cell))
+    rendered = solid((0, 0, 0, 255))
+    report = AuditReport("pipe_maze", "Pipe Maze", 22, 22, str(pack.directory))
+    report.cells[(1, 20)] = CellMeasurement(
+        x=1,
+        y=20,
+        terrain_class=18,
+        graphical_tile_id=416,
+        difference=difference(ground, rendered),
+        views=1,
+        owner_slot=1,
+        covered=coverage,
+        has_own_artwork=True,
+        rendered=rendered,
+    )
+    evidence = spent_silo_evidence(pack, report, {"silo_cell": [1, 20]})
+    assert evidence["difference"] <= MATCH_TOLERANCE
+    assert evidence["atlas_region"] == "18:1"
+    assert evidence["artwork_confirmed"] is False
+    assert evidence["matched"] is False
+    assert evidence["identical_pixels"] == 0
+    assert evidence["client_symbolic_fallback_needed"] is False
+    assert verdict in evidence["verdict"]
+
+
+@pytest.mark.parametrize(
+    ("army", "origin", "base", "pipe", "route"),
+    [
+        (3, (1, 1), (2, 1), (3, 1), [(1, 2), (1, 3)]),
+        (4, (20, 20), (19, 20), (18, 20), [(20, 19), (20, 18)]),
+    ],
+)
+def test_step_off_path_routes_around_the_pipe_beyond_the_base(
+    army, origin, base, pipe, route
+) -> None:
+    silo = GroundCell(*origin, 416, 18, 0)
+    cells = [
+        silo,
+        GroundCell(*base, 454, 14, army),
+        GroundCell(*pipe, 323, 15, 0),
+        GroundCell(*route[0], 0, 8, army),
+        GroundCell(*route[1], 0, 5, 0),
+    ]
+    options = {"friendly": set(), "weather": Weather.CLEAR, "context": BASELINE_RULES}
+    assert step_off_path(silo, cells, {origin}, fuel=99, **options) == route
+    assert step_off_path(silo, cells, {origin, route[0]}, fuel=99, **options) is None
+    assert step_off_path(silo, cells, {origin}, fuel=1, **options) is None
+
+
+def test_compare_regions_sorts_the_closest_atlas_region_first(tmp_path: Path) -> None:
+    atlas = bytearray(64 * TILE * 2 * 4)
+    paint(atlas, 64, 0, TILE, solid(SAND))
+    paint(atlas, 64, 16, TILE, solid(PLAINS))
+    frame = {"width": TILE, "height": TILE * 2}
+    manifest = {
+        "atlas": "atlas.png",
+        "width": 64,
+        "height": TILE * 2,
+        "terrain": {
+            "18:2": {"x": 32, "y": 0, **frame},
+            "18:0": {"x": 0, "y": 0, **frame},
+            "18:1": {"x": 16, "y": 0, **frame},
+        },
+    }
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "atlas.png").write_bytes(png(64, TILE * 2, bytes(atlas)))
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+    pack = SpritePack(tmp_path)
+    rendered = solid(SAND)
+    ranked = compare_regions(pack, manifest["terrain"], rendered)
+    assert len(ranked) == 2
+    assert ranked[0] == ["18:0", 0]
+    assert ranked[1][0] == "18:1" and ranked[1][1] > MATCH_TOLERANCE
+
+
 ROM = Path(os.environ.get("AW2_ROM_PATH", ""))
 PACK = Path(os.environ.get("AW2_CLIENT_SPRITES", ""))
 needs_rom = pytest.mark.skipif(not ROM.is_file(), reason="AW2_ROM_PATH is not set")
@@ -1215,6 +1487,67 @@ def test_sprite_audit_cli_is_wired_into_the_main_command(monkeypatch) -> None:
     with pytest.raises(SystemExit) as exit_info:
         main()
     assert exit_info.value.code == 0
+
+
+def test_spent_silo_cli_reports_navigation_failure_after_restoring_the_match(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    pack = make_pack(tmp_path / "pack")
+    rom = tmp_path / "fake-cartridge.gba"
+    rom.touch()
+    entry = MAPS_BY_ID["pipe_maze"]
+    bridge = FakeBridge([], map_id=entry.rom_id)
+    cursor = (21, 0)
+    base = (2, 20)
+    cells = plains_cells(
+        entry.width,
+        entry.height,
+        {(1, 20): GroundCell(1, 20, 384, 17, 0), base: GroundCell(*base, 454, 14, 1)},
+    )
+    state = live_state(cells, entry, cursor=cursor)
+    state.battle.value.active_player_slot = 1
+    screenshot = tmp_path / "production-failure.png"
+
+    async def capture(*args, **kwargs):
+        return state
+
+    async def open_production_menu(navigator, x, y):
+        assert (x, y) == base
+        assert navigator.limits.frame_budget > 9 * (abs(x - cursor[0]) + abs(y - cursor[1]))
+        raise NavigationError(
+            "Could not open the production menu",
+            NavigationFailureContext("open_production_menu", "battle", 0, (), str(screenshot)),
+        )
+
+    monkeypatch.setattr("aw2_lab.sprite_audit.LuaBridgeClient", lambda **kwargs: bridge)
+    monkeypatch.setattr("aw2_lab.sprite_audit.capture_game_state", capture)
+    monkeypatch.setattr(ActionNavigator, "open_production_menu", open_production_menu)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "aw2-lab",
+            "sprite-audit",
+            "--map",
+            entry.id,
+            "--rom",
+            str(rom),
+            "--pack",
+            str(pack.directory),
+            "--screenshots-dir",
+            str(tmp_path),
+            "--attach-live",
+            "43129",
+            "--spent-silo",
+        ],
+    )
+    with pytest.raises(SystemExit) as exit_info:
+        main()
+    assert exit_info.value.code == 1
+    assert bridge.operations == ["save_state_buffer", "load_state_buffer"]
+    error = capsys.readouterr().err
+    assert "Sprite audit failed: Could not open the production menu" in error
+    assert f"Diagnostic screenshot: {screenshot}" in error
 
 
 def test_sprite_audit_needs_a_rom(tmp_path: Path, monkeypatch) -> None:

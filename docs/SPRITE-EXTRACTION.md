@@ -129,8 +129,10 @@ Full-catalog audit (2026-11-19): the verified ROM's original map table at
 the width and height bytes and continues with `width * height` little-endian graphical tile
 IDs. Decoding all 133 catalog maps (64,027 cells) and resolving each
 cell through the client's lookup found no cell without artwork. Only classes 1-8,
-10-17, and 19 occur in Versus maps, so class 9, class 18 (spent silo, packed but
-unused), and the campaign-only classes 20-31 never appear. The complete pipe and seam
+10-17, and 19 occur in Versus maps, so class 9 and the campaign-only classes 20-31 never
+appear. Class 18, the spent silo, exists only after a unit launches, so the static sweep
+cannot reach it; `--spent-silo` fires one during the audit and measures the cell it leaves
+behind. The complete pipe and seam
 set is 258, 259, 288, 289, 320, 321, 322, 323, 352, 353 (pipe) and 354, 355 (seam),
 all of which are packed. Six maps contain pipe or seam cells - Missile Plains (60),
 Pipe Maze (88), The Trident (35), Wyrms Eye (16), Big Daddy (12), and Nest Egg (12) -
@@ -187,7 +189,9 @@ aw2-lab sprite-audit --map pipe_maze --rom ~/Downloads/aw2/aw2.gba \
   --pack ~/.local/share/aw2-lab/sprites \
   --output /tmp/pipe-maze/sprite-audit.json \
   --screenshots-dir /tmp/pipe-maze/audit-shots \
-  --tiles-dir /tmp/pipe-maze/audit-tiles --animation-frames 60
+  --tiles-dir /tmp/pipe-maze/audit-tiles \
+  --animation-frames 60 \
+  --spent-silo
 ```
 
 It never borrows the emulator that is serving a match. The sweep presses D-pad buttons and
@@ -271,9 +275,25 @@ property art, and 4 (`1:33`, `3:35`, `4:134`, `15:322`) are terrain regions the 
 not catch cycling. The largest difference among matched cells there was 790 points, which
 is the panel/edge overlap the 900-point tolerance allows.
 
+Spent silo, live (2026-11-19): `--spent-silo` plays into the map before the sweep. It
+produces infantry on a base next to a missile silo, walks the unit onto the silo, launches,
+ends turns until the firing army can move again, and steps the unit two cells away so the
+ground the launch leaves behind is unobstructed. On Pipe Maze army 1 fired the silo at
+(1,20), which changed from `17:384` to `18:416` with owner slot 0. The sweep measured that
+cell in 44 of the 104 viewport offsets and kept the cleanest view: the pack's `terrain/18:0`
+region, all 256 pixels opaque, differs from what mGBA drew by 0 points, with all 256 pixels
+identical. The nearest other class-18 region in the pack is `18:2` at 26,717 points, so the
+army-keyed lookup is doing real work rather than matching any spent-silo tile, and the
+class-18 bucket reports 1 cell, 1 matched, 0 mismatched. The client's symbolic terrain
+fallback is never reached. The pack carries six spent-silo regions (`18:0`-`18:5`, four
+source tiles each at `0x0CFFC4 + 0xB00`); the silo's cell keeps owner slot 0 after the
+launch, so a spent silo renders the neutral artwork, which is what the emulator draws.
+
 Limits: the audit measures the ground only, so unit sprites, HP bars, and the status panel
 are ignored rather than compared; animation sampling covers only the two views probed; and
-animated frames beyond frame 0 are still not packed.
+animated frames beyond frame 0 are still not packed. `--spent-silo` plays real turns, so it
+needs a map where a silo touches a base the active army owns (Pipe Maze) and, with
+`--attach-live`, it changes the running match.
 
 ## Prototype delivery and rendering
 
