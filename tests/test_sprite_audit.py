@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import dataclasses
+import hashlib
 import json
 import os
 import signal
@@ -22,6 +23,7 @@ from aw2_lab.bridge import BridgeError, LuaBridgeClient, MemorySnapshot
 from aw2_lab.cli import main
 from aw2_lab.emulator import EmulatorMode, EmulatorSettings
 from aw2_lab.map_catalog import MAPS_BY_ID, MapCategory, VersusMap
+from aw2_lab.rom_profile import AW2_US_REVISION_0
 from aw2_lab.sprite_audit import (
     DEFAULT_AUDIT_BRIDGE_PORT,
     MATCH_TOLERANCE,
@@ -35,6 +37,7 @@ from aw2_lab.sprite_audit import (
     GroundCell,
     SpritePack,
     add_nearest_artwork,
+    animation_evidence,
     audit_co_ids,
     audit_map,
     camera_window,
@@ -435,6 +438,8 @@ def test_merge_animation_combines_the_views_it_probed() -> None:
             "cells_excluded": {"unit_on_cell": 3},
             "largest_difference": 3820,
             "changed_regions": {"1:1": 3820, "2:24": 1037},
+            "samples": 4,
+            "sequences": {"terrain_variants": {"2:24": [[b"A", b"C"]]}},
         },
         {
             "view": (7, 12),
@@ -444,9 +449,13 @@ def test_merge_animation_combines_the_views_it_probed() -> None:
             "cells_excluded": {"unit_on_cell": 2, "thin_ground_artwork": 1},
             "largest_difference": 3130,
             "changed_regions": {"1:1": 3100, "5:97": 3130},
+            "samples": 4,
+            "sequences": {
+                "terrain_variants": {"2:24": [[b"A", b"B", b"C", b"D"]], "5:97": [[b"E"]]},
+            },
         },
     ]
-    merged = merge_animation(probes, 60)
+    merged, cycle = merge_animation(probes, 60)
     assert merged["changed_regions"] == {"1:1": 3820, "2:24": 1037, "5:97": 3130}
     assert merged["changed_cells"] == [(7, 15), (8, 15), (10, 15)]
     assert merged["cells_changed"] == 3
@@ -454,7 +463,12 @@ def test_merge_animation_combines_the_views_it_probed() -> None:
     assert merged["views_checked"] == [[0, 12], [7, 12]]
     assert merged["largest_difference"] == 3820
     assert merged["frames_between_screenshots"] == 60
+    assert merged["samples_per_view"] == 4
+    assert merged["distinct_frames"] == 5
+    assert merged["cycle_frames"] == {"terrain_variants:2:24": 4, "terrain_variants:5:97": 1}
+    assert cycle == {"terrain_variants": {"2:24": [b"A", b"B", b"C", b"D"], "5:97": [b"E"]}}
     assert len(merged["probes"]) == 2
+    assert not any("sequences" in probe for probe in merged["probes"])
 
 
 def test_sweep_moves_drag_the_camera_over_every_cell_of_every_map() -> None:
@@ -623,7 +637,7 @@ def test_animation_probe_only_trusts_unobstructed_ground(tmp_path: Path) -> None
         {
             (2, 2): GroundCell(2, 2, 12, 5, 0),  # water that really does cycle
             (6, 6): GroundCell(6, 6, 0, 1, 0),  # plains with a unit standing on it
-            (7, 7): GroundCell(7, 7, 1, 1, 0),  # plains whose packed frame is nearly empty
+            (8, 8): GroundCell(8, 8, 1, 1, 0),  # plains whose packed frame is nearly empty
         },
     )
     map = VersusMap(
@@ -634,7 +648,7 @@ def test_animation_probe_only_trusts_unobstructed_ground(tmp_path: Path) -> None
         pack,
         cells,
         VIEW_WIDTH,
-        {(2, 2): solid(DRIFT), (6, 6): solid(SAND), (7, 7): solid(SAND)},
+        {(2, 2): solid(DRIFT), (6, 6): solid(SAND), (7, 7): solid(SAND), (8, 8): solid(SAND)},
     )
     bridge = FakeBridge([first, second])
     probe = asyncio.run(
@@ -645,6 +659,7 @@ def test_animation_probe_only_trusts_unobstructed_ground(tmp_path: Path) -> None
     assert probe["changed_regions"] == {"5:12": difference(solid(DRIFT), solid(WATER))}
     assert probe["cells_excluded"] == {
         "unit_on_cell": 1,
+        "unit_overhang": 1,
         "thin_ground_artwork": 1,
     }
     report = AuditReport("audit_probe", "Audit Probe", VIEW_WIDTH, VIEW_HEIGHT, str(pack.directory))
@@ -722,6 +737,62 @@ def test_animation_probe_uses_a_viewport_origin_for_a_tied_window(tmp_path: Path
         )
     )
     assert probe["view"] == [4, 5]
+
+
+def test_animation_probe_records_every_frame_a_cycling_region_draws(tmp_path: Path) -> None:
+    """The probe keeps each distinct ground frame, filed under the region the client picks."""
+    pack = make_pack(tmp_path)
+    cells = plains_cells(VIEW_WIDTH, VIEW_HEIGHT, {(2, 2): GroundCell(2, 2, 12, 5, 0)})
+    map = VersusMap(
+        "audit_probe", "Audit Probe", 500, VIEW_WIDTH, VIEW_HEIGHT, MapCategory.CLASSIC, 0
+    )
+    images = [
+        battle_window(pack, cells, VIEW_WIDTH),
+        battle_window(pack, cells, VIEW_WIDTH, {(2, 2): solid(DRIFT)}),
+        battle_window(pack, cells, VIEW_WIDTH, {(2, 2): solid(SAND)}),
+        battle_window(pack, cells, VIEW_WIDTH, {(2, 2): solid(DRIFT)}),
+    ]
+    bridge = FakeBridge(images)
+    probe = asyncio.run(
+        check_animation(bridge, pack, cells, map, 8, tmp_path / "shots", 0, set(), {}, samples=4)
+    )
+    assert probe["samples"] == 4
+    assert probe["changed_cells"] == [(2, 2)]
+    frames = probe["sequences"]["terrain_variants"]["5:12"][0]
+    assert len(frames) == 3
+    assert frames[0] == pack.top_rows(pack.region("terrain_variants", "5:12")) + solid(WATER)
+    assert frames[1][TILE * TILE * 4 :] == solid(DRIFT)
+    assert frames[2][TILE * TILE * 4 :] == solid(SAND)
+    assert probe["frames_between_screenshots"] == 8
+    assert probe["view"] == [0, 0]
+
+
+def test_animation_evidence_keeps_one_frame_per_distinct_drawing(tmp_path: Path) -> None:
+    """Repeated samples of the same cycle are stored once, in the order they were drawn."""
+    pack = make_pack(tmp_path)
+    map = VersusMap(
+        "audit_probe", "Audit Probe", 500, VIEW_WIDTH, VIEW_HEIGHT, MapCategory.CLASSIC, 0
+    )
+    cells = plains_cells(VIEW_WIDTH, VIEW_HEIGHT, {(2, 2): GroundCell(2, 2, 12, 5, 0)})
+    images = [
+        battle_window(pack, cells, VIEW_WIDTH, overrides)[2]
+        for overrides in (
+            {},
+            {(2, 2): solid(DRIFT)},
+            {(2, 2): solid(SAND)},
+            {(2, 2): solid(DRIFT)},
+        )
+    ]
+    evidence = animation_evidence(
+        images, VIEW_WIDTH * TILE, pack, cells, map, (0, 0), set(), set(), None
+    )
+    frames = evidence["sequences"]["terrain_variants"]["5:12"][0]
+    assert len(frames) == 3
+    assert frames[0] == pack.top_rows(pack.region("terrain_variants", "5:12")) + solid(WATER)
+    assert frames[1][TILE * TILE * 4 :] == solid(DRIFT)
+    assert frames[2][TILE * TILE * 4 :] == solid(SAND)
+    assert evidence["changed_cells"] == [(2, 2)]
+    assert evidence["changed_regions"] == {"5:12": difference(solid(SAND), solid(WATER))}
 
 
 def make_pack_with_invisible_region(directory: Path) -> SpritePack:
@@ -1177,15 +1248,114 @@ def test_rom_map_cells_reports_the_live_tile_ids() -> None:
     assert daddy[(9, 5)] == GroundCell(9, 5, 322, 15, 0)
 
 
+def test_a_repeated_view_is_probed_when_the_cursor_unmasks_ground(
+    tmp_path: Path, monkeypatch
+) -> None:
+    pack = make_pack(tmp_path / "pack")
+    entry = VersusMap("test_view", "Test View", 12, VIEW_WIDTH, VIEW_HEIGHT, MapCategory.CLASSIC, 0)
+    monkeypatch.setitem(MAPS_BY_ID, entry.id, entry)
+    monkeypatch.setattr("aw2_lab.sprite_audit.sweep_moves", lambda _: ["right", "left", "left"])
+    cell = (0, 0)
+    cells = plains_cells(entry.width, entry.height, {cell: GroundCell(*cell, 12, 5, 0)})
+    still = battle_window(pack, cells, entry.width)
+    wave = battle_window(pack, cells, entry.width, {cell: solid(DRIFT)})
+    bridge = FakeBridge([still, still, wave, still, still, wave, still], map_id=entry.rom_id)
+    report = asyncio.run(
+        audit_map(
+            bridge,
+            pack,
+            entry.id,
+            tmp_path / "unused.gba",
+            tmp_path / "shots",
+            3,
+            20,
+            state=live_state(cells, entry, cursor=(1, 0)),
+            animation_samples=2,
+            pack_frames=False,
+        )
+    )
+    assert report.screenshots == 7  # three sweep captures and two probes of two samples each
+    assert bridge.operations.count("press_keys") == 2
+    assert len(report.cells) == VIEW_WIDTH * VIEW_HEIGHT
+    assert report.animation is not None
+    assert report.animation["views_checked"] == [[0, 0], [0, 0]]
+    assert [probe["changed_cells"] for probe in report.animation["probes"]] == [[], [cell]]
+
+
+def test_audits_merge_current_pack_in_phase_order(tmp_path: Path, monkeypatch) -> None:
+    directory = tmp_path / "pack"
+    pack = make_pack(directory)
+    atlas_png = (directory / pack.manifest["atlas"]).read_bytes()
+    digest = hashlib.sha256(atlas_png).hexdigest()
+    manifest = {
+        **pack.manifest,
+        "kind": "aw2-client-sprites",
+        "version": 1,
+        "rom_sha256": AW2_US_REVISION_0.sha256,
+        "atlas": f"atlas-{digest}.png",
+        "atlas_sha256": digest,
+        "units": {},
+    }
+    (directory / manifest["atlas"]).write_bytes(atlas_png)
+    (directory / "manifest.json").write_text(json.dumps(manifest))
+    # Both sweeps start with the same pack snapshot.
+    pack = SpritePack(directory)
+    for map_id in ("first_view", "second_view"):
+        entry = VersusMap(map_id, map_id, 12, VIEW_WIDTH, VIEW_HEIGHT, MapCategory.CLASSIC, 0)
+        monkeypatch.setitem(MAPS_BY_ID, map_id, entry)
+    sea = (2, 2)
+    plains = (5, 5)
+    cells = plains_cells(VIEW_WIDTH, VIEW_HEIGHT, {sea: GroundCell(*sea, 12, 5, 0)})
+
+    def run(map_id, overrides):
+        entry = MAPS_BY_ID[map_id]
+        images = [battle_window(pack, cells, VIEW_WIDTH, change) for change in overrides]
+        return asyncio.run(
+            audit_map(
+                FakeBridge([images[0], *images], map_id=entry.rom_id),
+                pack,
+                map_id,
+                tmp_path / "unused.gba",
+                tmp_path / map_id,
+                1,
+                20,
+                state=live_state(cells, entry),
+                animation_samples=len(images),
+            )
+        )
+
+    run("first_view", [{}, {sea: solid(SAND), plains: solid(DRIFT)}])
+    fourth = solid((40, 44, 200, 255))
+    second = run("second_view", [{}, {sea: solid(DRIFT)}, {sea: solid(SAND)}, {sea: fourth}])
+    assert second.animation["packed"]["carried_over"] == 4
+    assert second.animation["packed"]["maps"] == ["first_view", "second_view"]
+    latest = SpritePack(directory)
+    assert latest.animation_frames(cells[plains[1] * VIEW_WIDTH + plains[0]]) == 2
+    assert [
+        latest.frame_tile(region) for region in latest.animation_regions(GroundCell(*sea, 12, 5, 0))
+    ] == [solid(WATER), solid(DRIFT), solid(SAND), fourth]
+
+
 @needs_rom
 @needs_pack
-def test_the_sweep_cap_limits_the_sweep_not_the_animation_probes(tmp_path: Path) -> None:
-    """--max-screenshots bounds the camera sweep; the animation probes are measured too."""
-    pack = SpritePack(PACK)
-    rom = ROM.read_bytes()
+def test_cycling_frames_found_by_the_sweep_are_written_into_the_pack(tmp_path: Path) -> None:
+    """A region the emulator draws in more than one way gets its frames packed."""
+    pack_dir = tmp_path / "pack"
+    pack_dir.mkdir(parents=True, exist_ok=True)
+    shipped = SpritePack(PACK)
+    (pack_dir / "manifest.json").write_bytes((PACK / "manifest.json").read_bytes())
+    (pack_dir / shipped.manifest["atlas"]).write_bytes(
+        (PACK / shipped.manifest["atlas"]).read_bytes()
+    )
+    manifest = json.loads((pack_dir / "manifest.json").read_text())
+    manifest.pop("animation", None)  # start from the static pack this audit built
+    (pack_dir / "manifest.json").write_text(json.dumps(manifest))
+    pack = SpritePack(pack_dir)
     entry = MAPS_BY_ID["bean_island"]
-    cells = rom_map_cells(rom, entry)
-    bridge = FakeBridge([battle_window(pack, cells, entry.width)], map_id=entry.rom_id)
+    cells = rom_map_cells(ROM.read_bytes(), entry)
+    sea = battle_window(pack, cells, entry.width)
+    wave = battle_window(pack, cells, entry.width, {(0, 0): solid((12, 44, 190, 255))})
+    bridge = FakeBridge([wave, sea, wave, wave], map_id=entry.rom_id)
     report = asyncio.run(
         audit_map(
             bridge,
@@ -1193,19 +1363,72 @@ def test_the_sweep_cap_limits_the_sweep_not_the_animation_probes(tmp_path: Path)
             "bean_island",
             ROM,
             tmp_path / "shots",
-            3,
-            20,
+            1,
+            12,
             None,
-            live_state(cells, entry, cursor=(14, 9)),
+            live_state(cells, entry),
+            animation_samples=3,
         )
     )
-    assert report.screenshots == 7  # three sweep views plus two animation probes of two shots
-    assert bridge.operations.count("screenshot") == 7
-    assert bridge.operations.count("press_keys") == 2
-    assert len(report.cells) == VIEW_WIDTH * VIEW_HEIGHT
-    assert report.animation is not None
-    assert len(report.animation["views_checked"]) == 2
-    assert report.animated_regions == set(report.animation["changed_regions"])
+    packed = report.animation["packed"]
+    assert packed["regions"] == 1
+    assert packed["frames"] == 2
+    assert packed["captured_this_run"] == 2
+    assert packed["carried_over"] == 0
+    assert report.animation["cycle_frames"] == {"terrain_variants:7:42": 2}
+    assert packed["atlas"] == f"animation-{packed['atlas_sha256']}.png"
+    assert (pack_dir / packed["atlas"]).is_file()
+    assert (
+        SpritePack(pack_dir).manifest["atlas"] == shipped.manifest["atlas"]
+    )  # static atlas intact
+
+    reload = SpritePack(pack_dir)
+    anchor = GroundCell(0, 0, 42, 7, 0)
+    regions = reload.animation_regions(anchor)
+    assert len(regions) == 2
+    grounds = [reload.frame_tile(region) for region in regions]
+    assert grounds[0] == pack.tile(
+        pack.region_for(anchor)
+    )  # frame 0 is the phase the client already has
+    assert solid((12, 44, 190, 255))[: TILE * TILE * 4] in grounds  # the frame mGBA drew next
+    assert any(
+        difference(ground, pack.tile(pack.region_for(anchor))) <= MATCH_TOLERANCE
+        for ground in grounds
+    )  # one of them is the frame the pack already carries
+    assert (
+        reload.animation_regions(GroundCell(1, 0, 42, 7, 0)) == regions
+    )  # same region, same frames
+    assert reload.animation_regions(GroundCell(2, 2, 1, 1, 0)) == []
+
+    # A second audit sees a different phase of the same cell and keeps the frames the
+    # first audit already captured instead of replacing them.
+    swell = battle_window(pack, cells, entry.width, {(0, 0): solid((20, 60, 210, 255))})
+    second = asyncio.run(
+        audit_map(
+            FakeBridge([sea, swell, sea, swell], map_id=entry.rom_id),
+            SpritePack(pack_dir),
+            "bean_island",
+            ROM,
+            tmp_path / "shots-again",
+            1,
+            12,
+            None,
+            live_state(cells, entry),
+            animation_samples=3,
+        )
+    )
+    packed = second.animation["packed"]
+    assert packed["carried_over"] == 2
+    assert packed["captured_this_run"] == 2
+    assert packed["frames"] == 3
+    assert packed["maps"] == ["bean_island"]
+    refreshed = SpritePack(pack_dir)
+    frames = [refreshed.frame_tile(region) for region in refreshed.animation_regions(anchor)]
+    assert len(frames) == 3
+    assert frames[0] == pack.tile(pack.region_for(anchor))  # still the phase the static atlas draws
+    assert solid((12, 44, 190, 255))[: TILE * TILE * 4] in frames  # first audit's frame
+    assert solid((20, 60, 210, 255))[: TILE * TILE * 4] in frames  # second audit's frame
+    assert list(pack_dir.glob("animation-*.png")) == [pack_dir / packed["atlas"]]
 
 
 def test_the_audit_boots_its_own_emulator_by_default(tmp_path: Path, monkeypatch) -> None:
@@ -1229,7 +1452,7 @@ def test_the_audit_boots_its_own_emulator_by_default(tmp_path: Path, monkeypatch
         audited_bridges.append(bridge)
         return SimpleNamespace(map_id=MAPS_BY_ID["bean_island"].rom_id)
 
-    async def fake_audit(bridge, pack, map_id, rom_path, screenshots, cap, frames, tiles):
+    async def fake_audit(bridge, pack, map_id, rom_path, screenshots, cap, frames, tiles, **kwargs):
         audited_bridges.append(bridge)
         return AuditReport(map_id, MAPS_BY_ID[map_id].name, 16, 15, str(pack.directory))
 
@@ -1281,7 +1504,7 @@ def test_attaching_to_a_live_emulator_restores_its_state(tmp_path: Path, monkeyp
     bridge = FakeBridge([battle_window(pack, cells, entry.width)])
     audited: list[object] = []
 
-    async def fake_audit(bridge, pack, map_id, rom_path, screenshots, cap, frames, tiles):
+    async def fake_audit(bridge, pack, map_id, rom_path, screenshots, cap, frames, tiles, **kwargs):
         audited.append((map_id, cap, frames))
         return AuditReport(map_id, MAPS_BY_ID[map_id].name, entry.width, entry.height, pack)
 
@@ -1303,6 +1526,8 @@ def test_attaching_to_a_live_emulator_restores_its_state(tmp_path: Path, monkeyp
             "43129",
             "--max-screenshots",
             "2",
+            "--animation-frames",
+            "0",
             "--screenshots-dir",
             str(tmp_path),
         ],
@@ -1312,6 +1537,85 @@ def test_attaching_to_a_live_emulator_restores_its_state(tmp_path: Path, monkeyp
     assert bridge.operations[-1] == "load_state_buffer"
     assert bridge.restored_state is not None
     assert audited == [("bean_island", 2, 0)]
+
+
+def test_the_animation_probe_flags_reach_the_audit(tmp_path: Path, monkeypatch) -> None:
+    """The frame window, sample count, and packing switch are passed through to the audit."""
+    pack = make_pack(tmp_path / "pack")
+    entry = MAPS_BY_ID["bean_island"]
+    rom = tmp_path / "fake-cartridge.gba"
+    rom.write_bytes(b"\x00" * 64)
+    bridge = FakeBridge([])
+    calls: list[dict[str, object]] = []
+
+    async def fake_audit(bridge, pack, map_id, rom_path, screenshots, cap, frames, tiles, **kwargs):
+        calls.append(
+            {
+                "frames": frames,
+                "samples": kwargs["animation_samples"],
+                "pack": kwargs["pack_frames"],
+            }
+        )
+        return AuditReport(map_id, MAPS_BY_ID[map_id].name, entry.width, entry.height, pack)
+
+    monkeypatch.setattr("aw2_lab.sprite_audit.LuaBridgeClient", lambda **kwargs: bridge)
+    monkeypatch.setattr("aw2_lab.sprite_audit.audit_map", fake_audit)
+
+    def run(*extra: str) -> None:
+        # Attaching keeps the CLI from booting a real mGBA in this test; the flags being
+        # checked are the ones handed to the audit itself.
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "aw2-lab",
+                "sprite-audit",
+                "--map",
+                "bean_island",
+                "--rom",
+                str(rom),
+                "--pack",
+                str(pack.directory),
+                "--attach-live",
+                "43129",
+                *extra,
+            ],
+        )
+        main()
+
+    run("--animation-frames", "12", "--animation-samples", "3", "--no-pack-frames")
+    assert calls[0] == {"frames": 12, "samples": 3, "pack": False}
+
+    run()
+    # Without the flags the probe samples the engine's four-to-eight frame cycle and
+    # writes what it finds straight into the pack.
+    assert calls[1] == {"frames": 8, "samples": 4, "pack": True}
+
+    run("--animation-frames", "0")
+    assert calls[2] == {"frames": 0, "samples": 4, "pack": True}
+
+    with pytest.raises(SystemExit):
+        run("--animation-frames", "601")
+    assert len(calls) == 3  # the rejected window never reached the audit
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "aw2-lab",
+            "sprite-audit",
+            "--map",
+            "bean_island",
+            "--rom",
+            str(rom),
+            "--pack",
+            str(pack.directory),
+            "--animation-frames",
+            "601",
+        ],
+    )
+    with pytest.raises(SystemExit):
+        main()
 
 
 @pytest.mark.parametrize("during_restore", [False, True])
@@ -1330,7 +1634,7 @@ def test_sigterm_waits_for_attached_frame_restoration(tmp_path: Path, monkeypatc
 
     bridge = TerminatingBridge([])
 
-    async def audit(*args):
+    async def audit(*args, **kwargs):
         bridge.frames = 100
         if not during_restore:
             signal.raise_signal(signal.SIGTERM)
@@ -1385,7 +1689,7 @@ def test_run_directory_requires_the_recorded_bridge_before_snapshot(
             return {"frame": 100, "state_base64": "c2F2ZWQ="}
         return {"frame": 100}
 
-    async def audit(*args):
+    async def audit(*args, **kwargs):
         operations.append("audit")
         return AuditReport("bean_island", "Bean Island", 16, 15, str(pack.directory))
 
@@ -1420,6 +1724,7 @@ def test_run_directory_requires_the_recorded_bridge_before_snapshot(
         ("--max-screenshots", "0"),
         ("--animation-frames", "-1"),
         ("--animation-frames", "601"),
+        ("--animation-samples", "65"),
     ],
 )
 def test_invalid_capture_limits_are_rejected_before_reading_the_rom(
@@ -1451,7 +1756,7 @@ def test_an_unverifiable_restore_ends_the_audit_with_an_error(
     monkeypatch.setattr("aw2_lab.sprite_audit.LuaBridgeClient", lambda **kwargs: bridge)
     audited = []
 
-    async def fake_audit(*args):
+    async def fake_audit(*args, **kwargs):
         audited.append(True)
 
     monkeypatch.setattr("aw2_lab.sprite_audit.audit_map", fake_audit)

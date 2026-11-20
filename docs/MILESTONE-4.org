@@ -1061,7 +1061,8 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     - [x] Compare the emulator's cell with the selected =18:owner_slot= region, and
       confirm the symbolic fallback is not used.
 
-*** TODO Capture animated terrain frames
+*** DONE Capture animated terrain frames
+    CLOSED: 2026-11-19, implemented in the sprite audit and the sprite pack.
     =terrain_sample= composes only the first frame of the animated terrain pages, so a
     cell whose art cycles in the game renders statically in the client.
     Evidence (2026-11-19): the audit's =--animation-frames= probe found 9 terrain regions
@@ -1072,10 +1073,32 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     painted ground are treated as animation evidence, so a blinking cursor or a moving unit
     sprite is not blamed on the terrain underneath it. Cycling cells are reported separately
     so they are not mistaken for missing artwork.
-    - [ ] Pack the additional frames for the regions the probe finds cycling, keeping older
+    Implemented (2026-11-19): the probe now samples every viewport the camera sweep
+    reaches (104 views on Pipe Maze, 30 on Big Daddy) instead of two windows, taking
+    =--animation-samples= screenshots =--animation-frames= frames apart - four eight frames
+    apart by default. Distinct ground pixels per cell are merged per atlas region and
+    written to a second atlas, =animation-<sha256>.png=, of 16x32 frames, and the manifest
+    gains an optional =animation= section (=frames= by kind and region key, plus the atlas,
+    its digest, =cycle_frames=, =samples_per_view=, and the =maps= that contributed). Packs
+    without the section still validate, and =/client-sprites/manifest.json= serves it while
+    the frames atlas is served with =Cache-Control: no-store=.
+    Verification: the audit reads its own frames atlas back and compares every frame
+    byte-for-byte with the pixels mGBA drew. Pipe Maze packed 9 regions and 33 frames, Big
+    Daddy 19 regions and 55 frames; re-auditing Pipe Maze after Big Daddy carried Big
+    Daddy's frames into the new atlas (28 regions, 88 frames, 256x192) and deleted the
+    superseded one. Each region's frames are rotated so the phase the static atlas draws is
+    frame 0 - true for 27 of the 28 regions, the probe never having sampled =7:74='s static
+    phase - so a client can start cycling at frame 0 without syncing to the emulator clock.
+    Caveat: a region whose cycle repeats at the probe spacing reads as static (a class-14
+    base blink sampled 8 frames apart shows two frames, not four). Run again with a
+    different =--animation-frames= to add phases; frames accumulate across runs.
+    - [x] Pack the additional frames for the regions the probe finds cycling, keeping older
       manifests readable.
-    - [ ] Animate the affected tiles in the client, or document the frame-0 approximation.
-    - [ ] Sample more than the two views the probe currently covers, so cycling regions are
+    - [x] Animate the affected tiles in the client, or document the frame-0 approximation.
+      Documented in docs/SPRITE-EXTRACTION.md: the prototype client still paints frame 0,
+      and drawing the captured frames means fetching the frames atlas and cycling a frame
+      index in prototypes/client/web/Board.tsx.
+    - [x] Sample more than the two views the probe currently covers, so cycling regions are
       found even when they sit outside those windows.
 
 *** TODO Check per-cell property artwork

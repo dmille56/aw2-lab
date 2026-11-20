@@ -190,7 +190,8 @@ aw2-lab sprite-audit --map pipe_maze --rom ~/Downloads/aw2/aw2.gba \
   --output /tmp/pipe-maze/sprite-audit.json \
   --screenshots-dir /tmp/pipe-maze/audit-shots \
   --tiles-dir /tmp/pipe-maze/audit-tiles \
-  --animation-frames 60 \
+  --animation-frames 8 \
+  --animation-samples 4 \
   --spent-silo
 ```
 
@@ -249,9 +250,13 @@ The audit works in four steps:
    client picked the wrong region; a far one means the artwork is genuinely absent. It also
    flags cells with a unit sprite or the status panel on them, cells whose visible ground
    comes from a 16x32 mountain frame anchored on the cell below, and terrain whose pixels
-   change between two screenshots `--animation-frames` apart. Animation probes exclude
-   cells covered by the cursor, HUD, units, and property effects. At least one sample must
-   match the packed ground before a change counts as terrain animation.
+   change between screenshots `--animation-frames` apart, sampled `--animation-samples`
+   times at every viewport the sweep reaches. A repeat visit gets another probe when the
+   cursor exposes a cell it masked in every earlier probe of that viewport.
+   Animation probes exclude cells covered by the cursor, HUD, unit sprites including their
+   overhang, and property effects.
+   At least one sample must match the packed ground before a change counts as terrain
+   animation.
    `--tiles-dir` writes one PNG per
    mismatch with the atlas composite on the left and the emulator's pixels on the right.
 
@@ -289,11 +294,81 @@ fallback is never reached. The pack carries six spent-silo regions (`18:0`-`18:5
 source tiles each at `0x0CFFC4 + 0xB00`); the silo's cell keeps owner slot 0 after the
 launch, so a spent silo renders the neutral artwork, which is what the emulator draws.
 
+### Packing the frames that cycle
+
+Cycling terrain is now captured rather than dropped. Every viewport the sweep reaches is
+probed. Set `--animation-samples` to 2–64 screenshots and `--animation-frames` to the
+spacing between them. The default of four screenshots eight frames apart spans the
+engine's four-to-eight frame cycle. `--animation-frames 0` turns the probe off, and `--no-pack-frames` reports cycles
+without writing them.
+
+Distinct ground pixels per cell are merged per atlas region and written to a second atlas
+named `animation-<sha256>.png` beside the ROM-derived one: 16-pixel-wide, 32-row frames
+with the transparent top rows kept, laid out left to right, sixteen frames per row. The
+manifest gains an `animation` section:
+
+```json
+{
+  "atlas": "animation-4f55deb1....png",
+  "atlas_sha256": "4f55deb1....",
+  "width": 256,
+  "height": 192,
+  "cycle_frames": 8,
+  "samples_per_view": 4,
+  "map_id": "big_daddy",
+  "maps": ["pipe_maze", "big_daddy"],
+  "captured_by": "aw2-lab sprite-audit",
+  "frames": {
+    "terrain": {
+      "14:1": [{"x": 0, "y": 0, "width": 16, "height": 32}, {"x": 16, "y": 0, "width": 16, "height": 32}]
+    }
+  }
+}
+```
+
+The audit reloads and merges the latest frames under a pack lock, so overlapping audits
+carry forward each other's captures. It validates the updated manifest, publishes the new
+atlas and manifest, then removes the superseded atlas. For each region, the audit uses the
+phase order from the most complete probes and places other frames alongside their observed
+neighbors. The cycle starts with the phase the static atlas draws when that phase was captured: in the pack audited on 2026-11-19 that holds for 27 of the 28
+cycling regions (the probe never saw `7:74`'s static phase), so a client cycling from frame
+0 starts on the artwork it was already showing rather than an arbitrary point in the cycle.
+The audit reads the atlas back after writing it and compares every stored frame byte for
+byte with the pixels mGBA drew; a frame it cannot read back is an error rather than a
+silent gap.
+
+Evidence (2026-11-19, isolated audit emulator, 8-frame spacing, four samples per view): the
+Pipe Maze sweep probed 104 distinct views and found 9 cycling regions with 33 distinct
+frames - `14:1`-`14:4` blink between two frames, and the `2:24`, `2:91`, `2:120`, `2:218`,
+and `2:219` variants shift through five. The Big Daddy sweep probed 30 views and found 19
+regions with 55 frames, mostly sea and shoal variants (`7:9`-`7:11`, `7:41`-`7:43`,
+`7:72`-`7:76`) and pipe art (`13:46`, `13:50`, `13:175`, `13:176`, `13:208`) through three
+frames each. Auditing Big Daddy after Pipe Maze produced a byte-for-byte identical frames
+atlas, so merging an earlier audit's frames into a new one is deterministic.
+
+The frames travel with the pack: `/client-sprites/manifest.json` carries the section and
+`/client-sprites/animation-<digest>.png` serves the atlas with `Cache-Control: no-store`,
+since a re-audit replaces it while the ROM atlas stays immutable. Packs built before frames
+were recorded validate unchanged, so an older pack still boots the client. `SpritePack` in
+the audit exposes `animation_regions(cell)`, `frame_tile(region)`, and
+`animation_frames(cell)`, so a caller can look up the extra frames for the region a cell
+selects.
+
+The prototype client does not animate yet. `prototypes/client/web/sprites.tsx` loads only
+the static atlas and `terrainSpriteRegion` returns one region, so an animated cell renders
+its frame-0 approximation and the extra frames sit unused in the pack. Drawing them means
+fetching the frames atlas and cycling a shared frame index through
+`animation.frames[kind][key]` in `Board.tsx`. That is the documented approximation for now;
+wiring the clock is the next step.
+
 Limits: the audit measures the ground only, so unit sprites, HP bars, and the status panel
-are ignored rather than compared; animation sampling covers only the two views probed; and
-animated frames beyond frame 0 are still not packed. `--spent-silo` plays real turns, so it
-needs a map where a silo touches a base the active army owns (Pipe Maze) and, with
-`--attach-live`, it changes the running match.
+are ignored rather than compared; frames are captured only for regions a swept viewport
+shows with unobstructed, fully painted ground; a region whose cycle repeats exactly at the
+probe spacing reads as static, so re-running with a different `--animation-frames` adds the
+phases that spacing missed (frames accumulate across runs); and property art whose tile or
+owner changes during play is still compared only against the army-keyed region. `--spent-silo` plays real
+turns, so it needs a map where a silo touches a base the active army owns (Pipe Maze) and,
+with `--attach-live`, it changes the running match.
 
 ## Prototype delivery and rendering
 

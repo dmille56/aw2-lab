@@ -11,17 +11,20 @@ import pytest
 
 from aw2_lab.aw2_rules_data import UNIT_DATA
 from aw2_lab.map_catalog import ALL_MAPS
-from aw2_lab.rom_profile import UnsupportedRomError
+from aw2_lab.rom_profile import AW2_US_REVISION_0, UnsupportedRomError
+from aw2_lab.sprite_audit import GroundCell, SpritePack
 from aw2_lab.sprite_extraction import (
     compose_tiles,
     decode_lz77,
     decode_palette,
     decode_tile,
+    encode_png,
     terrain_sample,
 )
 from aw2_lab.sprite_pack import (
     TERRAIN_CLASSES,
     TERRAIN_VARIANT_CLASSES,
+    attach_animation_frames,
     build_sprite_pack,
     terrain_frame,
     terrain_variant_frame,
@@ -317,3 +320,178 @@ def test_every_catalog_map_cell_resolves_to_packed_artwork(tmp_path: Path) -> No
         int(key.split(":")[1]) for key in variants if key.split(":")[0] in ("15", "16")
     }
     assert pipe_tiles and pipe_tiles <= packed_pipe_ids
+
+
+def write_frames_only_pack(directory: Path) -> SpritePack:
+    """A two-region pack: water at 5:12 and one plains representative, in a 32x32 atlas."""
+    ground = bytes((30, 60, 200, 255)) * (16 * 16)
+    pixels = bytearray(32 * 32 * 4)
+    pixels[1024:2048] = ground  # 5:12 ground, top half transparent
+    pixels[2048:3072] = ground  # 5:0 representative
+    png = encode_png(32, 32, bytes(pixels))
+    digest = hashlib.sha256(png).hexdigest()
+    manifest = {
+        "kind": "aw2-client-sprites",
+        "version": 1,
+        "rom_sha256": AW2_US_REVISION_0.sha256,
+        "atlas": f"atlas-{digest}.png",
+        "atlas_sha256": digest,
+        "width": 32,
+        "height": 32,
+        "units": {},
+        "terrain": {"5:0": {"x": 16, "y": 0, "width": 16, "height": 32}},
+        "terrain_variants": {"5:12": {"x": 0, "y": 0, "width": 16, "height": 32}},
+    }
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / manifest["atlas"]).write_bytes(png)
+    (directory / "manifest.json").write_text(json.dumps(manifest))
+    return SpritePack(directory)
+
+
+def test_animation_frames_are_written_next_to_the_atlas_and_read_back(tmp_path: Path) -> None:
+    """Captured cycle frames land in their own atlas, keyed by the region a cell selects."""
+    pack = write_frames_only_pack(tmp_path / "pack")
+    ground = 16 * 16 * 4
+    first = bytes(1024) + bytes((30, 60, 200, 255)) * 256
+    second = bytes(1024) + bytes((60, 90, 230, 255)) * 256
+    section = attach_animation_frames(
+        pack.directory,
+        {"terrain_variants": {"5:12": [first, second]}, "terrain": {"5:0": [first]}},
+        cycle_frames=8,
+        samples=4,
+        map_id="pipe_maze",
+    )
+    assert section["atlas"] == f"animation-{section['atlas_sha256']}.png"
+    frames_png = (pack.directory / section["atlas"]).read_bytes()
+    assert hashlib.sha256(frames_png).hexdigest() == section["atlas_sha256"]
+    assert struct.unpack_from(">II", frames_png, 16) == (section["width"], section["height"])
+    manifest = json.loads((pack.directory / "manifest.json").read_text())
+    assert manifest["animation"] == section
+    assert manifest["atlas"] == pack.manifest["atlas"]  # the ROM-derived atlas is untouched
+
+    reload = SpritePack(pack.directory)
+    cell = GroundCell(2, 2, 12, 5, 0)
+    regions = reload.animation_regions(cell)
+    assert len(regions) == 2
+    assert [reload.frame_tile(region) for region in regions] == [first[ground:], second[ground:]]
+    assert reload.animation_frames(cell) == 2
+    assert reload.animation_frames(GroundCell(2, 2, 0, 5, 0)) == 1
+    assert reload.animation_regions(GroundCell(1, 1, 0, 1, 0)) == []  # nothing cycles on plains
+
+
+def test_animation_frames_of_an_unpacked_region_are_dropped(tmp_path: Path) -> None:
+    """A region the pack never drew cannot be given animation frames."""
+    pack = write_frames_only_pack(tmp_path / "pack")
+    with pytest.raises(ValueError, match="the pack has no terrain_variants region for 5:99"):
+        attach_animation_frames(
+            pack.directory,
+            {"terrain_variants": {"5:99": [bytes(2048)]}},
+            cycle_frames=8,
+        )
+    with pytest.raises(ValueError, match="animation frames cannot be stored in units"):
+        attach_animation_frames(pack.directory, {"units": {"1:1": [bytes(2048)]}}, cycle_frames=8)
+
+
+def test_animation_frames_must_be_full_frames(tmp_path: Path) -> None:
+    pack = write_frames_only_pack(tmp_path / "pack")
+    with pytest.raises(ValueError, match="is not a 16x32 RGBA frame"):
+        attach_animation_frames(pack.directory, {"terrain": {"5:0": [bytes(1024)]}}, cycle_frames=8)
+
+
+def test_a_new_capture_replaces_the_frames_atlas_and_records_every_map(tmp_path: Path) -> None:
+    """Re-auditing writes one frames atlas, and the pack remembers which maps fed it."""
+    pack = write_frames_only_pack(tmp_path / "pack")
+    frame_a = bytes(1024) + bytes((30, 60, 200, 255)) * 256
+    frame_b = bytes(1024) + bytes((60, 90, 230, 255)) * 256
+    frame_c = bytes(1024) + bytes((90, 120, 250, 255)) * 256
+    first = attach_animation_frames(
+        pack.directory, {"terrain": {"5:0": [frame_a]}}, cycle_frames=8, map_id="pipe_maze"
+    )
+    second = attach_animation_frames(
+        pack.directory,
+        {"terrain": {"5:0": [frame_b]}, "terrain_variants": {"5:12": [frame_c]}},
+        cycle_frames=8,
+        map_id="big_daddy",
+    )
+    assert first["atlas"] != second["atlas"]
+    assert not (pack.directory / first["atlas"]).exists()
+    assert list(pack.directory.glob("animation-*.png")) == [pack.directory / second["atlas"]]
+    assert second["maps"] == ["pipe_maze", "big_daddy"]
+    assert json.loads((pack.directory / "manifest.json").read_text())["animation"] == second
+
+    reload = SpritePack(pack.directory)
+    sea = [
+        reload.frame_tile(region) for region in reload.animation_regions(GroundCell(2, 2, 0, 5, 0))
+    ]
+    assert sea == [frame_b[1024:]]
+    assert reload.animation_regions(GroundCell(2, 2, 12, 5, 0))[0]["x"] == 16  # second region
+
+
+def test_a_region_cannot_hold_unbounded_frames(tmp_path: Path) -> None:
+    pack = write_frames_only_pack(tmp_path / "pack")
+    frames = [bytes(1024) + bytes(index) * 256 for index in range(17)]
+    with pytest.raises(ValueError, match="more than 16 frames"):
+        attach_animation_frames(pack.directory, {"terrain": {"5:0": frames}}, cycle_frames=8)
+
+
+def test_replacing_an_animation_atlas_ignores_a_stale_path_outside_the_pack(tmp_path: Path) -> None:
+    pack = write_frames_only_pack(tmp_path / "pack")
+    unrelated = tmp_path / "unrelated.png"
+    unrelated.write_bytes(b"keep")
+    digest = "0" * 64
+    manifest = {
+        **pack.manifest,
+        "animation": {"atlas": "../unrelated.png", "atlas_sha256": digest},
+    }
+    (pack.directory / "manifest.json").write_text(json.dumps(manifest))
+    attach_animation_frames(pack.directory, {"terrain": {"5:0": [bytes(2048)]}}, cycle_frames=8)
+    assert unrelated.read_bytes() == b"keep"
+
+
+def test_failed_manifest_replace_leaves_the_previous_atlas_readable(
+    tmp_path: Path, monkeypatch
+) -> None:
+    pack = write_frames_only_pack(tmp_path / "pack")
+    first = attach_animation_frames(
+        pack.directory, {"terrain": {"5:0": [bytes(2048)]}}, cycle_frames=8
+    )
+    manifest = pack.directory / "manifest.json"
+    original_manifest = manifest.read_bytes()
+    replace = Path.replace
+
+    def reject_manifest(source, target):
+        if target == manifest:
+            raise OSError("could not replace manifest")
+        return replace(source, target)
+
+    monkeypatch.setattr(Path, "replace", reject_manifest)
+    with pytest.raises(OSError, match="could not replace manifest"):
+        attach_animation_frames(pack.directory, {"terrain": {"5:0": [b"B" * 2048]}}, cycle_frames=8)
+    assert manifest.read_bytes() == original_manifest
+    assert SpritePack(pack.directory).animation == first
+    assert list(pack.directory.glob("animation-*.png")) == [pack.directory / first["atlas"]]
+
+
+@pytest.mark.parametrize("overflow", ["samples_per_view", "maps"])
+def test_invalid_update_leaves_current_pack_untouched(tmp_path: Path, overflow: str) -> None:
+    pack = write_frames_only_pack(tmp_path / "pack")
+    first = attach_animation_frames(
+        pack.directory, {"terrain": {"5:0": [bytes(2048)]}}, cycle_frames=8
+    )
+    manifest_path = pack.directory / "manifest.json"
+    if overflow == "maps":
+        manifest = json.loads(manifest_path.read_bytes())
+        manifest["animation"]["maps"] = [f"map_{index}" for index in range(32)]
+        manifest_path.write_text(json.dumps(manifest))
+    original_manifest = manifest_path.read_bytes()
+
+    with pytest.raises(ValueError, match=overflow):
+        attach_animation_frames(
+            pack.directory,
+            {"terrain": {"5:0": [b"B" * 2048]}},
+            cycle_frames=8,
+            samples=65 if overflow == "samples_per_view" else 4,
+            map_id="next_map",
+        )
+    assert manifest_path.read_bytes() == original_manifest
+    assert list(pack.directory.glob("animation-*.png")) == [pack.directory / first["atlas"]]

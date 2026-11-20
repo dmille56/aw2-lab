@@ -155,3 +155,102 @@ def test_invalid_terrain_variant_keys_are_rejected(tmp_path: Path, key: str) -> 
     (tmp_path / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(ValueError):
         configure_sprite_assets(FastAPI(), tmp_path)
+
+
+def with_animation_frames(manifest: dict, directory: Path) -> dict:
+    """Attach a captured frames atlas to a synthetic pack and write it out."""
+    frames = encode_png(32, 32, bytes((20, 90, 200, 255)) * 32 * 32)
+    digest = hashlib.sha256(frames).hexdigest()
+    manifest["animation"] = {
+        "atlas": f"animation-{digest}.png",
+        "atlas_sha256": digest,
+        "width": 32,
+        "height": 32,
+        "cycle_frames": 8,
+        "samples_per_view": 4,
+        "map_id": "pipe_maze",
+        "maps": ["pipe_maze"],
+        "captured_by": "aw2-lab sprite-audit",
+        "frames": {
+            "terrain_variants": {
+                "7:42": [
+                    {"x": 0, "y": 0, "width": 16, "height": 32},
+                    {"x": 16, "y": 0, "width": 16, "height": 32},
+                ]
+            }
+        },
+    }
+    (directory / manifest["animation"]["atlas"]).write_bytes(frames)
+    (directory / "manifest.json").write_text(json.dumps(manifest))
+    return manifest
+
+
+def test_captured_frames_are_served_with_the_manifest(tmp_path: Path) -> None:
+    """The frames atlas is delivered alongside the static atlas, and is not cached."""
+    manifest = with_animation_frames(write_synthetic_pack(tmp_path), tmp_path)
+    app = FastAPI()
+    configure_sprite_assets(app, tmp_path)
+
+    async def scenario() -> None:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            assert (await client.get("/client-sprites/manifest.json")).json() == manifest
+            response = await client.get("/client-sprites/" + manifest["animation"]["atlas"])
+            assert response.status_code == 200
+            assert response.headers["cache-control"] == "no-store"
+            assert (
+                hashlib.sha256(response.content).hexdigest()
+                == manifest["animation"]["atlas_sha256"]
+            )
+            assert (await client.get("/client-sprites/animation-other.png")).status_code == 404
+
+    asyncio.run(scenario())
+
+
+def test_a_frames_atlas_that_does_not_match_its_digest_is_rejected(tmp_path: Path) -> None:
+    manifest = write_synthetic_pack(tmp_path)
+    frames = encode_png(32, 32, bytes((20, 90, 200, 255)) * 32 * 32)
+    stale = f"animation-{'0' * 64}.png"
+    manifest["animation"] = {
+        "atlas": stale,
+        "atlas_sha256": "0" * 64,
+        "width": 32,
+        "height": 32,
+        "cycle_frames": 8,
+        "samples_per_view": 4,
+        "captured_by": "aw2-lab sprite-audit",
+        "frames": {"terrain": {"5:0": [{"x": 0, "y": 0, "width": 16, "height": 32}]}},
+    }
+    (tmp_path / stale).write_bytes(frames)
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="Animation atlas does not match its manifest"):
+        configure_sprite_assets(FastAPI(), tmp_path)
+
+
+def test_animation_frames_outside_the_frames_atlas_are_rejected(tmp_path: Path) -> None:
+    manifest = write_synthetic_pack(tmp_path)
+    frames = encode_png(32, 32, bytes((20, 90, 200, 255)) * 32 * 32)
+    digest = hashlib.sha256(frames).hexdigest()
+    manifest["animation"] = {
+        "atlas": f"animation-{digest}.png",
+        "atlas_sha256": digest,
+        "width": 32,
+        "height": 32,
+        "cycle_frames": 8,
+        "samples_per_view": 4,
+        "captured_by": "aw2-lab sprite-audit",
+        "frames": {"terrain_variants": {"7:42": [{"x": 24, "y": 0, "width": 16, "height": 32}]}},
+    }
+    (tmp_path / manifest["animation"]["atlas"]).write_bytes(frames)
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="Animation frame is outside the atlas"):
+        configure_sprite_assets(FastAPI(), tmp_path)
+
+
+def test_an_animation_capture_list_cannot_repeat_a_map(tmp_path: Path) -> None:
+    manifest = with_animation_frames(write_synthetic_pack(tmp_path), tmp_path)
+    manifest["animation"]["maps"] = ["pipe_maze", "pipe_maze"]
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="Duplicate map in the animation capture list"):
+        configure_sprite_assets(FastAPI(), tmp_path)

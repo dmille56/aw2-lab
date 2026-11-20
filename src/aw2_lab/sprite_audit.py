@@ -13,6 +13,10 @@ art).
         --save-profile ~/Downloads/aw2/game-saves/aw2-everything-unlocked.sav \
         --pack ~/.local/share/aw2-lab/sprites
 
+    # Sampling each swept view finds terrain that cycles in the game, records the distinct
+    # frames it draws, and writes them into the pack next to the static atlas.
+    aw2-lab sprite-audit --map pipe_maze --animation-frames 8 --animation-samples 4
+
     # Auditing an emulator that is already serving a match is possible but unsafe for
     # that match: the sweep presses D-pad buttons, so the controller's committed frame no
     # longer matches the emulator and the next gameplay command needs recovery. The audit
@@ -54,6 +58,13 @@ from aw2_lab.map_catalog import MAPS_BY_ID, VersusMap
 from aw2_lab.match_contract import CoId
 from aw2_lab.match_observation import MatchObservationTracker
 from aw2_lab.sprite_extraction import decode_lz77, encode_png
+from aw2_lab.sprite_pack import (
+    MAX_ANIMATION_SAMPLES,
+    Region,
+    attach_animation_frames,
+    sprite_pack_lock,
+    valid_animation_atlas_name,
+)
 from aw2_lab.state_decoder import capture_game_state
 from aw2_lab.state_model import BattleState, GameState, ValueStatus, Weather
 from aw2_lab.state_validation import BATTLE_MAP_ID_ADDRESS
@@ -104,6 +115,10 @@ MIN_GROUND_COVERAGE = TILE * TILE * 3 // 4
 # The largest catalog map is 45x30 cells, and the sweep needs roughly one screenshot per
 # cell, so the default leaves room for any map plus the animation probes.
 DEFAULT_MAX_SCREENSHOTS = 1500
+# Terrain art that cycles on the battle map repeats every four to eight frames, so the
+# animation probe steps screenshots eight frames apart by default.
+DEFAULT_ANIMATION_FRAMES = 8
+DEFAULT_ANIMATION_SAMPLES = 4
 SAMPLE_ROWS = (2, 5, 8, 13)
 SAMPLE_COLUMNS = (3, 7, 11, 15)
 
@@ -380,6 +395,23 @@ class SpritePack:
         self.width, self.height, self.pixels = decode_png(atlas.read_bytes())
         self._tiles: dict[str, bytes] = {}
         self._artwork: list[tuple[str, str, bytes]] | None = None
+        self._animation_pixels = b""
+        self._animation_width = 0
+        animation = manifest.get("animation")
+        self.animation: dict[str, Any] = animation if isinstance(animation, dict) else {}
+        if self.animation:
+            if not valid_animation_atlas_name(
+                self.animation.get("atlas"), self.animation.get("atlas_sha256")
+            ):
+                raise AuditError("Invalid animation atlas filename")
+            frame_atlas = directory / self.animation["atlas"]
+            if not frame_atlas.is_file():
+                raise AuditError(f"Animation atlas is missing: {frame_atlas}")
+            width, height, pixels = decode_png(frame_atlas.read_bytes())
+            if (width, height) != (self.animation["width"], self.animation["height"]):
+                raise AuditError(f"Animation atlas {frame_atlas} does not match the manifest")
+            self._animation_pixels = pixels
+            self._animation_width = width
 
     def region(self, kind: str, key: str) -> dict[str, int] | None:
         region = self.manifest.get(kind, {}).get(key)
@@ -447,6 +479,64 @@ class SpritePack:
                     candidates.append((kind, key, self.tile(region)))
             self._artwork = candidates
         return self._artwork
+
+    def animation_regions(self, cell: GroundCell) -> list[dict[str, int]]:
+        """The frames the audit packed for the region the client selects for ``cell``.
+
+        A pack that was never audited has no animation section, so this returns an empty
+        list and the caller keeps drawing the static region.
+        """
+        identity = self.region_identity(cell)
+        if identity is None:
+            return []
+        kind, key = identity
+        return list(self.animation.get("frames", {}).get(kind, {}).get(key, []))
+
+    def frame_tile(self, region: Region | dict[str, int]) -> bytes:
+        """Return one animation frame's 16x16 ground rows from the frames atlas."""
+        key = f"frame:{region['x']}:{region['y']}"
+        cached = self._tiles.get(key)
+        if cached is not None:
+            return cached
+        rows = bytearray()
+        for row in range(TILE):
+            start = ((region["y"] + 16 + row) * self._animation_width + region["x"]) * 4
+            rows.extend(self._animation_pixels[start : start + TILE * 4])
+        tile = bytes(rows)
+        self._tiles[key] = tile
+        return tile
+
+    def animation_frame_image(self, region: Region | dict[str, int]) -> bytes:
+        """Return one animation frame's full 16x32 pixels, transparent top rows included."""
+        return b"".join(
+            self._animation_pixels[
+                ((region["y"] + row) * self._animation_width + region["x"]) * 4 : (
+                    (region["y"] + row) * self._animation_width + region["x"]
+                )
+                * 4
+                + TILE * 4
+            ]
+            for row in range(2 * TILE)
+        )
+
+    def animation_frame_images(self) -> dict[str, dict[str, list[bytes]]]:
+        """Every frame the pack already carries, as full 16x32 pixels, in stored order.
+
+        Auditing a second map reuses the frames an earlier audit captured for regions the
+        new sweep does not reach, so a pack accumulates cycles instead of losing them.
+        """
+        return {
+            kind: {
+                key: [self.animation_frame_image(region) for region in regions]
+                for key, regions in keys.items()
+            }
+            for kind, keys in self.animation.get("frames", {}).items()
+            if isinstance(keys, dict)
+        }
+
+    def animation_frames(self, cell: GroundCell) -> int:
+        """How many cycle frames the audit packed for the region this cell selects."""
+        return len(self.animation_regions(cell))
 
 
 def rom_map_cells(rom: bytes, map: VersusMap) -> list[GroundCell]:
@@ -975,6 +1065,8 @@ async def audit_map(
     animation_frames: int | None,
     tiles_dir: Path | None = None,
     state: GameState | None = None,
+    animation_samples: int = 4,
+    pack_frames: bool = True,
 ) -> AuditReport:
     """Measure every viewport of ``map_id`` on the emulator the bridge serves.
 
@@ -1019,33 +1111,12 @@ async def audit_map(
     ):
         cursor = (cursor_observation.x, cursor_observation.y)
     views: set[tuple[int, int]] = set()
+    masked_in_every_probe: dict[tuple[int, int], set[tuple[int, int]]] = {}
     results: dict[tuple[int, int], CellMeasurement] = {}
     art: dict[int, bytes | None] = {}
     probes: list[dict[str, Any]] = []
     index = 0
     center: tuple[int, int] | None = None
-    if animation_frames:
-        # One view only samples the animation phase it happens to land on, so probe the
-        # view before the sweep and the view the sweep ends on. These probes are not part
-        # of the sweep, so --max-screenshots does not cut them off.
-        probes.append(
-            await check_animation(
-                bridge,
-                pack,
-                cells,
-                map,
-                animation_frames,
-                screenshots_dir,
-                index,
-                occupied,
-                art,
-                cursor,
-            )
-        )
-        index += 2
-        report.screenshots += 2
-        probe_x, probe_y = probes[-1]["view"]
-        center = (probe_x, probe_y)
     for swept, move in enumerate([""] + sweep_moves(map)):
         if swept >= max_screenshots:
             break
@@ -1093,29 +1164,110 @@ async def audit_map(
             art,
             cursor,
         )
+        if not animation_frames:
+            continue
+        masked = {
+            (x, y)
+            for x, y in cursor_cells(cursor)
+            if offset_x <= x < min(offset_x + VIEW_WIDTH, map.width)
+            and offset_y <= y < min(offset_y + VIEW_HEIGHT, map.height)
+        }
+        previously_masked = masked_in_every_probe.get(center)
+        if previously_masked is None or previously_masked - masked:
+            # Every new viewport gets a probe. A repeat is useful when the cursor
+            # has uncovered ground that all earlier probes of this viewport missed.
+            masked_in_every_probe[center] = (
+                masked if previously_masked is None else previously_masked & masked
+            )
+            probes.append(
+                await check_animation(
+                    bridge,
+                    pack,
+                    cells,
+                    map,
+                    animation_frames,
+                    screenshots_dir,
+                    index,
+                    occupied,
+                    art,
+                    cursor,
+                    camera_hint=(offset_x, offset_y),
+                    samples=animation_samples,
+                )
+            )
+            index += animation_samples
+            report.screenshots += animation_samples
     report.cells = results
     add_nearest_artwork(pack, cells, map.width, results)
     report.never_in_view = [(cell.x, cell.y) for cell in cells if (cell.x, cell.y) not in results]
     if animation_frames:
-        probes.append(
-            await check_animation(
-                bridge,
-                pack,
-                cells,
-                map,
-                animation_frames,
-                screenshots_dir,
-                index,
-                occupied,
-                art,
-                cursor,
-                camera_hint=center,
-            )
-        )
-        index += 2
-        report.screenshots += 2
-        report.animation = merge_animation(probes, animation_frames)
-        report.animated_regions = set(report.animation["changed_regions"])
+        merged, cycle = merge_animation(probes, animation_frames)
+        if pack_frames and cycle:
+            with sprite_pack_lock(pack.directory):
+                # Frames an earlier audit captured for regions this sweep never reaches are
+                # carried over, so auditing map after map builds one growing frames atlas.
+                latest = SpritePack(pack.directory)
+                if latest.manifest["atlas"] != pack.manifest["atlas"]:
+                    raise AuditError("The static sprite atlas changed during the audit")
+                frames = latest.animation_frame_images()
+                carried = sum(len(values) for keys in frames.values() for values in keys.values())
+                for kind, keys in cycle.items():
+                    bucket = frames.setdefault(kind, {})
+                    for key, captured in keys.items():
+                        bucket[key] = order_animation_phases([captured, bucket.get(key, [])])
+                # The client already draws the phase stored in the static atlas, so put that
+                # phase first in every region. A client cycling from frame 0 then starts on the
+                # artwork it was showing a moment ago instead of an arbitrary point in the cycle.
+                for kind, keys in frames.items():
+                    for key, stored in keys.items():
+                        static_region = latest.region(kind, key)
+                        if static_region is None or not stored:
+                            continue
+                        ground = latest.tile(static_region)
+                        phase = next(
+                            (
+                                index
+                                for index, frame in enumerate(stored)
+                                if frame[TILE * TILE * 4 :] == ground
+                            ),
+                            None,
+                        )
+                        if phase:
+                            stored[:] = stored[phase:] + stored[:phase]
+                section = attach_animation_frames(
+                    pack.directory,
+                    frames,
+                    cycle_frames=animation_frames,
+                    samples=animation_samples,
+                    map_id=map_id,
+                )
+                written = SpritePack(pack.directory)
+                for kind, region_frames in section["frames"].items():
+                    for key, atlas_regions in region_frames.items():
+                        for frame_index, atlas_region in enumerate(atlas_regions):
+                            ground = frames[kind][key][frame_index][TILE * TILE * 4 :]
+                            if written.frame_tile(atlas_region) != ground:
+                                raise AuditError(
+                                    f"animation frame {kind}/{key}#{frame_index} was written to "
+                                    f"the atlas but cannot be read back"
+                                )
+            merged["packed"] = {
+                "atlas": section["atlas"],
+                "atlas_sha256": section["atlas_sha256"],
+                "width": section["width"],
+                "height": section["height"],
+                "regions": sum(len(keys) for keys in section["frames"].values()),
+                "frames": sum(
+                    len(values) for keys in section["frames"].values() for values in keys.values()
+                ),
+                "captured_this_run": sum(
+                    len(values) for keys in cycle.values() for values in keys.values()
+                ),
+                "carried_over": carried,
+                "maps": section["maps"],
+            }
+        report.animation = merged
+        report.animated_regions = set(merged["changed_regions"])
     if tiles_dir is not None:
         report.tile_images = write_comparison_tiles(
             pack, cells, map.width, report, tiles_dir.expanduser().resolve()
@@ -1123,22 +1275,58 @@ async def audit_map(
     return report
 
 
-def merge_animation(probes: list[dict[str, Any]], frames: int) -> dict[str, Any]:
+def order_animation_phases(sequences: list[list[bytes]]) -> list[bytes]:
+    """Merge observed phase transitions in descending order of confidence."""
+    ordered: list[bytes] = []
+    for sequence in sequences:
+        # Place each unseen run beside its observed neighbors. Existing phases stay
+        # in order, so a short probe that skipped a phase cannot undo a fuller probe.
+        pending: list[bytes] = []
+        previous: bytes | None = None
+        for phase in dict.fromkeys(sequence):
+            if phase in ordered:
+                index = ordered.index(phase)
+                ordered[index:index] = pending
+                pending.clear()
+                previous = phase
+            else:
+                pending.append(phase)
+        index = len(ordered) if previous is None else ordered.index(previous) + 1
+        ordered[index:index] = pending
+    return ordered
+
+
+def merge_animation(
+    probes: list[dict[str, Any]], frames: int
+) -> tuple[dict[str, Any], dict[str, dict[str, list[bytes]]]]:
     """Combine the per-view animation probes into one picture of what cycles in the game.
 
     Views can overlap, so the merged report unions both the region keys and the cell
     coordinates: a region key counts how many distinct regions cycle, while the cell set
-    counts how many cells actually changed.
+    counts how many cells actually changed. The second return value is the union of the
+    phase sequences each view captured, merged into playback order.
     """
     changed: dict[str, int] = {}
     changed_cells: set[tuple[int, int]] = set()
     excluded: dict[str, int] = {}
+    sequences: dict[str, dict[str, list[list[bytes]]]] = {}
     for probe in probes:
         for key, diff in probe["changed_regions"].items():
             changed[key] = max(changed.get(key, 0), diff)
         changed_cells.update(tuple(cell) for cell in probe["changed_cells"])
         for reason, count in probe["cells_excluded"].items():
             excluded[reason] = excluded.get(reason, 0) + count
+        for kind, keys in probe.get("sequences", {}).items():
+            captured = sequences.setdefault(kind, {})
+            for key, observations in keys.items():
+                captured.setdefault(key, []).extend(observations)
+    cycle = {
+        kind: {
+            key: order_animation_phases(sorted(observations, key=len, reverse=True))
+            for key, observations in keys.items()
+        }
+        for kind, keys in sequences.items()
+    }
     return {
         "frames_between_screenshots": frames,
         "views_checked": [list(probe["view"]) for probe in probes],
@@ -1147,70 +1335,68 @@ def merge_animation(probes: list[dict[str, Any]], frames: int) -> dict[str, Any]
         "cells_changed": len(changed_cells),
         "cells_excluded": excluded,
         "largest_difference": max((probe["largest_difference"] for probe in probes), default=0),
-        "probes": probes,
-    }
+        "samples_per_view": max((probe.get("samples", 2) for probe in probes), default=2),
+        "cycle_frames": {
+            f"{kind}:{key}": len(values)
+            for kind, keys in sorted(cycle.items())
+            for key, values in sorted(keys.items())
+        },
+        "distinct_frames": sum(len(values) for keys in cycle.values() for values in keys.values()),
+        "probes": [
+            {key: value for key, value in probe.items() if key != "sequences"} for probe in probes
+        ],
+    }, cycle
 
 
-async def check_animation(
-    bridge: LuaBridgeClient,
+def animation_evidence(
+    images: list[bytes],
+    image_width: int,
     pack: SpritePack,
     cells: list[GroundCell],
     map: VersusMap,
-    frames: int,
-    screenshots_dir: Path,
-    index: int,
+    view: tuple[int, int],
     occupied: set[tuple[int, int]],
-    art: dict[int, bytes | None],
-    cursor: tuple[int, int] | None = None,
-    *,
-    camera_hint: tuple[int, int] | None = None,
+    hud: set[tuple[int, int]],
+    cursor: tuple[int, int] | None,
 ) -> dict[str, Any]:
-    """Diff two screenshots of the same view to find terrain that cycles in the game.
+    """Compare one view's sampled frames for regions that cycle, and keep their frames.
 
     Only unobstructed ground counts as evidence. Properties can draw effects on the tile
-    above them even when the atlas frame has a transparent top half.
+    above them even when the atlas frame has a transparent top half, and a cell the pack
+    has no artwork for cannot be shown to be animating. Frames are filed under the
+    collection and region key the client selects for the cell, and each frame keeps the
+    packed frame's top rows so it has the same shape as the region it replaces.
     """
-    first, image_width, image_height = await take_screenshot(bridge, screenshots_dir, index)
-    offset = find_camera_offset(
-        pack,
-        cells,
-        map,
-        first,
-        image_width,
-        image_height,
-        art,
-        expected=camera_hint,
-        cursor=cursor,
-    )
-    offset_x, offset_y = offset
-    await bridge.advance_frames(frames)
-    second, second_width, second_height = await take_screenshot(bridge, screenshots_dir, index + 1)
-    if (second_width, second_height) != (image_width, image_height):
-        raise AuditError("Screenshot dimensions changed between animation frames")
-    hud = interface_cells(first, image_width, offset) | interface_cells(second, image_width, offset)
+    offset_x, offset_y = view
     cursor_overlay = cursor_cells(cursor)
+    # As with the spent-silo check, units can cover ground one cell away in any direction.
+    unit_overlay = {(x + dx, y + dy) for x, y in occupied for dx in (-1, 0, 1) for dy in (-1, 0, 1)}
     changed: dict[str, int] = {}
+    sequences: dict[str, dict[str, list[list[bytes]]]] = {}
     changed_cells: list[tuple[int, int]] = []
     excluded: dict[str, int] = {}
     largest = 0
     for row in range(VIEW_HEIGHT):
         for column in range(VIEW_WIDTH):
             x, y = offset_x + column, offset_y + row
-            index_key = (x, y)
+            if not 0 <= x < map.width or not 0 <= y < map.height:
+                continue
+            position = (x, y)
             cell_index = y * map.width + x
             cell = cells[cell_index]
-            earlier = rendered_tile(first, image_width, row, column)
-            later = rendered_tile(second, image_width, row, column)
-            diff = difference(earlier, later)
-            if not diff:
+            samples = list(
+                dict.fromkeys(rendered_tile(image, image_width, row, column) for image in images)
+            )
+            if len(samples) < 2:
                 continue
-            if index_key in occupied:
-                excluded["unit_on_cell"] = excluded.get("unit_on_cell", 0) + 1
+            if position in unit_overlay:
+                reason = "unit_on_cell" if position in occupied else "unit_overhang"
+                excluded[reason] = excluded.get(reason, 0) + 1
                 continue
-            if index_key in cursor_overlay:
+            if position in cursor_overlay:
                 excluded["map_cursor"] = excluded.get("map_cursor", 0) + 1
                 continue
-            if index_key in hud:
+            if position in hud:
                 excluded["hud"] = excluded.get("hud", 0) + 1
                 continue
             if (
@@ -1232,26 +1418,81 @@ async def check_animation(
                 continue
             # Establish that at least one sample actually shows this region. Otherwise
             # the change could come from misaligned artwork or an unknown overlay.
-            if min(difference(ground, earlier), difference(ground, later)) > MATCH_TOLERANCE:
+            if min(difference(ground, sample) for sample in samples) > MATCH_TOLERANCE:
                 excluded["unverified_ground"] = excluded.get("unverified_ground", 0) + 1
                 continue
-            diff = difference(earlier, later, mask=ground)
+            diff = max(
+                difference(first, second, mask=ground) for first in samples for second in samples
+            )
             if not diff:
                 continue
             key = f"{cell.terrain_class}:{cell.graphical_tile_id}"
             changed[key] = max(changed.get(key, 0), diff)
-            changed_cells.append(index_key)
+            changed_cells.append(position)
             largest = max(largest, diff)
+            identity = pack.region_identity(cell)
+            if identity is not None:
+                observations = sequences.setdefault(identity[0], {}).setdefault(identity[1], [])
+                top = pack.top_rows(region)
+                observations.append([top + sample for sample in samples])
     return {
-        "frames_between_screenshots": frames,
-        "view": [offset_x, offset_y],
         "cells_checked": VIEW_WIDTH * VIEW_HEIGHT,
         "cells_changed": len(changed_cells),
         "changed_cells": sorted(changed_cells),
         "cells_excluded": excluded,
         "largest_difference": largest,
         "changed_regions": dict(sorted(changed.items(), key=lambda item: -item[1])),
+        "sequences": sequences,
     }
+
+
+async def check_animation(
+    bridge: LuaBridgeClient,
+    pack: SpritePack,
+    cells: list[GroundCell],
+    map: VersusMap,
+    frames: int,
+    screenshots_dir: Path,
+    index: int,
+    occupied: set[tuple[int, int]],
+    art: dict[int, bytes | None],
+    cursor: tuple[int, int] | None = None,
+    *,
+    camera_hint: tuple[int, int] | None = None,
+    samples: int = 2,
+) -> dict[str, Any]:
+    """Screenshot one view ``samples`` times, ``frames`` apart, and look for cycling art.
+
+    Only unobstructed ground counts as evidence. Properties can draw effects on the tile
+    above them even when the atlas frame has a transparent top half.
+    """
+    if not 2 <= samples <= MAX_ANIMATION_SAMPLES:
+        raise AuditError(f"an animation probe needs between 2 and {MAX_ANIMATION_SAMPLES} samples")
+    first, image_width, image_height = await take_screenshot(bridge, screenshots_dir, index)
+    offset = find_camera_offset(
+        pack,
+        cells,
+        map,
+        first,
+        image_width,
+        image_height,
+        art,
+        expected=camera_hint,
+        cursor=cursor,
+    )
+    images = [first]
+    for step in range(1, samples):
+        await bridge.advance_frames(frames)
+        image, width, height = await take_screenshot(bridge, screenshots_dir, index + step)
+        if (width, height) != (image_width, image_height):
+            raise AuditError("Screenshot dimensions changed between animation frames")
+        images.append(image)
+    hud = set().union(*(interface_cells(image, image_width, offset) for image in images))
+    probe = animation_evidence(images, image_width, pack, cells, map, offset, occupied, hud, cursor)
+    probe["view"] = [offset[0], offset[1]]
+    probe["frames_between_screenshots"] = frames
+    probe["samples"] = samples
+    return probe
 
 
 def spent_silo_pair(cells: list[GroundCell], army: int) -> tuple[GroundCell, GroundCell] | None:
@@ -1794,14 +2035,27 @@ def parser() -> argparse.ArgumentParser:
         "--max-screenshots",
         type=int,
         default=DEFAULT_MAX_SCREENSHOTS,
-        help="cap on sweep screenshots, excluding the animation probes (default: enough for "
-        "the largest catalog map)",
+        help="cap on sweep screenshots, excluding the animation samples taken at each view "
+        "(default: enough for the largest catalog map)",
     )
     result.add_argument(
         "--animation-frames",
         type=int,
-        default=0,
-        help="also diff two screenshots this many frames apart (0 disables)",
+        default=DEFAULT_ANIMATION_FRAMES,
+        help=f"screenshot spacing in frames for the animation probe (default: "
+        f"{DEFAULT_ANIMATION_FRAMES}; 0 disables the probe)",
+    )
+    result.add_argument(
+        "--animation-samples",
+        type=int,
+        default=DEFAULT_ANIMATION_SAMPLES,
+        help="how many screenshots each swept view takes for the animation probe "
+        f"(default: {DEFAULT_ANIMATION_SAMPLES}, range: 2–{MAX_ANIMATION_SAMPLES})",
+    )
+    result.add_argument(
+        "--no-pack-frames",
+        action="store_true",
+        help="report which regions cycle without writing the captured frames into the pack",
     )
     result.add_argument(
         "--spent-silo",
@@ -1825,10 +2079,14 @@ def main(argv: list[str] | None = None) -> None:
         arguments.error("--max-screenshots must be at least 1")
     if not 0 <= args.animation_frames <= 600:
         arguments.error("--animation-frames must be between 0 and 600")
+    if not 2 <= args.animation_samples <= MAX_ANIMATION_SAMPLES:
+        arguments.error(f"--animation-samples must be between 2 and {MAX_ANIMATION_SAMPLES}")
     rom_path = (args.rom or Path(os.environ.get("AW2_ROM_PATH", ""))).expanduser().resolve()
     if not rom_path.is_file():
         arguments.error("an AW2 ROM is required; provide --rom or set AW2_ROM_PATH")
-    pack = SpritePack(args.pack.expanduser().resolve())
+    pack_directory = args.pack.expanduser().resolve()
+    with sprite_pack_lock(pack_directory, shared=True):
+        pack = SpritePack(pack_directory)
     screenshots = (args.screenshots_dir or args.run_dir or Path("sprite-audit")).expanduser()
     screenshots.mkdir(parents=True, exist_ok=True)
     tiles_dir = args.tiles_dir.expanduser().resolve() if args.tiles_dir else None
@@ -1862,6 +2120,8 @@ def main(argv: list[str] | None = None) -> None:
                     args.max_screenshots,
                     args.animation_frames,
                     tiles_dir,
+                    animation_samples=args.animation_samples,
+                    pack_frames=not args.no_pack_frames,
                 )
                 report.spent_silo = (
                     spent_silo_evidence(pack, report, spent_silo) if spent_silo else None
@@ -1921,6 +2181,8 @@ def main(argv: list[str] | None = None) -> None:
                 args.max_screenshots,
                 args.animation_frames,
                 tiles_dir,
+                animation_samples=args.animation_samples,
+                pack_frames=not args.no_pack_frames,
             )
             report.spent_silo = (
                 spent_silo_evidence(pack, report, spent_silo) if spent_silo else None
@@ -1929,7 +2191,15 @@ def main(argv: list[str] | None = None) -> None:
 
     try:
         report = asyncio.run(finish_on_sigterm(run()))
-    except (AuditError, BridgeError, EmulatorLaunchError, ColdBootError, NavigationError) as error:
+    except (
+        AuditError,
+        BridgeError,
+        EmulatorLaunchError,
+        ColdBootError,
+        NavigationError,
+        OSError,
+        ValueError,
+    ) as error:
         message = f"Sprite audit failed: {error}"
         if isinstance(error, NavigationError) and error.context.screenshot:
             message += f"\nDiagnostic screenshot: {error.context.screenshot}"
@@ -1980,6 +2250,21 @@ def main(argv: list[str] | None = None) -> None:
                 )
         else:
             print("    the sweep never saw the spent cell, so its artwork is unmeasured")
+    if summary["animation"]:
+        animation = summary["animation"]
+        print(
+            f"  animation: {len(animation['changed_regions'])} regions cycle, sampled "
+            f"{animation['samples_per_view']} times per view {animation['frames_between_screenshots']} "
+            f"frames apart over {len(animation['views_checked'])} views"
+        )
+        packed = animation.get("packed")
+        if packed:
+            print(
+                f"    packed {packed['frames']} frames for {packed['regions']} regions into "
+                f"{packed['atlas']}"
+            )
+        else:
+            print("    frames were not written to the pack (--no-pack-frames)")
     for terrain_class, counts in summary["by_terrain_class"].items():
         print(
             f"  class {terrain_class}: {counts['cells']} cells, {counts['matched']} matched, "
@@ -2005,15 +2290,16 @@ def main(argv: list[str] | None = None) -> None:
         )
     animation = summary["animation"]
     if animation:
-        samples = "; ".join(
-            f"{probe['cells_changed']} of {probe['cells_checked']} cells changed in view "
-            f"{probe['view'][0]},{probe['view'][1]}"
-            for probe in animation["probes"]
+        cycles = animation["cycle_frames"]
+        preview = ", ".join(
+            f"{key} ({count} frame{'s' if count > 1 else ''})"
+            for key, count in sorted(cycles.items(), key=lambda item: -item[1])
         )
         print(
-            f"  animation: {len(animation['changed_regions'])} terrain region(s) cycle over "
-            f"{animation['frames_between_screenshots']} frames "
-            f"(largest difference {animation['largest_difference']}): {samples}"
+            f"  cycling terrain: {preview or 'none'} - {animation['distinct_frames']} distinct "
+            f"frame(s) captured from {len(animation['views_checked'])} view(s), "
+            f"{animation['samples_per_view']} samples {animation['frames_between_screenshots']} "
+            "frames apart"
         )
     if args.output:
         print(f"Report: {args.output}")
