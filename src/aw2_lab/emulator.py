@@ -5,13 +5,14 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import os
+import secrets
 import shutil
 import tempfile
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
-from aw2_lab.bridge import BridgeError, LuaBridgeClient
+from aw2_lab.bridge import BridgeError, BridgeInstanceMismatch, LuaBridgeClient
 from aw2_lab.save_profile import decode_sharkport_save
 
 
@@ -36,6 +37,7 @@ class EmulatorSettings:
     bridge_ready_timeout: float = 15.0
     save_profile_path: Path | None = None
     bridge_port: int = 43128
+    use_adjacent_save: bool = True
 
 
 class EmulatorLaunchError(RuntimeError):
@@ -69,6 +71,9 @@ class EmulatorLauncher:
         self._workspace: tempfile.TemporaryDirectory[str] | None = None
         self.process: asyncio.subprocess.Process | None = None
         self.bridge: LuaBridgeClient | None = None
+        # Proves a handshake on the bridge port came from the emulator this launcher
+        # started, not from another mGBA already listening on that port.
+        self.instance_nonce = secrets.token_hex(16)
         self.build_identity: str | None = None
 
     @property
@@ -94,6 +99,7 @@ class EmulatorLauncher:
             raise EmulatorLaunchError(f"Lua bridge script does not exist: {script}")
         environment = os.environ.copy()
         environment["AW2_MGBA_FRAME_GATE"] = "1"
+        environment["AW2_BRIDGE_INSTANCE"] = self.instance_nonce
         show_console = (
             self.settings.mode is EmulatorMode.WINDOWED and self.settings.show_scripting_console
         )
@@ -119,13 +125,16 @@ class EmulatorLauncher:
                 self._isolate_saves
                 or profile_path is not None
                 or self.settings.bridge_port != 43128
+                or not self.settings.use_adjacent_save
             ):
                 self._workspace = tempfile.TemporaryDirectory(prefix="aw2-runtime-")
                 root = Path(self._workspace.name)
                 local_rom = root / rom_path.name
                 shutil.copyfile(rom_path, local_rom)
-                source_save = profile_path or rom_path.with_suffix(".sav")
-                if source_save.is_file():
+                source_save = profile_path
+                if source_save is None and self.settings.use_adjacent_save:
+                    source_save = rom_path.with_suffix(".sav")
+                if source_save is not None and source_save.is_file():
                     local_save = local_rom.with_suffix(".sav")
                     if source_save.suffix.lower() == ".sps":
                         local_save.write_bytes(decode_sharkport_save(source_save, rom_path))
@@ -190,7 +199,12 @@ class EmulatorLauncher:
                 f"Could not start mGBA executable {executable!r}: {error}"
             ) from error
         self.process = process
-        bridge = LuaBridgeClient(port=self.settings.bridge_port, timeout=1.0)
+        bridge = LuaBridgeClient(
+            port=self.settings.bridge_port,
+            timeout=1.0,
+            instance=self.instance_nonce,
+            allow_legacy_handshake=self.settings.bridge_script is not None,
+        )
         self.bridge = bridge
         deadline = asyncio.get_running_loop().time() + self.settings.bridge_ready_timeout
         last_error = "no response"
@@ -232,6 +246,14 @@ class EmulatorLauncher:
                         "with this aw2-lab version"
                     )
                 return
+            except BridgeInstanceMismatch as error:
+                await self.stop()
+                raise EmulatorLaunchError(
+                    f"mGBA bridge port {self.settings.bridge_port} is already served by "
+                    f"another emulator: {error}. Choose a different --bridge-port, stop the "
+                    "other emulator, or pass --attach-live to audit an emulator that is "
+                    "already running instead of starting a new one"
+                ) from error
             except BridgeError as error:
                 last_error = str(error)
             if asyncio.get_running_loop().time() >= deadline:

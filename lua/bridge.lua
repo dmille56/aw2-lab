@@ -16,6 +16,11 @@ local bridge = {
     port = rawget(_G, "AW2_BRIDGE_PORT") or 43128,
 }
 
+-- The launcher exports AW2_BRIDGE_INSTANCE for the emulator process it started, so
+-- a handshake that does not carry this nonce belongs to a different emulator that
+-- happens to be listening on the same bridge port.
+bridge.instance = _G.AW2_BRIDGE_INSTANCE or os.getenv("AW2_BRIDGE_INSTANCE")
+
 -- Load the vendored pure-Lua library beside this script; mGBA embeds Lua and
 -- does not necessarily use the host's Lua module search path.
 local script_path = debug.getinfo(1, "S").source:sub(2)
@@ -60,6 +65,10 @@ function bridge.handle_request(request)
         return error_response(request_id, "invalid_request", "Request is missing operation")
     end
 
+    if request.expected_instance ~= nil and request.expected_instance ~= bridge.instance then
+        return error_response(request_id, "instance_mismatch", "The emulator instance changed")
+    end
+
     if request.operation == "connect" then
         return {
             id = request_id,
@@ -67,6 +76,12 @@ function bridge.handle_request(request)
             result = {
                 protocol_version = bridge.protocol_version,
                 capabilities = bridge.capabilities,
+                -- The launcher exports a per-process nonce, so a handshake that
+                -- does not carry it belongs to some other emulator that happens to
+                -- answer on the same port.
+                instance = bridge.instance,
+                instance_guard = request.guard_next == true and bridge.instance ~= nil
+                    and request.expected_instance == bridge.instance or nil,
             },
         }
     end
@@ -350,7 +365,8 @@ local function handle_line(client, line)
         return true
     end
     send_response(client, response)
-    return false
+    local keep_open = response.ok and response.result and response.result.instance_guard
+    return false, keep_open
 end
 
 local listener = socket.bind("127.0.0.1", bridge.port)
@@ -391,9 +407,12 @@ function bridge.poll()
     end
     local newline = buffer:find("\n", 1, true)
     if newline then
-        local deferred = handle_line(client, buffer:sub(1, newline - 1))
+        local deferred, keep_open = handle_line(client, buffer:sub(1, newline - 1))
         if deferred then return end
-        -- The Python client uses one request per connection.
+        if keep_open then
+            buffer = ""
+            return
+        end
         close_client(client)
         client = nil
         buffer = nil

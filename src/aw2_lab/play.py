@@ -497,6 +497,7 @@ async def run(args: argparse.Namespace) -> None:
                         "base_url": base_url,
                         "mode": args.mode,
                         "bridge_port": bridge_port,
+                        "bridge_instance": app.state.emulator_launcher.instance_nonce,
                     }
                 )
                 + "\n",

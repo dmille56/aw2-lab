@@ -15,6 +15,7 @@ from aw2_lab.sprite_extraction import (
     decode_palette,
     decode_tile,
     encode_png,
+    expand_channel,
     extract_samples,
 )
 
@@ -45,6 +46,19 @@ def test_palette_channels_and_transparent_index() -> None:
     assert decode_palette(raw, 0, transparent=False)[0] == (0, 0, 0, 255)
     with pytest.raises(ValueError, match="Truncated"):
         decode_palette(raw[:-1], 0, transparent=True)
+
+
+def test_palette_scaling_matches_how_mgba_expands_five_bit_channels() -> None:
+    """Rounding ``v * 255 / 31`` is one lower than what the emulator actually draws."""
+    assert expand_channel(4) == 33
+    assert expand_channel(0) == 0
+    assert expand_channel(31) == 255
+    assert decode_palette(struct.pack("<16H", 0, 4, *([0] * 14)), 0, transparent=True)[1] == (
+        33,
+        0,
+        0,
+        255,
+    )
 
 
 def test_tile_nibbles_and_flips() -> None:

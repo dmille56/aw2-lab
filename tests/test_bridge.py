@@ -5,16 +5,18 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from aw2_lab.bridge import BridgeError, LuaBridgeClient
+from aw2_lab.bridge import BridgeError, BridgeInstanceMismatch, LuaBridgeClient
 
 
 def mock_connection(
-    monkeypatch: pytest.MonkeyPatch, response: dict[str, Any]
+    monkeypatch: pytest.MonkeyPatch,
+    response: dict[str, Any] | Callable[[dict[str, Any]], dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[str]]:
     requests: list[dict[str, Any]] = []
     connection: list[str] = []
@@ -31,7 +33,7 @@ def mock_connection(
         def write(self, payload: bytes) -> None:
             request = json.loads(payload)
             requests.append(request)
-            actual_response = response.copy()
+            actual_response = response(request) if callable(response) else response.copy()
             if actual_response.get("id") == "$request":
                 actual_response["id"] = request["id"]
             reader.data = json.dumps(actual_response).encode() + b"\n"
@@ -66,6 +68,67 @@ async def test_client_sends_versioned_request_and_returns_result(
 
     assert result == {"protocol_version": 1}
     assert requests == [{"id": 1, "version": 1, "operation": "connect"}]
+    assert connection == ["closed"]
+
+
+@pytest.mark.anyio
+async def test_client_accepts_a_handshake_from_the_emulator_it_started(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests, _ = mock_connection(
+        monkeypatch,
+        {"id": "$request", "ok": True, "result": {"protocol_version": 1, "instance": "nonce-1"}},
+    )
+    client = LuaBridgeClient(instance="nonce-1")
+    assert await client.connect() == {"protocol_version": 1, "instance": "nonce-1"}
+    assert requests == [{"id": 1, "version": 1, "operation": "connect"}]
+
+
+@pytest.mark.anyio
+async def test_client_rejects_a_bridge_from_another_emulator(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stale mGBA on the same port must not be mistaken for the one just launched."""
+    mock_connection(
+        monkeypatch,
+        {"id": "$request", "ok": True, "result": {"protocol_version": 1}},
+    )
+    client = LuaBridgeClient(instance="nonce-1")
+    with pytest.raises(BridgeInstanceMismatch, match="not this launcher's emulator"):
+        await client.connect()
+
+    mock_connection(
+        monkeypatch,
+        {"id": "$request", "ok": True, "result": {"protocol_version": 1, "instance": "other"}},
+    )
+    with pytest.raises(BridgeInstanceMismatch, match="observed 'other'"):
+        await LuaBridgeClient(instance="nonce-1").connect()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("instance,guard", [("nonce-1", True), ("other", True), ("nonce-1", False)])
+async def test_guard_verifies_restore_on_the_connection_that_receives_it(
+    monkeypatch, instance, guard
+):
+    def reply(request):
+        result = (
+            {"instance": instance, "instance_guard": guard}
+            if request["operation"] == "connect"
+            else {"frame": 100}
+        )
+        return {"id": "$request", "ok": True, "result": result}
+
+    requests, connection = mock_connection(monkeypatch, reply)
+    client = LuaBridgeClient(instance="nonce-1")
+    if instance == "nonce-1" and guard:
+        assert await client.load_state_buffer(b"saved state") == 100
+        assert [request["operation"] for request in requests] == ["connect", "load_state_buffer"]
+    else:
+        with pytest.raises(BridgeInstanceMismatch):
+            await client.load_state_buffer(b"saved state")
+        assert [request["operation"] for request in requests] == ["connect"]
+    assert requests[0]["guard_next"] is True
+    assert all(request["expected_instance"] == "nonce-1" for request in requests)
     assert connection == ["closed"]
 
 

@@ -56,15 +56,26 @@ def decode_lz77(data: bytes, offset: int, *, maximum_size: int = 65536) -> bytes
     return bytes(result)
 
 
+def expand_channel(value: int) -> int:
+    """Scale one GBA 5-bit channel to 8 bits the way mGBA displays it.
+
+    ``v * 255 / 31`` rounded down is the obvious conversion, but mGBA's GBA core uses
+    ``v << 3 | v >> 2``, which lands one unit higher for most values. Matching the
+    emulator exactly is what lets the sprite audit treat any leftover pixel difference
+    as real artwork instead of rounding.
+    """
+    return (value << 3) | (value >> 2)
+
+
 def decode_palette(data: bytes, offset: int, *, transparent: bool) -> tuple[RGBA, ...]:
     """Read one GBA BGR555 palette; sprite color zero is transparent."""
     if offset < 0 or offset + 32 > len(data):
         raise ValueError("Truncated graphics palette")
     return tuple(
         (
-            (color & 31) * 255 // 31,
-            ((color >> 5) & 31) * 255 // 31,
-            ((color >> 10) & 31) * 255 // 31,
+            expand_channel(color & 31),
+            expand_channel((color >> 5) & 31),
+            expand_channel((color >> 10) & 31),
             0 if transparent and index == 0 else 255,
         )
         for index, color in enumerate(struct.unpack_from("<16H", data, offset))

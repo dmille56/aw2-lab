@@ -174,7 +174,109 @@ including all 19 silhouettes and property families. Browser/native delivery and
 rendering remain the next checklist item. Unsupported campaign-only terrain
 classes use the client's symbolic fallback rather than a guessed mapping.
 
+## Auditing the pack against mGBA
+
+`aw2-lab sprite-audit` compares the packed atlas with what mGBA actually draws, so a
+suspected artwork gap becomes a list of cells with verdicts instead of an ad hoc script.
+The ground only renders while a game is running, so the audit boots its own mGBA into the
+map it is measuring:
+
+```sh
+aw2-lab sprite-audit --map pipe_maze --rom ~/Downloads/aw2/aw2.gba \
+  --save-profile ~/Downloads/aw2/game-saves/aw2-everything-unlocked.sav \
+  --pack ~/.local/share/aw2-lab/sprites \
+  --output /tmp/pipe-maze/sprite-audit.json \
+  --screenshots-dir /tmp/pipe-maze/audit-shots \
+  --tiles-dir /tmp/pipe-maze/audit-tiles --animation-frames 60
+```
+
+It never borrows the emulator that is serving a match. The sweep presses D-pad buttons and
+advances hundreds of frames, which on a live match would push the emulator past the frame
+boundary the controller committed and make the next gameplay command fail with
+`RECOVERY_REQUIRED`. `--attach-live <bridge-port>` (or `--run-dir` from `aw2-lab play`) is
+the opt-in escape hatch for an emulator that is already running: the audit snapshots its
+state and restores it when it finishes, and restoring a state buffer puts the emulator back
+on the exact frame it was on (checked: frame 100, advance 50, load the buffer, frame 100
+again), so the controller's committed boundary is intact. The match still has to stay idle
+for the whole sweep, and the audit gives up with an error if it cannot put that frame back.
+With `--run-dir`, the audit verifies the bridge instance recorded by `aw2-lab play`
+on the connection for each request, including restoration. SIGTERM cancels the sweep
+and waits for restoration before the audit exits. Older run directories require an
+explicit `--attach-live` port for a verified running match.
+`--emulator-mode windowed` shows the sweep in an mGBA window instead of headless.
+An isolated audit starts with a blank save unless you pass `--save-profile`. A cartridge
+save beside the ROM is ignored.
+
+Two guards keep the isolated path honest. Before launching, the audit checks whether the
+bridge port is already listening and refuses to start a second mGBA on an emulator it does
+own, naming the port and the ways out. And the launcher exports a per-process nonce
+(`AW2_BRIDGE_INSTANCE`) that its Lua bridge echoes back in the `connect` handshake, so a
+stale emulator answering on the same port cannot be mistaken for the one the audit started.
+The audit also refuses to measure an emulator that is not in a validated battle turn, since
+without a live map there is nothing to compare against the pack.
+
+The audit works in four steps:
+
+1. **Sweep the camera over the whole map.** The battle camera pans one cell per D-pad
+   press once the cursor reaches the viewport edge, so a cursor walk that visits every
+   cell drags the 15x10 window over every viewport offset. `sweep_moves()` generates that
+   walk and `tests/test_sprite_audit.py` proves it covers all `width * height` cells for
+   all 133 catalog maps. `--max-screenshots` caps the sweep (default 1500, enough for the
+   largest catalog map); the animation probes are measured in addition to that cap.
+2. **Find which cells are on screen.** The audit compares sampled pixel signatures of
+   candidate 240×160 windows against the packed art. It keeps the offset with the most
+   exact signature matches, breaking ties on total signature distance. Once the view
+   is known, cursor movement predicts the next offset and resolves ties. The audit
+   considers only windows that could contain the observed cursor.
+   If the tie remains, the audit reports an ambiguous camera position.
+3. **Compare each cell with its own region.** Every screenshot is measured, not just the
+   first one per offset, because the cursor and the status panel move without scrolling the
+   view: a cell keeps the lowest difference across clear views that contain it. If the
+   cursor or HUD covers the cell in every sampled view, the report marks it as occluded
+   and skips nearest-artwork scoring. A cell passes when its packed region paints at
+   least one pixel and the RGB difference is within
+   900 points. Cells are never blamed for pixels the pack leaves transparent: plains have
+   no mountain peak, and an army's HQ region has no annex for another army. A cell the pack
+   has no region for at all is still measured and reported, so an incomplete pack cannot
+   hide its own gaps as "never in view".
+4. **Explain the failures.** For each mismatch the audit measures the closest *other*
+   packed region, scoring every candidate fully (a candidate that exceeds the current best
+   is abandoned early, so its unfinished score can never win). A near match means the
+   client picked the wrong region; a far one means the artwork is genuinely absent. It also
+   flags cells with a unit sprite or the status panel on them, cells whose visible ground
+   comes from a 16x32 mountain frame anchored on the cell below, and terrain whose pixels
+   change between two screenshots `--animation-frames` apart. Animation probes exclude
+   cells covered by the cursor, HUD, units, and property effects. At least one sample must
+   match the packed ground before a change counts as terrain animation.
+   `--tiles-dir` writes one PNG per
+   mismatch with the atlas composite on the left and the emulator's pixels on the right.
+
+Pipe Maze audit on 2026-11-19 (isolated audit emulator, day 1, 468 screenshots, 98 viewport
+offsets, all 484 cells in view): 459 cells matched their packed region and 25 did not. Of
+the 25, 21 sit on nine terrain regions the animation probe saw changing between screenshots
+60 frames apart (`1:1`, `1:33`, `2:24`, `4:134`, `5:97`, `5:164`, `14:454`, `14:469`,
+`17:384`), 3 are army-keyed property cells (`8:458` at 20,2 = 20,636 points, `8:463` at
+1,2 = 12,733 points, `8:468` at 20,19 = 10,712 points) where the pack's single per-army
+region is not the tile the game selected, and 1 (`5:128` at cell 20,18, 25,879 points) has
+no explanation yet. Matched cells land at exactly 0 points, so the packed terrain pixels
+match what mGBA draws pixel for pixel. Every pipe (15) and seam (16) cell on Pipe Maze
+matched, which closes the four pipe cells left unverified by the earlier manual checks:
+Pipe Maze 9,0, 9,1, and 9,14 now match their packed regions, and Big Daddy 9,5 turns out to
+be animated pipe art rather than missing artwork.
+
+Big Daddy audit the same day (isolated audit emulator, 284 screenshots, 30 viewport
+offsets, all 285 cells in view): 229 matched and 56 did not - 36 cells are covered by a unit
+sprite or the status panel, 14 are animated terrain (23 regions cycle), 2 are army-keyed
+property art, and 4 (`1:33`, `3:35`, `4:134`, `15:322`) are terrain regions the probe did
+not catch cycling. The largest difference among matched cells there was 790 points, which
+is the panel/edge overlap the 900-point tolerance allows.
+
+Limits: the audit measures the ground only, so unit sprites, HP bars, and the status panel
+are ignored rather than compared; animation sampling covers only the two views probed; and
+animated frames beyond frame 0 are still not packed.
+
 ## Prototype delivery and rendering
+
 
 Configure the prototype server with an already extracted pack:
 

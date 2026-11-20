@@ -19,6 +19,10 @@ class BridgeError(ConnectionError):
     """Raised when the Lua bridge is unavailable or rejects a request."""
 
 
+class BridgeInstanceMismatch(BridgeError):
+    """Raised when the bridge answering a port is not this launcher's emulator."""
+
+
 @dataclass(frozen=True, slots=True)
 class MemorySnapshot:
     """Ordered memory bytes and their common emulator frame."""
@@ -36,11 +40,17 @@ class LuaBridgeClient:
         port: int = 43128,
         timeout: float = 5.0,
         max_message_bytes: int = 4718592,
+        instance: str | None = None,
+        allow_legacy_handshake: bool = False,
     ) -> None:
         self.host = host
         self.port = port
         self.timeout = timeout
         self.max_message_bytes = max_message_bytes
+        # When set, the handshake must echo this nonce, proving the listener is the
+        # emulator this launcher started rather than another process on the port.
+        self.instance = instance
+        self.allow_legacy_handshake = allow_legacy_handshake
         self._ids = count(1)
         self._lock = asyncio.Lock()
 
@@ -54,6 +64,9 @@ class LuaBridgeClient:
         """Send a request and return its result, raising BridgeError on failure."""
         request_id = next(self._ids)
         request = {"id": request_id, "version": 1, "operation": operation, **parameters}
+        guarded = self.instance is not None and not self.allow_legacy_handshake
+        if guarded and operation != "connect":
+            request["expected_instance"] = self.instance
         payload = json.dumps(request, separators=(",", ":")).encode("utf-8") + b"\n"
         if len(payload) > self.max_message_bytes:
             raise BridgeError("Bridge request exceeds the configured message limit")
@@ -65,22 +78,45 @@ class LuaBridgeClient:
                     reader, writer = await asyncio.open_connection(
                         self.host, self.port, limit=self.max_message_bytes + 1
                     )
+                    if guarded and operation != "connect":
+                        guard_id = next(self._ids)
+                        guard = {
+                            "id": guard_id,
+                            "version": 1,
+                            "operation": "connect",
+                            "expected_instance": self.instance,
+                            "guard_next": True,
+                        }
+                        writer.write(json.dumps(guard).encode() + b"\n")
+                        await writer.drain()
+                        handshake = self._decode_response(await reader.readline(), guard_id)
+                        if (
+                            handshake.get("instance") != self.instance
+                            or handshake.get("instance_guard") is not True
+                        ):
+                            raise BridgeInstanceMismatch(
+                                "Lua bridge did not verify its instance on this connection"
+                            )
                     writer.write(payload)
                     await writer.drain()
                     response_line = await reader.readline()
+            except BridgeError:
+                raise
             except (OSError, TimeoutError) as error:
-                if writer is not None:
-                    writer.close()
                 raise BridgeError(
                     f"Could not complete Lua bridge request ({type(error).__name__}): {error}"
                 ) from error
-            else:
-                writer.close()
-                try:
-                    await writer.wait_closed()
-                except OSError:
-                    pass
+            finally:
+                if writer is not None:
+                    writer.close()
+                    try:
+                        await writer.wait_closed()
+                    except OSError:
+                        pass
 
+        return self._decode_response(response_line, request_id)
+
+    def _decode_response(self, response_line: bytes, request_id: int) -> dict[str, Any]:
         if not response_line:
             raise BridgeError("Lua bridge disconnected without a response")
         if len(response_line) > self.max_message_bytes or not response_line.endswith(b"\n"):
@@ -93,6 +129,8 @@ class LuaBridgeClient:
             raise BridgeError("Lua bridge response ID did not match the request")
         if not response.get("ok"):
             bridge_error = response.get("error", {})
+            if bridge_error.get("code") == "instance_mismatch":
+                raise BridgeInstanceMismatch("The Lua bridge emulator instance changed")
             raise BridgeError(
                 f"{bridge_error.get('code', 'bridge_error')}: {bridge_error.get('message', '')}"
             )
@@ -103,7 +141,17 @@ class LuaBridgeClient:
 
     async def connect(self) -> dict[str, Any]:
         """Return protocol and capability information from the bridge."""
-        return await self.request("connect")
+        handshake = await self.request("connect")
+        if self.instance is not None:
+            observed = handshake.get("instance")
+            legacy = self.allow_legacy_handshake and "instance" not in handshake
+            if observed != self.instance and not legacy:
+                raise BridgeInstanceMismatch(
+                    f"mGBA bridge at {self.host}:{self.port} is not this launcher's "
+                    f"emulator (expected instance nonce {self.instance!r}, "
+                    f"observed {observed!r})"
+                )
+        return handshake
 
     async def read_memory_batch(self, ranges: list[tuple[int, int]]) -> list[bytes]:
         """Read up to 64 address/length ranges at one paused frame boundary."""

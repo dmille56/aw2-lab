@@ -31,6 +31,27 @@ async def bridge_ready(_self: object) -> dict[str, object]:
     }
 
 
+def capabilities() -> dict[str, object]:
+    """The handshake a bridge started by this launcher would return."""
+    return {
+        "protocol_version": 1,
+        "capabilities": [
+            "connect",
+            "set_keys",
+            "press_keys",
+            "advance_frames",
+            "read_memory",
+            "read_memory_batch",
+            "screenshot",
+            "reset",
+            "save_state",
+            "load_state",
+            "save_state_buffer",
+            "load_state_buffer",
+        ],
+    }
+
+
 class FakeProcess:
     def __init__(self, returncode: int | None = None) -> None:
         self.returncode = returncode
@@ -307,7 +328,82 @@ async def test_launcher_rejects_missing_bridge_capabilities(
 
 
 @pytest.mark.anyio
-async def test_server_isolates_rom_and_save_copy_and_cleans_up(monkeypatch, tmp_path):
+async def test_launcher_rejects_a_bridge_that_belongs_to_another_emulator(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A stale mGBA on the same port cannot be mistaken for the one just launched."""
+    bridge_script = tmp_path / "bridge.lua"
+    bridge_script.touch()
+    process = FakeProcess()
+
+    async def create_process(*args: str, **kwargs: object) -> FakeProcess:
+        return process
+
+    async def foreign_handshake(self: object, operation: str, **params: object) -> dict:
+        return capabilities() | {"instance": "another-emulator"}
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", create_process)
+    monkeypatch.setattr("aw2_lab.bridge.LuaBridgeClient.request", foreign_handshake)
+    launcher = EmulatorLauncher(
+        EmulatorSettings(
+            rom_path=tmp_path / "aw2.gba",
+            bridge_script=bridge_script,
+            bridge_ready_timeout=5,
+        )
+    )
+
+    with pytest.raises(
+        EmulatorLaunchError,
+        match="bridge port 43128 is already served by another emulator",
+    ):
+        await launcher.start()
+
+    assert process.terminated
+    assert not launcher.is_running
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("custom_script", [False, True])
+@pytest.mark.parametrize("echo_nonce", [False, True])
+async def test_launcher_accepts_legacy_handshakes_only_for_custom_scripts(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, custom_script: bool, echo_nonce: bool
+) -> None:
+    bridge_script = tmp_path / "bridge.lua"
+    bridge_script.touch()
+    process = FakeProcess()
+    seen_instances: list[str | None] = []
+
+    async def create_process(*args: str, **kwargs: object) -> FakeProcess:
+        return process
+
+    async def own_handshake(self: object, operation: str, **params: object) -> dict:
+        nonce = getattr(self, "instance", None)
+        seen_instances.append(nonce)
+        return capabilities() | ({"instance": nonce} if echo_nonce else {})
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", create_process)
+    monkeypatch.setattr("aw2_lab.bridge.LuaBridgeClient.request", own_handshake)
+    launcher = EmulatorLauncher(
+        EmulatorSettings(
+            rom_path=tmp_path / "aw2.gba",
+            bridge_script=bridge_script if custom_script else None,
+            bridge_ready_timeout=5,
+        )
+    )
+    if custom_script or echo_nonce:
+        await launcher.start()
+        await launcher.stop()
+    else:
+        with pytest.raises(EmulatorLaunchError, match="expected instance nonce"):
+            await launcher.start()
+    assert launcher.instance_nonce == seen_instances[0]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("use_adjacent_save", [True, False])
+async def test_server_isolates_rom_and_save_copy_and_cleans_up(
+    monkeypatch, tmp_path, use_adjacent_save
+):
     monkeypatch.setattr("aw2_lab.emulator.LuaBridgeClient.connect", bridge_ready)
     rom = tmp_path / "aw2.gba"
     rom.write_bytes(b"test rom")
@@ -321,6 +417,10 @@ async def test_server_isolates_rom_and_save_copy_and_cleans_up(monkeypatch, tmp_
         local = Path(args[-1])
         copied.append(local)
         assert local != rom and local.read_bytes() == rom.read_bytes()
+        if not use_adjacent_save:
+            assert not local.with_suffix(".sav").exists()
+            assert Path(args[2]) == script
+            return FakeProcess()
         assert local.with_suffix(".sav").read_bytes() == b"original save"
         bootstrap = Path(args[2])
         assert bootstrap.parent == local.parent
@@ -338,7 +438,8 @@ async def test_server_isolates_rom_and_save_copy_and_cleans_up(monkeypatch, tmp_
 
     monkeypatch.setattr(asyncio, "create_subprocess_exec", create_process)
     launcher = EmulatorLauncher(
-        EmulatorSettings(rom_path=rom, bridge_script=script), isolate_saves=True
+        EmulatorSettings(rom_path=rom, bridge_script=script, use_adjacent_save=use_adjacent_save),
+        isolate_saves=True,
     )
     await launcher.start()
     await launcher.stop()

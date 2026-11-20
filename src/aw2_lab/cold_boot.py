@@ -16,6 +16,7 @@ from aw2_lab.match_contract import CO_ID_VALUES, CoId, MatchRules
 from aw2_lab.rom_profile import select_rom_profile
 from aw2_lab.state_decoder import capture_game_state
 from aw2_lab.state_model import GameState, ValueStatus, Weather
+from aw2_lab.state_validation import BATTLE_MAP_ID_ADDRESS
 
 _PROCESS_POOL = (0x0200D610, 32 * 0x6C)
 _CONTROL = (0x03003F3C, 0xC4)
@@ -129,6 +130,7 @@ async def boot_fixed_versus_match(
     checkpoint_recorder: CheckpointRecorder | None = None,
     team_ids: tuple[int, ...] | None = None,
     late_versus_unlock: bool = False,
+    fresh_roster: bool = False,
 ) -> ColdBootResult:
     """Navigate from cartridge boot and verify the selected map at the first turn.
 
@@ -136,6 +138,10 @@ async def boot_fixed_versus_match(
     fresh and existing save traces. Existing-save overwrite confirmation is
     accepted only after the expected prompt is recognized in the isolated save
     copy. Every wait is bounded and the final playable state is verified.
+
+    ``fresh_roster`` selects the two-CO roster a blank cartridge exposes; passing a
+    CO that is not unlocked in that roster raises ColdBootError instead of silently
+    landing on the wrong commander.
     """
     selected_map = MAPS_BY_ID[map_id]
     team_ids = tuple(range(len(co_ids))) if team_ids is None else team_ids
@@ -148,6 +154,11 @@ async def boot_fixed_versus_match(
         raise ColdBootError("Invalid map player count or team assignments")
     if any(co_id not in _CO_SETUP_INDEX for co_id in co_ids):
         raise ColdBootError("Requested CO selection is not recognized")
+    if fresh_roster and any(co_id not in _FRESH_SAVE_CO_SETUP_INDEX for co_id in co_ids):
+        raise ColdBootError(
+            "A fresh-save CO is not verified in the fresh roster: "
+            f"{', '.join(co for co in co_ids if co not in _FRESH_SAVE_CO_SETUP_INDEX)}"
+        )
     if late_versus_unlock and (
         save_mode != "fresh"
         or map_id != "hourglass_isle"
@@ -545,7 +556,7 @@ async def boot_fixed_versus_match(
                 settle,
                 slot=index + 1,
                 co_id=co_id,
-                fresh_roster=late_versus_unlock,
+                fresh_roster=fresh_roster or late_versus_unlock,
             )
         await checkpoint("players-configured", teams)
         if len(co_ids) > 2:
@@ -563,7 +574,7 @@ async def boot_fixed_versus_match(
                         or teams.setup[index] != expected
                     ):
                         raise ColdBootError("Team selector did not reach the expected team")
-        _verify_setup(teams, co_ids, team_ids, fresh_roster=late_versus_unlock)
+        _verify_setup(teams, co_ids, team_ids, fresh_roster=fresh_roster or late_versus_unlock)
         await checkpoint("teams-co-setup", teams)
 
         await tap("open-rules", _KEY_A)
@@ -629,7 +640,9 @@ async def boot_fixed_versus_match(
         await tap("start-battle", _KEY_A)
         await wait_for(LifecyclePhase.BATTLE_PLAYER_TURN, budget=1800)
         game_state = await capture_game_state(bridge, rom_path=rom_path)
-        startup_memory = await bridge.read_memory_snapshot([(0x03003FC2, 1), (0x03003FED, 1)])
+        startup_memory = await bridge.read_memory_snapshot(
+            [(BATTLE_MAP_ID_ADDRESS, 1), (0x03003FED, 1)]
+        )
         loaded_map_id = startup_memory.ranges[0][0]
         weather_mode = startup_memory.ranges[1][0]
         _verify_playable_state(

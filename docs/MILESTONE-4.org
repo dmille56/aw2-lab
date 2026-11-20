@@ -1018,14 +1018,24 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     only 27 of the 104 possible viewport offsets were reached. The repeatable-tool TODO
     below is the place to close them.
 
-*** TODO Close the remaining pipe-cell gaps
-    Four pipe cells were occluded and never compared: Pipe Maze =9,0=, =9,1=, and =9,14=
-    (all at 7,020-16,576 points, consistent with a unit sprite or the status panel drawn
-    over the tile) and Big Daddy =9,5= (5,264 points).
-    - [ ] Move the covering units, or compare after enough turns that the ground is
-      exposed, and re-measure those four cells.
-    - [ ] Drive the cursor to every viewport offset so all =width * height= cells appear
-      in at least one screenshot.
+*** DONE Close the remaining pipe-cell gaps
+    Human report (2026-11-19): four pipe cells were occluded and never compared - Pipe Maze
+    =9,0=, =9,1=, and =9,14= (7,020-16,576 points, consistent with a unit sprite or the
+    status panel drawn over the tile) and Big Daddy =9,5= (5,264 points) - and only 27 of
+    the 104 Pipe Maze viewport offsets had been reached.
+    Implemented (2026-11-19) with the sprite audit tool below: the cursor walk reaches every
+    viewport offset, so every cell of the map is measured from at least one view, and cells
+    are compared from their best view rather than from a single screenshot.
+    Results (2026-11-19): Pipe Maze measured all 484 cells across 98 of the 104 offsets,
+    including all 88 pipe and seam cells; every pipe (=15:=) and seam (=16:=) cell matched
+    its packed region, and the largest difference among matched cells is 0 points. Big Daddy
+    measured all 285 cells across 30 offsets, with every pipe and seam cell matching except
+    =9,5= (=15:322=), which cycles: the animation probe found that region changing between
+    screenshots 60 frames apart.
+    The occlusion caveat is now explicit: the audit records how many pixels of a cell's
+    packed region are opaque, whether a unit stood on the cell, and whether the visible
+    ground came from the frame of the cell below, so a covered cell is reported as covered
+    instead of counted as missing artwork.
 
 *** TODO Confirm spent-silo artwork after a silo is fired
     Class 18 never appears in the static map data, so the audit cannot reach it, but a
@@ -1039,30 +1049,146 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
 *** TODO Capture animated terrain frames
     =terrain_sample= composes only the first frame of the animated terrain pages, so a
     cell whose art cycles in the game renders statically in the client.
-    - [ ] Capture consecutive frames of the same unobstructed cell through the bridge
-      =advance_frames= operation and diff them.
-    - [ ] If frames differ, pack the additional frames and animate the affected tiles,
-      keeping older manifests readable.
+    Evidence (2026-11-19): the audit's =--animation-frames= probe found 9 terrain regions
+    changing on Pipe Maze (=1:1=, =1:33=, =2:24=, =4:134=, =5:97=, =5:164=, =14:454=,
+    =14:469=, =17:384=) and 23 on Big Daddy (including =7:9-7:11=, =7:40-7:44=,
+    =7:72-7:76=, =13:46=, =13:50=, =13:175-13:176=, and =15:322=), accounting for 21 of Pipe
+    Maze's 25 and 14 of Big Daddy's 56 mismatches. Only cells with unobstructed, fully
+    painted ground are treated as animation evidence, so a blinking cursor or a moving unit
+    sprite is not blamed on the terrain underneath it. Cycling cells are reported separately
+    so they are not mistaken for missing artwork.
+    - [ ] Pack the additional frames for the regions the probe finds cycling, keeping older
+      manifests readable.
+    - [ ] Animate the affected tiles in the client, or document the frame-0 approximation.
+    - [ ] Sample more than the two views the probe currently covers, so cycling regions are
+      found even when they sit outside those windows.
 
 *** TODO Check per-cell property artwork
     City, HQ, airport, port, base, missile silo, and spent silo art is selected by army
     rather than by map cell, which matched on the maps checked so far.
-    - [ ] Extend the pixel comparison to captured properties, whose graphical tile ID
-      and owner change during play.
-    - [ ] If a property cell's ground or shape differs from its army representative,
-      extract an army-and-cell overlay for that class.
+    Evidence (2026-11-19): the audit says otherwise. Pipe Maze has four HQ (=8:=) cells and
+    20 base (=14:=) cells, and three HQ cells mismatched (cells are given as =x,y=, matching
+    the audit report): HQ =20,2= (tile =458= against the army 2 =8:2= region, 20,636 points),
+    HQ =1,2= (=463= against =8:3=, 12,733 points), HQ =20,19= (=468= against =8:4=, 10,712
+    points). No other packed region was closer, so the pack's per-army property frame is not
+    the tile the game selected. Big Daddy added two more (a =6:1= and an =8:2= cell).
+    The four base cells flagged by the first run (=0,0=, =0,2=, =2,1= against =14:3=, and
+    =21,0= against =14:2=, 1,728 points each) matched once the audit started measuring every
+    screenshot of a view instead of only the first, so they were occlusion, not artwork gaps.
+    - [ ] Decode which of the eight HQ tiles, six city tiles, or four base tiles each cell
+      references, and pack them by =terrain_class:graphical_tile_id= instead of by owner.
+    - [ ] Extend the pixel comparison to captured properties, whose graphical tile ID and
+      owner change during play.
+    - [ ] If a property cell's ground or shape still differs, extract an army-and-cell
+      overlay for that class.
 
-*** TODO Make the emulator-versus-atlas comparison repeatable
-    The checks in this audit ran from ad hoc scripts outside the repository.
-    - [ ] Turn the comparison into a documented, opt-in tool that fetches a match
-      state and screenshot, finds the emulator viewport offset, and reports per-class
-      differences while skipping cells covered by unit sprites or the status panel.
-    - [ ] Run it across the two-player maps already available and record the results
-      in this milestone.
+*** DONE Make the emulator-versus-atlas comparison repeatable
+    Human request (2026-11-19): turn the ad hoc pixel checks into a documented, opt-in tool
+    and run it over the maps available in this repository.
+    Implemented (2026-11-19): =aw2-lab sprite-audit= (=src/aw2_lab/sprite_audit.py=,
+    registered in =src/aw2_lab/cli.py=) boots its own mGBA into the map being measured,
+    decodes the battle map from the ROM, walks the D-pad so the battle camera pans over every
+    viewport offset, screenshots each view, and compares every cell with the atlas region the
+    client selects for it. It deliberately does not use the emulator of a running match: the
+    sweep sends D-pad input and advances hundreds of frames, which would put that emulator
+    past the frame the controller committed and make its next command fail with
+    RECOVERY_REQUIRED. =--attach-live <port>= / =--run-dir= is the opt-in way to measure an
+    emulator that is already serving a match; the audit snapshots its state first and
+    restores it afterwards. Guide:
+    [[file:SPRITE-EXTRACTION.md][auditing the pack against mGBA]].
+    - [X] Locate the battle window inside the screenshot by scoring candidate offsets
+      against packed artwork, then compare each cell pixel by pixel with its own region
+      inside a 900-point tolerance.
+    - [X] Skip cells the pack cannot be blamed for: transparent atlas pixels, terrain
+      overhang painted by the 16x32 frame of the cell below, cells with a unit standing on
+      them, and regions the animation probe found cycling.
+    - [X] Explain each remaining mismatch by measuring the closest other packed region,
+      which separates "the client picked the wrong region" from "the atlas has no artwork
+      for what mGBA drew", and write a side-by-side atlas-versus-emulator PNG per mismatch
+      with =--tiles-dir=.
+    - [X] Run it over the available maps and record the results (below).
+    Results (2026-11-19, day 1, pack
+    =atlas-97a38843642ad04deda7a1980e69ebb920481242013792551c9ec4b8431dcf1f.png=, audit in
+    its own emulator, =--animation-frames 60=):
+        - Pipe Maze (22x22, four players, 484 cells, 468 screenshots, 98 views): 459 cells
+      matched, none because the client chose a different region than the pack holds; 25 did,
+      of which 21 are animated terrain, 3 are army-keyed property art, and 1
+      (=5:128= at =20,18=, 25,879 points) is unexplained. Matched cells land at 0 points and
+      no cell was reported as "never in view". Every pipe and seam cell matched.
+    - Big Daddy (19x15, two players, 285 cells, 284 screenshots, 30 views): 229 cells
+      matched; 56 did not, of which 36 are covered by a unit sprite or the status panel, 14
+      are animated terrain, 2 are army-keyed property art, and 4 are terrain regions the
+      probe did not catch cycling.
+    Checks (2026-11-19): =pre-commit run --all-files= passes (nixfmt, statix, deadnix, Ruff
+    lint and format, Luacheck, the Lua bridge tests, mypy, the client quality gates, and
+    pytest); =tests/test_sprite_audit.py= covers PNG decoding, camera-offset detection,
+    overhang composition, animation merging, sweep coverage for all 133 catalog maps, verdict
+    classification, comparison tiles, the sweep cap, the isolated-emulator default, and the
+    snapshot/restore path for =--attach-live=, with two ROM-gated tests that re-check the
+    shipped pack against the ROM.
+    Remaining: animated frames beyond frame 0 are still not packed, property art is still
+    keyed by army, and unit and CO portrait sprites are still unverified against the
+    emulator.
+
+*** DONE Keep the audit from measuring an emulator it does not own
+    Human review (2026-11-19): the audit could start a second mGBA on a bridge port another
+    emulator already held, hand the sweep to whatever answered on that port, and read terrain
+    animation from pixels that were not ground at all.
+    Implemented (2026-11-19):
+    - [X] =isolated_bridge= checks the port before launching and refuses to start a second
+      mGBA on an emulator that is already listening, naming the port and the three ways out:
+      a different =--bridge-port=, stop that emulator, or =--attach-live= it deliberately.
+    - [X] =EmulatorLauncher= generates a per-process nonce, exports it as =AW2_BRIDGE_INSTANCE=
+      for the mGBA it starts, and the Lua bridge echoes it in the =connect= handshake. The
+      client raises =BridgeInstanceMismatch= when the handshake does not carry it, so a stale
+      emulator on the same port cannot masquerade as the audit's own.
+    - [X] =audit_map= requires a battle the state decoder validated. A bridge sitting on a
+      menu, or serving a different map, stops the audit rather than quietly measuring the ROM's
+      map table.
+    - [X] The =--attach-live= path snapshots the emulator, restores it in =finally=, and exits
+      1 if the restore is rejected, so a half-restored match never reports a clean audit.
+    - [X] The animation probe now excludes the cell the map cursor is on, cells a unit stands
+      on, cells whose ground is the overhang of the cell below, and regions with too few painted
+      pixels to be evidence of terrain at all. A live Pipe Maze probe reported
+      =cells_excluded: terrain_overhang 1, map_cursor 1=.
+    - [X] Camera-offset detection reports an ambiguous window instead of guessing when no
+      packed artwork distinguishes the candidates, and breaks the tie with the live map cursor.
+    - [X] The nearest-artwork ranking skips fully transparent atlas regions and the region the
+      cell already selected, so a property cell's =class:owner= fallback is not credited as a
+      perfect "other" match.
+    - [X] The sweep no longer stops as soon as every cell has one measurement: it keeps
+      measuring every screenshot up to =--max-screenshots=, and every screenshot of a view is
+      measured, so a later unobstructed capture of the same window wins.
+    Checks (2026-11-19): =pre-commit run --all-files= passes (nixfmt, statix, deadnix, Ruff
+    lint and format, Luacheck, the Lua bridge tests including the new nonce test, mypy, the
+    client quality gates, and pytest). =tests/test_sprite_audit.py=, =tests/test_bridge.py=, and
+    =tests/test_emulator.py= now cover the port-collision guard, the nonce handshake, the
+    live-battle requirement, the restore-failure path, cursor exclusion, ambiguous camera
+    offsets, and transparent-region ranking without needing a ROM. Re-running the Pipe Maze
+    audit in its own emulator (204 screenshots, 20 views, day 1) matched 380 of 400 cells with
+    0 points among matched cells and flagged 16 animated regions.
+
+*** DONE Confirm the pack's palette against the emulator
+    =decode_palette= used to round each 5-bit channel as =v * 255 // 31=, one unit below the
+    =v << 3 | v >> 2= expansion mGBA's GBA core applies. =expand_channel= now copies the
+    emulator, and the audit confirms the result: every matched Pipe Maze cell differs by
+    exactly 0 points, and the shipped pack's plains pixels are =198,231,49= and =222,239,33=
+    - the =v << 3 | v >> 2= values for the ROM palette entries - not the older
+    =197,230,49= / =222,238,32=.
+    The 402-point residual reported by the first audit run came from measuring each cell only
+    in the first view it appeared in; measuring every screenshot of a view finds the
+    unobstructed one and the residual disappears. No re-extraction is needed for palette
+    rounding.
+    - [ ] Re-run =terrain-sample= and =unit-sprites= only if unit or portrait art turns out
+      to differ; the terrain pack already agrees with the emulator pixel for pixel.
 
 *** TODO Verify unit and CO portrait sprites against mGBA
     The 95 unit frames (19 unit types by five armies) and 19 CO portraits were inspected
     in the generated atlas but never compared with what the emulator draws.
+    Evidence (2026-11-19): the audit flagged 36 Big Daddy cells as "a unit sprite or the
+    status panel covers this cell", which is the entry point for this check - those cells
+    hold the emulator's unit art, and the audit already writes side-by-side PNGs for them
+    with =--tiles-dir=.
     - [ ] Compare each unit type and army silhouette, and each CO portrait, with a live
       emulator render.
     - [ ] Note any frame, palette, or scaling mismatch for follow-up extraction work.

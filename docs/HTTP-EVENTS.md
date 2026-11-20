@@ -75,8 +75,10 @@ headers = {"Authorization": f"Bearer {player_token}"}
 if last_event_id is not None:
     headers["Last-Event-ID"] = last_event_id
 with httpx.stream(
-    "GET", f"http://127.0.0.1:43127/v1/matches/{match_id}/events",
-    headers=headers, timeout=httpx.Timeout(30, read=None),
+    "GET",
+    f"http://127.0.0.1:43127/v1/matches/{match_id}/events",
+    headers=headers,
+    timeout=httpx.Timeout(30, read=None),
 ) as response:
     response.raise_for_status()
     for line in response.iter_lines():

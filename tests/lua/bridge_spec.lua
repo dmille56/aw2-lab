@@ -192,6 +192,30 @@ describe("mGBA Lua bridge", function()
         assert.are.equal("connect", response.result.capabilities[1])
     end)
 
+    it("echoes the launcher instance nonce so a stale bridge is detectable", function()
+        _G.AW2Bridge.instance = "nonce-from-this-launcher"
+        local response = _G.AW2Bridge.handle_request({id = 1, version = 1, operation = "connect"})
+        assert.are.equal("nonce-from-this-launcher", response.result.instance)
+    end)
+
+    it("guards the next request on the same socket and rejects a foreign restore", function()
+        _G.AW2Bridge.instance = "mine"
+        pending_chunks = {
+            '{"id":50,"version":1,"operation":"connect",'
+                .. '"expected_instance":"mine","guard_next":true}\n',
+            '{"id":51,"version":1,"operation":"load_state_buffer","expected_instance":"other",'
+                .. '"state_base64":"NTo2"}\n',
+        }
+        frame_callback()
+        assert.are.equal(0, close_count)
+        assert.is_truthy(sent_data:match('"instance_guard":true'))
+        frame_callback()
+        assert.are.equal(1, close_count)
+        assert.are.equal(100, frame)
+        assert.are.equal(0, keys)
+        assert.is_truthy(sent_data:match('"instance_mismatch"'))
+    end)
+
     it("accepts valid key masks and rejects masks outside 10 bits", function()
         local response = _G.AW2Bridge.handle_request({
             id = 2, version = 1, operation = "set_keys", keys = 513,

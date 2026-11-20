@@ -34,6 +34,11 @@ def main() -> None:
 
         play_main(sys.argv[2:])
         return
+    if sys.argv[1:2] == ["sprite-audit"]:
+        from aw2_lab.sprite_audit import main as sprite_audit_main
+
+        sprite_audit_main(sys.argv[2:])
+        return
     if sys.argv[1:2] == ["record-cold-boot"]:
         _record_cold_boot(sys.argv[2:])
         return
@@ -49,8 +54,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         prog="aw2-lab",
         epilog=(
-            "Start a match: aw2-lab play --help. Research tools: aw2-lab dump-memory --help; aw2-lab diff-memory --help; "
-            "aw2-lab watch-memory --help; aw2-lab record-cold-boot --help"
+            "Start a match: aw2-lab play --help. Compare rendered ground with the sprite pack: "
+            "aw2-lab sprite-audit --help. Research tools: aw2-lab dump-memory --help; "
+            "aw2-lab diff-memory --help; aw2-lab watch-memory --help; "
+            "aw2-lab record-cold-boot --help"
         ),
     )
     parser.add_argument("--host", default="127.0.0.1", help="HTTP bind address (default: loopback)")
