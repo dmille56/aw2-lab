@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -13,11 +14,21 @@ from aw2_lab.aw2_unit_profiles import (
     RuleContext,
     WeaponType,
     movement_cost,
+    observed_rule_context,
+    preflight_move,
     preflight_move_attack,
     route_cost,
     turn_start_fuel,
 )
-from aw2_lab.state_model import Weather
+from aw2_lab.state_model import (
+    BattleState,
+    MapState,
+    ObservedValue,
+    PlayerState,
+    TileState,
+    ValueStatus,
+    Weather,
+)
 from aw2_lab.state_validation import UNIT_TYPES
 from aw2_lab.unit_rules_audit import audit_rules
 
@@ -120,6 +131,105 @@ def test_preflight_checks_weapons_and_impassable_route_before_movement() -> None
 
 def test_unknown_unit_defers_legality_to_aw2() -> None:
     preflight_move_attack(unit_type=255, ammo=0, path=(), start=(0, 0), target=(99, 99))
+    preflight_move(unit_type=255, path=((1, 0),), terrain_classes=(3,))
+
+
+BEAN_ISLAND_ROUTE = ((12, 7), (11, 7), (10, 7))  # road, mountain, road from (13, 7)
+BEAN_ISLAND_TERRAIN = (5, 3, 5)
+
+
+@pytest.mark.parametrize(
+    ("context", "weather", "fuel", "message"),
+    [
+        (RuleContext(), Weather.CLEAR, 99, "movement allowance"),  # 4 cost, 3 movement
+        (RuleContext(), Weather.SNOW, 99, "movement allowance"),  # 2+4+2 cost
+        (RuleContext(1, 2), Weather.CLEAR, 99, None),  # +1 Infantry movement
+        (RuleContext(1, 2), Weather.CLEAR, 3, "remaining fuel"),
+        (None, None, 99, None),  # Unobserved CO rules stay permissive for AW2.
+    ],
+)
+def test_bean_island_mountain_route_is_rejected_only_when_known_impossible(
+    context: RuleContext | None,
+    weather: Weather | None,
+    fuel: int,
+    message: str | None,
+) -> None:
+    def check() -> None:
+        preflight_move(
+            unit_type=1,
+            path=BEAN_ISLAND_ROUTE,
+            terrain_classes=BEAN_ISLAND_TERRAIN,
+            context=context,
+            weather=weather,
+            fuel=fuel,
+        )
+
+    if message:
+        with pytest.raises(ValueError, match=message):
+            check()
+    else:
+        check()
+
+
+@pytest.mark.parametrize(
+    ("path", "terrain", "message"),
+    [
+        (((1, 0),), (7,), "impassable terrain"),  # Infantry cannot enter open sea.
+        (((1, 0), (2, 0)), (5, 1), None),  # Two roads cost two of Infantry's three.
+        (((1, 0), (2, 0), (3, 0)), (5, 1, 1), None),
+        (((1, 0), (2, 0), (3, 0), (4, 0)), (5, 1, 1, 1), None),  # Four roads need a CO bonus
+    ],
+)
+def test_preflight_move_checks_allowance_and_terrain_bounds(
+    path: tuple[tuple[int, int], ...], terrain: tuple[int, ...], message: str | None
+) -> None:
+    if message:
+        with pytest.raises(ValueError, match=message):
+            preflight_move(unit_type=1, path=path, terrain_classes=terrain, fuel=99)
+    else:
+        preflight_move(unit_type=1, path=path, terrain_classes=terrain, fuel=99)
+
+
+def test_preflight_move_accepts_a_stationary_unit_and_bad_terrain_input() -> None:
+    preflight_move(unit_type=1, path=())
+    preflight_move(unit_type=1, path=(), terrain_classes=())
+    with pytest.raises(ValueError, match="Each path tile requires a terrain class"):
+        preflight_move(unit_type=1, path=((1, 0),), terrain_classes=(1, 1))
+
+
+def _battle(co_effects: bool, co_id: int, active_power: int) -> BattleState:
+    return BattleState(
+        day=1,
+        active_player_slot=1,
+        weather=ObservedValue(ValueStatus.AVAILABLE, Weather.CLEAR, ()),
+        map=MapState(2, 2, (TileState(0, 0, 1, 1, 0),)),
+        properties=(),
+        players=(
+            PlayerState(
+                1,
+                0,
+                0,
+                co_id,
+                20000,
+                active_power,
+                ObservedValue(ValueStatus.AVAILABLE, 0, ()),
+                ObservedValue(ValueStatus.AVAILABLE, 0, ()),
+            ),
+        ),
+        units=(),
+        co_effects_enabled=ObservedValue(ValueStatus.AVAILABLE, co_effects, ()),
+    )
+
+
+def test_observed_rule_context_tracks_co_effects_and_unknown_settings() -> None:
+    assert observed_rule_context(_battle(False, 2, 0), 1) == RuleContext()
+    assert observed_rule_context(_battle(True, 12, 1), 1) == RuleContext(12, 1)
+    unknown = replace(
+        _battle(True, 12, 1),
+        co_effects_enabled=ObservedValue(ValueStatus.UNKNOWN, None, ("not observed",)),
+    )
+    assert observed_rule_context(unknown, 1) is None
+    assert observed_rule_context(_battle(True, 12, 1), 9) is None
 
 
 def test_baseline_terrain_weather_and_transport_traversal() -> None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from aw2_lab.action_navigation import ActionNavigator, validate_path
+from aw2_lab.aw2_unit_profiles import observed_rule_context, preflight_move
 from aw2_lab.lifecycle import LifecyclePhase
 from aw2_lab.match_contract import (
     CommandRequest,
@@ -110,6 +111,19 @@ class MoveCaptureActionExecutor:
             raise CommandRejected(ErrorCode.INVALID_REQUEST, "Property is already owned")
 
         # All caller-controlled rejection happens before the first emulator input.
+        terrain_by_tile = {(tile.x, tile.y): tile.terrain_class for tile in battle.map.tiles}
+        try:
+            preflight_move(
+                unit_type=unit.unit_type,
+                path=path,
+                terrain_classes=tuple(terrain_by_tile[point] for point in path),
+                context=observed_rule_context(battle, battle.active_player_slot),
+                weather=battle.weather.value,
+                fuel=unit.fuel,
+            )
+        except ValueError as error:
+            raise CommandRejected(ErrorCode.INVALID_REQUEST, str(error)) from error
+
         selected = await self.navigator.select_unit(action.unit_id, observation)
         selected_unit = selected.ui.menu.selected_unit
         if selected_unit is None:

@@ -77,6 +77,13 @@ def positive(value: str) -> float:
     return result
 
 
+def turn_attempts(value: str) -> int:
+    result = int(value)
+    if result < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+    return result
+
+
 def port_number(value: str) -> int:
     result = int(value)
     if not 0 <= result <= 65535:
@@ -150,6 +157,12 @@ def parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="stop after this many AI turns; 0 means unlimited",
+    )
+    result.add_argument(
+        "--ai-turn-attempts",
+        type=turn_attempts,
+        default=3,
+        help="host attempts per AI turn; a rolled-back, still-open turn is resumed within this bound",
     )
     return result
 
@@ -268,6 +281,20 @@ class TurnBudget:
     completed: int = 0
 
 
+FIRST_TURN_INSTRUCTION = (
+    "Read your assigned match and play exactly this turn. Choose gameplay actions "
+    "yourself. After successfully ending this turn, stop and return immediately; do "
+    "not wait for the next turn in this invocation. Stop on a finished or "
+    "recovery-required match."
+)
+CONTINUATION_INSTRUCTION = (
+    "This turn is still open and your previous action was rolled back, so the board "
+    "is back to its committed state. Reread the authoritative match state, take a "
+    "different legal action or end your turn, then stop and return immediately. Stop "
+    "only on a finished, closed, or recovery-required match."
+)
+
+
 async def ai_player(
     *,
     slot: PlayerSlot,
@@ -281,10 +308,13 @@ async def ai_player(
     timeout: float,
     budget: TurnBudget,
     stop: asyncio.Event,
+    attempts: int = 3,
 ) -> None:
+    if attempts < 1:
+        raise ValueError("AI turn attempts must be at least 1")
     directory = run_dir / slot.value
     prompt = files("aw2_lab").joinpath("ai_prompt.md").read_text()
-    command, env = prepare_pi(
+    host_command, env = prepare_pi(
         directory,
         url=base_url + "/mcp/",
         token=token,
@@ -295,17 +325,13 @@ async def ai_player(
         prompt=prompt,
         thinking=thinking,
     )
-    command += [
+    base_command = [
+        *host_command,
         "--print",
         "--mode",
         "json",
         "--session-id",
         str(match_id),
-        (
-            "Read your assigned match and play exactly this turn. Choose gameplay actions yourself. "
-            "After successfully ending this turn, stop and return immediately; do not wait for "
-            "the next turn in this invocation. Stop on a finished or recovery-required match."
-        ),
     ]
     async with AsyncAW2Client(base_url, credential=token) as player:
         while not stop.is_set():
@@ -325,38 +351,57 @@ async def ai_player(
             budget.started += 1
             battle = state.observation.game_state.battle.value if state.observation else None
             day = battle.day if battle else None
+            own_slot = int(slot.value[-1])
             log = directory / f"turn-{budget.started}.jsonl"
-            print(f"AI {slot.value}: playing (private log: {log})", flush=True)
-            with log.open("ab") as output:
-                process = await asyncio.create_subprocess_exec(
-                    *command,
-                    env=env,
-                    cwd=directory,
-                    stdout=output,
-                    stderr=output,
-                    start_new_session=True,
+            for attempt in range(1, attempts + 1):
+                instruction = FIRST_TURN_INSTRUCTION if attempt == 1 else CONTINUATION_INSTRUCTION
+                print(
+                    f"AI {slot.value}: playing turn {budget.started} "
+                    f"(attempt {attempt}/{attempts}, private log: {log})",
+                    flush=True,
                 )
-                try:
-                    code = await asyncio.wait_for(process.wait(), timeout)
-                except TimeoutError:
-                    raise PlayError(f"AI turn timed out; inspect {log}") from None
-                finally:
-                    await stop_process(process)
-            if code:
-                raise PlayError(f"AI host exited with status {code}; inspect {log}")
-            state = await player.state(match_id)
-            observed = state.observation.game_state.battle.value if state.observation else None
-            if state.summary.lifecycle is MatchLifecycle.RECOVERY_REQUIRED:
-                raise PlayError(f"Match requires recovery after the AI turn; inspect {log}")
-            if not state.settled:
-                raise PlayError(f"AI returned before its command finished; inspect {log}")
-            if (
-                state.summary.lifecycle is MatchLifecycle.PLAYABLE
-                and observed
-                and observed.day == day
-                and observed.active_player_slot == int(slot.value[-1])
-            ):
-                raise PlayError(f"AI returned without ending its turn; inspect {log}")
+                with log.open("ab") as output:
+                    process = await asyncio.create_subprocess_exec(
+                        *base_command,
+                        instruction,
+                        env=env,
+                        cwd=directory,
+                        stdout=output,
+                        stderr=output,
+                        start_new_session=True,
+                    )
+                    try:
+                        code = await asyncio.wait_for(process.wait(), timeout)
+                    except TimeoutError:
+                        raise PlayError(f"AI turn timed out; inspect {log}") from None
+                    finally:
+                        await stop_process(process)
+                if code:
+                    raise PlayError(f"AI host exited with status {code}; inspect {log}")
+                state = await player.state(match_id)
+                observed = state.observation.game_state.battle.value if state.observation else None
+                if state.summary.lifecycle is MatchLifecycle.RECOVERY_REQUIRED:
+                    raise PlayError(f"Match requires recovery after the AI turn; inspect {log}")
+                if not state.settled:
+                    raise PlayError(f"AI returned before its command finished; inspect {log}")
+                if (
+                    state.summary.lifecycle is MatchLifecycle.PLAYABLE
+                    and observed
+                    and observed.day == day
+                    and observed.active_player_slot == own_slot
+                ):
+                    if attempt < attempts:
+                        print(
+                            f"AI {slot.value}: turn is still open after a rolled-back action; "
+                            f"continuing from the restored state (attempt {attempt + 1})",
+                            flush=True,
+                        )
+                        continue
+                    raise PlayError(
+                        f"AI returned without ending its turn after {attempts} attempts; "
+                        f"inspect {log}"
+                    )
+                break
             budget.completed += 1
             if budget.limit and budget.completed >= budget.limit:
                 stop.set()
@@ -536,6 +581,7 @@ async def run(args: argparse.Namespace) -> None:
                         timeout=args.ai_turn_timeout,
                         budget=budget,
                         stop=stop,
+                        attempts=args.ai_turn_attempts,
                     )
                 )
                 task.add_done_callback(host_done)

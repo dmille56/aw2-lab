@@ -276,6 +276,13 @@ The executor checks it against both effective movement allowance and remaining
 fuel before selecting a unit. AW2 remains authoritative for occupants, fog
 blockers, the reached tile, and Fire eligibility.
 
+Move and Wait, Move and Attack, and Move and Capture share this preflight through
+`preflight_move` in [[file:../src/aw2_lab/aw2_unit_profiles.py][aw2_unit_profiles.py]],
+which evaluates each candidate CO/weather pairing for the whole route and raises
+before the first controller input. A route is accepted whenever at least one
+possible rule pairing fits, so unknown CO effects or weather stay permissive
+instead of guessing.
+
 Turn-start upkeep is mapped from the unit table's +0x58 pointer and routine
 `0x080253B0`, separately from movement fuel. The following are baseline costs:
 

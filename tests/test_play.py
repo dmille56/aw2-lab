@@ -303,6 +303,7 @@ async def test_ai_turn_scheduling_follows_authoritative_state_and_cleans_up(
         timeout=0.01,
         budget=play.TurnBudget(1),
         stop=stop,
+        attempts=1,
     )
     if outcome == "ended":
         await run
@@ -315,6 +316,119 @@ async def test_ai_turn_scheduling_follows_authoritative_state_and_cleans_up(
     assert "--print" in command and "--session-id" in command
     assert "p" * 40 not in " ".join(command)
     assert options["env"]["AW2_PLAYER_TOKEN"] == "p" * 40
+
+
+def _turn_state(*, lifecycle, active_slot: int, day: int = 1, settled: bool = True):
+    return SimpleNamespace(
+        settled=settled,
+        summary=SimpleNamespace(lifecycle=lifecycle),
+        observation=SimpleNamespace(
+            game_state=SimpleNamespace(
+                battle=SimpleNamespace(
+                    value=SimpleNamespace(day=day, active_player_slot=active_slot)
+                )
+            )
+        ),
+    )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("outcome", "expected_error"),
+    [
+        ("rollback_then_end", None),
+        ("always_open", "without ending its turn"),
+        ("recovery_after_rollback", "requires recovery"),
+    ],
+)
+async def test_ai_host_continues_a_turn_rolled_back_by_aw2(
+    tmp_path, monkeypatch, outcome, expected_error
+) -> None:
+    from aw2_lab.match_contract import MatchLifecycle
+
+    open_turn = _turn_state(lifecycle=MatchLifecycle.PLAYABLE, active_slot=1)
+    if outcome == "rollback_then_end":
+        turns = [open_turn, _turn_state(lifecycle=MatchLifecycle.PLAYABLE, active_slot=2)]
+    elif outcome == "always_open":
+        turns = [open_turn] * 3
+    else:
+        turns = [
+            open_turn,
+            _turn_state(lifecycle=MatchLifecycle.RECOVERY_REQUIRED, active_slot=1),
+        ]
+    queue = list(turns)
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def wait_for_turn(self, *args, **kwargs):
+            return open_turn
+
+        async def state(self, *args):
+            return queue.pop(0) if queue else turns[-1]
+
+    monkeypatch.setattr(play, "AsyncAW2Client", lambda *a, **kw: Client())
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(tmp_path / "provider"))
+    commands = []
+
+    class Process:
+        returncode = None
+        pid = 987654
+
+        async def wait(self):
+            self.returncode = 0
+            return 0
+
+    async def spawn(*args, **kwargs):
+        commands.append(args)
+        return Process()
+
+    monkeypatch.setattr(play.asyncio, "create_subprocess_exec", spawn)
+    stop = asyncio.Event()
+    budget = play.TurnBudget(1)
+    run = play.ai_player(
+        slot=PlayerSlot.SLOT_1,
+        token="p" * 40,
+        match_id=uuid4(),
+        base_url="http://test",
+        run_dir=tmp_path,
+        model="test/model",
+        executable="pi",
+        thinking="low",
+        timeout=5,
+        budget=budget,
+        stop=stop,
+        attempts=3,
+    )
+    if expected_error:
+        with pytest.raises(play.PlayError, match=expected_error):
+            await run
+    else:
+        await run
+        assert stop.is_set()
+        assert budget.completed == 1
+    assert len(commands) == len(turns)
+    assert commands[0][-1] == play.FIRST_TURN_INSTRUCTION
+    if len(commands) > 1:
+        assert "rolled back" in commands[1][-1]
+    assert (tmp_path / PlayerSlot.SLOT_1.value / "turn-1.jsonl").exists()
+
+
+def test_ai_prompt_teaches_the_host_to_resume_a_rolled_back_turn() -> None:
+    from importlib.resources import files
+    from pathlib import Path
+
+    prompts = (
+        files("aw2_lab").joinpath("ai_prompt.md").read_text(),
+        (Path(__file__).resolve().parent.parent / "examples" / "pi-host" / "system.md").read_text(),
+    )
+    for prompt in prompts:
+        assert "rolled_back" in prompt
+        assert "recovery_required" in prompt
 
 
 @pytest.mark.anyio

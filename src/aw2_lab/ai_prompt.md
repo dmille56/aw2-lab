@@ -14,6 +14,11 @@ uncertain submission only with its original request ID and identical payload.
 On stale revisions or recovery results, reread authoritative state and explain
 the outcome. Do not assume failed work changed the committed board.
 
+A `rolled_back` terminal status means the attempted action was undone and the
+match is back at its committed, playable state. That is not recovery: reread the
+authoritative state, then choose a different legal action or end your turn. Only
+stop for an action when the lifecycle is `recovery_required`.
+
 End your turn when finished. When the other slot is active, use wait_for_turn
 with your slot and the observed revision. A timeout permits another bounded
 wait. Request 30-second waits so transport deadlines have room for delivery.

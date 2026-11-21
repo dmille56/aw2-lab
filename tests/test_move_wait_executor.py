@@ -9,11 +9,17 @@ from uuid import UUID, uuid4
 
 import pytest
 from pydantic import SecretStr
-from test_state_validation import memory as memory  # noqa: PLC0414 -- re-export pytest fixture
-from test_state_validation import snapshot
+from test_state_validation import memory as memory  # noqa: PLC0414
+from test_state_validation import retiled, snapshot
 
 from aw2_lab.action_navigation import ActionNavigator
-from aw2_lab.match_contract import CommandRequest, Coordinate, MoveWaitAction, PlayerSlot
+from aw2_lab.match_contract import (
+    CommandRequest,
+    Coordinate,
+    ErrorCode,
+    MoveWaitAction,
+    PlayerSlot,
+)
 from aw2_lab.match_controller import CommandRejected
 from aw2_lab.match_observation import MatchObservationTracker
 from aw2_lab.move_wait_executor import MoveWaitActionExecutor
@@ -261,3 +267,115 @@ def test_move_wait_rejects_post_movement_position_outside_route(memory) -> None:
                 _request(match_id, unit_id, ((1, 0),)), initial
             )
         )
+
+
+def _settled(initial, unit, reached, *, frame: int, used: bool, menu):
+    battle = initial.game_state.battle.value
+    moved = replace(unit, x=reached[0], y=reached[1], used_this_turn=used)
+    settled = replace(
+        battle,
+        units=tuple(moved if item.reference == unit.reference else item for item in battle.units),
+    )
+    return replace(
+        initial.game_state,
+        frame=frame,
+        validation=replace(initial.game_state.validation, frame=frame),
+        ui=replace(
+            initial.game_state.ui,
+            frame=frame,
+            map_cursor=replace(initial.game_state.ui.map_cursor, frame=frame),
+            menu=menu,
+        ),
+        battle=replace(initial.game_state.battle, value=settled),
+    )
+
+
+@pytest.mark.parametrize("weather", [1, None])
+def test_move_wait_preflights_terrain_cost_before_emulator_input(memory, weather) -> None:
+    """A mountain is impassable for 3-movement Infantry in snow but legal in clear weather."""
+    layout, ewram, iwram = retiled(memory, cell=1, graphical_id=5, terrain_class=3, weather=weather)
+    match_id = uuid4()
+    tracker = MatchObservationTracker(match_id)
+    initial = tracker.commit_boundary(decode_snapshot(snapshot((layout, ewram, iwram))))
+    battle = initial.game_state.battle.value
+    assert battle is not None and battle.weather.value is not None
+    unit = next(item for item in battle.units if item.army_slot == battle.active_player_slot)
+    unit_id = next(
+        item.identity_id for item in initial.unit_identities if item.reference == unit.reference
+    )
+    selected = SelectedUnitObservation(
+        0x02022684 + unit.reference * 12,
+        unit.army_slot,
+        unit.unit_slot,
+        unit.unit_type,
+        unit.x,
+        unit.y,
+    )
+    request = _request(match_id, unit_id, ((1, 0),))
+
+    if weather == 1:
+
+        class NoInputNavigator:
+            async def select_unit(self, *args, **kwargs):
+                pytest.fail("an impossible route must be rejected before emulator input")
+
+        with pytest.raises(CommandRejected) as rejection:
+            asyncio.run(
+                MoveWaitActionExecutor(cast(ActionNavigator, NoInputNavigator()), tracker).execute(
+                    request, initial
+                )
+            )
+        assert rejection.value.body.code is ErrorCode.INVALID_REQUEST
+        assert "movement allowance" in rejection.value.body.message
+        assert rejection.value.body.details == {}
+        assert tracker.revision == 1
+        return
+
+    calls = []
+
+    class Navigator:
+        async def select_unit(self, requested_id, observation):
+            calls.append(("select", requested_id))
+            return _settled(
+                initial,
+                unit,
+                (unit.x, unit.y),
+                frame=124,
+                used=False,
+                menu=MenuObservation(124, MenuFamily.UNIT_MOVEMENT, selected),
+            )
+
+        async def move_selected_unit_along_path(self, path, **kwargs):
+            calls.append(("move", tuple(path)))
+            return _settled(
+                initial,
+                unit,
+                (1, 0),
+                frame=124,
+                used=False,
+                menu=MenuObservation(
+                    124,
+                    MenuFamily.UNIT_ACTION_CHOICES,
+                    selected_unit=selected,
+                    actionable=True,
+                ),
+            )
+
+        async def choose_wait(self):
+            calls.append(("wait",))
+            return _settled(
+                initial,
+                unit,
+                (1, 0),
+                frame=125,
+                used=True,
+                menu=MenuObservation(125, MenuFamily.MAP_INPUT),
+            )
+
+    outcome = asyncio.run(
+        MoveWaitActionExecutor(cast(ActionNavigator, Navigator()), tracker).execute(
+            request, initial
+        )
+    )
+    assert calls == [("select", unit_id), ("move", ((1, 0),)), ("wait",)]
+    assert outcome.observation is not None and outcome.observation.revision == 2

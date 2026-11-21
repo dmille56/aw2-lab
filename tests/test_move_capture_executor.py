@@ -9,13 +9,14 @@ from uuid import UUID, uuid4
 
 import pytest
 from pydantic import SecretStr
-from test_state_validation import memory as memory  # noqa: PLC0414 -- re-export pytest fixture
-from test_state_validation import snapshot
+from test_state_validation import memory as memory  # noqa: PLC0414
+from test_state_validation import retiled, snapshot
 
 from aw2_lab.action_navigation import ActionNavigator
 from aw2_lab.match_contract import (
     CommandRequest,
     Coordinate,
+    ErrorCode,
     MatchLifecycle,
     MoveCaptureAction,
     PlayerSlot,
@@ -174,3 +175,30 @@ def test_move_capture_rejects_non_property_before_emulator_input(memory) -> None
                 _request(match_id, unit_id, ((1, 0),)), initial
             )
         )
+
+
+def test_move_capture_rejects_an_impossible_route_before_emulator_input(memory) -> None:
+    """Infantry with three movement cannot cross a snowbound mountain to capture."""
+    layout, ewram, iwram = retiled(memory, cell=2, graphical_id=6, terrain_class=3, weather=1)
+    tracker = MatchObservationTracker(uuid4())
+    initial = tracker.commit_boundary(decode_snapshot(snapshot((layout, ewram, iwram))))
+    battle = initial.game_state.battle.value
+    assert battle is not None
+    unit = next(item for item in battle.units if item.army_slot == battle.active_player_slot)
+    unit_id = next(
+        item.identity_id for item in initial.unit_identities if item.reference == unit.reference
+    )
+
+    class NoInputNavigator:
+        async def select_unit(self, *args, **kwargs):
+            pytest.fail("an impossible route must be rejected before emulator input")
+
+    with pytest.raises(CommandRejected) as rejection:
+        asyncio.run(
+            MoveCaptureActionExecutor(cast(ActionNavigator, NoInputNavigator()), tracker).execute(
+                _request(initial.match_id, unit_id, ((0, 1), (1, 1))), initial
+            )
+        )
+    assert rejection.value.body.code is ErrorCode.INVALID_REQUEST
+    assert "movement allowance" in rejection.value.body.message
+    assert tracker.revision == 1

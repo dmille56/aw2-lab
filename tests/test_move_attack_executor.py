@@ -10,14 +10,15 @@ from uuid import UUID, uuid4
 
 import pytest
 from pydantic import SecretStr
-from test_state_validation import memory as memory  # noqa: PLC0414 -- re-export pytest fixture
-from test_state_validation import snapshot
+from test_state_validation import memory as memory  # noqa: PLC0414
+from test_state_validation import retiled, snapshot
 
 from aw2_lab.action_navigation import ActionNavigator
 from aw2_lab.match_contract import (
     AttackAction,
     CommandRequest,
     Coordinate,
+    ErrorCode,
     MatchLifecycle,
     MoveAttackAction,
     PlayerSlot,
@@ -297,3 +298,30 @@ def test_fuel_budget_rejects_before_input_in_both_fog_modes(memory, fog_option) 
     executor = MoveAttackActionExecutor(cast(ActionNavigator, object()), tracker)
     with pytest.raises(CommandRejected, match="remaining fuel"):
         asyncio.run(executor.execute(request(initial.match_id, identity, path=((0, 1),)), initial))
+
+
+def test_move_attack_rejects_an_impossible_approach_before_emulator_input(memory) -> None:
+    """Infantry with three movement cannot cross a snowbound mountain to fire."""
+    layout, ewram, iwram = retiled(memory, cell=1, graphical_id=5, terrain_class=3, weather=1)
+    tracker = MatchObservationTracker(uuid4())
+    initial = tracker.commit_boundary(decode_snapshot(snapshot((layout, ewram, iwram))))
+    battle = initial.game_state.battle.value
+    assert battle is not None
+    attacker = next(unit for unit in battle.units if unit.army_slot == battle.active_player_slot)
+    identity = next(
+        item.identity_id for item in initial.unit_identities if item.reference == attacker.reference
+    )
+
+    class NoInputNavigator:
+        async def select_unit(self, *args, **kwargs):
+            pytest.fail("an impossible approach must be rejected before emulator input")
+
+    with pytest.raises(CommandRejected) as rejection:
+        asyncio.run(
+            MoveAttackActionExecutor(cast(ActionNavigator, NoInputNavigator()), tracker).execute(
+                request(initial.match_id, identity, path=((1, 0),)), initial
+            )
+        )
+    assert rejection.value.body.code is ErrorCode.INVALID_REQUEST
+    assert "movement allowance" in rejection.value.body.message
+    assert tracker.revision == 1

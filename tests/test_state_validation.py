@@ -72,6 +72,29 @@ def snapshot(memory: tuple[BattleLayout, bytearray, bytearray]) -> BattleMemoryS
     return BattleMemorySnapshot(123, layout, bytes(ewram), bytes(iwram))
 
 
+def retiled(
+    memory: tuple[BattleLayout, bytearray, bytearray],
+    *,
+    cell: int,
+    graphical_id: int,
+    terrain_class: int,
+    weather: int | None = None,
+) -> tuple[BattleLayout, bytearray, bytearray]:
+    """Point one fixture map cell at a terrain class and optionally set the weather.
+
+    Cell indices are row-major in the two-by-two fixture map; the buffers are indexed
+    without their EWram and IWRam base addresses.
+    """
+    layout, ewram, iwram = memory
+    lookup = bytearray(layout.terrain_by_tile)
+    lookup[graphical_id] = terrain_class
+    ewram[0x1E450 + 0x0A22 + 2 * cell] = graphical_id
+    ewram[0x1E450 + 0x1432 + cell] = terrain_class
+    if weather is not None:
+        iwram[0x3FEC] = weather
+    return replace(layout, terrain_by_tile=bytes(lookup)), ewram, iwram
+
+
 def test_consistent_battle_allows_the_supported_live_fields(memory) -> None:
     report = validate_battle_snapshot(snapshot(memory))
     assert report.can_decode_live

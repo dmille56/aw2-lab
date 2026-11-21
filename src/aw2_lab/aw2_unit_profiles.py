@@ -16,7 +16,7 @@ from aw2_lab.aw2_rules_data import (
     UNIT_FUEL_UPKEEP,
     UNIT_ZERO_FUEL_LOSS,
 )
-from aw2_lab.state_model import Weather
+from aw2_lab.state_model import BattleState, ValueStatus, Weather
 
 
 class MovementType(IntEnum):
@@ -188,6 +188,94 @@ def route_cost(
     return total
 
 
+def observed_rule_context(battle: BattleState, player_slot: int) -> RuleContext | None:
+    """Return the acting player's CO/power rules, or None when they are unobserved."""
+    enabled = battle.co_effects_enabled
+    if enabled.status is not ValueStatus.AVAILABLE or enabled.value is None:
+        return None
+    player = next((item for item in battle.players if item.slot == player_slot), None)
+    if player is None:
+        return None
+    if enabled.value is False:
+        return RuleContext()
+    return RuleContext(player.co_id, player.active_power)
+
+
+def possible_rule_contexts(context: RuleContext | None) -> tuple[RuleContext, ...]:
+    """Return the observed context, or every supported context when it is unknown."""
+    if context is not None:
+        return (context,)
+    return (
+        BASELINE_RULES,
+        *(RuleContext(co, power) for co in range(19) for power in range(3)),
+    )
+
+
+def _route_budgets(
+    *,
+    unit_type: int,
+    path: tuple[tuple[int, int], ...],
+    terrain_classes: tuple[int, ...] | None,
+    context: RuleContext | None,
+    weather: Weather | None,
+) -> list[tuple[int, int]]:
+    """List (cost, movement allowance) for each passable CO/power/weather pairing.
+
+    Complete routes are evaluated under one context at a time. Mixing the
+    cheapest tile from different CO/weather tables could accept an impossible
+    budget.
+    """
+    budgets: list[tuple[int, int]] = []
+    for candidate in possible_rule_contexts(context):
+        allowance, _ = candidate.unit_limits(unit_type)
+        for condition in (weather,) if weather is not None else tuple(Weather):
+            cost = (
+                route_cost(unit_type, terrain_classes, condition, context=candidate)
+                if terrain_classes is not None
+                else len(path)
+            )
+            if cost is not None:
+                budgets.append((cost, allowance))
+    return budgets
+
+
+def preflight_move(
+    *,
+    unit_type: int,
+    path: tuple[tuple[int, int], ...],
+    terrain_classes: tuple[int, ...] | None = None,
+    context: RuleContext | None = None,
+    weather: Weather | None = None,
+    fuel: int | None = None,
+) -> None:
+    """Reject routes that cannot fit inside movement allowance or fuel.
+
+    Terrain costs come from the observed weather and CO rules. AW2 remains
+    authoritative for occupancy, fog-hidden blockers, and the tile the unit
+    actually reaches; this check only rejects routes known to be impossible.
+    """
+    if unit_type not in UNIT_PROFILES:
+        return
+    if terrain_classes is not None and len(terrain_classes) != len(path):
+        raise ValueError("Each path tile requires a terrain class")
+    if not path:
+        return
+    budgets = _route_budgets(
+        unit_type=unit_type,
+        path=path,
+        terrain_classes=terrain_classes,
+        context=context,
+        weather=weather,
+    )
+    if not budgets:
+        raise ValueError("Requested route enters impassable terrain for the unit")
+    feasible = [(cost, allowance) for cost, allowance in budgets if cost <= allowance]
+    if not feasible:
+        raise ValueError("Requested route exceeds the unit's maximum movement allowance")
+    if fuel is not None and not any(cost <= fuel for cost, _ in feasible):
+        raise ValueError("Requested route exceeds the unit's remaining fuel")
+
+
 def preflight_move_attack(
     *,
     unit_type: int,
@@ -219,39 +307,17 @@ def preflight_move_attack(
     if path and profile.indirect:
         raise ValueError("Indirect units cannot move and attack in the same turn")
 
-    contexts = (
-        (context,)
-        if context is not None
-        else (
-            BASELINE_RULES,
-            *(RuleContext(co, power) for co in range(19) for power in range(3)),
-        )
+    preflight_move(
+        unit_type=unit_type,
+        path=path,
+        terrain_classes=terrain_classes,
+        context=context,
+        weather=weather,
+        fuel=fuel,
     )
-    weathers = (weather,) if weather is not None else tuple(Weather)
-    if terrain_classes is not None and len(terrain_classes) != len(path):
-        raise ValueError("Each path tile requires a terrain class")
-    # Evaluate complete routes under one context at a time. Mixing the cheapest
-    # tile from different CO/weather tables could accept an impossible budget.
-    possible_budgets = []
-    maximum_range = 0
-    for candidate in contexts:
-        allowance, attack_range = candidate.unit_limits(unit_type)
-        maximum_range = max(maximum_range, attack_range)
-        for condition in weathers:
-            cost = (
-                route_cost(unit_type, terrain_classes, condition, context=candidate)
-                if terrain_classes is not None
-                else len(path)
-            )
-            if cost is not None:
-                possible_budgets.append((cost, allowance))
-    if not possible_budgets:
-        raise ValueError("Requested route enters impassable terrain for the unit")
-    feasible = [(cost, allowance) for cost, allowance in possible_budgets if cost <= allowance]
-    if not feasible:
-        raise ValueError("Requested route exceeds the unit's maximum movement allowance")
-    if fuel is not None and not any(cost <= fuel for cost, _ in feasible):
-        raise ValueError("Requested route exceeds the unit's remaining fuel")
+    maximum_range = max(
+        candidate.unit_limits(unit_type)[1] for candidate in possible_rule_contexts(context)
+    )
 
     if not any(
         profile.minimum_range <= abs(x - target[0]) + abs(y - target[1]) <= maximum_range

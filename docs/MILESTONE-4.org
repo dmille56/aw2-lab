@@ -270,22 +270,55 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    assistant errors occurred. These bounded end-turn checks do not claim model
    strategy quality, unit-action planning, full matches, or manual UX acceptance.
 
-*** TODO Reject impossible Move and Wait routes and continue AI turns after rollback
+*** DONE Reject impossible Move and Wait routes and continue AI turns after rollback
     On 2026-11-21, slot 2 on Bean Island tried to move Infantry from =(13,7)=
     through road, mountain, and road to =(10,7)=. The route cost 4 movement points
     with 3 available. mGBA stayed in the movement overlay after confirmation, and
     navigation timed out after 60 seconds. Rollback restored a settled, playable
     revision 21. The AI stopped on the failed command's =recovery_required= error
     code and the launcher shut down because slot 2 had not ended its turn.
-    - [ ] Preflight Move and Wait terrain costs, movement allowance, and fuel using
+    - [X] Preflight Move and Wait terrain costs, movement allowance, and fuel using
       the observed weather and CO rules. Reject known impossible routes before
       controller input. Keep mGBA authoritative for fog-hidden blockers and the
       tile the unit actually reaches.
-    - [ ] Teach the AI host to reread the match after =rolled_back= and continue
+    - [X] Teach the AI host to reread the match after =rolled_back= and continue
       with a fresh action or end the turn when the match is settled and playable.
       Stop for recovery when the match lifecycle is =recovery_required=.
-    - [ ] Add regressions for the Bean Island route and for an AI turn continuing
+    - [X] Add regressions for the Bean Island route and for an AI turn continuing
       after successful rollback while stopping when recovery is still required.
+    Implementation: [[file:../src/aw2_lab/aw2_unit_profiles.py][aw2_unit_profiles.py]]
+    adds =observed_rule_context= (CO on/off, CO ID, active power, or =None= when
+    unobserved) and =preflight_move=, which evaluates the whole route under one CO
+    and weather pairing at a time and rejects routes that are impassable, exceed
+    every possible movement allowance, or exceed the observed fuel. Move/Wait,
+    Move/Attack, and Move/Capture call it after path validation and before the
+    first controller input, returning =INVALID_REQUEST= with the rule that failed.
+    Unknown CO rules or weather keep the permissive bounds, and mGBA still decides
+    occupancy, fog-hidden blockers, and the tile the unit actually reaches.
+    The Bean Island route is a ROM-independent regression: Infantry on
+    road/mountain/road is rejected for a 3-point allowance, accepted when an
+    observed CO grants a fourth point, costs 2+4+2 in Snow, and is rejected for
+    fuel when the route is longer than the unit's remaining fuel. A synthetic
+    snowbound mountain is likewise rejected before any emulator input for Move
+    and Wait, Move and Attack, and Move and Capture.
+    The launcher's =ai_player= now retries the same turn up to
+    =--ai-turn-attempts= (default 3) when the host returns with its turn still
+    open after a rollback, appending each attempt to the same private turn log and
+    instructing the host to reread state and take a different action or end the
+    turn. It still fails immediately on =recovery_required=, and the AI prompt and
+    [[file:../examples/pi-host/system.md][Pi example system prompt]] now describe
+    =rolled_back= as a restorable state rather than recovery.
+    Live check on 2026-11-21 ran the launcher headless against the pinned Bean
+    Island ROM with scripted SDK clients. On clear day 2, Infantry at =(2,7)= with
+    a 3-point allowance had a four-tile road/plain route costing 4 rejected with
+    =invalid_request= "Requested route exceeds the unit's maximum movement
+    allowance", and a route entering sea was rejected as impassable. In both cases
+    the revision stayed at 5, the match stayed settled and playable, and no
+    controller input was sent. The equivalent three-tile route costing 3 completed
+    and advanced the revision to 6, so the preflight does not block legal routes.
+    Still unverified against mGBA: an AI-vs-AI rollback continuation, and the fog
+    case where mGBA remains authoritative for hidden blockers and the tile the unit
+    actually reaches.
 
 ** IN-PROGRESS Redesign the human client UI for usability and ergonomics
    Complete this usability redesign before starting the deferred cross-platform
