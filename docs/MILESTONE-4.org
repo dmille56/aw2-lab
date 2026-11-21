@@ -1101,7 +1101,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     - [x] Sample more than the two views the probe currently covers, so cycling regions are
       found even when they sit outside those windows.
 
-*** TODO Check per-cell property artwork
+*** DONE Check per-cell property artwork
     City, HQ, airport, port, base, missile silo, and spent silo art is selected by army
     rather than by map cell, which matched on the maps checked so far.
     Evidence (2026-11-19): the audit says otherwise. Pipe Maze has four HQ (=8:=) cells and
@@ -1134,12 +1134,27 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
       Decoded: each cell references the whole block for its class, and only the palette
       depends on the owner, so per-cell keys are neither needed nor possible. The pack keeps
       =terrain_class:owner_slot= keys; only the headquarters geometry was wrong.
-    - [ ] Extend the pixel comparison to captured properties, whose graphical tile ID and
-      owner change during play. The audit already reads tile IDs and owners from the live
-      battle state rather than from the ROM, and =--spent-silo= measures a silo after a
-      launch changes its cell, but the sweep measures one snapshot taken before the pan.
-    - [ ] If a property cell's ground or shape still differs, extract an army-and-cell
-      overlay for that class.
+    - [X] Extend the pixel comparison to captured properties, whose graphical tile ID and
+      owner change during play. The CLI refreshes the validated battle state and map
+      identity at every screenshot boundary and compares that screenshot using its current
+      tile IDs, owners, and unit positions; camera detection retains the initial map
+      geometry. Pipe Maze live acceptance (2026-11-20): the audit started an isolated mGBA,
+      used =--spent-silo= to change =(1,20)= from =17:384= to =18:416=, and matched the
+      spent-silo artwork at 0 points (all 256 pixels identical). A second full sweep against
+      a freshly generated pack captured 1,176 screenshots across 104 views and measured all
+      484 cells. Every visible property matched at 0 points: cities 18/18, HQs 3/4 (the
+      remaining HQ is HUD-covered in every view), airports 4/4, bases 17/20 (the other three
+      are HUD-covered), and silos 3/4 (the remaining silo is HUD-covered). The screenshot
+      state refresh therefore covers changed graphical tile IDs, current owners, and unit
+      occupancy; the available map supplied multiple owners but no capture event during the
+      sweep. The earlier mismatch report came from the stale local pack; the fresh ROM pack
+      matches the three HQ cells. Evidence: =/tmp/aw2-property-artwork-current-audit.json=;
+      spent-silo evidence is in =/tmp/aw2-property-artwork-audit.json=.
+    - [X] No army-and-cell overlay was needed: no unobscured property cell differed from
+      the current pack.
+    - [X] The original in-sandbox run failed before mGBA started because the bridge-port
+      preflight's =socket.socket()= call was denied with =EPERM=. Running outside the
+      sandbox completed both live audits.
 
 *** DONE Make the emulator-versus-atlas comparison repeatable
     Human request (2026-11-19): turn the ad hoc pixel checks into a documented, opt-in tool

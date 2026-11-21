@@ -1067,6 +1067,7 @@ async def audit_map(
     state: GameState | None = None,
     animation_samples: int = 4,
     pack_frames: bool = True,
+    refresh_live_state: bool = False,
 ) -> AuditReport:
     """Measure every viewport of ``map_id`` on the emulator the bridge serves.
 
@@ -1129,6 +1130,28 @@ async def audit_map(
                     expected_offset = camera_window(center, cursor)
             await bridge.press_keys(DIRECTIONS[move], PRESS_FRAMES)
             await bridge.advance_frames(SETTLE_FRAMES)
+        # The D-pad sweep can take long enough for a live match to advance independently.
+        # Read the battle map at each capture boundary so a property that changed owner,
+        # was captured, or became a spent silo is compared against the state mGBA drew.
+        # Keep the initial cells for camera identification: the map geometry is static,
+        # while property graphical IDs and owners are not.
+        if refresh_live_state:
+            shot_state = await capture_game_state(bridge, rom_path=rom_path)
+            shot_battle = shot_state.battle
+            if shot_battle.status is not ValueStatus.AVAILABLE or shot_battle.value is None:
+                raise AuditError(
+                    f"The battle state became unavailable during the sprite audit at capture "
+                    f"{index}: {'; '.join(shot_battle.reasons) or 'no battle'}"
+                )
+            shot_identity = await bridge.read_memory_snapshot([(BATTLE_MAP_ID_ADDRESS, 1)])
+            if shot_identity.frame != shot_state.frame:
+                raise AuditError("The emulator frame changed while verifying the battle map")
+            shot_turn: BattleState = shot_battle.value
+            shot_cells = cells_from_state(shot_turn, shot_identity.ranges[0][0], map)
+            shot_occupied = {(unit.x, unit.y) for unit in shot_turn.units}
+        else:
+            shot_cells = cells
+            shot_occupied = occupied
         image, image_width, image_height = await take_screenshot(bridge, screenshots_dir, index)
         index += 1
         report.screenshots += 1
@@ -1153,14 +1176,14 @@ async def audit_map(
         # window can show ground the earlier one hid.
         measure_view(
             pack,
-            cells,
+            shot_cells,
             map.width,
             image,
             image_width,
             offset_x,
             offset_y,
             results,
-            occupied,
+            shot_occupied,
             art,
             cursor,
         )
@@ -2122,6 +2145,7 @@ def main(argv: list[str] | None = None) -> None:
                     tiles_dir,
                     animation_samples=args.animation_samples,
                     pack_frames=not args.no_pack_frames,
+                    refresh_live_state=True,
                 )
                 report.spent_silo = (
                     spent_silo_evidence(pack, report, spent_silo) if spent_silo else None
@@ -2183,6 +2207,7 @@ def main(argv: list[str] | None = None) -> None:
                 tiles_dir,
                 animation_samples=args.animation_samples,
                 pack_frames=not args.no_pack_frames,
+                refresh_live_state=True,
             )
             report.spent_silo = (
                 spent_silo_evidence(pack, report, spent_silo) if spent_silo else None
