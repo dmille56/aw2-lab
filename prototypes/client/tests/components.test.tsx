@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
 import { Board, UnitInspector } from "../web/Board";
@@ -23,6 +23,7 @@ const battle = snapshot.observation?.game_state.battle.value;
 if (!battle) throw new Error("Fixture has no battle");
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -249,6 +250,75 @@ describe("React viewer", () => {
     expect(select).toHaveBeenLastCalledWith({ x: 1, y: 0 });
     expect(screen.getAllByRole("button")[1]).toHaveFocus();
     expect(first).toHaveAttribute("aria-pressed", "true");
+  });
+  it("cycles terrain frames together while keeping static tiles and keyboard focus", () => {
+    vi.useFakeTimers();
+    const region = { x: 0, y: 0, width: 16, height: 32 };
+    const frames = [region, { ...region, x: 16 }];
+    const observed = structuredClone(battle);
+    observed.map.tiles.slice(0, 3).forEach((tile, index) => {
+      tile.terrain_class = 7;
+      tile.graphical_tile_id = index < 2 ? 42 : 43;
+    });
+    const motion = Object.assign(new EventTarget(), { matches: false });
+    vi.stubGlobal("matchMedia", () => motion);
+    const { container } = render(
+      <Board
+        battle={observed}
+        selected={{ x: 0, y: 0 }}
+        select={vi.fn()}
+        spritePack={{
+          image: "blob:static",
+          width: 16,
+          height: 32,
+          units: {},
+          terrain: {},
+          terrain_variants: { "7:42": region, "7:43": region },
+          animation: {
+            atlas: "animation.png",
+            image: "blob:animation",
+            width: 32,
+            height: 32,
+            cycle_frames: 6,
+            frames: { terrain_variants: { "7:42": frames } },
+          },
+        }}
+      />,
+    );
+    const sprites = Array.from(
+      container.querySelectorAll<HTMLElement>(".sprite-terrain"),
+    );
+    const positions = () =>
+      sprites.map((sprite) => sprite.style.backgroundPosition);
+    const firstTile = screen.getAllByRole("button")[0];
+    firstTile.focus();
+    expect(sprites.map((sprite) => sprite.style.backgroundImage)).toEqual([
+      'url("blob:animation")',
+      'url("blob:animation")',
+      'url("blob:static")',
+    ]);
+    const initial = positions();
+    act(() => {
+      vi.advanceTimersByTime(399);
+    });
+    expect(positions()).toEqual(initial);
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    const next = positions();
+    expect(next[0]).not.toBe(initial[0]);
+    expect(next[0]).toBe(next[1]);
+    expect(next[2]).toBe(initial[2]);
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(positions()).toEqual(initial);
+    expect(firstTile).toHaveFocus();
+    act(() => {
+      motion.matches = true;
+      motion.dispatchEvent(new Event("change"));
+    });
+    expect(sprites[0].style.backgroundImage).toBe('url("blob:static")');
   });
   it("renders accessible movement, attack, and enemy threat overlays", async () => {
     const view = render(

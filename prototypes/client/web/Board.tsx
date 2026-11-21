@@ -5,7 +5,13 @@ import "./TargetHighlight.css";
 import "./UnitSelection.css";
 import "./RangeOverlay.css";
 import { Fragment, useEffect, useRef, type ReactNode } from "react";
-import { Sprite, terrainSpriteRegion, type SpritePack } from "./sprites";
+import {
+  AnimatedTerrainSprite,
+  Sprite,
+  TerrainAnimationClock,
+  terrainArtwork,
+  type SpritePack,
+} from "./sprites";
 import { terrainLabel, unitLabel } from "./presentation";
 import catalogData from "./catalog.json";
 import type { BattleState, StateResponse, UnitState } from "./state";
@@ -218,7 +224,8 @@ export function Board({
   const tabStop = battle?.map.tiles.find(
     (tile) => tile.x === selected?.x && tile.y === selected?.y,
   ) ?? { x: 0, y: 0 };
-  return (
+  const animation = spritePack?.animation;
+  const board = (
     <div
       id="board"
       role="group"
@@ -232,7 +239,7 @@ export function Board({
           .sort((a, b) => a.y - b.y || a.x - b.x)
           .map((tile) => {
             const unit = occupancy.get(`${tile.x},${tile.y}`);
-            const terrainRegion = terrainSpriteRegion(spritePack, tile);
+            const terrain = terrainArtwork(spritePack, tile);
             const unitRegion = unit
               ? spritePack?.units[`${unit.unit_type}:${unit.army_slot}`]
               : null;
@@ -267,7 +274,7 @@ export function Board({
                 data-drop-selected={dropLabel || undefined}
                 data-x={tile.x}
                 data-y={tile.y}
-                className={`tile${terrainRegion ? " sprite-tile" : ""}${unit?.used_this_turn ? " used-unit" : ""} terrain-${tile.terrain_class} owner-${unit?.army_slot ?? tile.owner_slot}${match ? " selected" : ""}${isReachable ? " reachable" : ""}${isTransit ? " allied-transit" : ""}${isAttackable ? " attackable" : ""}${isThreatened ? " threatened" : ""}${isDropTarget ? " unload-drop-target" : ""}`}
+                className={`tile${terrain ? " sprite-tile" : ""}${unit?.used_this_turn ? " used-unit" : ""} terrain-${tile.terrain_class} owner-${unit?.army_slot ?? tile.owner_slot}${match ? " selected" : ""}${isReachable ? " reachable" : ""}${isTransit ? " allied-transit" : ""}${isAttackable ? " attackable" : ""}${isThreatened ? " threatened" : ""}${isDropTarget ? " unload-drop-target" : ""}`}
                 data-route-step={step >= 0 ? step : undefined}
                 data-destination={destination || undefined}
                 data-target={isTarget || undefined}
@@ -387,17 +394,26 @@ export function Board({
                     C{unit.cargo_references.length}
                   </span>
                 )}
-                {spritePack && terrainRegion && (
-                  <Sprite
-                    pack={spritePack}
-                    region={terrainRegion}
-                    className="sprite-terrain"
-                  />
-                )}
+                {spritePack &&
+                  terrain &&
+                  (animation && terrain.frames ? (
+                    <AnimatedTerrainSprite
+                      pack={spritePack}
+                      animation={animation}
+                      region={terrain.region}
+                      frames={terrain.frames}
+                    />
+                  ) : (
+                    <Sprite
+                      pack={spritePack}
+                      region={terrain.region}
+                      className="sprite-terrain"
+                    />
+                  ))}
                 <span
                   className="terrain-label"
                   aria-hidden="true"
-                  hidden={!!terrainRegion}
+                  hidden={!!terrain}
                 >
                   {terrainLabel(
                     tile.terrain_class,
@@ -432,5 +448,10 @@ export function Board({
             );
           })}
     </div>
+  );
+  return (
+    <TerrainAnimationClock cycleFrames={animation?.cycle_frames}>
+      {board}
+    </TerrainAnimationClock>
   );
 }

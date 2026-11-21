@@ -1,5 +1,16 @@
-import { describe, expect, it } from "vitest";
-import { terrainSpriteRegion, validateSpriteManifest } from "../web/sprites";
+import { renderHook, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  terrainArtwork,
+  useSpritePack,
+  validateSpriteManifest,
+  validateTerrainAnimation,
+} from "../web/sprites";
+
+const terrainSpriteRegion = (...args: Parameters<typeof terrainArtwork>) =>
+  terrainArtwork(...args)?.region;
+
+afterEach(() => vi.unstubAllGlobals());
 const pack = {
   kind: "aw2-client-sprites",
   version: 1,
@@ -23,6 +34,138 @@ describe("local sprite manifest", () => {
   ])("rejects absent or malformed packs", (value) => {
     expect(() => validateSpriteManifest(value)).toThrow();
   });
+});
+
+describe("optional terrain animation", () => {
+  const digest = "b".repeat(64);
+  const region = { x: 0, y: 0, width: 16, height: 32 };
+  const frames = [region, { ...region, x: 16 }];
+  const animation = {
+    atlas: `animation-${digest}.png`,
+    atlas_sha256: digest,
+    width: 32,
+    height: 32,
+    cycle_frames: 8,
+    frames: {
+      terrain: { "6:1": frames, "7:0": frames, "7:1": [region] },
+      terrain_variants: { "7:42": frames },
+    },
+  };
+
+  it("uses frames only for the selected static region", () => {
+    const validated = validateTerrainAnimation(animation)!;
+    const coastal = {
+      ...pack,
+      image: "static",
+      terrain: { ...pack.terrain, "7:0": region },
+      terrain_variants: { "7:42": region, "7:43": region },
+      animation: { ...validated, image: "animation" },
+    };
+    const sea = { terrain_class: 7, owner_slot: 0, graphical_tile_id: 42 };
+    expect(validated.frames.terrain?.["7:1"]).toBeUndefined();
+    expect(terrainArtwork(coastal, sea)?.frames).toEqual(frames);
+    expect(terrainArtwork(coastal, { ...sea, graphical_tile_id: 43 })).toEqual({
+      region,
+      frames: undefined,
+    });
+    expect(
+      terrainArtwork(coastal, { ...sea, graphical_tile_id: 44 })?.frames,
+    ).toEqual(frames);
+    expect(
+      terrainArtwork(coastal, { ...sea, terrain_class: 6, owner_slot: 1 })
+        ?.frames,
+    ).toEqual(frames);
+    expect(
+      terrainArtwork(coastal, { ...sea, terrain_class: 6, owner_slot: 2 }),
+    ).toBeUndefined();
+  });
+
+  it.each([
+    undefined,
+    null,
+    { ...animation, atlas: "../animation.png" },
+    { ...animation, cycle_frames: 0 },
+    { ...animation, width: 16 },
+    { ...animation, frames: { units: { "6:1": frames } } },
+    { ...animation, frames: { terrain_variants: { "7:1024": frames } } },
+    {
+      ...animation,
+      frames: { terrain: { "6:1": [...frames, { ...region, height: 16 }] } },
+    },
+  ])(
+    "ignores missing or invalid animation without rejecting the base pack",
+    (value) => {
+      const manifest = validateSpriteManifest({ ...pack, animation: value });
+      expect(validateTerrainAnimation(manifest.animation)).toBeUndefined();
+      expect(manifest.terrain).toEqual(pack.terrain);
+    },
+  );
+
+  it.each([32, 16])(
+    "uses the decoded animation atlas only when its width matches (%i)",
+    async (decodedWidth) => {
+      const fetchAtlas = vi.fn((url: string) =>
+        Promise.resolve(
+          url.endsWith("/manifest.json")
+            ? Response.json({ ...pack, animation })
+            : new Response(
+                url.endsWith(animation.atlas) ? "animation" : "static",
+              ),
+        ),
+      );
+      const createObjectURL = vi
+        .fn<() => string>()
+        .mockReturnValueOnce("blob:static")
+        .mockReturnValueOnce("blob:animation");
+      const revokeObjectURL = vi.fn<(url: string) => void>();
+      vi.stubGlobal("fetch", fetchAtlas);
+      vi.stubGlobal(
+        "URL",
+        class extends URL {
+          static createObjectURL = createObjectURL;
+          static revokeObjectURL = revokeObjectURL;
+        },
+      );
+      vi.stubGlobal(
+        "Image",
+        class {
+          src = "";
+          naturalHeight = 32;
+          get naturalWidth() {
+            return this.src === "blob:static" ? 16 : decodedWidth;
+          }
+          decode() {
+            return Promise.resolve();
+          }
+        },
+      );
+
+      const { result, unmount } = renderHook(() =>
+        useSpritePack(true, { animateTerrain: true }),
+      );
+      if (decodedWidth === animation.width) {
+        await waitFor(() =>
+          expect(result.current?.animation?.image).toBe("blob:animation"),
+        );
+      } else {
+        await waitFor(() =>
+          expect(revokeObjectURL).toHaveBeenCalledWith("blob:animation"),
+        );
+        expect(result.current?.animation).toBeUndefined();
+      }
+      expect(result.current?.image).toBe("blob:static");
+      expect(fetchAtlas.mock.calls.map(([url]) => url)).toEqual([
+        "/client-sprites/manifest.json",
+        `/client-sprites/${pack.atlas}`,
+        `/client-sprites/${animation.atlas}`,
+      ]);
+      unmount();
+      expect(revokeObjectURL.mock.calls.flat().sort()).toEqual([
+        "blob:animation",
+        "blob:static",
+      ]);
+    },
+  );
 });
 
 it("accepts optional CO portraits and rejects invalid IDs or atlas bounds", () => {

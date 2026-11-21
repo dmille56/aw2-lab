@@ -1,4 +1,10 @@
-import { useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import { getApiBase } from "./transport";
 
 export interface SpriteRegion {
@@ -7,26 +13,61 @@ export interface SpriteRegion {
   width: number;
   height: number;
 }
-export interface SpritePack {
+interface AtlasSize {
   width: number;
   height: number;
+}
+interface SpriteAtlas extends AtlasSize {
+  image: string;
+}
+type TerrainCollection = "terrain" | "terrain_variants";
+interface AnimationManifest extends AtlasSize {
+  atlas: string;
+  cycle_frames: number;
+  frames: Partial<Record<TerrainCollection, Record<string, SpriteRegion[]>>>;
+}
+interface TerrainAnimation extends AnimationManifest, SpriteAtlas {}
+
+export interface SpritePack extends SpriteAtlas {
   units: Record<string, SpriteRegion>;
   terrain: Record<string, SpriteRegion>;
   portraits?: Record<string, SpriteRegion>;
   terrain_variants?: Record<string, SpriteRegion>;
-  image: string;
+  animation?: TerrainAnimation;
 }
-interface Manifest extends Omit<SpritePack, "image"> {
+interface Manifest extends Omit<SpritePack, "image" | "animation"> {
   kind: "aw2-client-sprites";
   version: 1;
   atlas: string;
+  animation?: unknown;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === "object" && !Array.isArray(value);
+const boundedInteger = (n: unknown, min: number, max: number): n is number =>
+  typeof n === "number" && Number.isInteger(n) && n >= min && n <= max;
+const dimension = (n: unknown): n is number => boundedInteger(n, 1, 4096);
+const armyKey = (key: string) => /^\d{1,2}:[0-5]$/.test(key);
+const variantKey = (key: string) =>
+  /^(?:1|2|3|4|5|7|12|13|15|16|19):(?:0|[1-9][0-9]{0,3})$/.test(key) &&
+  Number(key.split(":")[1]) <= 1023;
+
+function regionInAtlas(
+  raw: unknown,
+  { width, height }: AtlasSize,
+  max: number,
+): raw is SpriteRegion {
+  return (
+    isRecord(raw) &&
+    boundedInteger(raw.width, 1, max) &&
+    boundedInteger(raw.height, 1, max) &&
+    boundedInteger(raw.x, 0, width - raw.width) &&
+    boundedInteger(raw.y, 0, height - raw.height)
+  );
 }
 export function validateSpriteManifest(value: unknown): Manifest {
-  if (!value || typeof value !== "object")
-    throw new Error("No local sprite pack configured.");
-  const m = value as Record<string, unknown>;
-  const dimension = (n: unknown): n is number =>
-    Number.isInteger(n) && Number(n) > 0 && Number(n) <= 4096;
+  if (!isRecord(value)) throw new Error("No local sprite pack configured.");
+  const m = value;
   if (
     m.kind !== "aw2-client-sprites" ||
     m.version !== 1 ||
@@ -47,118 +88,254 @@ export function validateSpriteManifest(value: unknown): Manifest {
       : [{ value: m.terrain_variants, portraits: false, variants: true }]),
   ];
   for (const { value: collection, portraits, variants } of collections) {
-    if (
-      !collection ||
-      typeof collection !== "object" ||
-      Array.isArray(collection) ||
-      Object.keys(collection).length > 256
-    )
+    if (!isRecord(collection) || Object.keys(collection).length > 256)
       throw new Error("Invalid sprite regions.");
     for (const [key, raw] of Object.entries(collection)) {
       const validKey = portraits
         ? /^(?:[0-9]|1[0-8])$/.test(key)
         : variants
-          ? /^(?:1|2|3|4|5|7|12|13|15|16|19):(?:0|[1-9][0-9]{0,3})$/.test(
-              key,
-            ) && Number(key.split(":")[1]) <= 1023
-          : /^\d{1,2}:[0-5]$/.test(key);
-      if (!validKey || !raw || typeof raw !== "object")
-        throw new Error("Invalid sprite region.");
-      const r = raw as Record<string, unknown>;
+          ? variantKey(key)
+          : armyKey(key);
+      if (!validKey) throw new Error("Invalid sprite region.");
       if (
-        !Number.isInteger(r.x) ||
-        !Number.isInteger(r.y) ||
-        Number(r.x) < 0 ||
-        Number(r.y) < 0 ||
-        !dimension(r.width) ||
-        !dimension(r.height) ||
-        r.width > (portraits ? 48 : 32) ||
-        r.height > (portraits ? 48 : 32) ||
-        Number(r.x) + r.width > m.width ||
-        Number(r.y) + r.height > m.height
+        !regionInAtlas(
+          raw,
+          { width: m.width, height: m.height },
+          portraits ? 48 : 32,
+        )
       )
         throw new Error("Sprite region outside atlas.");
     }
   }
-  return value as Manifest;
+  return value as unknown as Manifest;
 }
-export function terrainSpriteRegion(
+
+export function validateTerrainAnimation(
+  value: unknown,
+): AnimationManifest | undefined {
+  if (!isRecord(value)) return;
+  const { atlas, atlas_sha256, width, height, cycle_frames, frames } = value;
+  if (
+    typeof atlas_sha256 !== "string" ||
+    !/^[0-9a-f]{64}$/.test(atlas_sha256) ||
+    atlas !== `animation-${atlas_sha256}.png` ||
+    !dimension(width) ||
+    !dimension(height) ||
+    !boundedInteger(cycle_frames, 1, 600) ||
+    !isRecord(frames)
+  )
+    return;
+
+  const animation: AnimationManifest = {
+    atlas,
+    width,
+    height,
+    cycle_frames,
+    frames: {},
+  };
+  let total = 0;
+  for (const [kind, collection] of Object.entries(frames)) {
+    if (kind !== "terrain" && kind !== "terrain_variants") return;
+    if (!isRecord(collection) || Object.keys(collection).length > 256) return;
+    const regions: Record<string, SpriteRegion[]> = {};
+    for (const [key, sequence] of Object.entries(collection)) {
+      const validKey =
+        kind === "terrain_variants" ? variantKey(key) : armyKey(key);
+      if (!validKey || !Array.isArray(sequence) || sequence.length > 16) return;
+      total += sequence.length;
+      if (total > 2048) return;
+      const checked: SpriteRegion[] = [];
+      for (const frame of sequence as unknown[]) {
+        if (
+          !regionInAtlas(frame, animation, 32) ||
+          frame.width !== 16 ||
+          frame.height !== 32
+        )
+          return;
+        checked.push(frame);
+      }
+      if (checked.length > 1) regions[key] = checked;
+    }
+    if (Object.keys(regions).length) animation.frames[kind] = regions;
+  }
+  if (Object.keys(animation.frames).length) return animation;
+}
+
+export function terrainArtwork(
   pack: SpritePack | null,
   tile: {
     terrain_class: number;
     owner_slot: number;
     graphical_tile_id: number;
   },
-): SpriteRegion | undefined {
+) {
+  if (!pack) return;
   // Terrain artwork is chosen per cell for every class that is not selected by army,
   // so each such cell uses its exact map variant when present: plains cells carry the
   // tip of the mountain range below them, and mountains, woods, roads, seas, and
   // shoals each have several shapes. Shoals have no representative sprite, so a
   // missing shoal variant stays symbolic instead of repeating a wrongly oriented tile.
-  const variant =
-    pack?.terrain_variants?.[`${tile.terrain_class}:${tile.graphical_tile_id}`];
-  if (tile.terrain_class === 13) return variant;
-  if (variant) return variant;
-  return pack?.terrain[`${tile.terrain_class}:${tile.owner_slot}`];
+  const variantKey = `${tile.terrain_class}:${tile.graphical_tile_id}`;
+  const variant = pack.terrain_variants?.[variantKey];
+  if (variant)
+    return {
+      region: variant,
+      frames: pack.animation?.frames.terrain_variants?.[variantKey],
+    };
+  if (tile.terrain_class === 13) return;
+  const armyKey = `${tile.terrain_class}:${tile.owner_slot}`;
+  const region = pack.terrain[armyKey];
+  if (region)
+    return { region, frames: pack.animation?.frames.terrain?.[armyKey] };
 }
 
-export function useSpritePack(enabled: boolean) {
+export function useSpritePack(
+  enabled: boolean,
+  { animateTerrain = false } = {},
+) {
   const [pack, setPack] = useState<SpritePack | null>(null);
   useEffect(() => {
     if (!enabled) return;
     const controller = new AbortController();
-    let image: string | null = null;
-    const load = async () => {
+    const images = new Set<string>();
+    const requestOptions = () => ({
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]),
+    });
+    const loadAtlas = async (
+      base: string,
+      { atlas, width, height }: AtlasSize & { atlas: string },
+    ) => {
+      const options = requestOptions();
+      const response = await fetch(`${base}/client-sprites/${atlas}`, options);
+      if (!response.ok) return;
+      const blob = await response.blob();
+      if (options.signal.aborted) return;
+      const image = URL.createObjectURL(blob);
+      images.add(image);
       try {
-        const base = await getApiBase();
-        const options = {
-          signal: AbortSignal.any([
-            controller.signal,
-            AbortSignal.timeout(5000),
-          ]),
-        };
-        const response = await fetch(
-          `${base}/client-sprites/manifest.json`,
-          options,
-        );
-        if (!response.ok) return;
-        const manifest = validateSpriteManifest(await response.json());
-        const atlas = await fetch(
-          `${base}/client-sprites/${manifest.atlas}`,
-          options,
-        );
-        if (!atlas.ok) return;
-        const blob = await atlas.blob();
-        if (controller.signal.aborted) return;
-        image = URL.createObjectURL(blob);
         const bitmap = new Image();
         bitmap.src = image;
         await bitmap.decode();
         if (
-          !controller.signal.aborted &&
-          bitmap.naturalWidth === manifest.width &&
-          bitmap.naturalHeight === manifest.height
+          !options.signal.aborted &&
+          bitmap.naturalWidth === width &&
+          bitmap.naturalHeight === height
         )
-          setPack({ ...manifest, image });
+          return image;
       } catch {
-        // An absent or invalid pack leaves the readable symbolic board available.
+        // Keep the fallback if the image cannot be decoded.
+      }
+      if (images.delete(image)) URL.revokeObjectURL(image);
+    };
+    const load = async () => {
+      try {
+        const base = await getApiBase();
+        const response = await fetch(
+          `${base}/client-sprites/manifest.json`,
+          requestOptions(),
+        );
+        if (!response.ok) return;
+        const { animation: rawAnimation, ...manifest } = validateSpriteManifest(
+          await response.json(),
+        );
+        const image = await loadAtlas(base, manifest);
+        if (!image || controller.signal.aborted) return;
+        const staticPack = { ...manifest, image };
+        setPack(staticPack);
+
+        const animation =
+          animateTerrain && validateTerrainAnimation(rawAnimation);
+        if (!animation) return;
+        const animationImage = await loadAtlas(base, animation);
+        if (animationImage && !controller.signal.aborted)
+          setPack({
+            ...staticPack,
+            animation: { ...animation, image: animationImage },
+          });
+      } catch {
+        // Keep symbolic or static artwork when an asset cannot be loaded.
       }
     };
     void load();
     return () => {
       controller.abort();
-      if (image) URL.revokeObjectURL(image);
+      for (const image of images) URL.revokeObjectURL(image);
+      images.clear();
       setPack(null);
     };
-  }, [enabled]);
+  }, [enabled, animateTerrain]);
   return pack;
 }
+
+const TerrainFrame = createContext<number | null>(null);
+const MIN_TERRAIN_FRAME_MS = 400;
+
+export function TerrainAnimationClock({
+  cycleFrames,
+  children,
+}: {
+  cycleFrames?: number;
+  children: ReactNode;
+}) {
+  const [frame, setFrame] = useState<number | null>(null);
+  useEffect(() => {
+    if (!cycleFrames) return;
+    const motion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    let timer: number | undefined;
+    const syncMotion = () => {
+      window.clearInterval(timer);
+      if (motion?.matches) {
+        setFrame(null);
+        return;
+      }
+      setFrame(0);
+      // Audit samples can be closer together than is comfortable for a looping board.
+      timer = window.setInterval(
+        () => setFrame((current) => (current ?? 0) + 1),
+        Math.max(MIN_TERRAIN_FRAME_MS, (cycleFrames * 1000) / 60),
+      );
+    };
+    syncMotion();
+    motion?.addEventListener("change", syncMotion);
+    return () => {
+      window.clearInterval(timer);
+      motion?.removeEventListener("change", syncMotion);
+    };
+  }, [cycleFrames]);
+  return (
+    <TerrainFrame.Provider value={frame}>{children}</TerrainFrame.Provider>
+  );
+}
+
+export function AnimatedTerrainSprite({
+  pack,
+  animation,
+  region,
+  frames,
+}: {
+  pack: SpritePack;
+  animation: TerrainAnimation;
+  region: SpriteRegion;
+  frames: SpriteRegion[];
+}) {
+  const frame = useContext(TerrainFrame);
+  if (frame === null)
+    return <Sprite pack={pack} region={region} className="sprite-terrain" />;
+  return (
+    <Sprite
+      pack={animation}
+      region={frames[frame % frames.length]}
+      className="sprite-terrain"
+    />
+  );
+}
+
 export function Sprite({
   pack,
   region,
   className,
 }: {
-  pack: SpritePack;
+  pack: SpriteAtlas;
   region: SpriteRegion;
   className: string;
 }) {

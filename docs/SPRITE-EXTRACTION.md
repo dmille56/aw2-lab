@@ -369,12 +369,14 @@ the audit exposes `animation_regions(cell)`, `frame_tile(region)`, and
 `animation_frames(cell)`, so a caller can look up the extra frames for the region a cell
 selects.
 
-The prototype client does not animate yet. `prototypes/client/web/sprites.tsx` loads only
-the static atlas and `terrainSpriteRegion` returns one region, so an animated cell renders
-its frame-0 approximation and the extra frames sit unused in the pack. Drawing them means
-fetching the frames atlas and cycling a shared frame index through
-`animation.frames[kind][key]` in `Board.tsx`. That is the documented approximation for now;
-wiring the clock is the next step.
+The human client draws the static atlas while it loads the optional animation atlas.
+It selects the same terrain variant or army region for both atlases and cycles that
+region's captured frames on a shared board clock. The client holds each frame for at
+least 400 milliseconds, or longer if the capture spacing (`cycle_frames` at 60 emulator
+frames per second) exceeds that.
+Playback starts at the first captured phase and runs independently of the emulator.
+Missing frames, an unavailable or invalid animation atlas, and the browser's reduced
+motion preference all leave the static artwork in place.
 
 Limits: the audit measures the ground only, so unit sprites, HP bars, and the status panel
 are ignored rather than compared; frames are captured only for regions a swept viewport

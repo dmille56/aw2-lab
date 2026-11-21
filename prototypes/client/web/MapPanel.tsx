@@ -66,7 +66,7 @@ export function MapPanel({
   enemyTargets?: Set<string>;
   dropSelections?: Record<string, string>;
 }) {
-  const spritePack = useSpritePack(!!battle);
+  const spritePack = useSpritePack(!!battle, { animateTerrain: true });
   const [heldRange, setHeldRange] = useState<{
     battle: BattleState;
     reference: number;
