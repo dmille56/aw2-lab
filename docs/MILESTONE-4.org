@@ -270,6 +270,23 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    assistant errors occurred. These bounded end-turn checks do not claim model
    strategy quality, unit-action planning, full matches, or manual UX acceptance.
 
+*** TODO Reject impossible Move and Wait routes and continue AI turns after rollback
+    On 2026-11-21, slot 2 on Bean Island tried to move Infantry from =(13,7)=
+    through road, mountain, and road to =(10,7)=. The route cost 4 movement points
+    with 3 available. mGBA stayed in the movement overlay after confirmation, and
+    navigation timed out after 60 seconds. Rollback restored a settled, playable
+    revision 21. The AI stopped on the failed command's =recovery_required= error
+    code and the launcher shut down because slot 2 had not ended its turn.
+    - [ ] Preflight Move and Wait terrain costs, movement allowance, and fuel using
+      the observed weather and CO rules. Reject known impossible routes before
+      controller input. Keep mGBA authoritative for fog-hidden blockers and the
+      tile the unit actually reaches.
+    - [ ] Teach the AI host to reread the match after =rolled_back= and continue
+      with a fresh action or end the turn when the match is settled and playable.
+      Stop for recovery when the match lifecycle is =recovery_required=.
+    - [ ] Add regressions for the Bean Island route and for an AI turn continuing
+      after successful rollback while stopping when recovery is still required.
+
 ** IN-PROGRESS Redesign the human client UI for usability and ergonomics
    Complete this usability redesign before starting the deferred cross-platform
    acceptance matrix above. Use human playtesting to identify friction in common
