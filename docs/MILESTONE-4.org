@@ -1101,6 +1101,15 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     - [x] Sample more than the two views the probe currently covers, so cycling regions are
       found even when they sit outside those windows.
 
+*** TODO Animate terrain frames in the human client
+    Animated terrain frames are captured and served in an optional second atlas, but the
+    client still renders the static frame-0 artwork. Load the optional animation atlas,
+    select frames for the current terrain region, and cycle them at a steady rate. Keep
+    static rendering for regions without captured frames and for older packs without an
+    animation section.
+    - [ ] Load and validate the optional animation atlas and its manifest entries.
+    - [ ] Cycle animated terrain regions in the board while preserving static fallback.
+
 *** DONE Check per-cell property artwork
     City, HQ, airport, port, base, missile silo, and spent silo art is selected by army
     rather than by map cell, which matched on the maps checked so far.
