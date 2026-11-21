@@ -1256,16 +1256,26 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     - [ ] Re-run =terrain-sample= and =unit-sprites= only if unit or portrait art turns out
       to differ; the terrain pack already agrees with the emulator pixel for pixel.
 
-*** TODO Verify unit and CO portrait sprites against mGBA
+*** DONE Verify unit and CO portrait sprites against mGBA
     The 95 unit frames (19 unit types by five armies) and 19 CO portraits were inspected
     in the generated atlas but never compared with what the emulator draws.
     Evidence (2026-11-19): the audit flagged 36 Big Daddy cells as "a unit sprite or the
     status panel covers this cell", which is the entry point for this check - those cells
     hold the emulator's unit art, and the audit already writes side-by-side PNGs for them
     with =--tiles-dir=.
-    - [ ] Compare each unit type and army silhouette, and each CO portrait, with a live
+    Evidence (2026-11-20): captured all 19 unit production previews for each of the five
+    armies in mGBA's production menu on Rival Islands, and compared them as a 19-by-5
+    contact sheet with the unit atlas. Every unit silhouette and army color is represented
+    correctly. The production menu uses larger preview art than the atlas's 16x16 battle
+    frame, so this confirms silhouette and palette, not pixel-exact battle animation or
+    scaling. Captured the full 19-CO Teams roster in five mGBA sessions and compared it
+    with the portrait atlas: all identities match. Live Teams portraits are tinted by
+    player army; the packed portraits are neutral, matching the source portrait artwork.
+    The tint is an in-game presentation difference, not an extraction mismatch. Captures
+    and contact sheets are in =/tmp/aw2-unit-co-live/=. No re-extraction was needed.
+    - [X] Compare each unit type and army silhouette, and each CO portrait, with a live
       emulator render.
-    - [ ] Note any frame, palette, or scaling mismatch for follow-up extraction work.
+    - [X] Note any frame, palette, or scaling mismatch for follow-up extraction work.
 
 *** TODO Decide how campaign-only terrain classes render
     Classes 9 and 20-31 (lab, minicannons, laser, volcano, black hole factory, deathray,
