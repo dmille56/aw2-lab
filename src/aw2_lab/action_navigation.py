@@ -169,7 +169,8 @@ class ActionNavigator:
 
     async def choose_purchase_unit(self, unit_type: int) -> GameState:
         """Select a verified facility production row and await the settled map turn."""
-        async with self._bounded_operation():
+        # Lower rows need a verified bridge round trip for every cursor step.
+        async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
             self._begin("purchase_unit")
             state = await self._observe()
             menu = state.ui.menu

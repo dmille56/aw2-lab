@@ -14,6 +14,7 @@ from aw2_lab.action_navigation import (
     validate_path,
 )
 from aw2_lab.lifecycle import BattleDecodeSafety, LifecyclePhase
+from aw2_lab.production_rules import PRODUCTION_BY_TERRAIN
 from aw2_lab.state_decoder import decode_snapshot
 from aw2_lab.state_model import GameState, ObservedValue, ValueStatus
 from aw2_lab.ui_state import (
@@ -54,6 +55,72 @@ def test_navigation_limits_reject_unbounded_or_invalid_values() -> None:
         NavigationLimits(frame_budget=0)
     with pytest.raises(ValueError):
         NavigationLimits(wall_timeout=0)
+
+
+def test_artillery_purchase_uses_resolution_timeout_for_all_rows(memory, monkeypatch) -> None:
+    limits = NavigationLimits(wall_timeout=15, resolution_wall_timeout=60)
+    real_timeout = asyncio.timeout
+    timeouts = []
+
+    def record_timeout(delay):
+        timeouts.append(delay)
+        return real_timeout(delay)
+
+    monkeypatch.setattr(asyncio, "timeout", record_timeout)
+    initial = decode_snapshot(snapshot(memory))
+    menu = MenuObservation(
+        initial.frame,
+        MenuFamily.PRODUCTION_CHOICES,
+        production_unit_types=PRODUCTION_BY_TERRAIN[14].unit_types,
+        selected_production_index=0,
+    )
+
+    class PurchaseBridge:
+        frame = initial.frame
+        row = 0
+        confirmed = False
+
+        async def observe(self) -> GameState:
+            current_menu = (
+                MenuObservation(self.frame, MenuFamily.MAP_INPUT)
+                if self.confirmed
+                else replace(menu, frame=self.frame, selected_production_index=self.row)
+            )
+            return replace(
+                initial,
+                frame=self.frame,
+                validation=replace(initial.validation, frame=self.frame),
+                ui=replace(
+                    initial.ui,
+                    frame=self.frame,
+                    map_cursor=replace(initial.ui.map_cursor, frame=self.frame),
+                    menu=current_menu,
+                ),
+            )
+
+        async def advance_frames(self, frames: int) -> int:
+            self.frame += frames
+            return self.frame
+
+        async def press_keys(self, keys: int, frames: int) -> int:
+            if keys == 128:
+                self.row += 1
+            else:
+                assert keys == 1
+                assert menu.production_unit_types[self.row] == 10
+                self.confirmed = True
+            return await self.advance_frames(frames)
+
+    bridge = PurchaseBridge()
+    navigator = ActionNavigator(bridge, bridge.observe, limits=limits)
+
+    result = asyncio.run(navigator.choose_purchase_unit(10))
+
+    assert result.ui.menu.family is MenuFamily.MAP_INPUT
+    assert [event.name for event in navigator.inputs] == ["purchase-menu-down"] * 7 + [
+        "confirm-purchase"
+    ]
+    assert timeouts == [limits.resolution_wall_timeout]
 
 
 def test_map_cursor_waits_for_directional_input_to_rearm(memory) -> None:
