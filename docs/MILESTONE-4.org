@@ -351,11 +351,14 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     and cursor checks. ROM-independent navigation coverage checks the deadline,
     directional input spacing, and production menu confirmation.
 
-*** TODO Verify Drop targeting with slow emulator observations
-    Unload to an eligible tile that takes several selector inputs to reach.
-    Check whether the 15-second =choose_unload= deadline covers opening Drop,
-    cycling targets, confirming, and observing the resulting state. Verify the
-    passenger disembarks on the requested tile.
+*** DONE Verify Drop targeting with slow emulator observations
+    In isolated headless mGBA, moved a loaded APC to =(2,6)= on Bean Island
+    and requested a Drop at =(2,7)= with 850 ms added per observation. The
+    15-second =choose_unload= watchdog expired after opening Drop and cycling
+    twice. With the existing 60-second allowance, the Infantry disembarked
+    at =(2,7)=. Drop now uses that allowance and keeps its frame budget and
+    target checks. A ROM-independent regression covers a delayed selector
+    that cycles three times and the rejection of unavailable targets.
 
 *** TODO Verify Fire targeting with multiple eligible enemies
     Request an attack on an enemy several positions into the Fire target cycle.

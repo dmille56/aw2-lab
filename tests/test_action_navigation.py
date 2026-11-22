@@ -377,6 +377,7 @@ def test_choose_unload_tracks_drop_target_cursor_before_confirmation(memory, ava
             self.gaps: list[int] = []
 
         async def observe(self) -> GameState:
+            await asyncio.sleep(0.01)
             return self.state
 
         async def advance_frames(self, frames: int) -> int:
@@ -460,7 +461,12 @@ def test_choose_unload_tracks_drop_target_cursor_before_confirmation(memory, ava
         navigator = ActionNavigator(
             bridge,
             bridge.observe,
-            NavigationLimits(frame_budget=100, poll_frames=1, wall_timeout=3),
+            NavigationLimits(
+                frame_budget=100,
+                poll_frames=1,
+                wall_timeout=0.05,
+                resolution_wall_timeout=3,
+            ),
         )
 
         if not available:

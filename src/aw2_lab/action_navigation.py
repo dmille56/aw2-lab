@@ -869,7 +869,7 @@ class ActionNavigator:
         height: int,
     ) -> GameState:
         """Choose Drop, move the observed drop cursor, and verify the action menu returns."""
-        async with self._bounded_operation():
+        async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
             self._begin("choose_unload")
             state = await self._observe()
             menu = state.ui.menu
