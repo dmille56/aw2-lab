@@ -153,9 +153,18 @@ def test_unit_selection_uses_resolution_timeout_for_cursor_travel(memory, monkey
     assert timeouts == [limits.resolution_wall_timeout]
 
 
-@pytest.mark.parametrize("open_production", [False, True], ids=["cursor", "production"])
+@pytest.mark.parametrize(
+    ("open_production", "target", "exhausted"),
+    [
+        pytest.param(False, (1, 1), False, id="cursor"),
+        pytest.param(True, (1, 1), False, id="production"),
+        pytest.param(True, (19, 0), False, id="production-confirm-fits"),
+        pytest.param(True, (20, 0), True, id="production-confirm-exceeds-budget"),
+        pytest.param(False, (21, 0), True, id="cursor-exceeds-budget"),
+    ],
+)
 def test_map_cursor_waits_for_directional_input_to_rearm(
-    memory, monkeypatch, open_production: bool
+    memory, monkeypatch, open_production: bool, target: tuple[int, int], exhausted: bool
 ) -> None:
     real_timeout = asyncio.timeout
     timeouts = []
@@ -232,9 +241,12 @@ def test_map_cursor_waits_for_directional_input_to_rearm(
         initial = decode_snapshot(snapshot(memory))
         battle = initial.battle.value
         assert battle is not None
-        target = (battle.map.width - 1, battle.map.height - 1)
         initial = replace(
             initial,
+            battle=replace(
+                initial.battle,
+                value=replace(battle, map=replace(battle.map, width=22)),
+            ),
             ui=replace(
                 initial.ui,
                 menu=MenuObservation(initial.frame, MenuFamily.MAP_INPUT),
@@ -249,6 +261,16 @@ def test_map_cursor_waits_for_directional_input_to_rearm(
         bridge = RearmingBridge(initial)
         navigator = ActionNavigator(bridge, bridge.observe)
 
+        if exhausted:
+            with pytest.raises(NavigationError, match="Navigation frame budget exhausted") as error:
+                if open_production:
+                    await navigator.open_production_menu(*target)
+                else:
+                    await navigator.move_cursor_to(*target)
+            assert (error.value.context.cursor_x, error.value.context.cursor_y) == (20, 0)
+            assert len(error.value.context.input_sequence) == 20
+            assert bridge.release_gaps == [8] * 20
+            return
         if open_production:
             result = await navigator.open_production_menu(*target)
             assert result.ui.menu.family is MenuFamily.PRODUCTION_CHOICES
@@ -823,9 +845,17 @@ def test_unit_action_navigation_returns_to_settled_player_turn(memory, action) -
     asyncio.run(run())
 
 
-@pytest.mark.parametrize("movement_tile_allowed", [True, False])
+@pytest.mark.parametrize(
+    ("movement_tile_allowed", "steps"),
+    [
+        pytest.param(True, 2, id="movement-accepted"),
+        pytest.param(False, 2, id="movement-blocked"),
+        pytest.param(True, 19, id="backtracking-confirm-fits"),
+        pytest.param(True, 20, id="backtracking-confirm-exceeds-budget"),
+    ],
+)
 def test_movement_overlay_checks_route_tiles_before_confirming(
-    memory, movement_tile_allowed
+    memory, movement_tile_allowed, steps
 ) -> None:
     async def run() -> None:
         initial = decode_snapshot(snapshot(memory))
@@ -863,6 +893,8 @@ def test_movement_overlay_checks_route_tiles_before_confirming(
                 self.keys.append(keys)
                 if keys == 16 and movement_tile_allowed and self.neutral_since_input >= 8:
                     self._update(frames, cursor=(1, 0))
+                elif keys == 32 and movement_tile_allowed and self.neutral_since_input >= 8:
+                    self._update(frames, cursor=(0, 0))
                 elif keys == 128 and movement_tile_allowed and self.neutral_since_input >= 8:
                     self._update(frames, cursor=(1, 1))
                 elif keys == 1:
@@ -918,21 +950,30 @@ def test_movement_overlay_checks_route_tiles_before_confirming(
             bridge,
             bridge.observe,
             NavigationLimits(
-                frame_budget=32,
+                frame_budget=32 if steps == 2 else 180,
                 poll_frames=1,
                 wall_timeout=0.01,
-                resolution_frame_budget=128,
+                resolution_frame_budget=6000,
                 resolution_poll_frames=1,
                 resolution_wall_timeout=1,
             ),
         )
         unit_identity = (1, 1, 1, selected.record_address)
+        route = ((1, 0), (1, 1)) if steps == 2 else tuple((1 - i % 2, 0) for i in range(steps))
+        if steps == 20:
+            with pytest.raises(NavigationError, match="Navigation frame budget exhausted") as error:
+                await navigator.move_selected_unit_along_path(
+                    route, unit=unit_identity, width=2, height=2
+                )
+            assert len(error.value.context.input_sequence) == steps
+            assert 1 not in bridge.keys
+            return
         if movement_tile_allowed:
             result = await navigator.move_selected_unit_along_path(
-                ((1, 0), (1, 1)), unit=unit_identity, width=2, height=2
+                route, unit=unit_identity, width=2, height=2
             )
             assert result.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
-            assert bridge.keys == [16, 128, 1]
+            assert bridge.keys == ([16, 128, 1] if steps == 2 else [16, 32] * 9 + [16, 1])
         else:
             with pytest.raises(NavigationError, match="Timed out waiting"):
                 await navigator.move_selected_unit_along_path(

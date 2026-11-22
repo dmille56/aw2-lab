@@ -378,12 +378,15 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     verify the unit's final tile and used status. The slow three-row case
     still needs a live mGBA replay.
 
-*** TODO Verify frame budgets for long cursor trips and backtracking routes
-    Exercise a long map-cursor trip and a legal movement route with repeated
-    backtracking. Twenty directional taps can consume the default 180-frame
-    input budget before confirmation. Check the boundary with a responsive
-    bridge and verify that the operation can confirm or fails with an explicit
-    frame-budget diagnostic and a successful rollback.
+*** DONE Verify frame budgets for long cursor trips and backtracking routes
+    ROM-independent tests with a responsive bridge verified that 19 directional
+    taps leave enough of the 180-frame allowance to confirm a factory or a
+    backtracking movement route. Twenty taps consume all 180 frames, so an
+    additional step or confirmation fails with =Navigation frame budget exhausted=
+    before another input is sent. Checkpoint coverage verifies that this
+    diagnostic survives rollback, the emulator releases its keys, and the
+    original board is restored at a fresh revision. These checks retain the
+    current frame limit.
 
 ** IN-PROGRESS Redesign the human client UI for usability and ergonomics
    Complete this usability redesign before starting the deferred cross-platform

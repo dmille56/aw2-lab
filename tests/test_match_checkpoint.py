@@ -10,6 +10,7 @@ from test_match_controller import run_async_test, setup_controller
 from test_state_validation import memory as memory  # noqa: PLC0414
 from test_state_validation import snapshot
 
+from aw2_lab.action_navigation import NavigationError, NavigationFailureContext
 from aw2_lab.checkpoint import CheckpointError
 from aw2_lab.checkpoint_store import CheckpointStore
 from aw2_lab.command_journal import JournalEvent, JsonlCommandJournal, new_journal_entry
@@ -196,8 +197,9 @@ async def test_mutation_persists_recovery_checkpoint_before_running(memory, tmp_
 
 
 @run_async_test
+@pytest.mark.parametrize("frame_budget_exhausted", [False, True])
 async def test_failed_mutation_restores_emulator_and_tracker_from_recovery_checkpoint(
-    memory, tmp_path
+    memory, tmp_path, frame_budget_exhausted
 ):
     service, controller, match_id, _, _, bridge = await prepare(memory, tmp_path)
     try:
@@ -207,6 +209,11 @@ async def test_failed_mutation_restores_emulator_and_tracker_from_recovery_check
             bridge.keys = 3
             memory[1][0x22692] = 1
             bridge.frame += 20
+            if frame_budget_exhausted:
+                raise NavigationError(
+                    "Navigation frame budget exhausted",
+                    NavigationFailureContext("move_unit", "battle_player_turn", bridge.frame, ()),
+                )
             raise TimeoutError("synthetic navigation timeout")
 
         receipt = await controller.submit_serialized_mutation(
@@ -222,6 +229,8 @@ async def test_failed_mutation_restores_emulator_and_tracker_from_recovery_check
 
         assert result.status is CommandStatus.ROLLED_BACK
         assert result.error is not None
+        if frame_budget_exhausted:
+            assert result.error.details["navigation_message"] == "Navigation frame budget exhausted"
         assert result.resulting_revision == restored.revision
         assert restored.revision > before.revision
         assert restored.game_state == before.game_state
