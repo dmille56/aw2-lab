@@ -457,6 +457,65 @@ describe("React viewer", () => {
       screen.getByRole("button", { name: "Load matching screenshot" }),
     ).toBeDisabled();
   });
+
+  it("shows ongoing capture progress when inspecting its property tile", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify({ status: "ok", emulator: "synthetic" })),
+        ),
+    );
+    render(<App />);
+    const inspector = document.querySelector("#inspector");
+    const progress = () =>
+      screen.queryByRole("progressbar", { name: "Capture progress" });
+
+    async function inspectProperty(
+      capturePoints: number,
+      activeSlot: number,
+      owner: number,
+      unitMoved = false,
+    ) {
+      const copy = structuredClone(snapshot);
+      const observedBattle = copy.observation!.game_state.battle.value!;
+      observedBattle.active_player_slot = activeSlot;
+      observedBattle.units[0].capture_points = capturePoints;
+      observedBattle.units[0].x = unitMoved ? 1 : 0;
+      observedBattle.properties[0].owner_slot = owner;
+      observedBattle.map.tiles[0].owner_slot = owner;
+      const contents = JSON.stringify(copy);
+      const file = new File([contents], "state.json", {
+        type: "application/json",
+      });
+      Object.defineProperty(file, "text", {
+        value: () => Promise.resolve(contents),
+      });
+      await userEvent.upload(screen.getByLabelText("Open snapshot"), file);
+      await screen.findByText("Snapshot · read only");
+      await userEvent.click(screen.getByRole("button", { name: /^\(0, 0\)/ }));
+      expect(
+        screen.getByRole("heading", { name: "Tile (0, 0)" }),
+      ).toBeVisible();
+    }
+
+    await inspectProperty(10, 1, 0);
+    expect(inspector).toContainElement(progress());
+    expect(progress()).toHaveAttribute("value", "10");
+    expect(screen.getByText("10 points remaining")).toBeVisible();
+
+    await inspectProperty(10, 2, 0);
+    expect(progress()).toHaveAttribute("value", "10");
+    await inspectProperty(16, 1, 0);
+    expect(progress()).toHaveAttribute("value", "16");
+    expect(screen.getByText("4 points remaining")).toBeVisible();
+
+    await inspectProperty(16, 1, 1);
+    expect(progress()).not.toBeInTheDocument();
+    await inspectProperty(16, 1, 0, true);
+    expect(progress()).not.toBeInTheDocument();
+  });
 });
 
 it.each([3, 4] as const)(

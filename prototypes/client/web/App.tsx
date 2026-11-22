@@ -52,6 +52,8 @@ import {
   type Position,
 } from "./Board";
 
+const CAPTURE_POINTS_REQUIRED = 20;
+
 export function App() {
   const [session] = useState(() => new MatchSession());
   const view = useSyncExternalStore(session.subscribe, session.getSnapshot);
@@ -130,6 +132,13 @@ export function App() {
   const unit = battle?.units.find(
     (u) => u.x === tile?.x && u.y === tile.y && !u.embarked,
   );
+  const property = battle?.properties.find(
+    (item) => item.x === tile?.x && item.y === tile.y,
+  );
+  const capturePoints =
+    unit && property && property.owner_slot !== unit.army_slot
+      ? unit.capture_points
+      : 0;
   const select = (position: Position) => {
     setSelected(position);
     setCargo(null);
@@ -522,6 +531,24 @@ export function App() {
                       entries={[
                         ["Terrain", terrainName(tile.terrain_class)],
                         ["Owner", owner(tile.owner_slot)],
+                        ...(capturePoints > 0 &&
+                        capturePoints < CAPTURE_POINTS_REQUIRED
+                          ? [
+                              [
+                                "Capture progress",
+                                <>
+                                  {CAPTURE_POINTS_REQUIRED - capturePoints}{" "}
+                                  points remaining
+                                  <progress
+                                    aria-label="Capture progress"
+                                    className="property-capture-progress"
+                                    max={CAPTURE_POINTS_REQUIRED}
+                                    value={capturePoints}
+                                  />
+                                </>,
+                              ] as [string, ReactNode],
+                            ]
+                          : []),
                         ...(!unit
                           ? [
                               [

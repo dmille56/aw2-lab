@@ -86,8 +86,6 @@ export function UnitInspector({
   ];
   if (unit.cargo_references.length)
     entries.push(["Cargo", unit.cargo_references.length]);
-  if (unit.capture_points > 0)
-    entries.push(["Capture points", unit.capture_points]);
   if (unit.unit_type === 24)
     entries.push(["Submarine mode", unit.submerged ? "Submerged" : "Surfaced"]);
   return (

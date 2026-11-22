@@ -445,6 +445,12 @@ dd {
   overflow-wrap: anywhere;
 }
 
+.property-capture-progress {
+  display: block;
+  inline-size: min(100%, 8rem);
+  accent-color: var(--accent);
+}
+
 #roster {
   display: flex;
   gap: 8px;
