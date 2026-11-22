@@ -836,6 +836,15 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     inspected units show the rating; embarked cargo does not use stale coordinates
     for terrain defense. Human review pending.
 
+*** TODO Show capture progress from the property tile
+    Observe how the original Advance Wars 2 UI presents an ongoing capture
+    during the animation and when inspecting the property between turns. Use
+    the cartridge UI as inspiration for a capture indicator that players can
+    view by selecting or inspecting the property tile even when a unit occupies
+    it. Use observed capture points to show how much progress remains. Verify
+    the display after a partial capture, across turns, and when the capture
+    completes or is interrupted.
+
 *** IN-PROGRESS Show the defender's terrain defense rating before attack confirmation
     Human playtest feedback (2026-11-16): show the defending tile's 0-4 defense
     rating alongside estimated damage before the player confirms an attack.
