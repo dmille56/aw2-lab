@@ -725,10 +725,13 @@ def test_fire_target_navigation_cycles_targets_and_checks_combat_return(
     asyncio.run(run())
 
 
-def test_capture_navigation_selects_capture_and_waits_for_player_turn(memory) -> None:
+@pytest.mark.parametrize("action", [MenuItem.CAPTURE, MenuItem.WAIT])
+def test_unit_action_navigation_returns_to_settled_player_turn(memory, action) -> None:
     async def run() -> None:
         initial = decode_snapshot(snapshot(memory))
         selected = SelectedUnitObservation(0x02022690, 1, 1, 1, 1, 1)
+        rows = (MenuItem.FIRE, MenuItem.CAPTURE, MenuItem.WAIT)
+        start_item = MenuItem.FIRE if action is MenuItem.WAIT else MenuItem.WAIT
         initial = replace(
             initial,
             ui=replace(
@@ -737,9 +740,9 @@ def test_capture_navigation_selects_capture_and_waits_for_player_turn(memory) ->
                     initial.frame,
                     MenuFamily.UNIT_ACTION_CHOICES,
                     selected_unit=selected,
-                    selected_item=MenuItem.WAIT,
+                    selected_item=start_item,
                     actionable=True,
-                    items=(MenuItem.CAPTURE, MenuItem.WAIT),
+                    items=rows,
                 ),
             ),
         )
@@ -751,15 +754,20 @@ def test_capture_navigation_selects_capture_and_waits_for_player_turn(memory) ->
                 self.keys: list[int] = []
 
             async def observe(self) -> GameState:
+                await asyncio.sleep(0.01)
                 return self.state
 
             async def press_keys(self, keys: int, frames: int) -> int:
                 self.keys.append(keys)
                 self.held = keys
+                selected_item = self.state.ui.menu.selected_item
                 if keys == 1:
+                    assert selected_item is action
                     family, item = MenuFamily.MAP_INPUT, None
                 else:
-                    family, item = MenuFamily.UNIT_ACTION_CHOICES, MenuItem.CAPTURE
+                    assert keys in (64, 128)
+                    index = rows.index(selected_item) + (1 if keys == 128 else -1)
+                    family, item = MenuFamily.UNIT_ACTION_CHOICES, rows[index]
                 self._update(frames, family=family, selected=item)
                 return self.state.frame
 
@@ -795,19 +803,22 @@ def test_capture_navigation_selects_capture_and_waits_for_player_turn(memory) ->
             NavigationLimits(
                 frame_budget=40,
                 poll_frames=1,
-                wall_timeout=3,
+                wall_timeout=0.05,
                 resolution_frame_budget=100,
                 resolution_wall_timeout=3,
                 resolution_poll_frames=10,
             ),
         )
-        result = await navigator.choose_capture()
+        if action is MenuItem.WAIT:
+            result = await navigator.choose_wait()
+            assert bridge.keys == [128, 128, 1]
+            expected_inputs = ["wait-menu-down", "wait-menu-down", "confirm-wait"]
+        else:
+            result = await navigator.choose_capture()
+            assert bridge.keys == [64, 1]
+            expected_inputs = ["capture-menu-up", "confirm-capture"]
         assert result.ui.menu.family is MenuFamily.MAP_INPUT
-        assert bridge.keys == [64, 1]
-        assert [event.name for event in navigator.inputs] == [
-            "capture-menu-up",
-            "confirm-capture",
-        ]
+        assert [event.name for event in navigator.inputs] == expected_inputs
 
     asyncio.run(run())
 

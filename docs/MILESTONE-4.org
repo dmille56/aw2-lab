@@ -369,11 +369,14 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     budget is unchanged. This slow-observation case still needs a live mGBA
     replay.
 
-*** TODO Verify Wait from a multi-row action menu
-    Choose Wait from a menu where the initial selection is several rows away.
-    Check whether =choose_wait= can reach Wait, confirm, and observe the settled
-    player turn within 15 seconds under slow bridge observations. Verify the
-    unit ends its action at the expected tile and is marked used.
+*** DONE Verify Wait from a multi-row action menu
+    A ROM-independent Fire/Capture/Wait selector with delayed observations
+    exhausted the short watchdog before completing Wait. =choose_wait= now
+    uses the existing 60-second allowance and keeps its frame budget and
+    verified menu navigation. The regression reaches the bottom row, confirms
+    Wait, and observes a settled player turn. Move and Wait executor tests
+    verify the unit's final tile and used status. The slow three-row case
+    still needs a live mGBA replay.
 
 *** TODO Verify frame budgets for long cursor trips and backtracking routes
     Exercise a long map-cursor trip and a legal movement route with repeated

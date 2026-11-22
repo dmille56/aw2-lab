@@ -570,7 +570,7 @@ class ActionNavigator:
 
     async def choose_wait(self) -> GameState:
         """Choose the explicitly recognized Wait row and require a settled player turn."""
-        async with self._bounded_operation():
+        async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
             self._begin("choose_wait")
             state = await self._observe()
             menu = state.ui.menu
