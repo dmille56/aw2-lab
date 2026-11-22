@@ -336,6 +336,41 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     case where mGBA remains authoritative for hidden blockers and the tile the unit
     actually reaches.
 
+** Executor navigation timeouts and frame budgets
+   These follow-ups come from inspecting the executor after the Infantry
+   selection timeout fix. Reproduce each case and add regression coverage
+   for any confirmed failure when fixing it.
+
+*** TODO Verify purchases from a distant factory
+    Place the cursor far from an eligible factory and submit a purchase with
+    slow bridge observations. Check whether =open_production_menu= exhausts its
+    15-second deadline while moving the cursor or opening the menu. Verify the
+    purchase reaches the requested factory and commits the requested unit.
+
+*** TODO Verify Drop targeting with slow emulator observations
+    Unload to an eligible tile that takes several selector inputs to reach.
+    Check whether the 15-second =choose_unload= deadline covers opening Drop,
+    cycling targets, confirming, and observing the resulting state. Verify the
+    passenger disembarks on the requested tile.
+
+*** TODO Verify Fire targeting with multiple eligible enemies
+    Request an attack on an enemy several positions into the Fire target cycle.
+    Check whether =move_attack_target= can reach it within 15 seconds when bridge
+    observations are slow. Verify that the attack confirms the requested target.
+
+*** TODO Verify Wait from a multi-row action menu
+    Choose Wait from a menu where the initial selection is several rows away.
+    Check whether =choose_wait= can reach Wait, confirm, and observe the settled
+    player turn within 15 seconds under slow bridge observations. Verify the
+    unit ends its action at the expected tile and is marked used.
+
+*** TODO Verify frame budgets for long cursor trips and backtracking routes
+    Exercise a long map-cursor trip and a legal movement route with repeated
+    backtracking. Twenty directional taps can consume the default 180-frame
+    input budget before confirmation. Check the boundary with a responsive
+    bridge and verify that the operation can confirm or fails with an explicit
+    frame-budget diagnostic and a successful rollback.
+
 ** IN-PROGRESS Redesign the human client UI for usability and ergonomics
    Complete this usability redesign before starting the deferred cross-platform
    acceptance matrix above. Use human playtesting to identify friction in common
