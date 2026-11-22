@@ -596,9 +596,12 @@ def test_fire_target_navigation_cycles_targets_and_checks_combat_return(
             self.timeline: list[tuple[str, int]] = []
             self.held: int | None = None
             self.target_index = 0
+            self.target_observation_delay = 0
             self.combat_remaining: int | None = None
 
         async def observe(self) -> GameState:
+            if self.state.ui.menu.family is MenuFamily.UNIT_TARGETING:
+                await asyncio.sleep(self.target_observation_delay)
             return self.state
 
         async def press_keys(self, keys: int, frames: int) -> int:
@@ -686,7 +689,7 @@ def test_fire_target_navigation_cycles_targets_and_checks_combat_return(
             NavigationLimits(
                 frame_budget=40,
                 poll_frames=1,
-                wall_timeout=3,
+                wall_timeout=0.1,
                 resolution_frame_budget=100,
                 resolution_wall_timeout=3,
             ),
@@ -695,6 +698,8 @@ def test_fire_target_navigation_cycles_targets_and_checks_combat_return(
         state = await navigator.choose_fire()
         assert state.ui.menu.family is MenuFamily.UNIT_TARGETING
         assert [event.name for event in navigator.inputs] == ["fire-menu-up", "confirm-fire"]
+        # Two target steps take five observations, exceeding the short watchdog.
+        bridge.target_observation_delay = 0.03
         if not available:
             with pytest.raises(NavigationError, match="not an eligible Fire target"):
                 await navigator.move_target_cursor_to(*requested, width=3, height=2)

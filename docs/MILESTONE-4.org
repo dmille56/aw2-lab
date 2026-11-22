@@ -360,10 +360,14 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     target checks. A ROM-independent regression covers a delayed selector
     that cycles three times and the rejection of unavailable targets.
 
-*** TODO Verify Fire targeting with multiple eligible enemies
-    Request an attack on an enemy several positions into the Fire target cycle.
-    Check whether =move_attack_target= can reach it within 15 seconds when bridge
-    observations are slow. Verify that the attack confirms the requested target.
+*** DONE Verify Fire targeting with multiple eligible enemies
+    A ROM-independent Fire selector with delayed observations reproduced the
+    short watchdog expiring before reaching the third target. With the existing
+    60-second allowance, =move_attack_target= reaches the requested tile and
+    the attack confirms it. The same regression covers cycling through all
+    targets and rejecting an unavailable tile before confirmation. The frame
+    budget is unchanged. This slow-observation case still needs a live mGBA
+    replay.
 
 *** TODO Verify Wait from a multi-row action menu
     Choose Wait from a menu where the initial selection is several rows away.

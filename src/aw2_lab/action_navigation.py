@@ -1070,7 +1070,7 @@ class ActionNavigator:
 
     async def move_target_cursor_to(self, x: int, y: int, *, width: int, height: int) -> GameState:
         """Cycle AW2's eligible Fire targets until the requested tile is selected."""
-        async with self._bounded_operation():
+        async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
             self._begin("move_attack_target")
             state = await self._observe()
             cursor = state.ui.map_cursor
