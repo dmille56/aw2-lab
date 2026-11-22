@@ -385,7 +385,8 @@ class ActionNavigator:
 
     async def select_unit(self, unit_id: str, observation: MatchObservation) -> GameState:
         """Select an active, unused current-player unit by its lifetime identity."""
-        async with self._bounded_operation():
+        # Reaching a distant unit requires verified bridge round trips for every cursor step.
+        async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
             self._begin("select_unit")
             battle = observation.game_state.battle.value
             if battle is None or observation.identity_status.value != "available":

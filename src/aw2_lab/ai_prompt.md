@@ -6,6 +6,8 @@ active slot, lifecycle, action readiness, revision, and supported actions from
 the authorized state and observation. `get_readiness` is operator-only; never
 call it with your player credential. Coordinates are zero-based. Use observed
 opaque unit IDs and explicit movement paths.
+Only act with units from your slot whose `used_this_turn` flag is false.
+Newly purchased units are already used and can first act on your next turn.
 
 When asked to play, choose your own actions. Follow each accepted receipt using
 wait_for_command; inspect its terminal status before reading state again and

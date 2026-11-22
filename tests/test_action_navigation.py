@@ -2,6 +2,7 @@
 
 import asyncio
 from dataclasses import replace
+from uuid import uuid4
 
 import pytest
 from test_state_validation import memory as memory  # noqa: PLC0414 -- re-export pytest fixture
@@ -14,6 +15,7 @@ from aw2_lab.action_navigation import (
     validate_path,
 )
 from aw2_lab.lifecycle import BattleDecodeSafety, LifecyclePhase
+from aw2_lab.match_observation import MatchObservationTracker
 from aw2_lab.production_rules import PRODUCTION_BY_TERRAIN
 from aw2_lab.state_decoder import decode_snapshot
 from aw2_lab.state_model import GameState, ObservedValue, ValueStatus
@@ -120,6 +122,34 @@ def test_artillery_purchase_uses_resolution_timeout_for_all_rows(memory, monkeyp
     assert [event.name for event in navigator.inputs] == ["purchase-menu-down"] * 7 + [
         "confirm-purchase"
     ]
+    assert timeouts == [limits.resolution_wall_timeout]
+
+
+def test_unit_selection_uses_resolution_timeout_for_cursor_travel(memory, monkeypatch) -> None:
+    state = decode_snapshot(snapshot(memory))
+    observation = MatchObservationTracker(uuid4()).commit_boundary(state)
+    unit_id = observation.unit_identities[0].identity_id
+    limits = NavigationLimits()
+    real_timeout = asyncio.timeout
+    timeouts = []
+
+    def record_timeout(delay):
+        timeouts.append(delay)
+        return real_timeout(delay)
+
+    async def observe() -> GameState:
+        return state
+
+    async def stalled_cursor(self, x, y):
+        assert (x, y) == (0, 0)
+        raise TimeoutError
+
+    navigator = ActionNavigator(None, observe, limits=limits)
+    monkeypatch.setattr(asyncio, "timeout", record_timeout)
+    monkeypatch.setattr(ActionNavigator, "_move_cursor", stalled_cursor)
+
+    with pytest.raises(NavigationError, match="wall-clock watchdog expired"):
+        asyncio.run(navigator.select_unit(unit_id, observation))
     assert timeouts == [limits.resolution_wall_timeout]
 
 
