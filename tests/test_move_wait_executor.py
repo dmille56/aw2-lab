@@ -379,3 +379,76 @@ def test_move_wait_preflights_terrain_cost_before_emulator_input(memory, weather
     )
     assert calls == [("select", unit_id), ("move", ((1, 0),)), ("wait",)]
     assert outcome.observation is not None and outcome.observation.revision == 2
+
+
+def test_move_wait_accepts_a_route_that_doubles_back(memory) -> None:
+    """AW2 retracts the arrow over tiles it already visited, so revisits are free."""
+    layout, ewram, iwram = retiled(memory, cell=1, graphical_id=5, terrain_class=3)
+    match_id = uuid4()
+    tracker = MatchObservationTracker(match_id)
+    initial = tracker.commit_boundary(decode_snapshot(snapshot((layout, ewram, iwram))))
+    battle = initial.game_state.battle.value
+    assert battle is not None
+    unit = next(item for item in battle.units if item.army_slot == battle.active_player_slot)
+    unit_id = next(
+        item.identity_id for item in initial.unit_identities if item.reference == unit.reference
+    )
+    selected = SelectedUnitObservation(
+        0x02022684 + unit.reference * 12,
+        unit.army_slot,
+        unit.unit_slot,
+        unit.unit_type,
+        unit.x,
+        unit.y,
+    )
+    # Five cursor steps onto the mountain would cost eight movement if every step
+    # were charged; AW2 retracts the arrow, so one mountain entry is spent.
+    path = ((1, 0), (0, 0), (1, 0), (0, 0), (1, 0))
+    calls = []
+
+    class Navigator:
+        async def select_unit(self, requested_id, observation):
+            calls.append(("select", requested_id))
+            return _settled(
+                initial,
+                unit,
+                (unit.x, unit.y),
+                frame=124,
+                used=False,
+                menu=MenuObservation(124, MenuFamily.UNIT_MOVEMENT, selected),
+            )
+
+        async def move_selected_unit_along_path(self, walked, **kwargs):
+            calls.append(("move", tuple(walked)))
+            return _settled(
+                initial,
+                unit,
+                (1, 0),
+                frame=124,
+                used=False,
+                menu=MenuObservation(
+                    124,
+                    MenuFamily.UNIT_ACTION_CHOICES,
+                    selected_unit=selected,
+                    actionable=True,
+                ),
+            )
+
+        async def choose_wait(self):
+            calls.append(("wait",))
+            return _settled(
+                initial,
+                unit,
+                (1, 0),
+                frame=125,
+                used=True,
+                menu=MenuObservation(125, MenuFamily.MAP_INPUT),
+            )
+
+    outcome = asyncio.run(
+        MoveWaitActionExecutor(cast(ActionNavigator, Navigator()), tracker).execute(
+            _request(match_id, unit_id, path), initial
+        )
+    )
+    assert calls == [("select", unit_id), ("move", path), ("wait",)]
+    assert outcome.observation is not None and outcome.observation.revision == 2

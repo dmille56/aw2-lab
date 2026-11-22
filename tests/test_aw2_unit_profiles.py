@@ -13,6 +13,7 @@ from aw2_lab.aw2_unit_profiles import (
     MovementType,
     RuleContext,
     WeaponType,
+    collapse_route,
     movement_cost,
     observed_rule_context,
     preflight_move,
@@ -195,6 +196,69 @@ def test_preflight_move_accepts_a_stationary_unit_and_bad_terrain_input() -> Non
     preflight_move(unit_type=1, path=(), terrain_classes=())
     with pytest.raises(ValueError, match="Each path tile requires a terrain class"):
         preflight_move(unit_type=1, path=((1, 0),), terrain_classes=(1, 1))
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        (((1, 0), (1, 1)), ((1, 0), (1, 1))),  # A simple route is unchanged.
+        (((1, 0), (0, 0), (1, 0)), ((1, 0),)),  # Stepping home retracts the arrow.
+        (((1, 0), (1, 1), (0, 1), (0, 0)), ()),  # A full loop pays for nothing.
+        (((1, 0), (2, 0), (1, 0), (1, 1)), ((1, 0), (1, 1))),  # Reentry pops back to the tile.
+    ],
+)
+def test_collapse_route_retracts_tiles_the_arrow_already_visited(
+    path: tuple[tuple[int, int], ...], expected: tuple[tuple[int, int], ...]
+) -> None:
+    assert collapse_route(path, start=(0, 0)) == expected
+
+
+def test_preflight_move_charges_a_doubled_back_route_only_once() -> None:
+    """Baseline Infantry has three movement, so four plain tiles need a CO bonus."""
+    with pytest.raises(ValueError, match="movement allowance"):
+        preflight_move(
+            unit_type=1,
+            path=((1, 0), (2, 0), (3, 0), (4, 0)),
+            start=(0, 0),
+            terrain_classes=(1, 1, 1, 1),
+            context=RuleContext(),
+            weather=Weather.CLEAR,
+            fuel=99,
+        )
+    # The identical cursor walk doubled back collapses to one entered mountain,
+    # which matches the live ROM: one tile of movement, not five.
+    preflight_move(
+        unit_type=1,
+        path=((1, 0), (0, 0), (1, 0), (0, 0), (1, 0)),
+        start=(0, 0),
+        terrain_classes=(3, 1, 3, 1, 3),
+        context=RuleContext(),
+        weather=Weather.CLEAR,
+        fuel=99,
+    )
+    # Without the start tile the retraction cannot be modelled, so the raw walk is charged.
+    with pytest.raises(ValueError, match="movement allowance"):
+        preflight_move(
+            unit_type=1,
+            path=((1, 0), (0, 0), (1, 0), (0, 0), (1, 0)),
+            terrain_classes=(3, 1, 3, 1, 3),
+            context=RuleContext(),
+            weather=Weather.CLEAR,
+            fuel=99,
+        )
+
+
+def test_preflight_move_keeps_impassability_on_every_visited_tile() -> None:
+    """Retracting does not let the arrow pass through terrain it cannot enter."""
+    with pytest.raises(ValueError, match="impassable terrain"):
+        preflight_move(
+            unit_type=1,
+            path=((1, 0), (0, 0)),
+            start=(0, 0),
+            terrain_classes=(7, 1),
+            context=RuleContext(),
+            weather=Weather.CLEAR,
+        )
 
 
 def _battle(co_effects: bool, co_id: int, active_power: int) -> BattleState:

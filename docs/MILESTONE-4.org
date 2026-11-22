@@ -286,6 +286,9 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
       Stop for recovery when the match lifecycle is =recovery_required=.
     - [X] Add regressions for the Bean Island route and for an AI turn continuing
       after successful rollback while stopping when recovery is still required.
+    - [X] Charge allowance and fuel for the route AW2 actually pays for after the
+      movement arrow retracts, and describe a resumed AI turn from the observed state
+      change instead of an assumed rollback.
     Implementation: [[file:../src/aw2_lab/aw2_unit_profiles.py][aw2_unit_profiles.py]]
     adds =observed_rule_context= (CO on/off, CO ID, active power, or =None= when
     unobserved) and =preflight_move=, which evaluates the whole route under one CO
@@ -316,6 +319,19 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     the revision stayed at 5, the match stayed settled and playable, and no
     controller input was sent. The equivalent three-tile route costing 3 completed
     and advanced the revision to 6, so the preflight does not block legal routes.
+    The same ROM showed that a step re-entering a tile the arrow already visited
+    retracts that arrow instead of extending it: Infantry at =(2,7)= entering
+    =(3,7)=, =(2,7)=, =(3,7)= ended at =(3,7)= and spent 1 fuel, not 3, and a Medium
+    Tank at =(3,6)= walking =(2,6)=, =(2,7)=, =(3,7)=, =(3,6)= ended on its own start
+    tile with nothing spent, while the three-tile control route spent 3.
+    =collapse_route= now reproduces that reduction so allowance and fuel are charged
+    for the surviving simple path, while impassability is still checked against every
+    tile the arrow tries to enter; the six-step road/plain route the raw charge
+    rejected is now accepted and the ROM completed it.
+    The launcher no longer claims a rollback happened. =ai_player= compares the
+    committed battle before and after each attempt and prompts accordingly: nothing
+    changed means "take a different legal action or end your turn", while a board
+    that moved but a turn still open means "end your turn or act again".
     Still unverified against mGBA: an AI-vs-AI rollback continuation, and the fog
     case where mGBA remains authoritative for hidden blockers and the tile the unit
     actually reaches.

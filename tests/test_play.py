@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from collections import namedtuple
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -12,6 +13,10 @@ from fastapi import FastAPI
 from aw2_lab import play
 from aw2_lab.ai_host import prepare_pi
 from aw2_lab.match_contract import CO_ID_VALUES, CommandStatus, PlayerSlot
+
+# Value-equal stand-in for BattleState so the launcher can tell a committed
+# change from a rolled-back or absent one.
+_Battle = namedtuple("_Battle", "day active_player_slot units")
 
 
 @pytest.mark.parametrize(
@@ -318,14 +323,16 @@ async def test_ai_turn_scheduling_follows_authoritative_state_and_cleans_up(
     assert options["env"]["AW2_PLAYER_TOKEN"] == "p" * 40
 
 
-def _turn_state(*, lifecycle, active_slot: int, day: int = 1, settled: bool = True):
+def _turn_state(
+    *, lifecycle, active_slot: int, day: int = 1, settled: bool = True, units: tuple = ()
+):
     return SimpleNamespace(
         settled=settled,
         summary=SimpleNamespace(lifecycle=lifecycle),
         observation=SimpleNamespace(
             game_state=SimpleNamespace(
                 battle=SimpleNamespace(
-                    value=SimpleNamespace(day=day, active_player_slot=active_slot)
+                    value=_Battle(day=day, active_player_slot=active_slot, units=units)
                 )
             )
         ),
@@ -334,21 +341,32 @@ def _turn_state(*, lifecycle, active_slot: int, day: int = 1, settled: bool = Tr
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    ("outcome", "expected_error"),
+    ("outcome", "expected_error", "continuation"),
     [
-        ("rollback_then_end", None),
-        ("always_open", "without ending its turn"),
-        ("recovery_after_rollback", "requires recovery"),
+        ("rollback_then_end", None, play.UNCOMMITTED_TURN_INSTRUCTION),
+        ("committed_action_then_end", None, play.COMMITTED_TURN_INSTRUCTION),
+        ("always_open", "without ending its turn", None),
+        ("recovery_after_rollback", "requires recovery", None),
     ],
 )
-async def test_ai_host_continues_a_turn_rolled_back_by_aw2(
-    tmp_path, monkeypatch, outcome, expected_error
+async def test_ai_host_continues_a_turn_aw2_left_open(
+    tmp_path, monkeypatch, outcome, expected_error, continuation
 ) -> None:
     from aw2_lab.match_contract import MatchLifecycle
 
     open_turn = _turn_state(lifecycle=MatchLifecycle.PLAYABLE, active_slot=1)
     if outcome == "rollback_then_end":
         turns = [open_turn, _turn_state(lifecycle=MatchLifecycle.PLAYABLE, active_slot=2)]
+    elif outcome == "committed_action_then_end":
+        # The action committed but the host never ended the turn, so the second
+        # attempt must be told the board moved rather than rolled back.
+        committed = _turn_state(
+            lifecycle=MatchLifecycle.PLAYABLE, active_slot=1, units=((3, 5, 7),)
+        )
+        turns = [
+            committed,
+            _turn_state(lifecycle=MatchLifecycle.PLAYABLE, active_slot=2),
+        ]
     elif outcome == "always_open":
         turns = [open_turn] * 3
     else:
@@ -413,8 +431,12 @@ async def test_ai_host_continues_a_turn_rolled_back_by_aw2(
         assert budget.completed == 1
     assert len(commands) == len(turns)
     assert commands[0][-1] == play.FIRST_TURN_INSTRUCTION
-    if len(commands) > 1:
-        assert "rolled back" in commands[1][-1]
+    if continuation is not None:
+        assert commands[1][-1] == continuation
+        assert "rolled back" not in commands[1][-1]
+    else:
+        for command in commands[1:]:
+            assert command[-1] == play.UNCOMMITTED_TURN_INSTRUCTION
     assert (tmp_path / PlayerSlot.SLOT_1.value / "turn-1.jsonl").exists()
 
 

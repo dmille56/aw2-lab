@@ -162,7 +162,7 @@ def parser() -> argparse.ArgumentParser:
         "--ai-turn-attempts",
         type=turn_attempts,
         default=3,
-        help="host attempts per AI turn; a rolled-back, still-open turn is resumed within this bound",
+        help="host attempts per AI turn; a turn left open by an attempt is resumed within this bound",
     )
     return result
 
@@ -287,11 +287,16 @@ FIRST_TURN_INSTRUCTION = (
     "not wait for the next turn in this invocation. Stop on a finished or "
     "recovery-required match."
 )
-CONTINUATION_INSTRUCTION = (
-    "This turn is still open and your previous action was rolled back, so the board "
-    "is back to its committed state. Reread the authoritative match state, take a "
-    "different legal action or end your turn, then stop and return immediately. Stop "
-    "only on a finished, closed, or recovery-required match."
+UNCOMMITTED_TURN_INSTRUCTION = (
+    "This turn is still open and nothing from your previous attempt committed, so the "
+    "board is at its last committed state. Reread the authoritative match state, take a "
+    "different legal action or end your turn, then stop and return immediately. Stop only "
+    "on a finished, closed, or recovery-required match."
+)
+COMMITTED_TURN_INSTRUCTION = (
+    "This turn is still open after a committed action. Reread the authoritative match "
+    "state, end your turn or take another legal action, then stop and return immediately. "
+    "Stop only on a finished, closed, or recovery-required match."
 )
 
 
@@ -353,8 +358,15 @@ async def ai_player(
             day = battle.day if battle else None
             own_slot = int(slot.value[-1])
             log = directory / f"turn-{budget.started}.jsonl"
+            committed = battle
+            changed = False
             for attempt in range(1, attempts + 1):
-                instruction = FIRST_TURN_INSTRUCTION if attempt == 1 else CONTINUATION_INSTRUCTION
+                if attempt == 1:
+                    instruction = FIRST_TURN_INSTRUCTION
+                elif changed:
+                    instruction = COMMITTED_TURN_INSTRUCTION
+                else:
+                    instruction = UNCOMMITTED_TURN_INSTRUCTION
                 print(
                     f"AI {slot.value}: playing turn {budget.started} "
                     f"(attempt {attempt}/{attempts}, private log: {log})",
@@ -391,9 +403,15 @@ async def ai_player(
                     and observed.active_player_slot == own_slot
                 ):
                     if attempt < attempts:
+                        changed = observed != committed
+                        committed = observed
+                        reason = (
+                            "a committed action left it open" if changed else "no action committed"
+                        )
                         print(
-                            f"AI {slot.value}: turn is still open after a rolled-back action; "
-                            f"continuing from the restored state (attempt {attempt + 1})",
+                            f"AI {slot.value}: turn {budget.started} is still open after "
+                            f"{reason}; continuing with the current state "
+                            f"(attempt {attempt + 1}/{attempts})",
                             flush=True,
                         )
                         continue

@@ -188,6 +188,26 @@ def route_cost(
     return total
 
 
+def collapse_route(
+    path: Sequence[tuple[int, int]], *, start: tuple[int, int]
+) -> tuple[tuple[int, int], ...]:
+    """Return the tiles AW2 actually charges for a walked route.
+
+    Verified against the supported US ROM: a step that re-enters a tile already
+    in the route retracts the movement arrow back to that tile instead of
+    extending it, so only the remaining simple path is paid for. The reached
+    tile is unchanged, so the endpoint stays ``path[-1]``.
+    """
+    route: list[tuple[int, int]] = [start]
+    for point in path:
+        if point in route:
+            while route and route[-1] != point:
+                route.pop()
+        else:
+            route.append(point)
+    return tuple(route[1:])
+
+
 def observed_rule_context(battle: BattleState, player_slot: int) -> RuleContext | None:
     """Return the acting player's CO/power rules, or None when they are unobserved."""
     enabled = battle.co_effects_enabled
@@ -214,8 +234,9 @@ def possible_rule_contexts(context: RuleContext | None) -> tuple[RuleContext, ..
 def _route_budgets(
     *,
     unit_type: int,
-    path: tuple[tuple[int, int], ...],
-    terrain_classes: tuple[int, ...] | None,
+    visited_classes: tuple[int, ...] | None,
+    charged_classes: tuple[int, ...],
+    charged_steps: int,
     context: RuleContext | None,
     weather: Weather | None,
 ) -> list[tuple[int, int]]:
@@ -223,17 +244,20 @@ def _route_budgets(
 
     Complete routes are evaluated under one context at a time. Mixing the
     cheapest tile from different CO/weather tables could accept an impossible
-    budget.
+    budget. ``visited_classes`` is every tile the movement arrow tries to enter,
+    which a context must tolerate; ``charged_classes`` is the collapsed route
+    that actually spends movement allowance.
     """
     budgets: list[tuple[int, int]] = []
     for candidate in possible_rule_contexts(context):
         allowance, _ = candidate.unit_limits(unit_type)
         for condition in (weather,) if weather is not None else tuple(Weather):
-            cost = (
-                route_cost(unit_type, terrain_classes, condition, context=candidate)
-                if terrain_classes is not None
-                else len(path)
-            )
+            if visited_classes is None:
+                cost: int | None = charged_steps
+            elif route_cost(unit_type, visited_classes, condition, context=candidate) is None:
+                continue
+            else:
+                cost = route_cost(unit_type, charged_classes, condition, context=candidate)
             if cost is not None:
                 budgets.append((cost, allowance))
     return budgets
@@ -243,6 +267,7 @@ def preflight_move(
     *,
     unit_type: int,
     path: tuple[tuple[int, int], ...],
+    start: tuple[int, int] | None = None,
     terrain_classes: tuple[int, ...] | None = None,
     context: RuleContext | None = None,
     weather: Weather | None = None,
@@ -253,6 +278,8 @@ def preflight_move(
     Terrain costs come from the observed weather and CO rules. AW2 remains
     authoritative for occupancy, fog-hidden blockers, and the tile the unit
     actually reaches; this check only rejects routes known to be impossible.
+    With ``start`` given, a route that doubles back is collapsed first because
+    AW2 retracts the movement arrow over tiles it has already visited.
     """
     if unit_type not in UNIT_PROFILES:
         return
@@ -260,10 +287,20 @@ def preflight_move(
         raise ValueError("Each path tile requires a terrain class")
     if not path:
         return
+    if start is None:
+        charged_path, charged_classes = path, terrain_classes or ()
+    else:
+        charged_path = collapse_route(path, start=start)
+        if terrain_classes is None:
+            charged_classes = ()
+        else:
+            terrain_by_tile = dict(zip(path, terrain_classes))
+            charged_classes = tuple(terrain_by_tile[point] for point in charged_path)
     budgets = _route_budgets(
         unit_type=unit_type,
-        path=path,
-        terrain_classes=terrain_classes,
+        visited_classes=terrain_classes,
+        charged_classes=charged_classes,
+        charged_steps=len(charged_path),
         context=context,
         weather=weather,
     )
@@ -310,6 +347,7 @@ def preflight_move_attack(
     preflight_move(
         unit_type=unit_type,
         path=path,
+        start=start,
         terrain_classes=terrain_classes,
         context=context,
         weather=weather,
@@ -321,6 +359,6 @@ def preflight_move_attack(
 
     if not any(
         profile.minimum_range <= abs(x - target[0]) + abs(y - target[1]) <= maximum_range
-        for x, y in (start, *path)
+        for x, y in (start, *collapse_route(path, start=start))
     ):
         raise ValueError("Target is outside the unit's possible attack range along the route")

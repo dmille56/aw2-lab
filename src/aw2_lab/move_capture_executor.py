@@ -116,6 +116,7 @@ class MoveCaptureActionExecutor:
             preflight_move(
                 unit_type=unit.unit_type,
                 path=path,
+                start=(unit.x, unit.y),
                 terrain_classes=tuple(terrain_by_tile[point] for point in path),
                 context=observed_rule_context(battle, battle.active_player_slot),
                 weather=battle.weather.value,

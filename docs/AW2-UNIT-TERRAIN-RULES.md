@@ -283,6 +283,17 @@ before the first controller input. A route is accepted whenever at least one
 possible rule pairing fits, so unknown CO effects or weather stay permissive
 instead of guessing.
 
+A route that doubles back is charged only for the simple path that survives the
+retraction: AW2 pulls the movement arrow back to a tile it has already visited
+instead of extending it. `collapse_route` reproduces that reduction before costs
+are compared, while impassability is still checked against every tile the arrow
+tries to enter. Headless runs of the supported US ROM on Bean Island (2026-11-21)
+confirm both directions of the rule: Infantry starting at (2,7) entering (3,7),
+(2,7), (3,7) ended at (3,7) and spent 1 fuel rather than 3, and a Medium Tank at
+(3,6) walking (2,6), (2,7), (3,7), (3,6) ended on its own start tile with no fuel
+spent. The last step of a collapsed route is always the requested endpoint, so
+the executor's "Wait resolved outside the requested route" check is unaffected.
+
 Turn-start upkeep is mapped from the unit table's +0x58 pointer and routine
 `0x080253B0`, separately from movement fuel. The following are baseline costs:
 
