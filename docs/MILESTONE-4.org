@@ -336,6 +336,27 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     case where mGBA remains authoritative for hidden blockers and the tile the unit
     actually reaches.
 
+** TODO Give AI players a turn brief and verified action choices
+   In a five-turn Bean Island run, slot 2 submitted seven actions using slot
+   1's unit IDs. Its only committed board action was an Infantry purchase
+   on day 4. It started day 1 with 11,000 funds and four empty factories.
+
+   - [ ] Build a compact brief from the latest committed revision at turn
+     start and after each action. List the acting slot's ready units by
+     observed ID and tile, funds, and empty production facilities. Make an
+     empty ready-unit list explicit and identify opposing units as targets.
+   - [ ] Prompt the AI to consider captures, attacks, moves, and affordable
+     purchases before ending the turn. After a rejection, refresh the brief
+     and choose a different action. If it passes on useful opportunities,
+     have it explain why in the turn log.
+   - [ ] Evaluate a read-only MCP tool for reachable destinations, eligible
+     capture targets, and affordable purchases at the current revision.
+     Use the existing movement and production rules to derive choices.
+   - [ ] Replay the same Bean Island opening and compare wrong-owner
+     submissions, first-turn purchases, and whether the AI uses its own
+     Infantry after it becomes ready. Record the model and thinking level
+     to make the comparison reproducible.
+
 ** Executor navigation timeouts and frame budgets
    These follow-ups come from inspecting the executor after the Infantry
    selection timeout fix. Reproduce each case and add regression coverage
