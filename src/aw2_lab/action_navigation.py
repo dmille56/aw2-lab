@@ -158,7 +158,8 @@ class ActionNavigator:
 
     async def open_production_menu(self, x: int, y: int) -> GameState:
         """Open the production list at a supported facility coordinate."""
-        async with self._bounded_operation():
+        # A distant facility needs a verified bridge round trip for each cursor step.
+        async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
             self._begin("open_production_menu")
             await self._move_cursor(x, y)
             await self._tap("open-production-menu", _KEY_A)

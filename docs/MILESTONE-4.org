@@ -341,11 +341,15 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    selection timeout fix. Reproduce each case and add regression coverage
    for any confirmed failure when fixing it.
 
-*** TODO Verify purchases from a distant factory
-    Place the cursor far from an eligible factory and submit a purchase with
-    slow bridge observations. Check whether =open_production_menu= exhausts its
-    15-second deadline while moving the cursor or opening the menu. Verify the
-    purchase reaches the requested factory and commits the requested unit.
+*** DONE Verify purchases from a distant factory
+    Replayed a Bean Island purchase in isolated headless mGBA, starting at
+    =(12,7)= and buying Infantry at =(1,6)= with 200 ms added per observation.
+    The 15-second watchdog expired in =open_production_menu= after seven cursor
+    inputs. The existing 60-second allowance let the cursor reach the factory,
+    open the menu, and commit the Infantry at the requested tile. Opening
+    production now uses that allowance with the existing input frame budget
+    and cursor checks. ROM-independent navigation coverage checks the deadline,
+    directional input spacing, and production menu confirmation.
 
 *** TODO Verify Drop targeting with slow emulator observations
     Unload to an eligible tile that takes several selector inputs to reach.

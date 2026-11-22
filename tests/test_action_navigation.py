@@ -153,7 +153,19 @@ def test_unit_selection_uses_resolution_timeout_for_cursor_travel(memory, monkey
     assert timeouts == [limits.resolution_wall_timeout]
 
 
-def test_map_cursor_waits_for_directional_input_to_rearm(memory) -> None:
+@pytest.mark.parametrize("open_production", [False, True], ids=["cursor", "production"])
+def test_map_cursor_waits_for_directional_input_to_rearm(
+    memory, monkeypatch, open_production: bool
+) -> None:
+    real_timeout = asyncio.timeout
+    timeouts = []
+
+    def record_timeout(delay):
+        timeouts.append(delay)
+        return real_timeout(delay)
+
+    monkeypatch.setattr(asyncio, "timeout", record_timeout)
+
     class RearmingBridge:
         def __init__(self, state: GameState) -> None:
             self.state = state
@@ -178,6 +190,14 @@ def test_map_cursor_waits_for_directional_input_to_rearm(memory) -> None:
                     y += 1 if keys == 128 else -1 if keys == 64 else 0
                 self.released_frames = 0
             self._update(frames, cursor_position=(x, y))
+            if keys == 1:
+                self.state = replace(
+                    self.state,
+                    ui=replace(
+                        self.state.ui,
+                        menu=MenuObservation(self.state.frame, MenuFamily.PRODUCTION_CHOICES),
+                    ),
+                )
             return self.state.frame
 
         def _update(self, frames: int, *, cursor_position=None) -> None:
@@ -229,7 +249,13 @@ def test_map_cursor_waits_for_directional_input_to_rearm(memory) -> None:
         bridge = RearmingBridge(initial)
         navigator = ActionNavigator(bridge, bridge.observe)
 
-        result = await navigator.move_cursor_to(*target)
+        if open_production:
+            result = await navigator.open_production_menu(*target)
+            assert result.ui.menu.family is MenuFamily.PRODUCTION_CHOICES
+            assert timeouts == [navigator.limits.resolution_wall_timeout]
+        else:
+            result = await navigator.move_cursor_to(*target)
+            assert timeouts == [navigator.limits.wall_timeout]
 
         assert (result.ui.map_cursor.x, result.ui.map_cursor.y) == target
         assert bridge.release_gaps == [8] * sum(target)
