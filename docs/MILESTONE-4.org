@@ -808,6 +808,13 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     identify attackable enemies. Browser checks cover direct/indirect routing,
     ammunition, and cancellation. Human review pending.
 
+*** TODO Keep attack targets clear of the dialog during selection
+    Human playtest feedback: after choosing Attack, the dialog can cover enemy
+    tiles while prompting the player to pick a target. Keep every eligible
+    target visible and selectable on the board, with a clear prompt and a way
+    to cancel. Verify stationary and move-then-attack flows with multiple targets,
+    including on narrow layouts.
+
 *** IN-PROGRESS Show only the HP number in tile health badges
     Human playtest feedback (2026-11-16): remove the visible HP text from each
     unit's tile badge and show only its displayed health number from 1 to 10.
