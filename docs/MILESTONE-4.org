@@ -772,6 +772,19 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     move a completed command back to running. Both lockups can be reproduced
     with controlled HTTP responses. The original stall's cause remains unverified.
 
+*** TODO Make the client recover when all gameplay controls become unavailable
+    The stall recurred during =aw2-lab play=: the human could not select or move
+    units or end the turn. The latest local Bean Island journal ended with a
+    completed Move & Wait and a playable checkpoint at revision 160, with no
+    unresolved command. The client state at the stall is unknown.
+    Reproduce the failure and check which client condition disabled gameplay.
+    Show that reason and a recovery action beside the board when selection and
+    End Turn are both unavailable. Verify that =Recover session= restores input
+    when the server is ready for the human slot, including when the revision did
+    not change. Reconcile pending commands by their existing request ID, and
+    show the next step when an opponent turn, offline host, or operator restore
+    genuinely prevents play. Add a regression test for the reproduced stall.
+
 *** IN-PROGRESS Make the selected unit unmistakable
     Human playtest feedback (2026-11-16): it is difficult to identify the selected
     unit. Add a strong persistent selection marker, such as a game-style cursor
