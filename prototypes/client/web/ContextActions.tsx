@@ -161,6 +161,16 @@ export function ContextActions({
 }) {
   const { draft } = model;
   const point = draft.phase === "enemy_menu" ? draft.target : model.destination;
+  const selectingTarget = draft.phase === "target" && draft.contextual;
+  const selectingMissileTarget =
+    selectingTarget && draft.kind === "silo_launch";
+  const firstAttackTarget =
+    selectingTarget && !selectingMissileTarget
+      ? model.attackableTargets[0]
+      : undefined;
+  useLayoutEffect(() => {
+    if (firstAttackTarget) focusTile(firstAttackTarget);
+  }, [firstAttackTarget]);
   useLayoutEffect(() => {
     if (
       draft.contextual &&
@@ -185,7 +195,7 @@ export function ContextActions({
     model.pending ||
     (draft.phase !== "menu" &&
       draft.phase !== "enemy_menu" &&
-      !(draft.phase === "target" && draft.contextual) &&
+      !selectingMissileTarget &&
       !unloading)
   )
     return null;
@@ -232,9 +242,7 @@ export function ContextActions({
   }
   const chooseTarget = (kind: ActionKind) => {
     model.dispatch({ type: "choose", kind });
-    requestAnimationFrame(() =>
-      focusTile(kind === "silo_launch" ? point : (model.targets[0] ?? point)),
-    );
+    if (kind === "silo_launch") requestAnimationFrame(() => focusTile(point));
   };
   const silo =
     [1, 2].includes(model.selectedUnit.unit_type) &&
@@ -293,11 +301,9 @@ export function ContextActions({
         {unitName(model.selectedUnit)} ·{" "}
         {Math.ceil(model.selectedUnit.internal_health / 10)} HP
       </h3>
-      {draft.phase === "target" ? (
+      {selectingMissileTarget ? (
         <p role="status">
-          {draft.kind === "silo_launch"
-            ? "Choose a missile target on the board. A 3×3 area is hit."
-            : "Choose a highlighted enemy on the board."}
+          Choose a missile target on the board. A 3×3 area is hit.
         </p>
       ) : unloading ? (
         <>

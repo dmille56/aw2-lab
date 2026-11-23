@@ -1,6 +1,22 @@
 import catalog from "./catalog.json";
-import type { StateResponse } from "./state";
+import type { StateResponse, UnitState } from "./state";
 import type { MatchIdentity } from "./session";
+
+export const CAPTURE_POINTS_REQUIRED = 20;
+
+export function propertyCapturePoints(
+  unit: UnitState | undefined,
+  property: { owner_slot: number } | undefined,
+): number | null {
+  return unit &&
+    !unit.embarked &&
+    property &&
+    property.owner_slot !== unit.army_slot &&
+    unit.capture_points > 0 &&
+    unit.capture_points < CAPTURE_POINTS_REQUIRED
+    ? unit.capture_points
+    : null;
+}
 
 const terrainLabels: Record<string, string> = {
   Unused: "N/A",

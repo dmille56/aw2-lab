@@ -36,6 +36,7 @@ export function MapPanel({
   yourSlot,
   activate,
   cancel,
+  cancelAttackTarget,
   route,
   target,
   selectedUnit = null,
@@ -56,6 +57,7 @@ export function MapPanel({
   yourSlot: number | null;
   activate?: (position: Position) => void;
   cancel?: () => void;
+  cancelAttackTarget?: () => void;
   route?: Position[];
   target?: Position | null;
   selectedUnit?: UnitState | null;
@@ -274,6 +276,23 @@ export function MapPanel({
           </p>
         </details>
       )}
+      {cancelAttackTarget && (
+        <div className="toolbar">
+          <p role="status">Choose an ATTACK-marked enemy to preview damage.</p>
+          <button
+            type="button"
+            onClick={cancelAttackTarget}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                cancelAttackTarget();
+              }
+            }}
+          >
+            Cancel target selection
+          </button>
+        </div>
+      )}
       <div id="map-scroll" ref={scroll}>
         <Board
           battle={battle}
@@ -329,11 +348,9 @@ export function MapPanel({
             " No attack coverage is available for this unit."}
         </p>
       )}
-      {!!enemyTargets.size && (
+      {!!enemyTargets.size && !cancelAttackTarget && (
         <p className="hint">
-          {actionTargets
-            ? "Choose an ATTACK-marked enemy to preview damage before attacking."
-            : "Click an ATTACK-marked enemy to open its Attack menu."}
+          Click an ATTACK-marked enemy to open its Attack menu.
         </p>
       )}
       {(!!route?.length || target) && (
@@ -392,11 +409,11 @@ export function MapPanel({
         <p>
           HP badges show health out of 10, rounded up from internal health.
           Exact health remains in the inspector. ✓ marks used units. C1/C2 marks
-          a loaded transport and its passenger count. Full names and coordinates
-          remain available to assistive technology and in the inspector. Terrain
-          colors are illustrative. ATTACK markers identify eligible enemy units
-          from the current or planned position, separately from general range
-          coverage.
+          a loaded transport and its passenger count. ⚑ marks a property being
+          captured. Full names and coordinates remain available to assistive
+          technology and in the inspector. Terrain colors are illustrative.
+          ATTACK markers identify eligible enemy units from the current or
+          planned position, separately from general range coverage.
         </p>
         <p>
           Turquoise outlined tiles with a light translucent fill are reachable

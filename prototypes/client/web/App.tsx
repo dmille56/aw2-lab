@@ -9,7 +9,14 @@ import {
 import { claimLocalLaunch } from "./launch_handoff";
 import { TerrainDefense } from "./TerrainDefense";
 import { MapPanel } from "./MapPanel";
-import { coName, humanSlot, perspective, playerName } from "./presentation";
+import {
+  CAPTURE_POINTS_REQUIRED,
+  coName,
+  humanSlot,
+  perspective,
+  playerName,
+  propertyCapturePoints,
+} from "./presentation";
 import { Health } from "./Health";
 import { MatchSession } from "./session";
 import { PlayerHud } from "./PlayerHud";
@@ -51,8 +58,6 @@ import {
   unitName,
   type Position,
 } from "./Board";
-
-const CAPTURE_POINTS_REQUIRED = 20;
 
 export function App() {
   const [session] = useState(() => new MatchSession());
@@ -135,10 +140,7 @@ export function App() {
   const property = battle?.properties.find(
     (item) => item.x === tile?.x && item.y === tile.y,
   );
-  const capturePoints =
-    unit && property && property.owner_slot !== unit.army_slot
-      ? unit.capture_points
-      : 0;
+  const capturePoints = propertyCapturePoints(unit, property);
   const select = (position: Position) => {
     setSelected(position);
     setCargo(null);
@@ -149,6 +151,12 @@ export function App() {
       void session.submitAction(action, revision);
     },
   });
+  const cancelBoardAction = gameplay.pending
+    ? undefined
+    : () => {
+        gameplay.cancel();
+        restoreBoardFocus(gameplay.draft.origin);
+      };
   const empty = !snapshot
     ? "Connect or open an exported StateResponse JSON file to see the board."
     : obs
@@ -531,8 +539,7 @@ export function App() {
                       entries={[
                         ["Terrain", terrainName(tile.terrain_class)],
                         ["Owner", owner(tile.owner_slot)],
-                        ...(capturePoints > 0 &&
-                        capturePoints < CAPTURE_POINTS_REQUIRED
+                        ...(capturePoints !== null
                           ? [
                               [
                                 "Capture progress",
@@ -600,13 +607,14 @@ export function App() {
               selected={selected}
               select={gameplay.inspectTile}
               activate={gameplay.activate}
-              cancel={
-                gameplay.pending
-                  ? undefined
-                  : () => {
-                      gameplay.cancel();
-                      restoreBoardFocus(gameplay.draft.origin);
-                    }
+              cancel={cancelBoardAction}
+              cancelAttackTarget={
+                gameplay.draft.contextual &&
+                gameplay.draft.phase === "target" &&
+                (gameplay.draft.kind === "attack" ||
+                  gameplay.draft.kind === "move_attack")
+                  ? cancelBoardAction
+                  : undefined
               }
               route={
                 gameplay.draft.boundary === gameplay.boundary &&

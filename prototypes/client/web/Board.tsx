@@ -12,7 +12,12 @@ import {
   terrainArtwork,
   type SpritePack,
 } from "./sprites";
-import { terrainLabel, unitLabel } from "./presentation";
+import {
+  CAPTURE_POINTS_REQUIRED,
+  propertyCapturePoints,
+  terrainLabel,
+  unitLabel,
+} from "./presentation";
 import catalogData from "./catalog.json";
 import type { BattleState, StateResponse, UnitState } from "./state";
 
@@ -219,6 +224,12 @@ export function Board({
   const occupancy = new Map(
     battle?.units.filter((u) => !u.embarked).map((u) => [`${u.x},${u.y}`, u]),
   );
+  const properties = new Map(
+    battle?.properties.map((property) => [
+      `${property.x},${property.y}`,
+      property,
+    ]),
+  );
   const tabStop = battle?.map.tiles.find(
     (tile) => tile.x === selected?.x && tile.y === selected?.y,
   ) ?? { x: 0, y: 0 };
@@ -236,7 +247,16 @@ export function Board({
         [...battle.map.tiles]
           .sort((a, b) => a.y - b.y || a.x - b.x)
           .map((tile) => {
-            const unit = occupancy.get(`${tile.x},${tile.y}`);
+            const tileKey = `${tile.x},${tile.y}`;
+            const unit = occupancy.get(tileKey);
+            const capturePoints = propertyCapturePoints(
+              unit,
+              properties.get(tileKey),
+            );
+            const captureLabel =
+              capturePoints === null
+                ? ""
+                : `Capture in progress, ${CAPTURE_POINTS_REQUIRED - capturePoints} points remaining`;
             const terrain = terrainArtwork(spritePack, tile);
             const unitRegion = unit
               ? spritePack?.units[`${unit.unit_type}:${unit.army_slot}`]
@@ -247,7 +267,6 @@ export function Board({
             );
             const destination = step >= 0 && step === route.length - 1;
             const isTarget = target?.x === tile.x && target.y === tile.y;
-            const tileKey = `${tile.x},${tile.y}`;
             const isReachable = reachable.has(tileKey);
             const isTransit = transit.has(tileKey);
             const isAttackable = attackable.has(tileKey);
@@ -258,11 +277,10 @@ export function Board({
             const isEnemyTarget = !!unit && enemyTargets.has(tileKey);
             return (
               <button
-                key={`${tile.x},${tile.y}`}
+                key={tileKey}
                 ref={(button) => {
-                  if (button)
-                    buttons.current.set(`${tile.x},${tile.y}`, button);
-                  else buttons.current.delete(`${tile.x},${tile.y}`);
+                  if (button) buttons.current.set(tileKey, button);
+                  else buttons.current.delete(tileKey);
                 }}
                 type="button"
                 tabIndex={tile.x === tabStop.x && tile.y === tabStop.y ? 0 : -1}
@@ -280,7 +298,7 @@ export function Board({
                 data-your-unit={!!unit && unit.army_slot === yourSlot}
                 title={`${terrainName(tile.terrain_class)}${unit ? ` · ${unitName(unit)}` : ""}`}
                 aria-pressed={match}
-                aria-label={`${isEnemyTarget ? "Attackable enemy, " : ""}${isActing ? "Selected acting unit, " : ""}${dropLabel ? `Cargo drop ${dropLabel}, ` : ""}${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}${unit.cargo_references.length ? `, loaded transport, ${unit.cargo_references.length} passenger${unit.cargo_references.length === 1 ? "" : "s"} aboard` : ""}` : ""}`}
+                aria-label={`${captureLabel ? `${captureLabel}, ` : ""}${isEnemyTarget ? "Attackable enemy, " : ""}${isActing ? "Selected acting unit, " : ""}${dropLabel ? `Cargo drop ${dropLabel}, ` : ""}${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}${unit.cargo_references.length ? `, loaded transport, ${unit.cargo_references.length} passenger${unit.cargo_references.length === 1 ? "" : "s"} aboard` : ""}` : ""}`}
                 onClick={() => (activate ?? select)(tile)}
                 onPointerDown={(event) => {
                   if (
@@ -442,6 +460,15 @@ export function Board({
                 <span className="coords" hidden={!coordinates}>
                   {tile.x},{tile.y}
                 </span>
+                {captureLabel && (
+                  <span
+                    className="capture-badge"
+                    aria-hidden="true"
+                    title={captureLabel}
+                  >
+                    ⚑
+                  </span>
+                )}
               </button>
             );
           })}

@@ -458,7 +458,7 @@ describe("React viewer", () => {
     ).toBeDisabled();
   });
 
-  it("shows ongoing capture progress when inspecting its property tile", async () => {
+  it("shows ongoing capture on the board and in the property inspector", async () => {
     vi.stubGlobal(
       "fetch",
       vi
@@ -471,8 +471,9 @@ describe("React viewer", () => {
     const inspector = document.querySelector("#inspector");
     const progress = () =>
       screen.queryByRole("progressbar", { name: "Capture progress" });
+    const tile = () => screen.getByRole("button", { name: /\(0, 0\)/ });
 
-    async function inspectProperty(
+    async function loadCaptureState(
       capturePoints: number,
       activeSlot: number,
       owner: number,
@@ -494,26 +495,42 @@ describe("React viewer", () => {
       });
       await userEvent.upload(screen.getByLabelText("Open snapshot"), file);
       await screen.findByText("Snapshot · read only");
-      await userEvent.click(screen.getByRole("button", { name: /^\(0, 0\)/ }));
-      expect(
-        screen.getByRole("heading", { name: "Tile (0, 0)" }),
-      ).toBeVisible();
     }
 
-    await inspectProperty(10, 1, 0);
+    await loadCaptureState(10, 1, 0);
+    expect(tile()).toHaveAccessibleName(
+      /Capture in progress, 10 points remaining/,
+    );
+    expect(tile()).toHaveTextContent("⚑");
+    expect(progress()).not.toBeInTheDocument();
+    await userEvent.click(tile());
     expect(inspector).toContainElement(progress());
     expect(progress()).toHaveAttribute("value", "10");
     expect(screen.getByText("10 points remaining")).toBeVisible();
 
-    await inspectProperty(10, 2, 0);
+    await loadCaptureState(10, 2, 0);
+    await userEvent.click(tile());
+    expect(tile()).toHaveTextContent("⚑");
     expect(progress()).toHaveAttribute("value", "10");
-    await inspectProperty(16, 1, 0);
+    await loadCaptureState(16, 1, 0);
+    await userEvent.click(tile());
+    expect(tile()).toHaveAccessibleName(
+      /Capture in progress, 4 points remaining/,
+    );
     expect(progress()).toHaveAttribute("value", "16");
     expect(screen.getByText("4 points remaining")).toBeVisible();
 
-    await inspectProperty(16, 1, 1);
+    await loadCaptureState(16, 1, 1);
+    await userEvent.click(tile());
+    expect(tile()).not.toHaveTextContent("⚑");
     expect(progress()).not.toBeInTheDocument();
-    await inspectProperty(16, 1, 0, true);
+    await loadCaptureState(16, 1, 0, true);
+    await userEvent.click(tile());
+    expect(tile()).not.toHaveTextContent("⚑");
+    expect(progress()).not.toBeInTheDocument();
+    await loadCaptureState(0, 1, 0);
+    await userEvent.click(tile());
+    expect(tile()).not.toHaveTextContent("⚑");
     expect(progress()).not.toBeInTheDocument();
   });
 });

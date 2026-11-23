@@ -6,14 +6,14 @@ const fixture = JSON.parse(
 );
 const token = "synthetic-player-token-0123456789abcdef";
 const diagnostics = new WeakMap();
-async function connect(page) {
+async function connect(page, tileCount = 4) {
   await page.locator("#match-id").fill(fixture.summary.match_id);
   await page.locator("#token").fill(token);
   await page.locator("#connect button").click();
   await expect(page.locator("#connection")).toHaveText(
     "Live · observing committed match updates",
   );
-  await expect(page.locator("#board .tile")).toHaveCount(4);
+  await expect(page.locator("#board .tile")).toHaveCount(tileCount);
   await expect(page.locator("#action-unit")).toBeEnabled();
 }
 async function upload(page, value) {
@@ -1258,6 +1258,65 @@ for (const kind of ["move_wait", "move_attack"]) {
     ]);
     expect((await (await request.get("/__test/stats")).json()).commands).toBe(
       1,
+    );
+  });
+}
+
+for (const moved of [false, true]) {
+  test(`keeps all attack targets clickable on a narrow board, moved=${moved}`, async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const state = structuredClone(fixture);
+    const battle = state.observation.game_state.battle.value;
+    const enemy = battle.units[1];
+    if (!moved) enemy.x = 0;
+    const other = {
+      ...enemy,
+      reference: 66,
+      unit_slot: 2,
+      x: moved ? 2 : 1,
+      y: 0,
+    };
+    battle.units.push(other);
+    battle.map.width = 3;
+    for (const y of [0, 1])
+      battle.map.tiles.push({ ...battle.map.tiles[1], x: 2, y });
+    await page.route("**/state", (route) => route.fulfill({ json: state }));
+    await connect(page, 6);
+
+    const tile = ({ x, y }) =>
+      page.locator(`#board [data-x="${x}"][data-y="${y}"]`);
+    const origin = tile({ x: 0, y: 0 });
+    const destination = moved ? tile({ x: 1, y: 0 }) : origin;
+    await origin.click();
+    await destination.click();
+    const menu = page.getByRole("dialog", { name: "Unit actions" });
+    const attack = menu.getByRole("button", { name: "Attack", exact: true });
+    await attack.click();
+    await expect(menu).toHaveCount(0);
+    await expect(
+      page.getByText("Choose an ATTACK-marked enemy to preview damage."),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Cancel target selection" }).click();
+    await expect(menu).toBeVisible();
+    await attack.click();
+    await expect(tile(enemy)).toBeFocused();
+    for (const target of [enemy, other]) {
+      await expect(tile(target)).toHaveAttribute(
+        "data-attackable-enemy",
+        "true",
+      );
+      await tile(target).click({ trial: true });
+    }
+    await tile(other).click();
+    await expect(
+      page.getByRole("dialog", { name: "Attack enemy" }),
+    ).toBeVisible();
+    await expect(page.locator("#attack-damage-preview")).toBeVisible();
+    expect((await (await request.get("/__test/stats")).json()).commands).toBe(
+      0,
     );
   });
 }
