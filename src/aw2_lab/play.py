@@ -27,7 +27,12 @@ from pydantic import SecretStr
 from aw2_lab.ai_host import prepare_pi
 from aw2_lab.api.app import create_app
 from aw2_lab.api.client_web import configure_client
-from aw2_lab.api_contract import VERIFIED_CONFIGURATION, MatchConfiguration, default_players
+from aw2_lab.api_contract import (
+    VERIFIED_CONFIGURATION,
+    MatchConfiguration,
+    StateResponse,
+    default_players,
+)
 from aw2_lab.api_validation import validate_configuration
 from aw2_lab.emulator import EmulatorMode, EmulatorSettings
 from aw2_lab.local_launch import LocalLaunch
@@ -299,6 +304,24 @@ COMMITTED_TURN_INSTRUCTION = (
     "state, end your turn or take another legal action, then stop and return immediately. "
     "Stop only on a finished, closed, or recovery-required match."
 )
+AI_COMMAND_SETTLE_TIMEOUT = 30.0
+
+
+async def read_after_ai_attempt(
+    player: AsyncAW2Client, match_id: UUID, *, day: int | None, slot: int
+) -> StateResponse:
+    """Allow the next player's command to run while the AI host exits."""
+    async with asyncio.timeout(AI_COMMAND_SETTLE_TIMEOUT):
+        while True:
+            state = await player.state(match_id)
+            if state.settled:
+                return state
+            # During execution this is still the last committed board, so it
+            # already records any completed handoff to a different turn.
+            battle = state.observation.game_state.battle.value if state.observation else None
+            if battle is not None and (battle.day, battle.active_player_slot) != (day, slot):
+                return state
+            await asyncio.sleep(0.2)
 
 
 async def ai_player(
@@ -393,12 +416,15 @@ async def ai_player(
                         await stop_process(process)
                 if code:
                     raise PlayError(f"AI host exited with status {code}; inspect {log}")
-                state = await player.state(match_id)
+                try:
+                    state = await read_after_ai_attempt(player, match_id, day=day, slot=own_slot)
+                except TimeoutError:
+                    raise PlayError(
+                        f"Match command did not settle after the AI returned; inspect {log}"
+                    ) from None
                 observed = state.observation.game_state.battle.value if state.observation else None
                 if state.summary.lifecycle is MatchLifecycle.RECOVERY_REQUIRED:
                     raise PlayError(f"Match requires recovery after the AI turn; inspect {log}")
-                if not state.settled:
-                    raise PlayError(f"AI returned before its command finished; inspect {log}")
                 if (
                     state.summary.lifecycle is MatchLifecycle.PLAYABLE
                     and observed
@@ -628,6 +654,7 @@ async def run(args: argparse.Namespace) -> None:
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
+            app.state.match_controller.stop_event_streams()
             server.should_exit = True
             try:
                 await asyncio.wait_for(asyncio.shield(server_task), 20)

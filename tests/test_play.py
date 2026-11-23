@@ -4,7 +4,7 @@ import asyncio
 import json
 from collections import namedtuple
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
@@ -188,6 +188,8 @@ async def test_startup_failure_stops_owned_server_and_keeps_private_state(tmp_pa
             pass
 
     servers = []
+    app = FastAPI()
+    app.state.match_controller = SimpleNamespace(stop_event_streams=Mock())
 
     class Server:
         def __init__(self, config):
@@ -198,10 +200,11 @@ async def test_startup_failure_stops_owned_server_and_keeps_private_state(tmp_pa
         async def serve(self, **kwargs):
             while not self.should_exit:
                 await asyncio.sleep(0)
+            app.state.match_controller.stop_event_streams.assert_called_once()
             self.stopped = True
 
     monkeypatch.setattr(play, "bind_local", lambda _: Socket())
-    monkeypatch.setattr(play, "create_app", lambda **_: FastAPI())
+    monkeypatch.setattr(play, "create_app", lambda **_: app)
     monkeypatch.setattr(play, "configure_client", lambda *a, **kw: None)
     monkeypatch.setattr(play, "LocalServer", Server)
     monkeypatch.setattr(play, "wait_ready", AsyncMock(side_effect=play.PlayError("startup failed")))
@@ -232,7 +235,19 @@ async def test_stop_process_terminates_only_its_own_process(monkeypatch):
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("outcome", ["ended", "unchanged", "failed", "timeout"])
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        "ended",
+        "next_player_running",
+        "next_day_running",
+        "own_command_settles",
+        "own_command_times_out",
+        "unchanged",
+        "failed",
+        "timeout",
+    ],
+)
 async def test_ai_turn_scheduling_follows_authoritative_state_and_cleans_up(
     tmp_path, monkeypatch, outcome
 ):
@@ -242,6 +257,17 @@ async def test_ai_turn_scheduling_follows_authoritative_state_and_cleans_up(
     after = _turn_state(
         lifecycle=MatchLifecycle.PLAYABLE, active_slot=1 if outcome == "unchanged" else 2
     )
+    if outcome in {"next_player_running", "next_day_running"}:
+        after = _turn_state(
+            lifecycle=MatchLifecycle.EXECUTING,
+            active_slot=2 if outcome == "next_player_running" else 1,
+            day=2 if outcome == "next_day_running" else 1,
+            settled=False,
+        )
+    executing = _turn_state(lifecycle=MatchLifecycle.EXECUTING, active_slot=1, settled=False)
+    reads = 0
+    if outcome == "own_command_times_out":
+        monkeypatch.setattr(play, "AI_COMMAND_SETTLE_TIMEOUT", 0.01)
 
     class Client:
         async def __aenter__(self):
@@ -254,6 +280,12 @@ async def test_ai_turn_scheduling_follows_authoritative_state_and_cleans_up(
             return before
 
         async def state(self, *args):
+            nonlocal reads
+            reads += 1
+            if outcome == "own_command_times_out" or (
+                outcome == "own_command_settles" and reads == 1
+            ):
+                return executing
             return after
 
     monkeypatch.setattr(play, "AsyncAW2Client", lambda *a, **kw: Client())
@@ -292,9 +324,13 @@ async def test_ai_turn_scheduling_follows_authoritative_state_and_cleans_up(
         stop=stop,
         attempts=1,
     )
-    if outcome == "ended":
+    if outcome in {"ended", "next_player_running", "next_day_running", "own_command_settles"}:
         await run
         assert stop.is_set()
+        assert reads == (2 if outcome == "own_command_settles" else 1)
+    elif outcome == "own_command_times_out":
+        with pytest.raises(play.PlayError, match="did not settle"):
+            await run
     else:
         with pytest.raises(play.PlayError):
             await run

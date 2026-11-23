@@ -270,7 +270,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    assistant errors occurred. These bounded end-turn checks do not claim model
    strategy quality, unit-action planning, full matches, or manual UX acceptance.
 
-*** TODO Keep the match running when a player acts immediately after an AI turn
+*** IN-PROGRESS Keep the match running when a player acts immediately after an AI turn
     In the 2026-11-23 =aw2-lab play= session, Player 2's End Turn completed at
     revision 298. Player 1 started Move & Capture while the AI host was
     exiting. The launcher saw the match-wide =settled=false= and reported
@@ -285,6 +285,11 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     requests to finish. An open stream in this run exceeded the five-second
     grace period and logged an ASGI cancellation traceback. Add regressions
     for the immediate turn handoff and for shutdown with a connected client.
+    Implemented: confirm the handoff from the last committed board even
+    during the next player's command. When the AI's turn is still active,
+    wait up to 30 seconds for its command to settle. End match event streams
+    and reject new subscriptions before starting Uvicorn shutdown. Awaiting
+    human review.
 
 *** DONE Reject impossible Move and Wait routes and continue AI turns after rollback
     On 2026-11-21, slot 2 on Bean Island tried to move Infantry from =(13,7)=

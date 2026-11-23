@@ -224,6 +224,7 @@ class MatchController:
         self._worker: asyncio.Task[None] | None = None
         self._accepting = False
         self._stopped = False
+        self._event_streams_stopped = False
         self._forced_shutdown = False
         self._journal_failed = False
         self._journal_diagnostic: ErrorBody | None = None
@@ -499,6 +500,11 @@ class MatchController:
             return
         self._input_release_provider = provider
 
+    def stop_event_streams(self) -> None:
+        """End subscriptions before the HTTP server waits for requests to drain."""
+        self._event_streams_stopped = True
+        self.events.shutdown()
+
     async def stop(self) -> None:
         """Stop accepting work, drain accepted commands, and surface shutdown failures."""
         async with self._accept_lock:
@@ -507,7 +513,7 @@ class MatchController:
             self._accepting = False
             worker = self._worker
             self._stopped = True
-            self.events.shutdown()
+            self.stop_event_streams()
         if worker is None:
             return
 
@@ -784,7 +790,7 @@ class MatchController:
         self, match_id: UUID, *, cursor: str | None = None
     ) -> EventSubscription:
         async with self._state_lock:
-            if self._stopped:
+            if self._event_streams_stopped:
                 raise MatchControllerError(
                     ErrorCode.SERVER_SHUTTING_DOWN, "Server is shutting down"
                 )

@@ -178,13 +178,18 @@ async def test_heartbeats_do_not_advance_cursor_and_shutdown_closes_idle_stream(
                 heartbeat = await output.get()
             assert heartbeat["body"] == b": heartbeat\n\n"
             assert service.controller.events._channels[match_id].cursor == snapshot["event_id"]
-            await service.controller.stop()
+            service.controller.stop_event_streams()
             async with asyncio.timeout(2):
                 while True:
                     message = await output.get()
                     if not message.get("more_body", False):
                         assert message["body"] == b""
                         break
+        async with client_for(app) as client:
+            response = await client.get(f"/v1/matches/{match_id}/events", headers=headers("p"))
+            assert response.json()["error"]["code"] == "server_shutting_down"
+            state = await client.get(f"/v1/matches/{match_id}/state", headers=headers("p"))
+            assert state.status_code == 200
         assert not service.controller.events._channels[match_id].subscribers
         assert not any(service.authorization._changed.values())
     finally:
