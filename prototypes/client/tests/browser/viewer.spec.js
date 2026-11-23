@@ -2470,6 +2470,44 @@ test("held preview uses an enemy indirect unit's observed range", async ({
   await expect(page.locator("#board .attackable")).toHaveCount(0);
 });
 
+test("shows Max's reduced range and Grit's extended range on the map", async ({
+  page,
+}) => {
+  const state = structuredClone(fixture);
+  const battle = state.observation.game_state.battle.value;
+  battle.co_effects_enabled = { status: "available", value: true, reasons: [] };
+  battle.players[0].co_id = 2;
+  battle.players[1].co_id = 5;
+  for (const unit of battle.units) {
+    unit.unit_type = 10;
+    unit.ammo = 9;
+  }
+  Object.assign(battle.units[1], { x: 4, y: 0 });
+  battle.map.width = 5;
+  for (const y of [0, 1])
+    for (const x of [2, 3, 4])
+      battle.map.tiles.push({ ...battle.map.tiles[1], x, y });
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await connect(page, 10);
+
+  const tile = (x) => page.locator(`#board [data-x="${x}"][data-y="0"]`);
+  await tile(0).click();
+  await page.locator("#attack-range").click();
+  await expect(tile(2)).toHaveClass(/attackable/);
+  await expect(tile(3)).not.toHaveClass(/attackable/);
+  await expect(tile(4)).not.toHaveAttribute("data-attackable-enemy");
+
+  await page.locator("#enemy-threats").check();
+  await expect(tile(0)).toHaveClass(/threatened/);
+  await expect(tile(3)).not.toHaveClass(/threatened/);
+  await tile(4).hover();
+  await page.mouse.down({ button: "right" });
+  await expect(tile(0)).toHaveClass(/attackable/);
+  await expect(tile(3)).not.toHaveClass(/attackable/);
+  await page.mouse.up({ button: "right" });
+  await expect(tile(0)).not.toHaveClass(/attackable/);
+});
+
 test("held middle-click previews either side's movement and restores all prior overlays and drafts", async ({
   page,
   request,

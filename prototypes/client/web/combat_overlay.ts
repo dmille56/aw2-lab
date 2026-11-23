@@ -16,23 +16,21 @@ const catalog: {
   >;
 } = catalogData;
 const key = (position: Position) => `${position.x},${position.y}`;
-export function attackTargets(
+const contexts: Record<string, { range_bonuses: Record<number, number> }> =
+  catalogData.movement.contexts;
+
+interface AttackRange {
+  minimum: number;
+  maximum: number;
+}
+
+function effectiveAttackRange(
   battle: BattleState,
   unit: UnitState,
-  route: Position[],
-): UnitState[] {
+): AttackRange | null {
   const profile = catalog.units[unit.unit_type];
-  if (
-    !profile ||
-    unit.used_this_turn ||
-    unit.embarked ||
-    profile.maximum_range < 1 ||
-    (profile.minimum_range > 1 && route.length)
-  )
-    return [];
+  if (!profile || profile.maximum_range < 1) return null;
   const player = battle.players.find((item) => item.slot === unit.army_slot);
-  const contexts: Record<string, { range_bonuses: Record<number, number> }> =
-    catalogData.movement.contexts;
   const context =
     battle.co_effects_enabled.status === "available"
       ? contexts[
@@ -49,6 +47,31 @@ export function attackTargets(
           (item) => item.range_bonuses[unit.unit_type] ?? 0,
         ),
       );
+  return {
+    minimum: profile.minimum_range,
+    maximum: profile.maximum_range + bonus,
+  };
+}
+
+const inAttackRange = (distance: number, range: AttackRange) =>
+  distance >= range.minimum && distance <= range.maximum;
+
+export function attackTargets(
+  battle: BattleState,
+  unit: UnitState,
+  route: Position[],
+): UnitState[] {
+  const profile = catalog.units[unit.unit_type];
+  const range = effectiveAttackRange(battle, unit);
+  if (
+    !profile ||
+    !range ||
+    unit.used_this_turn ||
+    unit.embarked ||
+    (range.minimum > 1 && route.length)
+  )
+    return [];
+  const player = battle.players.find((item) => item.slot === unit.army_slot);
   const origin = route.at(-1) ?? unit;
   return battle.units.filter((target) => {
     const owner = battle.players.find((item) => item.slot === target.army_slot);
@@ -63,8 +86,7 @@ export function attackTargets(
     const targetType =
       target.unit_type === 24 && target.submerged ? 25 : target.unit_type;
     return (
-      distance >= profile.minimum_range &&
-      distance <= profile.maximum_range + bonus &&
+      inAttackRange(distance, range) &&
       ((unit.ammo > 0 && profile.primary_targets.includes(targetType)) ||
         profile.secondary_targets.includes(targetType))
     );
@@ -80,19 +102,12 @@ const canFire = (unit: UnitState) => {
 function addRange(
   cells: Set<string>,
   battle: BattleState,
-  unit: UnitState,
+  range: AttackRange,
   origin: Position,
 ) {
-  const profile = catalog.units[unit.unit_type];
-  if (!profile || !canFire(unit)) return;
   for (const tile of battle.map.tiles) {
     const distance = Math.abs(tile.x - origin.x) + Math.abs(tile.y - origin.y);
-    if (
-      distance >= profile.minimum_range &&
-      distance <= profile.maximum_range
-    ) {
-      cells.add(key(tile));
-    }
+    if (inAttackRange(distance, range)) cells.add(key(tile));
   }
 }
 
@@ -102,22 +117,22 @@ export function selectedAttackCoverage(
   route: Position[],
 ): Set<string> {
   const result = new Set<string>();
-  const profile = catalog.units[unit.unit_type];
-  if (!profile || !canFire(unit)) return result;
-  if (profile.minimum_range > 1) {
+  const range = effectiveAttackRange(battle, unit);
+  if (!range || !canFire(unit)) return result;
+  if (range.minimum > 1) {
     if (route.length) return result;
-    addRange(result, battle, unit, unit);
+    addRange(result, battle, range, unit);
     return result;
   }
   if (route.length) {
-    addRange(result, battle, unit, route.at(-1)!);
+    addRange(result, battle, range, route.at(-1)!);
     return result;
   }
   const reach = movementReach(battle, unit);
-  addRange(result, battle, unit, unit);
+  addRange(result, battle, range, unit);
   for (const cell of reach.destinations) {
     const [x, y] = cell.split(",").map(Number);
-    addRange(result, battle, unit, { x, y });
+    addRange(result, battle, range, { x, y });
   }
   return result;
 }
@@ -134,16 +149,13 @@ export function enemyThreatCoverage(battle: BattleState, yourSlot: number) {
   );
   for (const unit of battle.units) {
     if (unit.embarked || allies.has(unit.army_slot)) continue;
-    const profile = catalog.units[unit.unit_type];
-    if (!profile || !canFire(unit)) continue;
-    if (profile.minimum_range > 1) {
-      addRange(result, battle, unit, unit);
-      continue;
-    }
-    addRange(result, battle, unit, unit);
+    const range = effectiveAttackRange(battle, unit);
+    if (!range || !canFire(unit)) continue;
+    addRange(result, battle, range, unit);
+    if (range.minimum > 1) continue;
     for (const cell of movementReach(battle, unit).destinations) {
       const [x, y] = cell.split(",").map(Number);
-      addRange(result, battle, unit, { x, y });
+      addRange(result, battle, range, { x, y });
     }
   }
   return result;

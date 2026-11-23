@@ -635,14 +635,18 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     overlap pattern, distinct threat/drop outlines, and a visible range legend.
     Overlays remain below units and HP; awaiting user visual review.
 
-*** TODO Apply Max and Grit's indirect range modifiers to the human client
+*** IN-PROGRESS Apply Max and Grit's indirect range modifiers to the human client
     With CO effects enabled, Max's indirect units have one less maximum range
     and Grit's have one more before powers. Preserve minimum range and apply
-    Grit's verified Power and Super bonuses. The range overlays currently use
-    base maximum range while target selection reads the CO modifiers. Share the
+    Grit's verified Power and Super bonuses. The range overlays previously used
+    base maximum range while target selection read the CO modifiers. Share the
     effective range calculation across selected and held previews, enemy threat
     overlays, and target eligibility. Check each edge of the adjusted range and
     verify baseline range when CO effects are disabled.
+    Implemented: the map previews, enemy threat overlay, and eligible targets
+    use the same effective range from the CO rules catalog. Tests verify Max's
+    penalty, Grit's three bonuses, unchanged minimum range, and CO effects off.
+    Human review pending.
 
 *** IN-PROGRESS Correct Join eligibility and verify complete cartridge behavior
     Human playtest feedback (2026-11-16): the menu offers Join for two full-HP

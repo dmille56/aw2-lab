@@ -66,21 +66,47 @@ describe("gameplay overlay coverage", () => {
     expect(attackTargets(battle, unit, [])).toEqual([]);
   });
 
-  it("uses indirect minimum range and CO bonuses, and forbids moving then firing", () => {
-    const battle = battleFixture();
-    const [unit, enemy] = battle.units;
-    unit.unit_type = 10;
-    unit.ammo = 1;
-    enemy.x = 0;
-    enemy.y = 4;
-    expect(attackTargets(battle, unit, [])).toEqual([]);
-    battle.co_effects_enabled.value = true;
-    battle.players[0].co_id = 5;
-    expect(attackTargets(battle, unit, [])).toEqual([enemy]);
-    expect(attackTargets(battle, unit, [{ x: 0, y: 1 }])).toEqual([]);
-    enemy.y = 1;
-    expect(attackTargets(battle, unit, [])).toEqual([]);
-  });
+  it.each([
+    { co: 2, power: 0, effects: true, maximum: 2 },
+    { co: 2, power: 1, effects: true, maximum: 2 },
+    { co: 2, power: 2, effects: true, maximum: 2 },
+    { co: 5, power: 0, effects: true, maximum: 4 },
+    { co: 5, power: 1, effects: true, maximum: 5 },
+    { co: 5, power: 2, effects: true, maximum: 6 },
+    { co: 2, power: 0, effects: false, maximum: 3 },
+    { co: 5, power: 2, effects: false, maximum: 3 },
+  ])(
+    "matches overlays and target eligibility at artillery range $maximum for CO $co with power $power and effects $effects",
+    ({ co, power, effects, maximum }) => {
+      const battle = battleFixture();
+      const [unit, enemy] = battle.units;
+      unit.unit_type = 10;
+      unit.ammo = 1;
+      enemy.x = 0;
+      battle.co_effects_enabled.value = effects;
+      battle.players[0].co_id = co;
+      battle.players[0].active_power = power;
+
+      const coverage = selectedAttackCoverage(battle, unit, []);
+      expect(enemyThreatCoverage(battle, 2)).toEqual(coverage);
+      for (const [distance, targetable] of [
+        [1, false],
+        [2, true],
+        [maximum, true],
+        [maximum + 1, false],
+      ] as const) {
+        enemy.y = distance;
+        expect(coverage.has(`0,${distance}`)).toBe(targetable);
+        expect(attackTargets(battle, unit, [])).toEqual(
+          targetable ? [enemy] : [],
+        );
+      }
+      enemy.y = maximum;
+      const route = [{ x: 1, y: 0 }];
+      expect(attackTargets(battle, unit, route)).toEqual([]);
+      expect(selectedAttackCoverage(battle, unit, route)).toEqual(new Set());
+    },
+  );
   it("shows direct attacks from reachable firing positions and then the planned endpoint", () => {
     const battle = battleFixture();
     const unit = battle.units[0];
