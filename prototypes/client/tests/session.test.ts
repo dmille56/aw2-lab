@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { MatchSession } from "../web/session";
+import { commandNeedsRefresh, MatchSession } from "../web/session";
 import capabilities from "./fixtures/capabilities.json";
 import fixture from "./fixtures/state.json";
 
@@ -355,6 +355,91 @@ it.each(["Check command status", "Recover session"])(
     expect(view.getSnapshot().command?.phase).toBe("completed");
   },
 );
+
+it("reconciles a terminal event before the receipt and waits for its board revision", async () => {
+  const state = structuredClone(fixture);
+  const lateReceipt = pending<Response>();
+  const events = pending<ReadableStreamDefaultController<Uint8Array>>();
+  const action = { contract_version: 1, kind: "end_turn" } as const;
+  let submissions = 0;
+  server(() => response(state));
+  const baseFetch = globalThis.fetch;
+  const fetcher = vi.fn((url: string, init: RequestInit) => {
+    if (url.endsWith("/commands")) {
+      submissions++;
+      return lateReceipt.promise;
+    }
+    if (url.endsWith("/events"))
+      return Promise.resolve(
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              events.resolve(controller);
+              init.signal?.addEventListener("abort", () => controller.close(), {
+                once: true,
+              });
+            },
+          }),
+        ),
+      );
+    return baseFetch(url, init);
+  });
+  vi.stubGlobal("fetch", fetcher);
+  const view = session();
+  await view.connect(state.summary.match_id, "private");
+  const submitting = view.submitAction(action, 1);
+  await vi.waitFor(() => expect(submissions).toBe(1));
+  const receipt = {
+    contract_version: 1,
+    match_id: state.summary.match_id,
+    request_id: view.getSnapshot().command?.request.request_id,
+    command_id: "00000000-0000-4000-8000-000000000045",
+    accepted_revision: 1,
+    status: "queued",
+  };
+  const stream = await events.promise;
+  const sendResult = (requestId: string | undefined) => {
+    const event = {
+      event: "command.updated",
+      match_id: receipt.match_id,
+      payload: {
+        ...receipt,
+        request_id: requestId,
+        status: "completed",
+        resulting_revision: 2,
+        error: null,
+        checkpoint_id: null,
+      },
+    };
+    stream.enqueue(
+      new TextEncoder().encode(
+        `event: command.updated\ndata: ${JSON.stringify(event)}\n\n`,
+      ),
+    );
+  };
+  const stateRequests = () =>
+    fetcher.mock.calls.filter(([url]) => url.endsWith("/state")).length;
+  const initialRequests = stateRequests();
+  sendResult("00000000-0000-4000-8000-000000000046");
+  await vi.waitFor(() =>
+    expect(stateRequests()).toBeGreaterThan(initialRequests),
+  );
+  expect(view.getSnapshot().command?.phase).toBe("submitting");
+  sendResult(receipt.request_id);
+  await vi.waitFor(() =>
+    expect(view.getSnapshot().command?.phase).toBe("completed"),
+  );
+  const { command, snapshot } = view.getSnapshot();
+  expect(commandNeedsRefresh(command, snapshot)).toBe(true);
+  await view.submitAction(action, 1);
+  lateReceipt.resolve(response(receipt));
+  await submitting;
+  expect(submissions).toBe(1);
+  expect(view.getSnapshot().command?.phase).toBe("completed");
+  state.summary.revision = state.observation.revision = 2;
+  await view.refreshCurrent();
+  expect(commandNeedsRefresh(command, view.getSnapshot().snapshot)).toBe(false);
+});
 
 it("continues following accepted emulator actions beyond fifteen seconds", async () => {
   vi.useFakeTimers();

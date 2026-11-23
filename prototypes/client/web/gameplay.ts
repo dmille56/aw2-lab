@@ -1,6 +1,10 @@
 import type { UnitState } from "./state";
 import { useEffect, useReducer } from "react";
-import { commandIsPending, type ViewState } from "./session";
+import {
+  commandIsPending,
+  commandNeedsRefresh,
+  type ViewState,
+} from "./session";
 import type { Position } from "./Board";
 import type { GameplayAction } from "./command_input";
 import { supportedProductionProperties } from "./command_input";
@@ -340,9 +344,11 @@ export function useGameplay(
     });
   }, [boundary, draft.boundary]);
   const pending = commandIsPending(view.command);
+  const boardBehindCommand = commandNeedsRefresh(view.command, snapshot);
   const ready =
     view.connected &&
     view.ready &&
+    !boardBehindCommand &&
     !!slot &&
     !!battle &&
     battle.active_player_slot === slot &&
@@ -1035,11 +1041,13 @@ export function useGameplay(
   else if (pending)
     unavailable =
       "Gameplay is paused until the pending command's outcome is known.";
+  else if (boardBehindCommand)
+    unavailable = "Waiting for the board to reach the last command's revision.";
   else if (lifecycle === "finished" || lifecycle === "closed")
     unavailable = "This match has ended.";
   else if (!battle) unavailable = "Live battle state is unavailable.";
   else if (battle.active_player_slot !== slot)
-    unavailable = "It is not your player slot's turn.";
+    unavailable = `Waiting for Player ${battle.active_player_slot} to finish their turn.`;
   else if (!ready)
     unavailable =
       observation?.action_readiness_reasons.join(", ") ||

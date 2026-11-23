@@ -25,6 +25,17 @@ export const commandIsPending = (command: CommandProgress | null) =>
   !!command &&
   ["submitting", "uncertain", "queued", "running"].includes(command.phase);
 
+export function commandNeedsRefresh(
+  command: CommandProgress | null,
+  snapshot: StateResponse | null,
+) {
+  const revision = command?.result?.resulting_revision;
+  return (
+    typeof revision === "number" &&
+    (snapshot?.summary.revision ?? -1) < revision
+  );
+}
+
 interface Connection {
   id: string;
   token: string;
@@ -55,6 +66,21 @@ export const message = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 const aborted = (error: unknown) =>
   error instanceof Error && error.name === "AbortError";
+
+class MatchRequestError extends Error {
+  constructor(readonly status: number) {
+    super(`Request failed (${status}). Check match access and server status.`);
+  }
+}
+
+function retryableStatusError(error: unknown) {
+  return (
+    error instanceof TypeError ||
+    (error instanceof Error && error.name === "TimeoutError") ||
+    (error instanceof MatchRequestError &&
+      (error.status === 408 || error.status === 429 || error.status >= 500))
+  );
+}
 
 /** Owns credentials, cancellation and boundary synchronization independently of React. */
 export class MatchSession {
@@ -123,10 +149,7 @@ export class MatchSession {
       throw new Error("This credential no longer has access to the match.");
     }
     if (optional && response.status === 404) return response;
-    if (!response.ok)
-      throw new Error(
-        `Request failed (${response.status}). Check match access and server status.`,
-      );
+    if (!response.ok) throw new MatchRequestError(response.status);
     return response;
   }
   private async checkCapabilities(c: Connection) {
@@ -168,6 +191,36 @@ export class MatchSession {
       c.refreshing = null;
     }
   }
+  private reconcileCommandEvent(c: Connection, data: string) {
+    const command = this.state.command;
+    if (this.connection !== c || !command || !commandIsPending(command)) return;
+    let event: unknown;
+    try {
+      event = JSON.parse(data);
+    } catch {
+      return;
+    }
+    if (
+      typeof event !== "object" ||
+      event === null ||
+      !("payload" in event) ||
+      !validateResult(event.payload)
+    )
+      return;
+    const result = event.payload as CommandResult;
+    if (
+      result.match_id !== c.id ||
+      result.request_id !== command.request.request_id ||
+      result.status === "queued" ||
+      result.status === "running" ||
+      (command.receipt && result.command_id !== command.receipt.command_id)
+    )
+      return;
+    this.update({
+      command: { ...command, result, phase: result.status },
+      error: result.error?.message ?? "",
+    });
+  }
   private async follow(c: Connection) {
     let delay = 1000;
     while (this.connection === c) {
@@ -193,8 +246,16 @@ export class MatchSession {
             while ((end = buffer.indexOf("\n\n")) !== -1) {
               const frame = buffer.slice(0, end);
               buffer = buffer.slice(end + 2);
-              if (frame.split("\n").some((line) => line.startsWith("data:")))
+              const lines = frame.split("\n");
+              const data = lines
+                .filter((line) => line.startsWith("data:"))
+                .map((line) => line.slice(5).trimStart())
+                .join("\n");
+              if (data) {
+                if (lines.includes("event: command.updated"))
+                  this.reconcileCommandEvent(c, data);
                 await this.refresh(c);
+              }
             }
           }
         } finally {
@@ -322,6 +383,12 @@ export class MatchSession {
       });
       return;
     }
+    if (commandNeedsRefresh(this.state.command, snapshot)) {
+      this.update({
+        error: "Waiting for the board to reach the last command's revision.",
+      });
+      return;
+    }
     if (snapshot.summary.revision !== expectedRevision) {
       this.update({
         error:
@@ -375,6 +442,10 @@ export class MatchSession {
       command: { request, receipt: null, result: null, phase: "submitting" },
       error: "",
     });
+    const submitting = () =>
+      this.connection === c &&
+      this.state.command?.request.request_id === request.request_id &&
+      this.state.command.phase === "submitting";
     try {
       const apiBase = await getApiBase();
       const response = await fetch(`${apiBase}/v1/matches/${c.id}/commands`, {
@@ -389,14 +460,14 @@ export class MatchSession {
         credentials: "omit",
         redirect: "error",
       });
-      if (this.connection !== c) return;
+      if (!submitting()) return;
       if (response.status === 401 || response.status === 403) {
         this.disconnect("Authorization lost · reconnect required");
         throw new Error("This credential no longer has access to the match.");
       }
       if (!response.ok) {
         const detail = await this.readError(response);
-        if (this.connection !== c) return;
+        if (!submitting()) return;
         if (response.status === 408 || response.status >= 500)
           throw new Error(detail);
         this.update({
@@ -406,7 +477,7 @@ export class MatchSession {
         return;
       }
       const value: unknown = await response.json();
-      if (this.connection !== c) return;
+      if (!submitting()) return;
       if (!validateReceipt(value)) throw new Error("Invalid command receipt");
       const receipt = value as CommandReceipt;
       if (
@@ -419,19 +490,11 @@ export class MatchSession {
       });
       await this.pollCommand(c, receipt, Infinity);
     } catch (error) {
-      if (this.connection !== c || aborted(error)) return;
-      const command = this.state.command;
-      if (
-        command?.request.request_id === request.request_id &&
-        !command.receipt
-      ) {
-        this.update({
-          command: { ...command, phase: "uncertain" },
-          error: `The command submission outcome is unknown (${message(error)}). Retry safely to resend the identical request ID and payload.`,
-        });
-      } else {
-        this.update({ error: message(error) });
-      }
+      if (!submitting() || aborted(error)) return;
+      this.update({
+        command: { request, receipt: null, result: null, phase: "uncertain" },
+        error: `The command submission outcome is unknown (${message(error)}). Retry safely to resend the identical request ID and payload.`,
+      });
     }
   }
   private async pollCommand(
@@ -439,6 +502,7 @@ export class MatchSession {
     receipt: CommandReceipt,
     attempts: number,
   ) {
+    let delay = 500;
     const current = () => {
       const command = this.state.command;
       return this.connection === c &&
@@ -487,15 +551,17 @@ export class MatchSession {
           });
           return;
         }
+        delay = 500;
       } catch (error) {
         if (!current() || aborted(error)) return;
         this.update({
           error: `Command accepted; status could not be confirmed: ${message(error)}`,
         });
-        return;
+        if (index + 1 >= attempts || !retryableStatusError(error)) return;
+        delay = Math.min(delay * 2, 5000);
       }
       if (index + 1 < attempts)
-        await new Promise<void>((resolve) => setTimeout(resolve, 500));
+        await new Promise<void>((resolve) => setTimeout(resolve, delay));
     }
   }
   private async readError(response: Response) {

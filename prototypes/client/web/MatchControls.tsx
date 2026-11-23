@@ -182,11 +182,6 @@ export function MatchControls(props: Props) {
           );
         })}
       </div>
-      {props.view.connected && model.unavailable && (
-        <p className="hint" role="status">
-          {model.unavailable}
-        </p>
-      )}
       {!model.draft.base && (
         <ActionConfirmation
           {...props}

@@ -151,6 +151,13 @@ export function App() {
       void session.submitAction(action, revision);
     },
   });
+  const showBoardRecovery =
+    view.connected && !!snapshot && !!gameplay.unavailable;
+  const boardRecoveryError = showBoardRecovery && !view.ready ? view.error : "";
+  const recoverSession = () => {
+    gameplay.reset("Action plan cleared for session recovery.");
+    void session.recoverCurrent();
+  };
   const cancelBoardAction = gameplay.pending
     ? undefined
     : () => {
@@ -194,14 +201,11 @@ export function App() {
             >
               Refresh
             </button>
-            {view.connected && snapshot && (
+            {view.connected && snapshot && !showBoardRecovery && (
               <button
                 type="button"
                 title="Reconnect and clear the current action plan"
-                onClick={() => {
-                  gameplay.reset("Action plan cleared for session recovery.");
-                  void session.recoverCurrent();
-                }}
+                onClick={recoverSession}
               >
                 Recover session
               </button>
@@ -377,8 +381,12 @@ export function App() {
             </p>
           </section>
         </details>
-        <p id="error" role="alert" hidden={!view.error && !launchError}>
-          {view.error || launchError}
+        <p
+          id="error"
+          role="alert"
+          hidden={(!view.error || !!boardRecoveryError) && !launchError}
+        >
+          {(boardRecoveryError ? "" : view.error) || launchError}
         </p>
         <div
           className="workspace"
@@ -609,6 +617,15 @@ export function App() {
 
           <div className="board-column">
             <ActionProgress view={view} />
+            {showBoardRecovery && (
+              <section className="card" aria-label="Gameplay recovery">
+                <p role="status">{gameplay.unavailable}</p>
+                {boardRecoveryError && <p role="alert">{boardRecoveryError}</p>}
+                <button type="button" onClick={recoverSession}>
+                  Recover session
+                </button>
+              </section>
+            )}
             <MapPanel
               onBoardWidthChange={setBoardWidth}
               turnMode={
