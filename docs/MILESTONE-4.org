@@ -450,11 +450,18 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     fell from 374 to 9. Median elapsed time fell from 6.12 s to 0.70 s in
     headless mGBA and from 5.89 s to 0.58 s in windowed mGBA.
 
-*** TODO Evaluate cursor-only observations between batches
-    After optimizing the full snapshot, measure the additional benefit of
-    reading only the cursor and map-input state during travel. Verify the
-    cursor and phase between batches, then require a full observation before
-    selecting a unit or opening production.
+*** DONE Evaluate cursor-only observations between batches
+    After a completed batch, the navigator uses a small, same-frame cursor
+    probe when another batch fits. The bridge verifies the turn, map-input
+    phase, and both cursor coordinates. The navigator takes a full observation
+    at the destination, before individual taps and action confirmation, and
+    when a batch stops early. A failed probe stops navigation before more
+    input and records a full observation for diagnostics.
+    On the same 18-tile Bean Island trip, each path used nine requests and
+    172 emulator frames and produced the same final game state. The probe
+    replaced one of five full snapshots. Median elapsed time across three
+    runs per path fell from 0.71 s to 0.66 s in headless mGBA and from 0.58 s
+    to 0.54 s in windowed mGBA.
 
 *** TODO Benchmark held D-pad movement
     Test whether the bridge can hold a direction, verify each tile, and

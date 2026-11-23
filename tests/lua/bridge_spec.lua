@@ -227,19 +227,40 @@ describe("mGBA Lua bridge", function()
         assert.is_truthy(sent_data:match('"instance_mismatch"'))
     end)
 
-    local function start_cursor_batch(steps)
+    local function set_map_input_ram()
         ram = {
             [0x030040D0] = 0x08036945, [0x030040EC] = 0x080369BD,
             [0x03003F3C] = 1, [0x030032D8] = 13, [0x030033EC] = 1,
             [0x0201E450] = 4, [0x0201E452] = 2,
             [0x030033E4] = 1, [0x03003140] = 1,
         }
+    end
+
+    local function start_cursor_batch(steps)
+        set_map_input_ram()
         pending_chunks = {
             ('{"id":55,"version":1,"operation":"move_map_cursor_batch","keys":16,'
                 .. '"start_frame":100,"x":1,"y":0,"gap":8,"steps":%d}\n'):format(steps),
         }
         frame_callback()
     end
+
+    it("checks an intermediate cursor and phase at the current frame", function()
+        set_map_input_ram()
+        local request = {
+            id = 58, version = 1, operation = "verify_map_cursor",
+            x = 1, y = 0, width = 4, height = 2, player = 1, day = 0,
+        }
+        local result = _G.AW2Bridge.handle_request(request).result
+        assert.are.equal(100, result.frame)
+        assert.is_true(result.matches)
+        ram[0x03003140] = 0
+        assert.is_false(_G.AW2Bridge.handle_request(request).result.matches)
+        ram[0x03003140] = 1
+        ram[0x030030F0] = 1
+        assert.is_false(_G.AW2Bridge.handle_request(request).result.matches)
+        assert.are.equal(100, frame)
+    end)
 
     local function finish_right_tap(x)
         frame_callback()

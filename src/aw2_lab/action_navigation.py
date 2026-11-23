@@ -390,6 +390,8 @@ class ActionNavigator:
             getattr(self.bridge, "supports_cursor_batch", False) is True
             and self.limits.input_frames == 1
         )
+        probe_cursor = getattr(self.bridge, "supports_map_cursor_probe", False) is True
+        cursor_frame = state.frame
         while position != (x, y):
             dx, dy = x - position[0], y - position[1]
             if dx:
@@ -404,7 +406,7 @@ class ActionNavigator:
                 (self.limits.frame_budget - self._frames_used) // (gap + 1),
             )
             if use_batch and steps >= 2:
-                start_frame = state.frame
+                start_frame = cursor_frame
                 result = await self.bridge.move_map_cursor_batch(
                     key, start_frame=start_frame, start=position, steps=steps, gap=gap
                 )
@@ -413,6 +415,28 @@ class ActionNavigator:
                     start = (start_frame + index * (gap + 1) + gap) % (1 << 32)
                     self.inputs.append(InputEvent(name, key, 1, start, (start + 1) % (1 << 32)))
                 expected = (position[0] + sx * result.taps, position[1] + sy * result.taps)
+                remaining = abs((x - expected[0]) or (y - expected[1]))
+                if (
+                    probe_cursor
+                    and result.stop == "complete"
+                    and remaining >= 2
+                    and self.limits.frame_budget - self._frames_used >= 2 * (gap + 1)
+                ):
+                    if not await self.bridge.verify_map_cursor(
+                        frame=result.frame,
+                        position=expected,
+                        width=battle.map.width,
+                        height=battle.map.height,
+                        player=battle.active_player_slot,
+                        day=battle.day,
+                    ):
+                        state = await self._observe()
+                        raise await self._fail(
+                            "Could not verify map input between cursor batches", state
+                        )
+                    position, cursor_frame = expected, result.frame
+                    continue
+
                 state = await self._observe()
                 if (
                     state.frame != result.frame
@@ -434,6 +458,7 @@ class ActionNavigator:
                     use_batch = result.taps > 0 and position == expected
                 if position is None or (result.stop == "complete" and position != expected):
                     raise await self._fail("Could not verify map cursor after batch", state)
+                cursor_frame = state.frame
                 continue
 
             expected = (position[0] + sx, position[1] + sy)
@@ -452,7 +477,7 @@ class ActionNavigator:
                 description=f"cursor to reach {expected}",
                 guard=lambda value: _same_map_turn(value, battle),
             )
-            position = expected
+            position, cursor_frame = expected, state.frame
         return state
 
     async def select_unit(self, unit_id: str, observation: MatchObservation) -> GameState:

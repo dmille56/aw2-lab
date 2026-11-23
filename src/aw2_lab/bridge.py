@@ -63,6 +63,7 @@ class LuaBridgeClient:
         self.allow_legacy_handshake = allow_legacy_handshake
         self.supports_cursor_batch = False
         self.supports_battle_ram = False
+        self.supports_map_cursor_probe = False
         self._ids = count(1)
         self._lock = asyncio.Lock()
 
@@ -169,6 +170,9 @@ class LuaBridgeClient:
         )
         self.supports_battle_ram = (
             isinstance(capabilities, list) and "read_battle_ram" in capabilities
+        )
+        self.supports_map_cursor_probe = (
+            isinstance(capabilities, list) and "verify_map_cursor" in capabilities
         )
         return handshake
 
@@ -328,6 +332,31 @@ class LuaBridgeClient:
         if isinstance(actual, bool) or not isinstance(actual, int) or actual != keys:
             raise BridgeError(f"Lua bridge did not apply key mask {keys}: {actual!r}")
         return actual
+
+    async def verify_map_cursor(
+        self,
+        *,
+        frame: int,
+        position: tuple[int, int],
+        width: int,
+        height: int,
+        player: int,
+        day: int,
+    ) -> bool:
+        """Check the expected free-map tile and turn without capturing all battle RAM."""
+        result = await self.request(
+            "verify_map_cursor",
+            x=position[0],
+            y=position[1],
+            width=width,
+            height=height,
+            player=player,
+            day=day,
+        )
+        observed_frame, matches = result.get("frame"), result.get("matches")
+        if type(observed_frame) is not int or type(matches) is not bool:
+            raise BridgeError("Lua bridge returned an invalid map cursor probe")
+        return observed_frame == frame and matches
 
     async def move_map_cursor_batch(
         self, keys: int, *, start_frame: int, start: tuple[int, int], steps: int, gap: int

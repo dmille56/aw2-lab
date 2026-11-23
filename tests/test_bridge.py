@@ -283,6 +283,32 @@ async def test_map_cursor_batch_requires_consistent_frames_and_release(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("sample_frame", "matches", "accepted"),
+    [
+        (123, True, True),
+        (124, True, False),
+        (123, False, False),
+    ],
+)
+async def test_cursor_probe_requires_a_same_frame_match(
+    monkeypatch, sample_frame, matches, accepted
+) -> None:
+    requests, _ = mock_connection(
+        monkeypatch,
+        {"id": "$request", "ok": True, "result": {"frame": sample_frame, "matches": matches}},
+    )
+    client = LuaBridgeClient()
+    assert (
+        await client.verify_map_cursor(
+            frame=123, position=(3, 6), width=16, height=15, player=1, day=1
+        )
+        is accepted
+    )
+    assert requests[0]["operation"] == "verify_map_cursor"
+
+
+@pytest.mark.anyio
 async def test_input_methods_reject_invalid_masks_and_frame_counts() -> None:
     client = LuaBridgeClient()
     with pytest.raises(ValueError, match="10-bit mask"):

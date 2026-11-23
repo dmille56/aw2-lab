@@ -9,6 +9,7 @@ local bridge = {
         "connect", "set_keys", "press_keys", "advance_frames", "read_memory",
         "write_memory", "read_memory_batch", "screenshot", "reset", "save_state", "load_state",
         "save_state_buffer", "load_state_buffer", "move_map_cursor_batch", "read_battle_ram",
+        "verify_map_cursor",
     },
     max_message_bytes = 4718592,
     max_state_bytes = 3145728,
@@ -59,7 +60,7 @@ local function cursor_batch_guard(batch)
         or emu:read8(0x030030F0) ~= 0 or emu:read16(0x030040E4) ~= 0
         or emu:read16(0x03003334) ~= 0 or emu:read16(0x030033EC) ~= batch.player
         or emu:read16(0x0201E450) ~= batch.width or emu:read16(0x0201E452) ~= batch.height
-        or emu:read8(0x03003FC2) ~= batch.map_id
+        or (batch.map_id ~= nil and emu:read8(0x03003FC2) ~= batch.map_id)
         or emu:read16(0x03004080) ~= batch.day then
         return "phase"
     end
@@ -122,6 +123,22 @@ function bridge.handle_request(request)
         end
         emu:setKeys(request.keys)
         return {id = request_id, ok = true, result = {keys = emu:getKeys()}}
+    end
+
+    if request.operation == "verify_map_cursor" then
+        local frame = emu:currentFrame()
+        if not integer_in_range(request.width, 1, 48)
+            or not integer_in_range(request.height, 1, 39)
+            or not integer_in_range(request.x, 0, request.width - 1)
+            or not integer_in_range(request.y, 0, request.height - 1)
+            or not integer_in_range(request.player, 1, 4)
+            or not integer_in_range(request.day, 0, 65535) then
+            return error_response(request_id, "invalid_request", "invalid map cursor probe")
+        end
+        return {
+            id = request_id, ok = true,
+            result = {frame = frame, matches = cursor_batch_guard(request) == nil},
+        }
     end
 
     if request.operation == "move_map_cursor_batch" then

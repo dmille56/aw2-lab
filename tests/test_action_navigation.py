@@ -156,21 +156,22 @@ def test_unit_selection_uses_resolution_timeout_for_cursor_travel(memory, monkey
 
 @pytest.mark.parametrize("batch", [False, True], ids=["single-taps", "batches"])
 @pytest.mark.parametrize(
-    ("open_production", "target", "exhausted", "first_step"),
+    ("open_production", "target", "exhausted", "first_step", "probe_fault"),
     [
-        pytest.param(False, (1, 1), False, 1, id="short-cursor"),
-        pytest.param(False, (16, 2), False, 1, id="cursor-two-axes"),
-        pytest.param(True, (4, 0), False, 0, id="missed-first-batch-tap"),
-        pytest.param(True, (4, 0), False, 2, id="extra-first-batch-step"),
-        pytest.param(True, (4, 0), False, None, id="delayed-cursor-cache"),
-        pytest.param(True, (1, 1), False, 1, id="production"),
-        pytest.param(True, (19, 0), False, 1, id="production-confirm-fits"),
-        pytest.param(True, (20, 0), True, 1, id="production-confirm-exceeds-budget"),
-        pytest.param(False, (21, 0), True, 1, id="cursor-exceeds-budget"),
+        pytest.param(False, (1, 1), False, 1, False, id="short-cursor"),
+        pytest.param(False, (16, 2), False, 1, False, id="cursor-two-axes"),
+        pytest.param(True, (16, 2), False, 1, True, id="cursor-probe-mismatch"),
+        pytest.param(True, (4, 0), False, 0, False, id="missed-first-batch-tap"),
+        pytest.param(True, (4, 0), False, 2, False, id="extra-first-batch-step"),
+        pytest.param(True, (4, 0), False, None, False, id="delayed-cursor-cache"),
+        pytest.param(True, (1, 1), False, 1, False, id="production"),
+        pytest.param(True, (19, 0), False, 1, False, id="production-confirm-fits"),
+        pytest.param(True, (20, 0), True, 1, False, id="production-confirm-exceeds-budget"),
+        pytest.param(False, (21, 0), True, 1, False, id="cursor-exceeds-budget"),
     ],
 )
 def test_map_cursor_waits_for_directional_input_to_rearm(
-    memory, monkeypatch, open_production, target, exhausted, first_step, batch
+    memory, monkeypatch, open_production, target, exhausted, first_step, probe_fault, batch
 ) -> None:
     real_timeout = asyncio.timeout
     timeouts = []
@@ -183,12 +184,22 @@ def test_map_cursor_waits_for_directional_input_to_rearm(
 
     class RearmingBridge:
         supports_cursor_batch = batch
+        supports_map_cursor_probe = batch and target in {(16, 2), (19, 0)}
 
         def __init__(self, state: GameState) -> None:
             self.state = state
             self.released_frames = 0
             self.release_gaps: list[int] = []
             self.batches: list[tuple[int, int]] = []
+            self.probes: list[tuple[int, int]] = []
+            self.full_frames: list[int] = []
+
+        async def verify_map_cursor(self, *, frame, position, width, height, player, day):
+            assert frame == self.state.frame
+            assert position == (self.state.ui.map_cursor.x, self.state.ui.map_cursor.y)
+            assert (width, height, player, day) == (22, 3, 1, 1)
+            self.probes.append(position)
+            return not probe_fault
 
         async def move_map_cursor_batch(self, keys, *, start_frame, start, steps, gap):
             assert start_frame == self.state.frame
@@ -212,6 +223,7 @@ def test_map_cursor_waits_for_directional_input_to_rearm(
             return CursorBatchResult(self.state.frame, steps, "complete")
 
         async def observe(self) -> GameState:
+            self.full_frames.append(self.state.frame)
             return self.state
 
         async def advance_frames(self, frames: int) -> int:
@@ -230,6 +242,7 @@ def test_map_cursor_waits_for_directional_input_to_rearm(
                 self.released_frames = 0
             self._update(frames, cursor_position=(x, y))
             if keys == 1:
+                assert self.full_frames[-1] == self.state.frame - frames
                 self.state = replace(
                     self.state,
                     ui=replace(
@@ -294,6 +307,17 @@ def test_map_cursor_waits_for_directional_input_to_rearm(
         bridge = RearmingBridge(initial)
         navigator = ActionNavigator(bridge, bridge.observe)
 
+        if probe_fault and batch:
+            with pytest.raises(
+                NavigationError, match="Could not verify map input between cursor batches"
+            ):
+                await navigator.open_production_menu(*target)
+            assert bridge.batches == [(16, 8)]
+            assert bridge.probes == [(8, 0)]
+            assert bridge.full_frames == [initial.frame, initial.frame + 72]
+            assert bridge.state.ui.menu.family is MenuFamily.MAP_INPUT
+            return
+
         if exhausted:
             with pytest.raises(NavigationError, match="Navigation frame budget exhausted") as error:
                 if open_production:
@@ -323,7 +347,10 @@ def test_map_cursor_waits_for_directional_input_to_rearm(
                 assert bridge.batches == [(16, 4)]
                 taps += 1 - first_step
             assert bridge.release_gaps == [8] * taps
-        if target == (16, 2):
+        if target == (16, 2) and not probe_fault:
+            if batch:
+                assert bridge.probes == [(8, 0), (16, 0)]
+                assert bridge.full_frames == [initial.frame, result.frame]
             assert bridge.batches == ([(16, 8), (16, 8), (128, 2)] if batch else [])
             assert [event.end_frame - event.start_frame for event in navigator.inputs] == [1] * 18
 
