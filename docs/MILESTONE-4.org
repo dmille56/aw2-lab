@@ -439,6 +439,24 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     ROM-independent tests cover missed and extra steps, map edges, the
     navigation frame budget, and rollback when the input phase changes.
 
+*** TODO Read a full battle snapshot in one bridge request
+    Do this first. Return EWRAM and IWRAM from the same paused frame and
+    preserve the existing frame, memory, and battle validation. Compare
+    elapsed time and bridge request counts from the same Bean Island
+    checkpoint and route in headless and windowed mGBA.
+
+*** TODO Evaluate cursor-only observations between batches
+    After optimizing the full snapshot, measure the additional benefit of
+    reading only the cursor and map-input state during travel. Verify the
+    cursor and phase between batches, then require a full observation before
+    selecting a unit or opening production.
+
+*** TODO Benchmark held D-pad movement
+    Test whether the bridge can hold a direction, verify each tile, and
+    release at the target. Compare it with batched taps and cover camera
+    scrolling, map edges, and unexpected phase changes. Fall back to verified
+    single taps from a confirmed map-input state.
+
 ** IN-PROGRESS Redesign the human client UI for usability and ergonomics
    Complete this usability redesign before starting the deferred cross-platform
    acceptance matrix above. Use human playtesting to identify friction in common
