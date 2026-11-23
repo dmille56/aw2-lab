@@ -759,3 +759,19 @@ readable. Fit to map responds to the recovered width; its existing height and
 maximum-tile-size limits still apply. Browser checks compare fitted tile sizes
 with the prior layout and cover narrow screens, keyboard focus, and 50–200%
 interface scaling. Human visual acceptance remains pending.
+
+### Low-ammo board indicator request (2026-11-23)
+
+The user asked for Advance Wars 2's flashing ammo icon over a unit that is low on
+ammunition, shown directly on that unit's tile. Ammo is decoded in committed
+observations (`ammo`, from bits 7..10 of the packed unit halfword at +4, with the
+type's `ammo_capacity` in the verified unit catalog), and the tile inspector
+already reports `Ammo n/m`. The board currently shows only HP, the used marker,
+cargo badges, and selection/target overlays, so the indicator is a new tile
+marker rather than a data gap.
+
+Before implementing, verify the cartridge's own trigger, artwork, and flashing
+rate rather than copying Advance Wars By Web, whose revision 63 changed its
+low-ammo animation to below half ammo (previously at 1 or less). The TODO is
+recorded in [Milestone 4](MILESTONE-4.org) under *Show a flashing low-ammo
+indicator over a unit's tile*; it is not yet implemented or human-accepted.
