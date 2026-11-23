@@ -481,6 +481,21 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     ROM-independent tests cover early release after an extra step or phase
     change, cursor cache lag, and fallback after an incomplete hold.
 
+*** TODO Investigate how to speed up unit purchases
+    Benchmark purchases from nearby and distant production facilities in
+    headless and windowed mGBA. Measure cursor travel, production menu
+    navigation, and the wait for the new unit to appear. Record wall time,
+    emulator frames, and bridge calls before and after any optimization.
+    Verify the requested unit, facility, funds change, and settled result.
+
+*** TODO Investigate how to speed up ending a turn
+    Benchmark End Turn in headless and windowed mGBA. Measure command menu
+    navigation, confirmation, turn transition, and the wait for the next
+    player's settled state. Compare ordinary handoffs with day rollover and
+    upkeep, and record wall time, emulator frames, and bridge calls before
+    and after any optimization. Verify the next player and day before
+    accepting more gameplay commands.
+
 ** IN-PROGRESS Redesign the human client UI for usability and ergonomics
    Complete this usability redesign before starting the deferred cross-platform
    acceptance matrix above. Use human playtesting to identify friction in common
