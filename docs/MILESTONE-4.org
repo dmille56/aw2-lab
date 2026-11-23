@@ -792,7 +792,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     the reason play is blocked and offers =Recover session=. The cause of the
     original live stall remains unverified. Awaiting human review.
 
-*** TODO Investigate the unrecoverable "Map cursor is not available" stall
+*** IN-PROGRESS Investigate the unrecoverable "Map cursor is not available" stall
     In the latest windowed =aw2-lab play ai-vs-player= run on Bean Island
     (2026-11-23), the human client reported "Map cursor is not available" and
     =Recover session= did not restore play. The journal ends with a completed
@@ -805,6 +805,15 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Provide a safe recovery path from the client that verifies a usable input
     boundary and preserves committed moves. Verify live that unit selection,
     movement, and End Turn work again, and add a regression for the cause found.
+    Reproduced in windowed mGBA at frame 33326. The cursor source held (10,5)
+    while its cache still held (6,5). One frame with all inputs released
+    synchronized them. Navigation and checkpoint restoration now settle this
+    boundary before publishing it. On an already-stalled board, =Recover
+    session= queues a cursor recovery for the active player at the current
+    revision. It verifies the board stays unchanged and creates a new playable
+    checkpoint. The MCP =recover_map_cursor= tool offers the same recovery to
+    the active AI player, and both the turn brief and turn wait identify when
+    it is available. Awaiting human review.
 
 *** IN-PROGRESS Make the selected unit unmistakable
     Human playtest feedback (2026-11-16): it is difficult to identify the selected

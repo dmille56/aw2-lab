@@ -12,6 +12,7 @@ from uuid import UUID, uuid4, uuid5
 
 from pydantic import SecretStr
 
+from aw2_lab.action_navigation import settle_map_cursor
 from aw2_lab.api_contract import Principal
 from aw2_lab.authorization import Permission
 from aw2_lab.checkpoint import (
@@ -52,6 +53,7 @@ from aw2_lab.match_observation import (
     MatchObservationMetadata,
     MatchObservationTracker,
     RevisionCause,
+    has_unsettled_map_cursor,
 )
 from aw2_lab.state_model import GAME_STATE_SCHEMA_VERSION, GameState
 
@@ -104,6 +106,17 @@ class MatchCheckpointService:
                 details={"reported_keys": keys},
             )
 
+    async def _observe_restored_boundary(self, manifest: CheckpointManifest) -> GameState:
+        observe = self.session.capture_game_state
+        state = await observe()
+        _validate_restored_units(manifest, state)
+        return await settle_map_cursor(
+            state,
+            observe=observe,
+            set_keys=self.bridge.set_keys,
+            advance_frames=self.bridge.advance_frames,
+        )
+
     async def restore_startup_checkpoint(
         self,
         checkpoint_id: UUID,
@@ -153,8 +166,7 @@ class MatchCheckpointService:
             emulator_build=self.runtime.emulator_build,
             emulator_mode=self.runtime.emulator_mode,
         )
-        decoded = await self.session.capture_game_state()
-        _validate_restored_units(manifest, decoded)
+        decoded = await self._observe_restored_boundary(manifest)
         finished = manifest.match.lifecycle is MatchLifecycle.FINISHED
         observation = (
             tracker.commit_terminal_boundary(decoded, cause=RevisionCause.RESTORE)
@@ -281,7 +293,10 @@ class MatchCheckpointService:
         if (
             snapshot.summary.lifecycle is not MatchLifecycle.PLAYABLE
             or observation is None
-            or observation.action_readiness is not ActionReadiness.READY
+            or (
+                observation.action_readiness is not ActionReadiness.READY
+                and not has_unsettled_map_cursor(observation.game_state)
+            )
         ):
             raise CheckpointError(
                 ErrorCode.OBSERVATION_UNAVAILABLE,
@@ -361,8 +376,7 @@ class MatchCheckpointService:
                 emulator_build=self.runtime.emulator_build,
                 emulator_mode=self.runtime.emulator_mode,
             )
-            decoded = await self.session.capture_game_state()
-            _validate_restored_units(manifest, decoded)
+            decoded = await self._observe_restored_boundary(manifest)
             observation = restored_tracker.commit_boundary(decoded, cause=RevisionCause.ROLLBACK)
             if observation.action_readiness is not ActionReadiness.READY:
                 raise CheckpointError(
@@ -557,8 +571,7 @@ class MatchCheckpointService:
                     emulator_build=self.runtime.emulator_build,
                     emulator_mode=self.runtime.emulator_mode,
                 )
-                decoded = await self.session.capture_game_state()
-                _validate_restored_units(manifest, decoded)
+                decoded = await self._observe_restored_boundary(manifest)
                 observation = restored_tracker.commit_boundary(decoded, cause=RevisionCause.RESTORE)
                 if observation.action_readiness is not ActionReadiness.READY:
                     raise CheckpointError(

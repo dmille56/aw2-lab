@@ -18,6 +18,7 @@ const actionLabels: Record<ActionKind, string> = {
   activate_super_power: "Activate Super Power",
   end_turn: "End turn",
   surrender: "Surrender",
+  recover_map_cursor: "Recover map cursor",
 };
 
 export const waitLabel = (steps: number) =>

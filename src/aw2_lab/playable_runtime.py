@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Literal
 from uuid import UUID
 
-from aw2_lab.action_navigation import ActionNavigator
+from aw2_lab.action_navigation import ActionNavigator, settle_map_cursor
 from aw2_lab.api_contract import configuration_from_controller
 from aw2_lab.api_validation import validate_configuration
 from aw2_lab.bridge import LuaBridgeClient
@@ -187,6 +187,16 @@ class PlayableRuntime:
         elif request.action.kind == "activate_super_power":
             executor = ActivateSuperPowerActionExecutor(
                 self.navigator, service.session.tracker, self.rom_path
+            )
+        elif request.action.kind == "recover_map_cursor":
+            state = await settle_map_cursor(
+                observation.game_state,
+                observe=self.navigator.observe,
+                set_keys=self.bridge.set_keys,
+                advance_frames=self.bridge.advance_frames,
+            )
+            return await service.prepare_boundary_checkpoint(
+                service.session.tracker.commit_boundary(state), MatchLifecycle.PLAYABLE
             )
         else:
             executor = executors[request.action.kind](self.navigator, service.session.tracker)

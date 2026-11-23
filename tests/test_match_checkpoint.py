@@ -67,6 +67,10 @@ class MemoryBridge:
         self.keys = keys
         return keys
 
+    async def advance_frames(self, frames):
+        self.frame += frames
+        return self.frame
+
     async def decoded(self):
         return decode_snapshot(replace(snapshot(self.memory), frame=self.frame))
 

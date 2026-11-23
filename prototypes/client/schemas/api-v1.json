@@ -8271,6 +8271,7 @@
                 "move_capture": "#/components/schemas/MoveCaptureAction",
                 "move_wait": "#/components/schemas/MoveWaitAction",
                 "purchase": "#/components/schemas/PurchaseAction",
+                "recover_map_cursor": "#/components/schemas/RecoverMapCursorAction",
                 "rise": "#/components/schemas/RiseAction",
                 "silo_launch": "#/components/schemas/SiloLaunchAction",
                 "supply": "#/components/schemas/SupplyAction",
@@ -8327,6 +8328,9 @@
               },
               {
                 "$ref": "#/components/schemas/SurrenderAction"
+              },
+              {
+                "$ref": "#/components/schemas/RecoverMapCursorAction"
               }
             ],
             "title": "Action"
@@ -9910,6 +9914,25 @@
         ],
         "title": "ReadinessState",
         "type": "string"
+      },
+      "RecoverMapCursorAction": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "recover_map_cursor",
+            "default": "recover_map_cursor",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "title": "RecoverMapCursorAction",
+        "type": "object"
       },
       "Request": {
         "additionalProperties": false,

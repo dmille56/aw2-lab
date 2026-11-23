@@ -2,7 +2,7 @@
 
 import asyncio
 from struct import pack_into
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from test_authorization import token
 from test_http_api import application
@@ -17,6 +17,7 @@ import aw2_lab.playable_runtime as runtime_module
 from aw2_lab.api_contract import GameplayCommandRequest, StartMatchRequest
 from aw2_lab.match_contract import CommandStatus, MatchLifecycle, PlayerSlot
 from aw2_lab.match_controller import MutationOutcome
+from aw2_lab.ui_state import CURSOR_CACHE, CURSOR_SOURCE
 
 
 async def eventually(predicate):
@@ -32,6 +33,87 @@ def args(match_id, *, slot="slot_1", after=0, timeout=1):
         "after_revision": after,
         "timeout_seconds": timeout,
     }
+
+
+@run_async_test
+async def test_active_player_can_recover_a_committed_cursor_mismatch(memory, tmp_path, monkeypatch):
+    app, runtime, _, match_id, _, bridge = await setup(memory, tmp_path, monkeypatch)
+    _, _, iwram = memory
+    source = CURSOR_SOURCE - 0x03000000
+    cache = CURSOR_CACHE - 0x03000000
+
+    class LegacyMove:
+        def __init__(self, navigator, tracker):
+            self.tracker = tracker
+
+        async def execute(self, request, observation):
+            iwram[source] = 1
+            bridge.frame += 1
+            return MutationOutcome(
+                observation=self.tracker.commit_boundary(await bridge.decoded()),
+                lifecycle=MatchLifecycle.PLAYABLE,
+            )
+
+    advanced = []
+
+    async def settle(frames):
+        assert bridge.keys == 0
+        advanced.append(frames)
+        iwram[cache] = iwram[source]
+        bridge.frame += frames
+        return bridge.frame
+
+    monkeypatch.setattr(runtime_module, "MoveWaitActionExecutor", LegacyMove)
+    monkeypatch.setattr(bridge, "advance_frames", settle)
+    try:
+        async with mounted(app, monkeypatch) as (call, _, _):
+            match = {"match_id": str(match_id)}
+
+            async def finish(tool, revision, *, letter="p", **extra):
+                receipt = payload(
+                    await call(
+                        tool,
+                        {
+                            **match,
+                            "expected_revision": revision,
+                            "request_id": str(uuid4()),
+                            **extra,
+                        },
+                        letter=letter,
+                    )
+                )
+                command_id = UUID(receipt["command_id"])
+                return await runtime.controller.wait_for_command(match_id, command_id, timeout=2)
+
+            assert (await finish("move_wait", 1, unit_id="1", path=[])).resulting_revision == 2
+            before = payload(await call("wait_for_turn", args(match_id, after=1)))
+            assert before["reason"] == "cursor_recovery_available"
+            assert not before["timed_out"]
+            observation = before["state"]["observation"]
+            assert observation["action_readiness_reasons"] == ["Map cursor is not available"]
+            brief = payload(await call("get_turn_brief", match))
+            assert brief["cursor_recovery_available"] and not brief["turn_ready"]
+            assert not payload(await call("get_turn_brief", match, letter="q"))[
+                "cursor_recovery_available"
+            ]
+            assert (await finish("end_turn", 2)).status is CommandStatus.REJECTED
+            denied = await finish("recover_map_cursor", 2, letter="q")
+            assert denied.error.code.value == "not_your_turn"
+            assert advanced == []
+
+            recovered = await finish("recover_map_cursor", brief["revision"])
+            assert recovered.status is CommandStatus.COMPLETED, recovered.error
+            assert recovered.resulting_revision == 3
+            assert advanced == [1]
+            after = payload(await call("wait_for_turn", args(match_id, after=2)))
+            assert after["reason"] == "turn_ready"
+            updated = after["state"]["observation"]
+            assert updated["game_state"]["battle"] == observation["game_state"]["battle"]
+            assert updated["unit_identities"] == observation["unit_identities"]
+            assert (await finish("recover_map_cursor", 3)).status is CommandStatus.REJECTED
+            assert advanced == [1]
+    finally:
+        await runtime.controller.stop()
 
 
 @run_async_test

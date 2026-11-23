@@ -66,6 +66,8 @@ class CheckpointBridge(Protocol):
 
     async def set_keys(self, keys: int) -> int: ...
 
+    async def advance_frames(self, frames: int) -> int: ...
+
 
 @dataclass(frozen=True, slots=True)
 class CapturedCheckpointState:

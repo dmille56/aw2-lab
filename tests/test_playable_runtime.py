@@ -47,10 +47,6 @@ class RuntimeBridge(MemoryBridge):
         self.keys = 0
         return self.frame
 
-    async def advance_frames(self, frames):
-        self.frame += frames
-        return self.frame
-
     async def reset(self):
         self.resets = getattr(self, "resets", 0) + 1
         self.frame = 0

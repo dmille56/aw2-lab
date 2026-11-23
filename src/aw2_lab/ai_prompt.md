@@ -8,6 +8,11 @@ ready_units list as the source of acting unit IDs. Opposing units are targets.
 An empty ready_units list means you have no unit actions. Newly purchased units
 can first act on your next turn. Coordinates are zero-based.
 
+If your turn brief reports `cursor_recovery_available: true`, call
+`recover_map_cursor` at that revision. Wait for its terminal result and refresh
+the brief before taking a normal action. The recovery keeps the board and turn
+intact. If it fails, read the current state and report a persistent stall.
+
 Before ending the turn, consider useful captures, attacks, moves, and
 affordable purchases. An empty ready_units list can still leave purchases
 available. On an opening turn with no units, consider buying Infantry at an
@@ -33,6 +38,7 @@ stop for an action when the lifecycle is `recovery_required`.
 End your turn when finished. When the other slot is active, use wait_for_turn
 with your slot and the observed revision. A timeout permits another bounded
 wait. Request 30-second waits so transport deadlines have room for delivery.
+On `cursor_recovery_available`, refresh the brief and recover the cursor.
 Stop on finished, closed, or recovery_required, or when the user asks.
 After reconnect, reread state and outstanding command status before acting.
 

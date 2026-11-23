@@ -12,7 +12,7 @@ from uuid import uuid4
 
 from aw2_lab.bridge import MAX_CURSOR_BATCH_STEPS, MAX_CURSOR_HOLD_STEPS, LuaBridgeClient
 from aw2_lab.lifecycle import LifecyclePhase
-from aw2_lab.match_observation import MatchObservation
+from aw2_lab.match_observation import MatchObservation, has_unsettled_map_cursor
 from aw2_lab.state_model import BattleState, GameState, ValueStatus
 from aw2_lab.state_validation import capture_lifecycle_phase
 from aw2_lab.ui_state import CursorStatus, MenuFamily, MenuItem
@@ -156,6 +156,34 @@ def _map_input_cursor(state: GameState) -> tuple[int, int] | None:
     ):
         return cursor.x, cursor.y
     return None
+
+
+async def settle_map_cursor(
+    state: GameState,
+    *,
+    observe: StateObserver,
+    set_keys: Callable[[int], Awaitable[int]],
+    advance_frames: Callable[[int], Awaitable[int]],
+    frame_budget: int = 8,
+) -> GameState:
+    """Wait for the cursor cache on the same board with all inputs released."""
+    if not has_unsettled_map_cursor(state):
+        return state
+    if await set_keys(0) != 0:
+        raise RuntimeError("Could not release inputs before recovering the map cursor")
+    battle = state.battle
+    for _ in range(frame_budget):
+        frame = await advance_frames(1)
+        if frame != (state.frame + 1) % (1 << 32):
+            raise RuntimeError("Emulator did not advance one frame while settling the cursor")
+        state = await observe()
+        if state.frame != frame or state.battle != battle or not _is_map_input(state):
+            raise RuntimeError("Battle state changed while settling the map cursor")
+        if _map_input_cursor(state) is not None and state.ui.menu.actionable is not False:
+            return state
+        if not has_unsettled_map_cursor(state):
+            break
+    raise RuntimeError("The map cursor did not settle with inputs released")
 
 
 def _same_map_turn(state: GameState, battle: BattleState) -> bool:
@@ -1536,7 +1564,18 @@ class ActionNavigator:
             if guard is not None and not guard(state):
                 raise await self._fail(f"Map input changed while waiting for {description}", state)
             if predicate(state):
-                return state
+                if not has_unsettled_map_cursor(state):
+                    return state
+                settled = await settle_map_cursor(
+                    state,
+                    observe=self._observe,
+                    set_keys=self.bridge.set_keys,
+                    advance_frames=self.bridge.advance_frames,
+                    frame_budget=min(8, budget - self._frames_used),
+                )
+                self._frames_used += (settled.frame - state.frame) % (1 << 32)
+                state = settled
+                continue
             if self._frames_used + interval > budget:
                 raise await self._fail(
                     f"Timed out waiting for {description} within frame budget", state

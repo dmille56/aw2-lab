@@ -333,6 +333,7 @@ async def capabilities(request: Request) -> CapabilitiesResponse:
                 "activate_super_power",
                 "end_turn",
                 "surrender",
+                "recover_map_cursor",
             )
         ),
         production_unit_types=tuple(UNIT_PROFILES[kind].name for kind in PRODUCTION_UNIT_TYPES),

@@ -14,7 +14,7 @@ from aw2_lab.state_model import (
     GameState,
     ValueStatus,
 )
-from aw2_lab.ui_state import CursorStatus, MenuFamily
+from aw2_lab.ui_state import CURSOR_CACHE_MISMATCH, CursorStatus, MenuFamily
 from aw2_lab.unit_identity import (
     IDENTITY_SCHEMA_VERSION,
     UnitIdentityMetadata,
@@ -361,6 +361,18 @@ class MatchObservationTracker:
             last_frame=self._last_frame,
             identity_metadata=self._identities.checkpoint_metadata(),
         )
+
+
+def has_unsettled_map_cursor(state: GameState) -> bool:
+    """Identify map input whose verified cursor cache has not caught up."""
+    return (
+        state.battle.status is ValueStatus.AVAILABLE
+        and state.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN
+        and state.ui.menu.family is MenuFamily.MAP_INPUT
+        and state.ui.menu.actionable is not False
+        and state.ui.map_cursor.status is CursorStatus.UNAVAILABLE
+        and state.ui.map_cursor.reasons == (CURSOR_CACHE_MISMATCH,)
+    )
 
 
 def _action_readiness(state: GameState) -> tuple[ActionReadiness, tuple[str, ...]]:

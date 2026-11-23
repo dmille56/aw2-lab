@@ -56,6 +56,7 @@ from aw2_lab.match_events import EventSubscription, MatchEventPublisher
 from aw2_lab.match_observation import (
     ActionReadiness,
     MatchObservation,
+    has_unsettled_map_cursor,
 )
 
 
@@ -1189,7 +1190,12 @@ class MatchController:
                     ErrorCode.OBSERVATION_UNAVAILABLE,
                     "Match revision and observation revision disagree",
                 )
-            if observation.action_readiness is not ActionReadiness.READY:
+            if request.action.kind == "recover_map_cursor":
+                if not has_unsettled_map_cursor(observation.game_state):
+                    raise CommandRejected(
+                        ErrorCode.INVALID_REQUEST, "The map cursor does not need to settle"
+                    )
+            elif observation.action_readiness is not ActionReadiness.READY:
                 raise MatchControllerError(
                     ErrorCode.OBSERVATION_UNAVAILABLE,
                     "The observed UI boundary is not ready for command execution",

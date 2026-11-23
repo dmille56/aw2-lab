@@ -7,6 +7,7 @@ import { getApiBase } from "./transport";
 import { MATCH_ID, validateState, type StateResponse } from "./state";
 import { validateCapabilitiesResponse } from "./capabilities";
 import type { CapabilitiesResponse } from "./capabilities";
+import { humanSlot } from "./presentation";
 
 type GameplayAction = components["schemas"]["GameplayCommandRequest"]["action"];
 type GameplayCommandRequest = components["schemas"]["GameplayCommandRequest"];
@@ -364,6 +365,34 @@ export class MatchSession {
       void this.follow(c);
       if (command?.receipt && (commandIsPending(command) || !command.result))
         void this.pollCommand(c, command.receipt, Infinity);
+      const snapshot = this.state.snapshot;
+      const game = snapshot?.observation?.game_state;
+      if (
+        snapshot?.settled &&
+        snapshot.summary.lifecycle === "playable" &&
+        snapshot.observation?.action_readiness === "unknown" &&
+        game?.battle.status === "available" &&
+        game.battle.value?.active_player_slot ===
+          humanSlot(this.state.identity) &&
+        game.ui.menu.family === "map_input" &&
+        game.ui.menu.actionable !== false &&
+        game.ui.map_cursor.status === "unavailable" &&
+        game.ui.map_cursor.reasons.length === 1 &&
+        game.ui.map_cursor.reasons[0] ===
+          "Cursor source and cache do not agree" &&
+        !commandIsPending(this.state.command) &&
+        !commandNeedsRefresh(this.state.command, snapshot) &&
+        this.state.capabilities?.actions.some(
+          (item) =>
+            item.name === "recover_map_cursor" &&
+            item.implemented &&
+            item.available,
+        )
+      )
+        void this.submitAction(
+          { contract_version: 1, kind: "recover_map_cursor" },
+          snapshot.summary.revision,
+        );
     } catch (error) {
       if (this.connection !== c || aborted(error)) return;
       this.update({

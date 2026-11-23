@@ -8,12 +8,19 @@ from aw2_lab.api_contract import PlayerPrincipal, StateResponse
 from aw2_lab.authorization import AuthorizationError, Permission
 from aw2_lab.match_contract import ContractModel, ErrorCode, MatchLifecycle, PlayerSlot
 from aw2_lab.match_events import CommandUpdatedEvent
-from aw2_lab.match_observation import ActionReadiness, IdentityStatus
+from aw2_lab.match_observation import ActionReadiness, IdentityStatus, has_unsettled_map_cursor
 from aw2_lab.mcp_auth import MCPCaller
 from aw2_lab.mcp_runtime import MCPAdapterRuntime
 from aw2_lab.sdk import AsyncAW2Client
 
-TurnReason = Literal["turn_ready", "finished", "closed", "recovery_required", "timed_out"]
+TurnReason = Literal[
+    "turn_ready",
+    "cursor_recovery_available",
+    "finished",
+    "closed",
+    "recovery_required",
+    "timed_out",
+]
 
 
 class TurnWaitResult(ContractModel):
@@ -38,11 +45,13 @@ def turn_reason(state: StateResponse, slot: PlayerSlot, after_revision: int) -> 
         and state.summary.revision > after_revision
         and observation is not None
         and observation.identity_status is IdentityStatus.AVAILABLE
-        and observation.action_readiness is ActionReadiness.READY
         and battle is not None
         and battle.active_player_slot == (list(PlayerSlot).index(slot) + 1)
     ):
-        return "turn_ready"
+        if has_unsettled_map_cursor(observation.game_state):
+            return "cursor_recovery_available"
+        if observation.action_readiness is ActionReadiness.READY:
+            return "turn_ready"
     return None
 
 

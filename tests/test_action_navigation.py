@@ -21,6 +21,7 @@ from aw2_lab.production_rules import PRODUCTION_BY_TERRAIN
 from aw2_lab.state_decoder import decode_snapshot
 from aw2_lab.state_model import GameState, ObservedValue, ValueStatus
 from aw2_lab.ui_state import (
+    CURSOR_CACHE_MISMATCH,
     CursorStatus,
     MenuFamily,
     MenuItem,
@@ -140,7 +141,7 @@ def test_artillery_purchase_checks_each_row_and_rechecks_before_confirming(
     assert timeouts == [limits.resolution_wall_timeout]
 
 
-@pytest.mark.parametrize("scenario", ["playable", "terminal", "row", "drift"])
+@pytest.mark.parametrize("scenario", ["playable", "terminal", "row", "drift", "cursor_unsettled"])
 def test_end_turn_probes_transition_and_verifies_full_boundary(
     memory, monkeypatch, scenario
 ) -> None:
@@ -161,7 +162,16 @@ def test_end_turn_probes_transition_and_verifies_full_boundary(
 
         async def observe(self) -> GameState:
             full_frames.append(self.frame)
-            ready = self.frame == boundary_frame
+            ready = self.frame >= boundary_frame
+            cursor = replace(initial.ui.map_cursor, frame=self.frame)
+            if scenario == "cursor_unsettled" and self.frame == boundary_frame:
+                cursor = replace(
+                    cursor,
+                    status=CursorStatus.UNAVAILABLE,
+                    x=None,
+                    y=None,
+                    reasons=(CURSOR_CACHE_MISMATCH,),
+                )
             menu = (
                 MenuObservation(
                     self.frame,
@@ -191,7 +201,7 @@ def test_end_turn_probes_transition_and_verifies_full_boundary(
                 ui=replace(
                     initial.ui,
                     frame=self.frame,
-                    map_cursor=replace(initial.ui.map_cursor, frame=self.frame),
+                    map_cursor=cursor,
                     menu=menu,
                 ),
             )
@@ -204,6 +214,10 @@ def test_end_turn_probes_transition_and_verifies_full_boundary(
             assert keys == 1
             self.pressed = True
             return await self.advance_frames(frames)
+
+        async def set_keys(self, keys: int) -> int:
+            assert keys == 0 and scenario == "cursor_unsettled"
+            return keys
 
     async def probe(bridge):
         probe_frames.append(bridge.frame)
@@ -231,7 +245,11 @@ def test_end_turn_probes_transition_and_verifies_full_boundary(
         result = asyncio.run(navigator.confirm_end_turn())
         assert result.lifecycle.phase is final_phase
         assert probe_frames == [start + 63, boundary_frame]
-        assert full_frames == [start, start + 2, start + 33, boundary_frame]
+        expected_frames = [start, start + 2, start + 33, boundary_frame]
+        if scenario == "cursor_unsettled":
+            expected_frames.append(boundary_frame + 1)
+            assert result.ui.map_cursor.status is CursorStatus.AVAILABLE
+        assert full_frames == expected_frames
 
 
 def test_unit_selection_uses_resolution_timeout_for_cursor_travel(memory, monkeypatch) -> None:

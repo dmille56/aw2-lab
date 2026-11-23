@@ -208,6 +208,7 @@ class Capabilities(ContractModel):
         "activate_super_power",
         "end_turn",
         "surrender",
+        "recover_map_cursor",
     )
     supported_features: tuple[str, ...] = (
         "single_active_match",
@@ -363,6 +364,10 @@ class SurrenderAction(ContractModel):
     kind: Literal["surrender"] = "surrender"
 
 
+class RecoverMapCursorAction(ContractModel):
+    kind: Literal["recover_map_cursor"] = "recover_map_cursor"
+
+
 GameplayAction = Annotated[
     MoveWaitAction
     | MoveAttackAction
@@ -379,7 +384,8 @@ GameplayAction = Annotated[
     | ActivateNormalPowerAction
     | ActivateSuperPowerAction
     | EndTurnAction
-    | SurrenderAction,
+    | SurrenderAction
+    | RecoverMapCursorAction,
     Field(discriminator="kind"),
 ]
 

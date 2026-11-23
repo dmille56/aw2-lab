@@ -12,7 +12,7 @@ from aw2_lab.aw2_unit_profiles import (
     observed_rule_context,
 )
 from aw2_lab.match_contract import ContractModel, Coordinate, MatchLifecycle, PlayerSlot, Revision
-from aw2_lab.match_observation import ActionReadiness, IdentityStatus
+from aw2_lab.match_observation import ActionReadiness, IdentityStatus, has_unsettled_map_cursor
 from aw2_lab.production_rules import PRODUCTION_BY_TERRAIN
 from aw2_lab.state_model import BattleState, UnitState, ValueStatus
 
@@ -46,6 +46,7 @@ class TurnBrief(ContractModel):
     revision: Revision
     lifecycle: MatchLifecycle
     turn_ready: bool = False
+    cursor_recovery_available: bool = False
     day: int | None = None
     funds: int | None = None
     ready_units: tuple[BriefUnit, ...] = ()
@@ -71,7 +72,6 @@ def build_turn_brief(
         or state.summary.lifecycle is not MatchLifecycle.PLAYABLE
         or observation is None
         or observation.identity_status is not IdentityStatus.AVAILABLE
-        or observation.action_readiness is not ActionReadiness.READY
     ):
         return brief
     observed_battle = observation.game_state.battle
@@ -82,6 +82,10 @@ def build_turn_brief(
         or battle is None
         or battle.active_player_slot != slot_number
     ):
+        return brief
+    if has_unsettled_map_cursor(observation.game_state):
+        return brief.model_copy(update={"cursor_recovery_available": True, "day": battle.day})
+    if observation.action_readiness is not ActionReadiness.READY:
         return brief
     player = next((item for item in battle.players if item.slot == slot_number), None)
     if player is None:

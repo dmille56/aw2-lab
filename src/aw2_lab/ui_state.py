@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 CURSOR_SOURCE = 0x030033E4
 CURSOR_CACHE = 0x03003140
+CURSOR_CACHE_MISMATCH = "Cursor source and cache do not agree"
 CURRENT_UNIT_POINTER = 0x030040D8
 ACTIVE_PLAYER = 0x030033EC
 UNIT_ACTION_MENU_SCRIPT = 0x0849BE38
@@ -323,7 +324,7 @@ def observe_map_cursor(
         return MapCursorObservation(
             snapshot.frame,
             CursorStatus.UNAVAILABLE,
-            reasons=("Cursor source and cache do not agree",),
+            reasons=(CURSOR_CACHE_MISMATCH,),
         )
     if not (0 <= cache_x < width and 0 <= cache_y < height):
         return MapCursorObservation(

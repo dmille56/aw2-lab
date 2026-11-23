@@ -48,6 +48,7 @@ from aw2_lab.match_contract import (
     MoveWaitAction,
     PlayerSlot,
     PurchaseAction,
+    RecoverMapCursorAction,
     Revision,
     RiseAction,
     SiloLaunchAction,
@@ -297,7 +298,7 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
         timeout_seconds: WaitSeconds = 30,
         contract_version: int = 1,
     ) -> TurnWaitResult:
-        """Wait up to 60 seconds for a newer ready turn or terminal state. Players wait for their own slot; operators may monitor either. The host chooses actions; waiting reserves no turn."""
+        """Wait up to 60 seconds for a newer ready turn, recoverable cursor stall, or terminal state. Players wait for their own slot; operators may monitor either. Waiting reserves no turn."""
         request = server.get_context().request_context.request
         if not isinstance(request, Request):
             raise AuthorizationError(ErrorCode.INVALID_CREDENTIAL, "Authentication required")
@@ -557,6 +558,16 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
         async with client(Permission.PLAY, match_id) as sdk:
             return await sdk.submit(
                 match_id, expected_revision, EndTurnAction(), request_id=request_id
+            )
+
+    @server.tool()
+    async def recover_map_cursor(
+        match_id: UUID, expected_revision: Revision, request_id: UUID, contract_version: int = 1
+    ) -> CommandReceipt:
+        """Recover the caller's active turn when the turn brief reports cursor_recovery_available. Release inputs and let the map cursor settle without changing the board. Wait for terminal command status, then refresh the brief."""
+        async with client(Permission.PLAY, match_id) as sdk:
+            return await sdk.submit(
+                match_id, expected_revision, RecoverMapCursorAction(), request_id=request_id
             )
 
     @server.tool()
