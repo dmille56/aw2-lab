@@ -82,6 +82,28 @@ it("clears match data and aborts requests after authorization loss", async () =>
     status: "Authorization lost · reconnect required",
   });
 });
+it("keeps the board visible and actions disabled when recovery cannot reach the host", async () => {
+  let offline = false;
+  server(() => {
+    if (offline) throw new Error("offline");
+    return response(fixture);
+  });
+  const view = session();
+  await view.connect(fixture.summary.match_id, "private");
+  offline = true;
+  await view.recoverCurrent();
+  expect(view.getSnapshot()).toMatchObject({
+    connected: true,
+    ready: false,
+    snapshot: { summary: { revision: 1 } },
+  });
+  expect(view.getSnapshot().error).toContain(
+    "Check that the match host is running",
+  );
+  offline = false;
+  await view.recoverCurrent();
+  expect(view.getSnapshot()).toMatchObject({ ready: true, error: "" });
+});
 it("discards a snapshot import completed after disconnect", async () => {
   const text = pending<string>();
   const file = new File([], "state.json");
@@ -172,80 +194,167 @@ it("rejects identity from a different match without displaying a player perspect
   expect(view.getSnapshot().error).toContain("inconsistent match identity");
 });
 
-it("retries an uncertain command with the exact same request ID and payload", async () => {
-  const commandId = "00000000-0000-4000-8000-000000000045";
-  const payloads: unknown[] = [];
-  let firstSubmission = true;
-  const fetcher = vi.fn((url: string, init: RequestInit = {}) => {
-    if (url.endsWith("/capabilities"))
-      return Promise.resolve(response(capabilities));
-    if (url.endsWith("/identity"))
-      return Promise.resolve(
-        response({
-          contract_version: 1,
-          match_id: fixture.summary.match_id,
-          role: "player",
-          player_slot: "slot_1",
-        }),
-      );
-    if (url.endsWith("/events"))
-      return new Promise<Response>((_, reject) => {
-        init.signal?.addEventListener(
-          "abort",
-          () => reject(new DOMException("Aborted", "AbortError")),
-          { once: true },
+it.each(["lost", "stalled"])(
+  "recovers a %s receipt with the exact same request ID and payload",
+  async (failure) => {
+    const commandId = "00000000-0000-4000-8000-000000000045";
+    const payloads: unknown[] = [];
+    let firstSubmission = true;
+    const stalled = pending<Response>();
+    let firstSignal: AbortSignal | null = null;
+    const fetcher = vi.fn((url: string, init: RequestInit = {}) => {
+      if (url.endsWith("/capabilities"))
+        return Promise.resolve(response(capabilities));
+      if (url.endsWith("/identity"))
+        return Promise.resolve(
+          response({
+            contract_version: 1,
+            match_id: fixture.summary.match_id,
+            role: "player",
+            player_slot: "slot_1",
+          }),
         );
-      });
-    if (url.endsWith("/commands") && init.method === "POST") {
-      const submitted = JSON.parse(
-        typeof init.body === "string" ? init.body : "",
-      ) as unknown;
-      payloads.push(submitted);
-      if (firstSubmission) {
-        firstSubmission = false;
-        return Promise.reject(new Error("connection reset"));
+      if (url.endsWith("/events"))
+        return new Promise<Response>((_, reject) => {
+          init.signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("Aborted", "AbortError")),
+            { once: true },
+          );
+        });
+      if (url.endsWith("/commands") && init.method === "POST") {
+        const submitted = JSON.parse(
+          typeof init.body === "string" ? init.body : "",
+        ) as unknown;
+        payloads.push(submitted);
+        if (firstSubmission) {
+          firstSubmission = false;
+          firstSignal = init.signal ?? null;
+          if (failure === "stalled") return stalled.promise;
+          return Promise.reject(new Error("connection reset"));
+        }
+        const request = submitted as { request_id: string };
+        return Promise.resolve(
+          response({
+            contract_version: 1,
+            command_id: commandId,
+            request_id: request.request_id,
+            match_id: fixture.summary.match_id,
+            status: "queued",
+            accepted_revision: fixture.summary.revision,
+          }),
+        );
       }
-      const request = submitted as { request_id: string };
-      return Promise.resolve(
-        response({
-          contract_version: 1,
-          command_id: commandId,
-          request_id: request.request_id,
-          match_id: fixture.summary.match_id,
-          status: "queued",
-          accepted_revision: fixture.summary.revision,
-        }),
-      );
+      if (url.endsWith(`/commands/${commandId}`))
+        return Promise.resolve(
+          response({
+            contract_version: 1,
+            command_id: commandId,
+            request_id: (payloads[0] as { request_id: string }).request_id,
+            match_id: fixture.summary.match_id,
+            status: "completed",
+            accepted_revision: fixture.summary.revision,
+            resulting_revision: fixture.summary.revision + 1,
+            error: null,
+            checkpoint_id: null,
+          }),
+        );
+      return Promise.resolve(response(fixture));
+    });
+    vi.stubGlobal("fetch", fetcher);
+    const view = session();
+    await view.connect(fixture.summary.match_id, "private");
+    const submitting = view.submitAction(
+      { contract_version: 1, kind: "end_turn" },
+      fixture.summary.revision,
+    );
+    if (failure === "stalled") {
+      await vi.waitFor(() => expect(payloads).toHaveLength(1));
+      expect(view.getSnapshot().command?.phase).toBe("submitting");
+      await view.recoverCurrent();
+      expect(firstSignal).toHaveProperty("aborted", true);
+      expect(payloads).toHaveLength(1);
+      stalled.resolve(new Response(null, { status: 409 }));
     }
-    if (url.endsWith(`/commands/${commandId}`))
-      return Promise.resolve(
-        response({
-          contract_version: 1,
-          command_id: commandId,
-          request_id: (payloads[0] as { request_id: string }).request_id,
-          match_id: fixture.summary.match_id,
-          status: "completed",
-          accepted_revision: fixture.summary.revision,
-          resulting_revision: fixture.summary.revision + 1,
-          error: null,
-          checkpoint_id: null,
-        }),
-      );
-    return Promise.resolve(response(fixture));
-  });
-  vi.stubGlobal("fetch", fetcher);
-  const view = session();
-  await view.connect(fixture.summary.match_id, "private");
-  await view.submitAction(
-    { contract_version: 1, kind: "end_turn" },
-    fixture.summary.revision,
-  );
-  expect(view.getSnapshot().command?.phase).toBe("uncertain");
-  await view.retryUncertainAction();
-  expect(view.getSnapshot().command?.phase).toBe("completed");
-  expect(payloads).toHaveLength(2);
-  expect(payloads[1]).toEqual(payloads[0]);
-});
+    await submitting;
+    expect(view.getSnapshot().command?.phase).toBe("uncertain");
+    await view.retryUncertainAction();
+    expect(view.getSnapshot().command?.phase).toBe("completed");
+    expect(payloads).toHaveLength(2);
+    expect(payloads[1]).toEqual(payloads[0]);
+  },
+);
+
+it.each(["Check command status", "Recover session"])(
+  "%s keeps a late running response from locking a completed command",
+  async (method) => {
+    const commandId = "00000000-0000-4000-8000-000000000045";
+    const lateStatus = pending<Response>();
+    let polls = 0;
+    let submissions = 0;
+    let requestId = "";
+    const receipt = () => ({
+      contract_version: 1,
+      command_id: commandId,
+      request_id: requestId,
+      match_id: fixture.summary.match_id,
+      status: "queued",
+      accepted_revision: 1,
+    });
+    server(() => response(fixture));
+    const baseFetch = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string, init: RequestInit) => {
+        if (url.endsWith("/commands")) {
+          submissions++;
+          requestId = (
+            JSON.parse(init.body as string) as { request_id: string }
+          ).request_id;
+          return Promise.resolve(response(receipt()));
+        }
+        if (url.endsWith(`/commands/${commandId}`)) {
+          if (++polls === 1) return lateStatus.promise;
+          return Promise.resolve(
+            response({
+              ...receipt(),
+              status: "completed",
+              resulting_revision: 2,
+              checkpoint_id: null,
+              error: null,
+            }),
+          );
+        }
+        return baseFetch(url, init);
+      }),
+    );
+    const view = session();
+    await view.connect(fixture.summary.match_id, "private");
+    const submitting = view.submitAction(
+      { contract_version: 1, kind: "end_turn" },
+      1,
+    );
+    await vi.waitFor(() => expect(polls).toBe(1));
+    await (method === "Recover session"
+      ? view.recoverCurrent()
+      : view.checkCommandStatus());
+    await vi.waitFor(() =>
+      expect(view.getSnapshot().command?.phase).toBe("completed"),
+    );
+    lateStatus.resolve(
+      response({
+        ...receipt(),
+        status: "running",
+        resulting_revision: null,
+        checkpoint_id: null,
+        error: null,
+      }),
+    );
+    await submitting;
+    expect(submissions).toBe(1);
+    expect(view.getSnapshot().command?.phase).toBe("completed");
+  },
+);
 
 it("continues following accepted emulator actions beyond fifteen seconds", async () => {
   vi.useFakeTimers();

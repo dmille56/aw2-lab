@@ -467,6 +467,27 @@ test("resets action drafts when the committed revision changes", async ({
   await expect(page.locator("#board [data-route-step]")).toHaveCount(0);
 });
 
+test("recovers the same match and clears the current action plan", async ({
+  page,
+  request,
+}) => {
+  await connect(page);
+  const origin = page.locator('#board [data-x="0"][data-y="0"]');
+  await origin.click();
+  await page.locator('#board [data-x="1"][data-y="0"]').click();
+  await expect(
+    page.getByRole("dialog", { name: "Unit actions" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Recover session" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("#board [data-route-step]")).toHaveCount(0);
+  await expect(page.locator("#boundary")).toContainText("Revision 1 ·");
+  await expect(
+    page.getByRole("button", { name: "End turn", exact: true }),
+  ).toBeEnabled();
+  expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
+});
+
 test("safely retries an accepted command after losing its receipt", async ({
   page,
   request,

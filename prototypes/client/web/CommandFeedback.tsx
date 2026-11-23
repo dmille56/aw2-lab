@@ -98,11 +98,7 @@ export function CommandFeedback({
               </details>
             )}
             {command.phase === "uncertain" && (
-              <button
-                type="button"
-                onClick={onRetry}
-                disabled={!view.connected}
-              >
+              <button type="button" onClick={onRetry} disabled={!view.ready}>
                 Retry safely with the same request ID
               </button>
             )}
@@ -111,7 +107,7 @@ export function CommandFeedback({
                 <button
                   type="button"
                   onClick={onCheckStatus}
-                  disabled={!view.connected}
+                  disabled={!view.ready}
                 >
                   Check command status
                 </button>

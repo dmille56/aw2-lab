@@ -21,6 +21,10 @@ export interface CommandProgress {
   phase: "submitting" | "uncertain" | CommandStatus;
 }
 
+export const commandIsPending = (command: CommandProgress | null) =>
+  !!command &&
+  ["submitting", "uncertain", "queued", "running"].includes(command.phase);
+
 interface Connection {
   id: string;
   token: string;
@@ -41,6 +45,12 @@ export interface ViewState {
   imageLabel: string;
 }
 const imageLabel = "Optional image from the displayed committed revision.";
+const requestTimeoutMs = 15_000;
+const requestSignal = (connection: Connection) =>
+  AbortSignal.any([
+    connection.abort.signal,
+    AbortSignal.timeout(requestTimeoutMs),
+  ]);
 export const message = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 const aborted = (error: unknown) =>
@@ -102,7 +112,7 @@ export class MatchSession {
     const apiBase = await getApiBase();
     const response = await fetch(`${apiBase}/v1/matches/${c.id}/${suffix}`, {
       headers: { Authorization: `Bearer ${c.token}` },
-      signal: c.abort.signal,
+      signal: suffix === "events" ? c.abort.signal : requestSignal(c),
       cache: "no-store",
       credentials: "omit",
       redirect: "error",
@@ -122,7 +132,7 @@ export class MatchSession {
   private async checkCapabilities(c: Connection) {
     const apiBase = await getApiBase();
     const response = await fetch(`${apiBase}/v1/capabilities`, {
-      signal: c.abort.signal,
+      signal: requestSignal(c),
       cache: "no-store",
       credentials: "omit",
       redirect: "error",
@@ -264,17 +274,49 @@ export class MatchSession {
         this.update({ error: message(error) });
     }
   };
+  recoverCurrent = async () => {
+    const previous = this.connection;
+    if (!previous || !this.state.snapshot) return;
+    const c: Connection = {
+      id: previous.id,
+      token: previous.token,
+      abort: new AbortController(),
+      refreshing: null,
+      again: false,
+    };
+    this.connection = c;
+    previous.abort.abort();
+    const command = this.state.command;
+    this.update({
+      ready: false,
+      status: "Recovering match connection…",
+      error: "",
+      command:
+        command?.phase === "submitting"
+          ? { ...command, phase: "uncertain" }
+          : command,
+    });
+    try {
+      await this.refresh(c);
+      if (this.connection !== c) return;
+      this.update({ ready: true, status: "Match state refreshed" });
+      void this.follow(c);
+      if (command?.receipt && (commandIsPending(command) || !command.result))
+        void this.pollCommand(c, command.receipt, Infinity);
+    } catch (error) {
+      if (this.connection !== c || aborted(error)) return;
+      this.update({
+        status: "Match recovery could not reach the server",
+        error: `Check that the match host is running, then choose Recover session again. ${message(error)}`,
+      });
+    }
+  };
   submitAction = async (action: GameplayAction, expectedRevision: number) => {
     const c = this.connection;
     const snapshot = this.state.snapshot;
     const identity = this.state.identity;
     if (!c || !snapshot || !this.state.ready) return;
-    if (
-      this.state.command &&
-      ["submitting", "uncertain", "queued", "running"].includes(
-        this.state.command.phase,
-      )
-    ) {
+    if (commandIsPending(this.state.command)) {
       this.update({
         error: "Resolve the pending command before submitting another action.",
       });
@@ -308,14 +350,20 @@ export class MatchSession {
   retryUncertainAction = async () => {
     const c = this.connection;
     const command = this.state.command;
-    if (!c || !command || command.phase !== "uncertain" || command.receipt)
+    if (
+      !c ||
+      !this.state.ready ||
+      !command ||
+      command.phase !== "uncertain" ||
+      command.receipt
+    )
       return;
     await this.transmitAction(c, command.request);
   };
   checkCommandStatus = async () => {
     const c = this.connection;
     const command = this.state.command;
-    if (!c || !command) return;
+    if (!c || !this.state.ready || !command) return;
     if (!command.receipt) {
       if (command.phase === "uncertain") await this.retryUncertainAction();
       return;
@@ -336,7 +384,7 @@ export class MatchSession {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(request),
-        signal: c.abort.signal,
+        signal: requestSignal(c),
         cache: "no-store",
         credentials: "omit",
         redirect: "error",
@@ -348,6 +396,7 @@ export class MatchSession {
       }
       if (!response.ok) {
         const detail = await this.readError(response);
+        if (this.connection !== c) return;
         if (response.status === 408 || response.status >= 500)
           throw new Error(detail);
         this.update({
@@ -357,6 +406,7 @@ export class MatchSession {
         return;
       }
       const value: unknown = await response.json();
+      if (this.connection !== c) return;
       if (!validateReceipt(value)) throw new Error("Invalid command receipt");
       const receipt = value as CommandReceipt;
       if (
@@ -389,13 +439,24 @@ export class MatchSession {
     receipt: CommandReceipt,
     attempts: number,
   ) {
+    const current = () => {
+      const command = this.state.command;
+      return this.connection === c &&
+        command?.request.request_id === receipt.request_id &&
+        (!command.result || commandIsPending(command))
+        ? command
+        : null;
+    };
     for (let index = 0; index < attempts && this.connection === c; index++) {
+      if (!current()) return;
       try {
         const response = await this.request(
           c,
           `commands/${receipt.command_id}`,
         );
         const value: unknown = await response.json();
+        const command = current();
+        if (!command) return;
         if (!validateResult(value))
           throw new Error("Invalid command status response");
         const result = value as CommandResult;
@@ -407,24 +468,27 @@ export class MatchSession {
           throw new Error(
             "Command status does not match the accepted receipt.",
           );
-        const request = this.state.command?.request;
-        if (!request || request.request_id !== receipt.request_id)
-          throw new Error("Command receipt has no matching submitted request.");
-        this.update({
-          command: {
-            request,
-            receipt,
-            result,
-            phase: result.status,
-          },
-          error: result.error?.message ?? "",
-        });
-        if (!["queued", "running"].includes(result.status)) {
-          await this.refresh(c);
+        const updated = { ...command, result, phase: result.status };
+        if (
+          !commandIsPending(updated) ||
+          (commandIsPending(command) &&
+            !(command.phase === "running" && result.status === "queued"))
+        )
+          this.update({
+            command: updated,
+            error: result.error?.message ?? "",
+          });
+        if (!commandIsPending(updated)) {
+          await this.refresh(c).catch((error: unknown) => {
+            if (this.connection === c && !aborted(error))
+              this.update({
+                error: `Refresh after command failed: ${message(error)}`,
+              });
+          });
           return;
         }
       } catch (error) {
-        if (this.connection !== c || aborted(error)) return;
+        if (!current() || aborted(error)) return;
         this.update({
           error: `Command accepted; status could not be confirmed: ${message(error)}`,
         });

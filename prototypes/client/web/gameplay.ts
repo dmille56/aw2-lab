@@ -1,6 +1,6 @@
 import type { UnitState } from "./state";
 import { useEffect, useReducer } from "react";
-import type { ViewState } from "./session";
+import { commandIsPending, type ViewState } from "./session";
 import type { Position } from "./Board";
 import type { GameplayAction } from "./command_input";
 import { supportedProductionProperties } from "./command_input";
@@ -339,11 +339,7 @@ export function useGameplay(
       notice: "Match state changed. Start a new action from the current board.",
     });
   }, [boundary, draft.boundary]);
-  const pending =
-    !!view.command &&
-    ["submitting", "uncertain", "queued", "running"].includes(
-      view.command.phase,
-    );
+  const pending = commandIsPending(view.command);
   const ready =
     view.connected &&
     view.ready &&
@@ -595,8 +591,8 @@ export function useGameplay(
                 ? (feature("load")?.unavailable_reason ??
                   "The connected server does not currently enable loading.")
                 : "";
-  const reset = () =>
-    dispatch({ type: "reset", boundary, notice: "Action cancelled." });
+  const reset = (notice = "Action cancelled.") =>
+    dispatch({ type: "reset", boundary, notice });
   const cancel = () => {
     if (pending) return;
     if (draft.base && draft.phase === "review" && draft.kind === "purchase") {
@@ -1027,21 +1023,27 @@ export function useGameplay(
     target: Position | null = null,
     unitType = draft.unitType,
   ) => buildAction({ ...draft, kind, target, unitType, phase: "review" });
-  const unavailable = !view.connected
-    ? "Connect to a live match to submit actions."
-    : !view.ready
-      ? "The live match is still synchronizing."
-      : !slot
-        ? "Gameplay requires a player identity."
-        : !battle
-          ? "Live battle state is unavailable."
-          : battle.active_player_slot !== slot
-            ? "It is not your player slot's turn."
-            : !ready
-              ? "The match is not settled and action-ready."
-              : pending
-                ? "A command is pending. Editing is locked until its outcome is known."
-                : "";
+  const lifecycle = snapshot?.summary.lifecycle;
+  let unavailable = "";
+  if (!view.connected)
+    unavailable = "Connect to a live match to submit actions.";
+  else if (lifecycle === "recovery_required")
+    unavailable =
+      "The match operator must restore a checkpoint before play can continue.";
+  else if (!view.ready) unavailable = view.status;
+  else if (!slot) unavailable = "Gameplay requires a player identity.";
+  else if (pending)
+    unavailable =
+      "Gameplay is paused until the pending command's outcome is known.";
+  else if (lifecycle === "finished" || lifecycle === "closed")
+    unavailable = "This match has ended.";
+  else if (!battle) unavailable = "Live battle state is unavailable.";
+  else if (battle.active_player_slot !== slot)
+    unavailable = "It is not your player slot's turn.";
+  else if (!ready)
+    unavailable =
+      observation?.action_readiness_reasons.join(", ") ||
+      "The match is not ready for gameplay actions.";
   return {
     draft,
     dispatch,

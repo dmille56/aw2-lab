@@ -693,7 +693,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     steps. Rejections retain request context; repeated refreshes do not duplicate
     notices, and completed safe retries clear the stale unknown warning. Human review pending.
 
-*** TODO Diagnose stalled play sessions and add manual client recovery
+*** IN-PROGRESS Diagnose stalled play sessions and add manual client recovery
     In an =aw2-lab play= session, the human client stopped allowing movement and
     end turn. The latest local Bean Island run retained a =playable= checkpoint
     at revision 191 after a completed Move & Wait. The journal has no later
@@ -704,6 +704,12 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     state, reconciles pending commands without duplicate submissions, and resets
     stale local plans. Give actionable guidance if the host is offline or the
     match requires an operator checkpoint restore.
+    Implemented: =Recover session= clears the draft and reconnects with the same
+    match credentials. It checks known receipts and preserves the exact request
+    for an explicit safe retry if the receipt is missing. The client bounds
+    individual command requests and ignores late status responses that would
+    move a completed command back to running. Both lockups can be reproduced
+    with controlled HTTP responses. The original stall's cause remains unverified.
 
 *** IN-PROGRESS Make the selected unit unmistakable
     Human playtest feedback (2026-11-16): it is difficult to identify the selected

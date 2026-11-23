@@ -26,7 +26,6 @@ export function CommandPanel({ model }: { model: GameplayModel }) {
           : draft.notice ||
             "Select your ready unit or an empty production facility on the board."}
       </p>
-      {model.unavailable && <p className="hint">{model.unavailable}</p>}
       {selectedUnit && (
         <p aria-label="Selected unit HP">
           HP: {selectedUnit.internal_health}/100

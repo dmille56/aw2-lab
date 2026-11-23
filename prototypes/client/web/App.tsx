@@ -194,6 +194,18 @@ export function App() {
             >
               Refresh
             </button>
+            {view.connected && snapshot && (
+              <button
+                type="button"
+                title="Reconnect and clear the current action plan"
+                onClick={() => {
+                  gameplay.reset("Action plan cleared for session recovery.");
+                  void session.recoverCurrent();
+                }}
+              >
+                Recover session
+              </button>
+            )}
             <button
               type="button"
               id="disconnect"
