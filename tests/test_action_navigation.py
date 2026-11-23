@@ -140,6 +140,100 @@ def test_artillery_purchase_checks_each_row_and_rechecks_before_confirming(
     assert timeouts == [limits.resolution_wall_timeout]
 
 
+@pytest.mark.parametrize("scenario", ["playable", "terminal", "row", "drift"])
+def test_end_turn_probes_transition_and_verifies_full_boundary(
+    memory, monkeypatch, scenario
+) -> None:
+    initial = decode_snapshot(snapshot(memory))
+    start = initial.frame
+    boundary_frame = start + 93
+    final_phase = (
+        LifecyclePhase.RESULT_SEQUENCE
+        if scenario == "terminal"
+        else LifecyclePhase.BATTLE_PLAYER_TURN
+    )
+    full_frames = []
+    probe_frames = []
+
+    class TurnBridge:
+        frame = start
+        pressed = False
+
+        async def observe(self) -> GameState:
+            full_frames.append(self.frame)
+            ready = self.frame == boundary_frame
+            menu = (
+                MenuObservation(
+                    self.frame,
+                    MenuFamily.UNRESOLVED if scenario == "terminal" else MenuFamily.MAP_INPUT,
+                )
+                if ready
+                else MenuObservation(
+                    self.frame,
+                    MenuFamily.COMMAND if not self.pressed else MenuFamily.UNRESOLVED,
+                    selected_item=MenuItem.OPTIONS
+                    if scenario == "row" and self.frame > start
+                    else MenuItem.END,
+                    actionable=not self.pressed,
+                )
+            )
+            return replace(
+                initial,
+                frame=self.frame,
+                validation=replace(
+                    initial.validation,
+                    frame=self.frame,
+                    lifecycle=replace(
+                        initial.lifecycle,
+                        phase=final_phase if ready else LifecyclePhase.BATTLE_ENGINE_UNRESOLVED,
+                    ),
+                ),
+                ui=replace(
+                    initial.ui,
+                    frame=self.frame,
+                    map_cursor=replace(initial.ui.map_cursor, frame=self.frame),
+                    menu=menu,
+                ),
+            )
+
+        async def advance_frames(self, frames: int) -> int:
+            self.frame += frames
+            return self.frame
+
+        async def press_keys(self, keys: int, frames: int) -> int:
+            assert keys == 1
+            self.pressed = True
+            return await self.advance_frames(frames)
+
+    async def probe(bridge):
+        probe_frames.append(bridge.frame)
+        return (
+            bridge.frame + int(scenario == "drift"),
+            final_phase
+            if bridge.frame == boundary_frame
+            else LifecyclePhase.BATTLE_ENGINE_UNRESOLVED,
+        )
+
+    monkeypatch.setattr("aw2_lab.action_navigation.capture_lifecycle_phase", probe)
+    bridge = TurnBridge()
+    navigator = ActionNavigator(bridge, bridge.observe)
+    if scenario == "row":
+        with pytest.raises(NavigationError, match="Menu input changed before confirm-end-turn"):
+            asyncio.run(navigator.confirm_end_turn())
+        assert not bridge.pressed
+        assert not probe_frames
+    elif scenario == "drift":
+        with pytest.raises(NavigationError, match="Lifecycle probe does not match polling frame"):
+            asyncio.run(navigator.confirm_end_turn())
+        assert probe_frames == [start + 63]
+        assert full_frames[-1] == start + 63
+    else:
+        result = asyncio.run(navigator.confirm_end_turn())
+        assert result.lifecycle.phase is final_phase
+        assert probe_frames == [start + 63, boundary_frame]
+        assert full_frames == [start, start + 2, start + 33, boundary_frame]
+
+
 def test_unit_selection_uses_resolution_timeout_for_cursor_travel(memory, monkeypatch) -> None:
     state = decode_snapshot(snapshot(memory))
     observation = MatchObservationTracker(uuid4()).commit_boundary(state)

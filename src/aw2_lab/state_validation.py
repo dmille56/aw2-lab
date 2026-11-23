@@ -243,20 +243,42 @@ def _result(errors: list[str], unknown: list[str], count: int | None = None) -> 
     return StructureValidation(ValidationStatus.VALID, count=count)
 
 
-def _lifecycle(snapshot: BattleMemorySnapshot) -> LifecycleAssessment:
-    pool = snapshot.read(0x0200D610, 32 * 0x6C)
+_LIFECYCLE_RANGES = (
+    (0x0200D610, 32 * 0x6C),
+    (0x030040D0, 4),
+    (0x030040EC, 4),
+    (0x03003F3C, 4),
+    (0x030032D8, 2),
+    (0x030030F0, 1),
+    (0x030040E4, 2),
+    (0x03003334, 2),
+)
+
+
+def _decode_lifecycle(ranges: tuple[bytes, ...]) -> LifecycleAssessment:
+    pool, callback_a, callback_b, mode, state, lock, gate, input_state = ranges
     return classify_lifecycle(
-        snapshot.u32(0x030040D0),
-        snapshot.u32(0x030040EC),
+        int.from_bytes(callback_a, "little"),
+        int.from_bytes(callback_b, "little"),
         (unpack_from("<I", pool, index * 0x6C)[0] for index in range(32)),
         battle_control=BattleControlObservation(
-            mode=snapshot.u32(0x03003F3C),
-            state=snapshot.u16(0x030032D8),
-            lock_count=snapshot.read(0x030030F0, 1)[0],
-            input_gate=int.from_bytes(snapshot.read(0x030040E4, 2), "little", signed=True),
-            input_state=snapshot.u16(0x03003334),
+            mode=int.from_bytes(mode, "little"),
+            state=int.from_bytes(state, "little"),
+            lock_count=lock[0],
+            input_gate=int.from_bytes(gate, "little", signed=True),
+            input_state=int.from_bytes(input_state, "little"),
         ),
     )
+
+
+def _lifecycle(snapshot: BattleMemorySnapshot) -> LifecycleAssessment:
+    return _decode_lifecycle(tuple(snapshot.read(*region) for region in _LIFECYCLE_RANGES))
+
+
+async def capture_lifecycle_phase(bridge: LuaBridgeClient) -> tuple[int, LifecyclePhase]:
+    """Classify a frame using its process pool and battle controller fields only."""
+    sample = await bridge.read_memory_snapshot(list(_LIFECYCLE_RANGES))
+    return sample.frame, _decode_lifecycle(sample.ranges).phase
 
 
 def _geometry(snapshot: BattleMemorySnapshot) -> StructureValidation:

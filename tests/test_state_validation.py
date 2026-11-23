@@ -22,6 +22,7 @@ from aw2_lab.state_validation import (
     BattleStructure,
     ValidationStatus,
     capture_battle_snapshot,
+    capture_lifecycle_phase,
     load_battle_layout,
     validate_battle_snapshot,
 )
@@ -1260,6 +1261,17 @@ def test_capture_round_trip(memory) -> None:
     bridge = SnapshotBridge(original, drift=False, truncate=False)
     captured = asyncio.run(capture_battle_snapshot(bridge, memory[0]))
     assert captured == original
+
+
+@pytest.mark.parametrize("locked", [False, True])
+def test_compact_lifecycle_probe_matches_full_snapshot(memory, locked) -> None:
+    memory[2][0x30F0] = int(locked)
+    original = snapshot(memory)
+    bridge = SnapshotBridge(original, drift=False, truncate=False)
+    frame, phase = asyncio.run(capture_lifecycle_phase(bridge))
+    assert bridge.reads == 1
+    assert frame == original.frame
+    assert phase is validate_battle_snapshot(original).lifecycle.phase
 
 
 def test_capture_uses_one_request_on_bridges_with_battle_ram(memory) -> None:

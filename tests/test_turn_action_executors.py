@@ -91,13 +91,18 @@ def test_end_turn_verifies_next_player_and_new_day(
         def __init__(self) -> None:
             self.calls = []
 
-        async def open_command_menu(self):
+        async def open_command_menu(self, *, settle_first):
+            assert settle_first
             self.calls.append("open")
+            return initial.game_state
 
-        async def navigate_menu(self, item):
+        async def navigate_menu(self, item, *, opened_menu):
+            assert opened_menu is initial.game_state
             self.calls.append(("navigate", item))
+            return initial.game_state
 
-        async def confirm_end_turn(self):
+        async def confirm_end_turn(self, *, selected_menu):
+            assert selected_menu is initial.game_state
             self.calls.append("confirm")
             return final_state
 

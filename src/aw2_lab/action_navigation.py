@@ -14,6 +14,7 @@ from aw2_lab.bridge import MAX_CURSOR_BATCH_STEPS, MAX_CURSOR_HOLD_STEPS, LuaBri
 from aw2_lab.lifecycle import LifecyclePhase
 from aw2_lab.match_observation import MatchObservation
 from aw2_lab.state_model import BattleState, GameState, ValueStatus
+from aw2_lab.state_validation import capture_lifecycle_phase
 from aw2_lab.ui_state import CursorStatus, MenuFamily, MenuItem
 
 _KEY_A = 1
@@ -263,7 +264,7 @@ class ActionNavigator:
                 poll_frames=self.limits.resolution_poll_frames,
             )
 
-    async def open_command_menu(self) -> GameState:
+    async def open_command_menu(self, *, settle_first: bool = False) -> GameState:
         """Open the battle command menu with Select from recognized map input."""
         async with self._bounded_operation():
             self._begin("open_command_menu")
@@ -273,7 +274,11 @@ class ActionNavigator:
                 or state.ui.menu.family is not MenuFamily.MAP_INPUT
             ):
                 raise await self._fail("Command menu requires settled map input", state)
-            await self._tap("open-command-menu", _KEY_SELECT)
+            await self._tap(
+                "open-command-menu",
+                _KEY_SELECT,
+                settle_frames=self.limits.poll_frames if settle_first else 0,
+            )
             return await self._wait_for(
                 lambda value: (
                     value.lifecycle.phase is LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
@@ -283,19 +288,32 @@ class ActionNavigator:
                 description="the recognized battle command menu",
             )
 
-    async def confirm_end_turn(self) -> GameState:
+    async def confirm_end_turn(self, *, selected_menu: GameState | None = None) -> GameState:
         """Activate End and wait for the opponent turn or a terminal result."""
         async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
             self._begin("end_turn")
-            state = await self._observe()
-            if (
-                state.lifecycle.phase is not LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
-                or state.ui.menu.family is not MenuFamily.COMMAND
-                or state.ui.menu.selected_item is not MenuItem.END
-                or state.ui.menu.actionable is not True
-            ):
+            state = (
+                selected_menu
+                if selected_menu is not None and selected_menu is self._last_state
+                else await self._observe()
+            )
+
+            def end_selected(value: GameState) -> bool:
+                return (
+                    value.lifecycle.phase is LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
+                    and value.ui.menu.family is MenuFamily.COMMAND
+                    and value.ui.menu.selected_item is MenuItem.END
+                    and value.ui.menu.actionable is True
+                )
+
+            if not end_selected(state):
                 raise await self._fail("End Turn requires the actionable End command", state)
-            await self._tap("confirm-end-turn", _KEY_A)
+            await self._tap(
+                "confirm-end-turn",
+                _KEY_A,
+                precondition=end_selected,
+                settle_frames=self.limits.resolution_poll_frames,
+            )
             return await self._wait_for(
                 lambda value: (
                     (
@@ -308,6 +326,7 @@ class ActionNavigator:
                 description="the next player turn or a terminal match result",
                 frame_budget=self.limits.resolution_frame_budget,
                 poll_frames=self.limits.resolution_poll_frames,
+                candidate_phases=_TERMINAL_PHASES | {LifecyclePhase.BATTLE_PLAYER_TURN},
             )
 
     async def open_yield_confirmation(self) -> GameState:
@@ -1292,11 +1311,17 @@ class ActionNavigator:
                 poll_frames=self.limits.resolution_poll_frames,
             )
 
-    async def navigate_menu(self, item: MenuItem) -> GameState:
+    async def navigate_menu(
+        self, item: MenuItem, *, opened_menu: GameState | None = None
+    ) -> GameState:
         """Navigate the known battle-menu hierarchy to ``item`` from a recognized selector."""
         async with self._bounded_operation():
             self._begin("navigate_menu")
-            state = await self._observe()
+            state = (
+                opened_menu
+                if opened_menu is not None and opened_menu is self._last_state
+                else await self._observe()
+            )
             item_family = self._menu_family_for_item(item)
             if item_family is None:
                 raise await self._fail(f"No recognized selector contains {item.value}", state)
@@ -1362,7 +1387,7 @@ class ActionNavigator:
                 raise await self._fail("Selector changed during menu navigation", state)
             next_index = rows.index(current) + (1 if delta > 0 else -1)
             expected = rows[next_index]
-            await self._tap(f"menu-{name}", key)
+            await self._tap(f"menu-{name}", key, observe_release=item is not MenuItem.END)
 
             def selection_matches(value: GameState, expected: MenuItem = expected) -> bool:
                 return value.ui.menu.family is family and value.ui.menu.selected_item is expected
@@ -1500,6 +1525,7 @@ class ActionNavigator:
         frame_budget: int | None = None,
         poll_frames: int | None = None,
         guard: Postcondition | None = None,
+        candidate_phases: frozenset[LifecyclePhase] | None = None,
     ) -> GameState:
         budget = self.limits.frame_budget if frame_budget is None else frame_budget
         interval = self.limits.poll_frames if poll_frames is None else poll_frames
@@ -1517,6 +1543,18 @@ class ActionNavigator:
                 )
             end = await self.bridge.advance_frames(interval)
             self._frames_used += interval
+            # Always take a full snapshot at a candidate boundary or the last poll.
+            if (
+                candidate_phases is not None
+                and guard is None
+                and self._frames_used + interval <= budget
+            ):
+                frame, phase = await capture_lifecycle_phase(self.bridge)
+                if frame != end:
+                    state = await self._observe()
+                    raise await self._fail("Lifecycle probe does not match polling frame", state)
+                if phase not in candidate_phases:
+                    continue
             state = await self._observe()
             if state.frame != end:
                 raise await self._fail("Observed state frame does not match polling frame", state)

@@ -52,9 +52,9 @@ class EndTurnActionExecutor:
                 "End Turn requires a ready, identified player-turn observation",
             )
 
-        await self.navigator.open_command_menu()
-        await self.navigator.navigate_menu(MenuItem.END)
-        final_state = await self.navigator.confirm_end_turn()
+        opened = await self.navigator.open_command_menu(settle_first=True)
+        selected = await self.navigator.navigate_menu(MenuItem.END, opened_menu=opened)
+        final_state = await self.navigator.confirm_end_turn(selected_menu=selected)
         if final_state.lifecycle.phase in _TERMINAL_PHASES:
             committed = self.tracker.commit_terminal_boundary(final_state)
             return MutationOutcome(observation=committed, lifecycle=MatchLifecycle.FINISHED)

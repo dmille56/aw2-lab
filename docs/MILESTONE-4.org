@@ -511,13 +511,32 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     41 bridge calls to 30. The purchase settled after 33 frames including the
     confirm tap, with five bridge calls instead of six. Human review pending.
 
-*** TODO Investigate how to speed up ending a turn
+*** IN-PROGRESS Investigate how to speed up ending a turn
     Benchmark End Turn in headless and windowed mGBA. Measure command menu
     navigation, confirmation, turn transition, and the wait for the next
     player's settled state. Compare ordinary handoffs with day rollover and
     upkeep, and record wall time, emulator frames, and bridge calls before
     and after any optimization. Verify the next player and day before
     accepting more gameplay commands.
+    Implemented: carry forward the verified command menu and selected row,
+    check the actionable End row again before pressing A, and use a compact
+    lifecycle read during the transition. A candidate playable or terminal
+    boundary still needs a full snapshot. The existing watchdog, poll cadence,
+    and frame budgets apply throughout.
+    Live Rainy Haven comparison, median of three executor runs per case from
+    the same restored starting state in each mGBA mode. Each pair reached the
+    same player, day, funds, fuel state, and frame count.
+
+    | Case                     | Headless seconds | Windowed seconds | Frames | Bridge calls |
+    |--------------------------+------------------+------------------+--------+--------------|
+    | Handoff within a day     | 1.99 to 1.14     | 2.09 to 1.22     |    238 |     43 to 36 |
+    | Day rollover             | 2.05 to 1.17     | 2.20 to 1.23     |    268 |     45 to 38 |
+    | Day rollover with supply | 2.09 to 1.18     | 2.17 to 1.20     |    268 |     45 to 38 |
+
+    The rollover with upkeep restored an Infantry's fuel from 97 to 99.
+    Command selection used four directional taps and fell from 17 bridge calls
+    to 12. Full battle snapshots fell from 23–24 to 10 per action. Human review
+    pending.
 
 ** IN-PROGRESS Redesign the human client UI for usability and ergonomics
    Complete this usability redesign before starting the deferred cross-platform
