@@ -357,6 +357,74 @@ def test_map_cursor_waits_for_directional_input_to_rearm(
     asyncio.run(run())
 
 
+def test_incomplete_hold_resumes_with_verified_single_taps(memory) -> None:
+    initial = decode_snapshot(snapshot(memory))
+    battle = initial.battle.value
+    assert battle is not None
+    initial = replace(
+        initial,
+        battle=replace(
+            initial.battle,
+            value=replace(battle, map=replace(battle.map, width=4)),
+        ),
+    )
+
+    class HoldingBridge:
+        supports_cursor_batch = True
+        supports_held_cursor = True
+
+        def __init__(self) -> None:
+            self.state = initial
+            self.single_taps = 0
+
+        def update(self, frames, x):
+            frame = self.state.frame + frames
+            ui = self.state.ui
+            self.state = replace(
+                self.state,
+                frame=frame,
+                validation=replace(self.state.validation, frame=frame),
+                ui=replace(
+                    ui,
+                    frame=frame,
+                    map_cursor=replace(ui.map_cursor, frame=frame, x=x),
+                    menu=replace(ui.menu, frame=frame),
+                ),
+            )
+            return frame
+
+        async def observe(self):
+            return self.state
+
+        async def move_map_cursor_batch(self, keys, *, start_frame, start, steps, gap, hold=False):
+            assert self.state is initial
+            assert (hold, start_frame, start, keys, steps, gap) == (
+                True,
+                initial.frame,
+                (0, 0),
+                16,
+                3,
+                8,
+            )
+            return CursorBatchResult(self.update(23, 1), 1, "cursor", pressed_frames=15)
+
+        async def advance_frames(self, frames):
+            assert frames == 8
+            return self.update(frames, self.state.ui.map_cursor.x)
+
+        async def press_keys(self, keys, frames):
+            assert (keys, frames) == (16, 1)
+            self.single_taps += 1
+            return self.update(frames, self.state.ui.map_cursor.x + 1)
+
+    bridge = HoldingBridge()
+    navigator = ActionNavigator(bridge, bridge.observe)
+    result = asyncio.run(navigator.move_cursor_to(3, 0))
+    assert result.ui.map_cursor.x == 3
+    assert bridge.single_taps == 2
+    assert [event.frames for event in navigator.inputs] == [15, 1, 1]
+
+
 def test_navigate_menu_tracks_each_verified_command_row(memory) -> None:
     class FakeBridge:
         def __init__(self, state: GameState) -> None:

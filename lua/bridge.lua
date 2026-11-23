@@ -9,7 +9,7 @@ local bridge = {
         "connect", "set_keys", "press_keys", "advance_frames", "read_memory",
         "write_memory", "read_memory_batch", "screenshot", "reset", "save_state", "load_state",
         "save_state_buffer", "load_state_buffer", "move_map_cursor_batch", "read_battle_ram",
-        "verify_map_cursor",
+        "verify_map_cursor", "hold_map_cursor",
     },
     max_message_bytes = 4718592,
     max_state_bytes = 3145728,
@@ -54,7 +54,7 @@ end
 local cursor_directions = {
     [16] = {1, 0}, [32] = {-1, 0}, [64] = {0, -1}, [128] = {0, 1},
 }
-local function cursor_batch_guard(batch)
+local function map_input_matches(batch)
     if emu:read32(0x030040D0) ~= 0x08036945 or emu:read32(0x030040EC) ~= 0x080369BD
         or emu:read32(0x03003F3C) ~= 1 or emu:read16(0x030032D8) ~= 13
         or emu:read8(0x030030F0) ~= 0 or emu:read16(0x030040E4) ~= 0
@@ -62,11 +62,16 @@ local function cursor_batch_guard(batch)
         or emu:read16(0x0201E450) ~= batch.width or emu:read16(0x0201E452) ~= batch.height
         or (batch.map_id ~= nil and emu:read8(0x03003FC2) ~= batch.map_id)
         or emu:read16(0x03004080) ~= batch.day then
-        return "phase"
+        return false
     end
     for index = 0, 31 do
-        if emu:read32(0x0200D610 + index * 0x6C) ~= 0 then return "phase" end
+        if emu:read32(0x0200D610 + index * 0x6C) ~= 0 then return false end
     end
+    return true
+end
+
+local function cursor_batch_guard(batch)
+    if not map_input_matches(batch) then return "phase" end
     if emu:read16(0x030033E4) ~= batch.x or emu:read16(0x030033E6) ~= batch.y
         or emu:read8(0x03003140) ~= batch.x or emu:read8(0x03003141) ~= batch.y then
         return "cursor"
@@ -141,12 +146,14 @@ function bridge.handle_request(request)
         }
     end
 
-    if request.operation == "move_map_cursor_batch" then
+    if request.operation == "move_map_cursor_batch" or request.operation == "hold_map_cursor" then
+        local hold = request.operation == "hold_map_cursor"
         local direction = cursor_directions[request.keys]
         local gap, steps = request.gap, request.steps
         local x, y, start_frame = request.x, request.y, request.start_frame
         if not direction or not integer_in_range(gap, 8, 60)
-            or not integer_in_range(steps, 2, 8) or not integer_in_range(x, 0, 47)
+            or not integer_in_range(steps, hold and 3 or 2, hold and 24 or 8)
+            or not integer_in_range(x, 0, 47)
             or not integer_in_range(y, 0, 38)
             or not integer_in_range(start_frame, 0, 4294967295) then
             return error_response(request_id, "invalid_request", "invalid map cursor batch")
@@ -174,6 +181,9 @@ function bridge.handle_request(request)
             direction = direction, gap = gap, steps = steps, taps = 0, press = false,
             width = width, height = height, player = player, map_id = emu:read8(0x03003FC2),
             day = emu:read16(0x03004080),
+            -- AW2 repeats after 10 frames, then once every four frames.
+            hold_frames = hold and (4 * steps + 3) or nil,
+            pressed_frames = hold and 0 or nil,
         }
         return {id = request_id, ok = true, result = {deferred = true}}
     end
@@ -497,6 +507,7 @@ local function finish_cursor_batch(batch, reason)
         id = batch.id, ok = true, result = {
             frame = frame,
             taps = batch.taps,
+            pressed_frames = batch.pressed_frames,
             stop = reason,
             released = emu:getKeys() == 0,
         },
@@ -510,7 +521,7 @@ local function poll_cursor_batch(batch)
         return
     end
     local frames, keys = batch.gap, 0
-    if batch.press then frames, keys = 1, batch.keys end
+    if batch.press then frames, keys = batch.hold_frames or 1, batch.keys end
     local queued, accepted = pcall(function() return emu:requestFrames(frames, keys, true) end)
     if not queued or not accepted then
         emu:setKeys(0)
@@ -571,13 +582,42 @@ function bridge.poll()
     end
 end
 
+local function observe_held_cursor()
+    local batch = cursor_batch
+    if not batch or not batch.hold_frames or not batch.press
+        or batch.hold_stop == "phase" then return end
+    if not batch.hold_stop then batch.pressed_frames = batch.pressed_frames + 1 end
+    if not map_input_matches(batch) then
+        batch.hold_stop = "phase"
+        emu:setKeys(0)
+        return
+    end
+    if batch.hold_stop then return end
+    -- Scrolling can delay the cache by several frames. Follow only consecutive
+    -- source coordinates while the direction is held; verify the cache when done.
+    local x, y = emu:read16(0x030033E4), emu:read16(0x030033E6)
+    if x ~= batch.x or y ~= batch.y then
+        if x == batch.x + batch.direction[1] and y == batch.y + batch.direction[2] then
+            batch.x, batch.y = x, y
+            batch.taps = batch.taps + 1
+            if batch.taps == batch.steps then batch.hold_stop = "complete" end
+        else
+            batch.hold_stop = "cursor"
+        end
+    end
+    if batch.hold_stop then emu:setKeys(0) end
+end
+
 local function complete_cursor_batch(batch)
-    if batch.press then
+    if batch.press and not batch.hold_frames then
         batch.taps = batch.taps + 1
         batch.x = batch.x + batch.direction[1]
         batch.y = batch.y + batch.direction[2]
     end
     local advanced = batch.taps * (batch.gap + 1) + (batch.press and 0 or batch.gap)
+    if batch.hold_frames then
+        advanced = batch.gap + (batch.press and batch.hold_frames or 0)
+    end
     if emu:currentFrame() ~= (batch.start_frame + advanced) % 4294967296 then
         emu:setKeys(0)
         cursor_batch = nil
@@ -587,6 +627,11 @@ local function complete_cursor_batch(batch)
         return
     end
     local stop = cursor_batch_guard(batch)
+    if batch.press and batch.hold_frames then
+        if batch.hold_stop == "phase" then stop = "phase" end
+        finish_cursor_batch(batch, stop or batch.hold_stop or "cursor")
+        return
+    end
     if stop or batch.taps == batch.steps then
         finish_cursor_batch(batch, stop or "complete")
         return
@@ -633,6 +678,7 @@ end
 
 callbacks:add("bridgePoll", bridge.poll)
 callbacks:add("bridgeComplete", bridge.complete)
+callbacks:add("frame", observe_held_cursor)
 
 -- mGBA's scripting loader can use this global for interactive inspection.
 AW2Bridge = bridge

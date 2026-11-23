@@ -6,6 +6,7 @@ local active_client
 local close_count
 local frame_callback
 local complete_callback
+local core_frame_callback
 local queued_request
 local reject_queue = false
 local frame = 100
@@ -75,6 +76,8 @@ function _G.callbacks.add(_self, name, callback)
         frame_callback = callback
     elseif name == "bridgeComplete" then
         complete_callback = callback
+    elseif name == "frame" then
+        core_frame_callback = callback
     else
         error("unexpected callback " .. name)
     end
@@ -152,12 +155,14 @@ function _G.emu.requestFrames(_self, count, mask, release)
 end
 
 -- Model the native frontend: Lua has returned before any frames execute.
-local function finish_native_request(actual_frames)
+local function finish_native_request(actual_frames, update_ram)
     local request = assert(queued_request)
     queued_request = nil
     keys = request.keys
-    for _ = 1, actual_frames or request.frames do
+    for index = 1, actual_frames or request.frames do
+        if update_ram then update_ram(index) end
         emu:runFrame()
+        core_frame_callback()
     end
     if request.release then keys = 0 end
     complete_callback()
@@ -273,6 +278,75 @@ describe("mGBA Lua bridge", function()
         ram[0x030033E4], ram[0x03003140] = x, x
         finish_native_request()
     end
+
+    local function start_cursor_hold()
+        set_map_input_ram()
+        ram[0x0201E450] = 6
+        pending_chunks = {
+            '{"id":59,"version":1,"operation":"hold_map_cursor","keys":16,'
+                .. '"start_frame":100,"x":1,"y":0,"gap":8,"steps":3}\n',
+        }
+        frame_callback()
+        frame_callback()
+        assert.are.equal(8, queued_request.frames)
+        assert.are.equal(0, queued_request.keys)
+        finish_native_request()
+        frame_callback()
+        assert.are.equal(15, queued_request.frames)
+        assert.are.equal(16, queued_request.keys)
+    end
+
+    it("checks consecutive live tiles during a hold and releases at the target", function()
+        start_cursor_hold()
+        finish_native_request(nil, function(index)
+            if index <= 3 then ram[0x030033E4] = 1 + index end
+            if index == 5 then ram[0x03003140] = 4 end
+        end)
+        assert.are.equal(123, frame)
+        assert.same({16, 16, 16, 0, 0}, {table.unpack(input_samples, 9, 13)})
+        assert.are.equal(0, keys)
+        assert.is_truthy(sent_data:match('"stop":"complete"'))
+        assert.is_truthy(sent_data:match('"pressed_frames":3'))
+    end)
+
+    it("releases a held direction when the input phase changes", function()
+        start_cursor_hold()
+        finish_native_request(nil, function(index)
+            if index == 1 then ram[0x030030F0] = 1 end
+            if index == 2 then ram[0x030030F0] = 0 end
+        end)
+        assert.same({16, 0}, {table.unpack(input_samples, 9, 10)})
+        assert.are.equal(0, keys)
+        assert.is_truthy(sent_data:match('"stop":"phase"'))
+    end)
+
+    it("remembers a phase change after reaching the held target", function()
+        start_cursor_hold()
+        finish_native_request(nil, function(index)
+            if index <= 3 then
+                ram[0x030033E4], ram[0x03003140] = 1 + index, 1 + index
+            elseif index == 4 then
+                ram[0x030030F0] = 1
+            elseif index == 5 then
+                ram[0x030030F0] = 0
+            end
+        end)
+        assert.are.equal(0, keys)
+        assert.is_truthy(sent_data:match('"stop":"phase"'))
+    end)
+
+    it("releases a held direction after an extra step", function()
+        start_cursor_hold()
+        finish_native_request(nil, function(index)
+            if index == 1 then
+                ram[0x030033E4], ram[0x03003140] = 3, 3
+            end
+        end)
+        assert.same({16, 0}, {table.unpack(input_samples, 9, 10)})
+        assert.are.equal(0, keys)
+        assert.is_truthy(sent_data:match('"stop":"cursor"'))
+        assert.is_truthy(sent_data:match('"taps":0'))
+    end)
 
     it("verifies both taps of a straight run ending at the edge", function()
         start_cursor_batch(2)

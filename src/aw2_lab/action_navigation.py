@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import uuid4
 
-from aw2_lab.bridge import MAX_CURSOR_BATCH_STEPS, LuaBridgeClient
+from aw2_lab.bridge import MAX_CURSOR_BATCH_STEPS, MAX_CURSOR_HOLD_STEPS, LuaBridgeClient
 from aw2_lab.lifecycle import LifecyclePhase
 from aw2_lab.match_observation import MatchObservation
 from aw2_lab.state_model import BattleState, GameState, ValueStatus
@@ -183,7 +183,7 @@ class ActionNavigator:
     _operation: str = field(default="navigation", init=False)
 
     async def move_cursor_to(self, x: int, y: int) -> GameState:
-        """Move over map-input UI, checking the exact cursor delta after every tap."""
+        """Move over map-input UI, verifying every directional step."""
         async with self._bounded_operation():
             self._begin("move_cursor")
             return await self._move_cursor(x, y)
@@ -391,6 +391,7 @@ class ActionNavigator:
             and self.limits.input_frames == 1
         )
         probe_cursor = getattr(self.bridge, "supports_map_cursor_probe", False) is True
+        can_hold = getattr(self.bridge, "supports_held_cursor", False) is True
         cursor_frame = state.frame
         while position != (x, y):
             dx, dy = x - position[0], y - position[1]
@@ -400,20 +401,41 @@ class ActionNavigator:
                 )
             else:
                 name, sx, sy, key = ("down", 0, 1, _KEY_DOWN) if dy > 0 else ("up", 0, -1, _KEY_UP)
-            steps = min(
-                abs(dx or dy),
-                MAX_CURSOR_BATCH_STEPS,
-                (self.limits.frame_budget - self._frames_used) // (gap + 1),
+            remaining_frames = self.limits.frame_budget - self._frames_used
+            distance = abs(dx or dy)
+            held_steps = min(distance, MAX_CURSOR_HOLD_STEPS, (remaining_frames - gap - 3) // 4)
+            # The initial repeat delay makes holding worthwhile from three steps on.
+            hold = can_hold and held_steps >= 3
+            steps = (
+                held_steps
+                if hold
+                else min(distance, MAX_CURSOR_BATCH_STEPS, remaining_frames // (gap + 1))
             )
             if use_batch and steps >= 2:
                 start_frame = cursor_frame
-                result = await self.bridge.move_map_cursor_batch(
-                    key, start_frame=start_frame, start=position, steps=steps, gap=gap
-                )
+                if hold:
+                    result = await self.bridge.move_map_cursor_batch(
+                        key,
+                        start_frame=start_frame,
+                        start=position,
+                        steps=steps,
+                        gap=gap,
+                        hold=True,
+                    )
+                else:
+                    result = await self.bridge.move_map_cursor_batch(
+                        key, start_frame=start_frame, start=position, steps=steps, gap=gap
+                    )
                 self._frames_used += (result.frame - start_frame) % (1 << 32)
-                for index in range(result.taps):
-                    start = (start_frame + index * (gap + 1) + gap) % (1 << 32)
-                    self.inputs.append(InputEvent(name, key, 1, start, (start + 1) % (1 << 32)))
+                if hold:
+                    if result.pressed_frames:
+                        start = (start_frame + gap) % (1 << 32)
+                        end = (start + result.pressed_frames) % (1 << 32)
+                        self.inputs.append(InputEvent(name, key, result.pressed_frames, start, end))
+                else:
+                    for index in range(result.taps):
+                        start = (start_frame + index * (gap + 1) + gap) % (1 << 32)
+                        self.inputs.append(InputEvent(name, key, 1, start, (start + 1) % (1 << 32)))
                 expected = (position[0] + sx * result.taps, position[1] + sy * result.taps)
                 remaining = abs((x - expected[0]) or (y - expected[1]))
                 if (
@@ -455,7 +477,11 @@ class ActionNavigator:
                         guard=lambda value: _same_map_turn(value, battle),
                     )
                     position = _map_input_cursor(state)
-                    use_batch = result.taps > 0 and position == expected
+                    use_batch = (
+                        result.taps > 0
+                        and position == expected
+                        and (not hold or result.taps == steps)
+                    )
                 if position is None or (result.stop == "complete" and position != expected):
                     raise await self._fail("Could not verify map cursor after batch", state)
                 cursor_frame = state.frame

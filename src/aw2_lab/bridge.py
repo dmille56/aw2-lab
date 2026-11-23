@@ -14,6 +14,7 @@ from typing import Any, Literal
 
 _MAX_STATE_BYTES = 3 * 1024 * 1024
 MAX_CURSOR_BATCH_STEPS = 8
+MAX_CURSOR_HOLD_STEPS = 24
 
 
 class BridgeError(ConnectionError):
@@ -34,11 +35,16 @@ class MemorySnapshot:
 
 @dataclass(frozen=True, slots=True)
 class CursorBatchResult:
-    """Frame and input count at the first failed guard or the end of the run."""
+    """Frame and input count at the end of a straight cursor run.
+
+    With held input, taps counts verified steps and pressed_frames counts
+    frames before the direction was released.
+    """
 
     frame: int
     taps: int
     stop: Literal["complete", "cursor", "phase"]
+    pressed_frames: int = 0
 
 
 class LuaBridgeClient:
@@ -64,6 +70,7 @@ class LuaBridgeClient:
         self.supports_cursor_batch = False
         self.supports_battle_ram = False
         self.supports_map_cursor_probe = False
+        self.supports_held_cursor = False
         self._ids = count(1)
         self._lock = asyncio.Lock()
 
@@ -173,6 +180,9 @@ class LuaBridgeClient:
         )
         self.supports_map_cursor_probe = (
             isinstance(capabilities, list) and "verify_map_cursor" in capabilities
+        )
+        self.supports_held_cursor = (
+            isinstance(capabilities, list) and "hold_map_cursor" in capabilities
         )
         return handshake
 
@@ -359,18 +369,26 @@ class LuaBridgeClient:
         return observed_frame == frame and matches
 
     async def move_map_cursor_batch(
-        self, keys: int, *, start_frame: int, start: tuple[int, int], steps: int, gap: int
+        self,
+        keys: int,
+        *,
+        start_frame: int,
+        start: tuple[int, int],
+        steps: int,
+        gap: int,
+        hold: bool = False,
     ) -> CursorBatchResult:
-        """Tap one D-pad direction with a map-input guard between every input."""
+        """Move in one D-pad direction with per-tile checks and bounded input."""
+        budget = gap + (4 * steps + 3) if hold else steps * (gap + 1)
         result = await self.request(
-            "move_map_cursor_batch",
+            "hold_map_cursor" if hold else "move_map_cursor_batch",
             keys=keys,
             start_frame=start_frame,
             x=start[0],
             y=start[1],
             steps=steps,
             gap=gap,
-            timeout=self.timeout + steps * (gap + 1) / 60,
+            timeout=self.timeout + budget / 60,
         )
         frame, taps, stop = result.get("frame"), result.get("taps"), result.get("stop")
         if (
@@ -383,14 +401,29 @@ class LuaBridgeClient:
         ):
             raise BridgeError("Lua bridge returned an invalid map cursor batch")
         advanced = (frame - start_frame) % (1 << 32)
-        expected = taps * (gap + 1)
-        if stop == "complete":
-            valid = taps == steps and advanced == expected
+        if hold:
+            pressed = result.get("pressed_frames")
+            if type(pressed) is not int or not 0 <= pressed <= budget - gap or taps > pressed:
+                raise BridgeError("Lua bridge returned an invalid held cursor duration")
+            valid = (
+                pressed > 0
+                and advanced == budget
+                or pressed == 0
+                and taps == 0
+                and advanced in (0, gap)
+            )
+            if stop == "complete":
+                valid = valid and taps == steps
         else:
-            valid = advanced == expected or (taps < steps and advanced == expected + gap)
+            pressed = 0
+            expected = taps * (gap + 1)
+            if stop == "complete":
+                valid = taps == steps and advanced == expected
+            else:
+                valid = advanced == expected or (taps < steps and advanced == expected + gap)
         if not valid:
             raise BridgeError("Lua bridge returned an inconsistent map cursor batch frame count")
-        return CursorBatchResult(frame, taps, stop)
+        return CursorBatchResult(frame, taps, stop, pressed)
 
     async def press_keys(self, keys: int, frames: int) -> int:
         """Hold a GBA key mask for exactly ``frames`` frames, then release all keys."""

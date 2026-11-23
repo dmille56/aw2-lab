@@ -309,6 +309,47 @@ async def test_cursor_probe_requires_a_same_frame_match(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("pressed_frames", [0, 15, 16])
+async def test_held_cursor_reports_bounded_input_duration(monkeypatch, pressed_frames) -> None:
+    requests, _ = mock_connection(
+        monkeypatch,
+        {
+            "id": "$request",
+            "ok": True,
+            "result": {
+                "frame": 123,
+                "taps": 3,
+                "stop": "complete",
+                "released": True,
+                "pressed_frames": pressed_frames,
+            },
+        },
+    )
+    client = LuaBridgeClient()
+    if pressed_frames == 15:
+        result = await client.move_map_cursor_batch(
+            16,
+            start_frame=100,
+            start=(0, 0),
+            steps=3,
+            gap=8,
+            hold=True,
+        )
+        assert result.pressed_frames == 15
+    else:
+        with pytest.raises(BridgeError, match="held cursor duration"):
+            await client.move_map_cursor_batch(
+                16,
+                start_frame=100,
+                start=(0, 0),
+                steps=3,
+                gap=8,
+                hold=True,
+            )
+    assert requests[0]["operation"] == "hold_map_cursor"
+
+
+@pytest.mark.anyio
 async def test_input_methods_reject_invalid_masks_and_frame_counts() -> None:
     client = LuaBridgeClient()
     with pytest.raises(ValueError, match="10-bit mask"):

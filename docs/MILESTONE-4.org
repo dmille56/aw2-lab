@@ -463,11 +463,23 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     runs per path fell from 0.71 s to 0.66 s in headless mGBA and from 0.58 s
     to 0.54 s in windowed mGBA.
 
-*** TODO Benchmark held D-pad movement
-    Test whether the bridge can hold a direction, verify each tile, and
-    release at the target. Compare it with batched taps and cover camera
-    scrolling, map edges, and unexpected phase changes. Fall back to verified
-    single taps from a confirmed map-input state.
+*** DONE Benchmark held D-pad movement
+    The executor uses bounded holds for straight runs of three or more
+    steps when the bridge supports them. The Lua frame callback checks
+    the input phase and every consecutive source tile, including while
+    scrolling delays the cache. It releases at the target or on an
+    unexpected step or phase. A complete run checks the cursor cache;
+    after an incomplete run, the executor uses single taps from a verified
+    position. Loss of the input phase stops the action before confirmation.
+    On the same 18-tile Bean Island route, three runs per path reached the
+    same tile, battle state, and input phase. Holds cut the trip from 172
+    to 94 emulator frames and from nine requests to five. Median elapsed
+    time fell from 0.62 s to 0.26 s in headless mGBA and from 0.51 s to
+    0.25 s in windowed mGBA. The route crossed a scrolling boundary, ended
+    a run at the map edge, and changed direction. A separate headless
+    replay opened the production menu after a held-input return trip.
+    ROM-independent tests cover early release after an extra step or phase
+    change, cursor cache lag, and fallback after an incomplete hold.
 
 ** IN-PROGRESS Redesign the human client UI for usability and ergonomics
    Complete this usability redesign before starting the deferred cross-platform
