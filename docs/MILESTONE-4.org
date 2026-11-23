@@ -792,6 +792,20 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     the reason play is blocked and offers =Recover session=. The cause of the
     original live stall remains unverified. Awaiting human review.
 
+*** TODO Investigate the unrecoverable "Map cursor is not available" stall
+    In the latest windowed =aw2-lab play ai-vs-player= run on Bean Island
+    (2026-11-23), the human client reported "Map cursor is not available" and
+    =Recover session= did not restore play. The journal ends with a completed
+    slot 1 Move & Wait and a =playable= checkpoint at revision 240, with no
+    unresolved command. The checkpoint manifest does not record cursor status.
+    Reproduce from that checkpoint or the preceding action sequence. Compare
+    the raw cursor observation and its unavailable reason with the decoded menu
+    family, lifecycle, and turn readiness. Determine whether the emulator needs
+    to settle or the cursor decoder is rejecting a valid player-turn state.
+    Provide a safe recovery path from the client that verifies a usable input
+    boundary and preserves committed moves. Verify live that unit selection,
+    movement, and End Turn work again, and add a regression for the cause found.
+
 *** IN-PROGRESS Make the selected unit unmistakable
     Human playtest feedback (2026-11-16): it is difficult to identify the selected
     unit. Add a strong persistent selection marker, such as a game-style cursor
