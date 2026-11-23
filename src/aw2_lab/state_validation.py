@@ -152,7 +152,12 @@ class BattleMemorySnapshot:
 async def capture_battle_snapshot(
     bridge: LuaBridgeClient, layout: BattleLayout
 ) -> BattleMemorySnapshot:
-    """Capture bounded chunks, rejecting any frame change during the operation."""
+    """Capture complete RAM at a verified frame, using bounded reads on older bridges."""
+    if getattr(bridge, "supports_battle_ram", False) is True:
+        sample = await bridge.read_battle_ram()
+        ewram, iwram = sample.ranges
+        return BattleMemorySnapshot(sample.frame, layout, ewram, iwram)
+
     frame = await bridge.advance_frames(0)
     memories: list[bytes] = []
     range_size = 64

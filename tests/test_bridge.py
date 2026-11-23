@@ -292,6 +292,35 @@ async def test_input_methods_reject_invalid_masks_and_frame_counts() -> None:
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("malformed", [None, "frame", "base64", "length"])
+async def test_read_battle_ram_checks_frame_and_complete_regions(monkeypatch, malformed) -> None:
+    ewram = bytes(range(256)) * 1024
+    iwram = bytes(reversed(range(256))) * 128
+    result = {
+        "frame": 123,
+        "ewram_base64": base64.b64encode(ewram).decode("ascii"),
+        "iwram_base64": base64.b64encode(iwram).decode("ascii"),
+    }
+    if malformed == "frame":
+        result["frame"] = True
+    elif malformed == "base64":
+        result["ewram_base64"] = "!" + result["ewram_base64"][1:]
+    elif malformed == "length":
+        result["iwram_base64"] = base64.b64encode(iwram[:-1]).decode("ascii")
+
+    requests, _ = mock_connection(monkeypatch, {"id": "$request", "ok": True, "result": result})
+    bridge = LuaBridgeClient()
+    if malformed is None:
+        sample = await bridge.read_battle_ram()
+        assert sample.frame == 123
+        assert sample.ranges == (ewram, iwram)
+    else:
+        with pytest.raises(BridgeError, match="battle RAM"):
+            await bridge.read_battle_ram()
+    assert [request["operation"] for request in requests] == ["read_battle_ram"]
+
+
+@pytest.mark.anyio
 async def test_read_memory_batch_returns_each_range_from_one_request(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -439,11 +439,16 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     ROM-independent tests cover missed and extra steps, map edges, the
     navigation frame budget, and rollback when the input phase changes.
 
-*** TODO Read a full battle snapshot in one bridge request
-    Do this first. Return EWRAM and IWRAM from the same paused frame and
-    preserve the existing frame, memory, and battle validation. Compare
-    elapsed time and bridge request counts from the same Bean Island
-    checkpoint and route in headless and windowed mGBA.
+*** DONE Read a full battle snapshot in one bridge request
+    The bridge returns both complete work RAM regions and their common paused
+    frame in one response. The client verifies the frame and each decoded
+    region's length before passing the snapshot to the existing battle
+    decoder. Bridges without the capability use the bounded chunked reads.
+    Both mGBA frontends returned identical RAM bytes through the two paths.
+    On the same 18-tile Bean Island trip, each of three runs per path used 172
+    emulator frames and produced the same final game state. Bridge requests
+    fell from 374 to 9. Median elapsed time fell from 6.12 s to 0.70 s in
+    headless mGBA and from 5.89 s to 0.58 s in windowed mGBA.
 
 *** TODO Evaluate cursor-only observations between batches
     After optimizing the full snapshot, measure the additional benefit of

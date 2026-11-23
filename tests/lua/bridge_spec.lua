@@ -18,6 +18,7 @@ local screenshot_save_failure
 local fail_state_operation
 local partial_sends
 local ram
+local drift_on_ram_read
 
 local client = {}
 function client.hasdata(_self)
@@ -105,6 +106,7 @@ _G.emu.read16 = _G.emu.read32
 _G.emu.read8 = _G.emu.read32
 
 function _G.emu.readRange(_self, address, length)
+    if drift_on_ram_read then frame = frame + 1 end
     return string.rep(string.char(address % 256), length)
 end
 function _G.emu.screenshotToImage(_self)
@@ -165,6 +167,7 @@ describe("mGBA Lua bridge", function()
     before_each(function()
         pending_chunks = {}
         ram = {}
+        drift_on_ram_read = false
         sent_data = ""
         active_client = nil
         close_count = 0
@@ -444,6 +447,27 @@ describe("mGBA Lua bridge", function()
         assert.are.equal(0x02000000, response.result.address)
         assert.are.equal(3, #response.result.bytes)
         assert.are.equal(0, response.result.bytes[1])
+    end)
+
+    it("returns both complete work RAM regions and their paused frame", function()
+        local response = _G.AW2Bridge.handle_request({
+            id = 56, version = 1, operation = "read_battle_ram",
+        })
+        local base64 = dofile("lua/base64.lua")
+        assert.is_true(response.ok)
+        assert.are.equal(100, response.result.frame)
+        assert.are.equal(100, frame)
+        assert.are.equal(string.rep("\0", 0x40000), base64.decode(response.result.ewram_base64))
+        assert.are.equal(string.rep("\0", 0x8000), base64.decode(response.result.iwram_base64))
+    end)
+
+    it("rejects a battle RAM read if the frame changes", function()
+        drift_on_ram_read = true
+        local response = _G.AW2Bridge.handle_request({
+            id = 57, version = 1, operation = "read_battle_ram",
+        })
+        assert.is_false(response.ok)
+        assert.are.equal("frame_count_mismatch", response.error.code)
     end)
 
     it("reads multiple memory ranges in one request", function()

@@ -62,6 +62,7 @@ class LuaBridgeClient:
         self.instance = instance
         self.allow_legacy_handshake = allow_legacy_handshake
         self.supports_cursor_batch = False
+        self.supports_battle_ram = False
         self._ids = count(1)
         self._lock = asyncio.Lock()
 
@@ -166,7 +167,31 @@ class LuaBridgeClient:
         self.supports_cursor_batch = (
             isinstance(capabilities, list) and "move_map_cursor_batch" in capabilities
         )
+        self.supports_battle_ram = (
+            isinstance(capabilities, list) and "read_battle_ram" in capabilities
+        )
         return handshake
+
+    async def read_battle_ram(self) -> MemorySnapshot:
+        """Read complete EWRAM and IWRAM from one paused emulator frame."""
+        result = await self.request("read_battle_ram")
+        frame = result.get("frame")
+        if type(frame) is not int or not 0 <= frame < 1 << 32:
+            raise BridgeError("Lua bridge returned an invalid battle RAM frame")
+
+        regions: list[bytes] = []
+        for key, length in (("ewram_base64", 0x40000), ("iwram_base64", 0x8000)):
+            encoded = result.get(key)
+            if not isinstance(encoded, str) or len(encoded) != 4 * ((length + 2) // 3):
+                raise BridgeError(f"Lua bridge returned an incomplete battle RAM region ({key})")
+            try:
+                region = base64.b64decode(encoded, validate=True)
+            except (binascii.Error, ValueError) as error:
+                raise BridgeError(f"Lua bridge returned invalid battle RAM data ({key})") from error
+            if len(region) != length:
+                raise BridgeError(f"Lua bridge returned an incomplete battle RAM region ({key})")
+            regions.append(region)
+        return MemorySnapshot(frame, tuple(regions))
 
     async def read_memory_batch(self, ranges: list[tuple[int, int]]) -> list[bytes]:
         """Read up to 64 address/length ranges at one paused frame boundary."""

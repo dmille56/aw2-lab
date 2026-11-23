@@ -8,7 +8,7 @@ local bridge = {
     capabilities = {
         "connect", "set_keys", "press_keys", "advance_frames", "read_memory",
         "write_memory", "read_memory_batch", "screenshot", "reset", "save_state", "load_state",
-        "save_state_buffer", "load_state_buffer", "move_map_cursor_batch",
+        "save_state_buffer", "load_state_buffer", "move_map_cursor_batch", "read_battle_ram",
     },
     max_message_bytes = 4718592,
     max_state_bytes = 3145728,
@@ -238,6 +238,27 @@ function bridge.handle_request(request)
         end
         local bytes = {string.byte(emu:readRange(address, length), 1, length)}
         return {id = request_id, ok = true, result = {address = address, bytes = bytes}}
+    end
+
+    if request.operation == "read_battle_ram" then
+        local frame = emu:currentFrame()
+        local ewram = emu:readRange(0x02000000, 0x40000)
+        local iwram = emu:readRange(0x03000000, 0x8000)
+        if emu:currentFrame() ~= frame then
+            return error_response(request_id, "frame_count_mismatch", "battle RAM frame changed")
+        end
+        if type(ewram) ~= "string" or #ewram ~= 0x40000
+            or type(iwram) ~= "string" or #iwram ~= 0x8000 then
+            return error_response(request_id, "incomplete_memory_read", "incomplete battle RAM")
+        end
+        return {
+            id = request_id, ok = true,
+            result = {
+                frame = frame,
+                ewram_base64 = base64.encode(ewram),
+                iwram_base64 = base64.encode(iwram),
+            },
+        }
     end
 
     if request.operation == "read_memory_batch" then

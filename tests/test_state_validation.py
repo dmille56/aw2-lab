@@ -1262,6 +1262,23 @@ def test_capture_round_trip(memory) -> None:
     assert captured == original
 
 
+def test_capture_uses_one_request_on_bridges_with_battle_ram(memory) -> None:
+    original = snapshot(memory)
+
+    class BulkBridge(SnapshotBridge):
+        async def read_battle_ram(self) -> MemorySnapshot:
+            self.reads += 1
+            return MemorySnapshot(self.source.frame, (self.source.ewram, self.source.iwram))
+
+        async def advance_frames(self, frames: int) -> int:
+            pytest.fail("The bulk snapshot already supplies the paused frame")
+
+    bridge = BulkBridge(original, drift=False, truncate=False)
+    bridge.supports_battle_ram = True
+    assert asyncio.run(capture_battle_snapshot(bridge, memory[0])) == original
+    assert bridge.reads == 1
+
+
 def test_capture_checks_frame_again_after_the_last_read(memory) -> None:
     bridge = SnapshotBridge(snapshot(memory), drift=False, truncate=False)
     bridge.final_drift = True
