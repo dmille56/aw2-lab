@@ -955,6 +955,12 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     across turns, and removal after ownership changes or the unit leaves
     the property.
 
+*** TODO Mark properties being captured directly on the board
+    Show an indicator on the property tile while a capture is in progress,
+    visible without selecting the tile or opening the inspector. Use the same
+    committed capture progress as the inspector and clear the indicator when
+    the capture completes or resets.
+
 *** IN-PROGRESS Show the defender's terrain defense rating before attack confirmation
     Human playtest feedback (2026-11-16): show the defending tile's 0-4 defense
     rating alongside estimated damage before the player confirms an attack.
