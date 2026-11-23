@@ -14,6 +14,7 @@ from aw2_lab.action_navigation import (
     NavigationLimits,
     validate_path,
 )
+from aw2_lab.bridge import CursorBatchResult
 from aw2_lab.lifecycle import BattleDecodeSafety, LifecyclePhase
 from aw2_lab.match_observation import MatchObservationTracker
 from aw2_lab.production_rules import PRODUCTION_BY_TERRAIN
@@ -153,18 +154,23 @@ def test_unit_selection_uses_resolution_timeout_for_cursor_travel(memory, monkey
     assert timeouts == [limits.resolution_wall_timeout]
 
 
+@pytest.mark.parametrize("batch", [False, True], ids=["single-taps", "batches"])
 @pytest.mark.parametrize(
-    ("open_production", "target", "exhausted"),
+    ("open_production", "target", "exhausted", "first_step"),
     [
-        pytest.param(False, (1, 1), False, id="cursor"),
-        pytest.param(True, (1, 1), False, id="production"),
-        pytest.param(True, (19, 0), False, id="production-confirm-fits"),
-        pytest.param(True, (20, 0), True, id="production-confirm-exceeds-budget"),
-        pytest.param(False, (21, 0), True, id="cursor-exceeds-budget"),
+        pytest.param(False, (1, 1), False, 1, id="short-cursor"),
+        pytest.param(False, (16, 2), False, 1, id="cursor-two-axes"),
+        pytest.param(True, (4, 0), False, 0, id="missed-first-batch-tap"),
+        pytest.param(True, (4, 0), False, 2, id="extra-first-batch-step"),
+        pytest.param(True, (4, 0), False, None, id="delayed-cursor-cache"),
+        pytest.param(True, (1, 1), False, 1, id="production"),
+        pytest.param(True, (19, 0), False, 1, id="production-confirm-fits"),
+        pytest.param(True, (20, 0), True, 1, id="production-confirm-exceeds-budget"),
+        pytest.param(False, (21, 0), True, 1, id="cursor-exceeds-budget"),
     ],
 )
 def test_map_cursor_waits_for_directional_input_to_rearm(
-    memory, monkeypatch, open_production: bool, target: tuple[int, int], exhausted: bool
+    memory, monkeypatch, open_production, target, exhausted, first_step, batch
 ) -> None:
     real_timeout = asyncio.timeout
     timeouts = []
@@ -176,10 +182,34 @@ def test_map_cursor_waits_for_directional_input_to_rearm(
     monkeypatch.setattr(asyncio, "timeout", record_timeout)
 
     class RearmingBridge:
+        supports_cursor_batch = batch
+
         def __init__(self, state: GameState) -> None:
             self.state = state
             self.released_frames = 0
             self.release_gaps: list[int] = []
+            self.batches: list[tuple[int, int]] = []
+
+        async def move_map_cursor_batch(self, keys, *, start_frame, start, steps, gap):
+            assert start_frame == self.state.frame
+            assert start == (self.state.ui.map_cursor.x, self.state.ui.map_cursor.y)
+            self.batches.append((keys, steps))
+            for index in range(steps):
+                await self.advance_frames(gap)
+                if len(self.batches) == 1 and index == 0 and first_step != 1:
+                    self.release_gaps.append(self.released_frames)
+                    self.released_frames = 0
+                    if first_step is None:
+                        self._update(
+                            1,
+                            cursor_position=(1, start[1]),
+                            cursor_status=CursorStatus.UNAVAILABLE,
+                        )
+                    else:
+                        self._update(1, cursor_position=(first_step, start[1]))
+                    return CursorBatchResult(self.state.frame, 1, "cursor")
+                await self.press_keys(keys, 1)
+            return CursorBatchResult(self.state.frame, steps, "complete")
 
         async def observe(self) -> GameState:
             return self.state
@@ -209,11 +239,14 @@ def test_map_cursor_waits_for_directional_input_to_rearm(
                 )
             return self.state.frame
 
-        def _update(self, frames: int, *, cursor_position=None) -> None:
+        def _update(
+            self, frames: int, *, cursor_position=None, cursor_status=CursorStatus.AVAILABLE
+        ) -> None:
             frame = self.state.frame + frames
             cursor = replace(
                 self.state.ui.map_cursor,
                 frame=frame,
+                status=cursor_status,
                 x=(
                     cursor_position[0]
                     if cursor_position is not None
@@ -245,7 +278,7 @@ def test_map_cursor_waits_for_directional_input_to_rearm(
             initial,
             battle=replace(
                 initial.battle,
-                value=replace(battle, map=replace(battle.map, width=22)),
+                value=replace(battle, map=replace(battle.map, width=22, height=3)),
             ),
             ui=replace(
                 initial.ui,
@@ -270,6 +303,7 @@ def test_map_cursor_waits_for_directional_input_to_rearm(
             assert (error.value.context.cursor_x, error.value.context.cursor_y) == (20, 0)
             assert len(error.value.context.input_sequence) == 20
             assert bridge.release_gaps == [8] * 20
+            assert bridge.batches == ([(16, 8), (16, 8), (16, 4)] if batch else [])
             return
         if open_production:
             result = await navigator.open_production_menu(*target)
@@ -280,7 +314,18 @@ def test_map_cursor_waits_for_directional_input_to_rearm(
             assert timeouts == [navigator.limits.wall_timeout]
 
         assert (result.ui.map_cursor.x, result.ui.map_cursor.y) == target
-        assert bridge.release_gaps == [8] * sum(target)
+        if first_step is None and batch:
+            assert bridge.batches == [(16, 4), (16, 3)]
+            assert bridge.release_gaps == [8, 8 + navigator.limits.poll_frames, 8, 8]
+        else:
+            taps = sum(target)
+            if first_step != 1 and batch:
+                assert bridge.batches == [(16, 4)]
+                taps += 1 - first_step
+            assert bridge.release_gaps == [8] * taps
+        if target == (16, 2):
+            assert bridge.batches == ([(16, 8), (16, 8), (128, 2)] if batch else [])
+            assert [event.end_frame - event.start_frame for event in navigator.inputs] == [1] * 18
 
     asyncio.run(run())
 

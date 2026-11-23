@@ -237,6 +237,52 @@ async def test_press_keys_rejects_unconfirmed_release(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("frame", "taps", "stop", "released", "valid"),
+    [
+        (118, 2, "complete", True, True),
+        (117, 1, "cursor", True, True),
+        (109, 1, "phase", True, True),
+        (118, 1, "complete", True, False),
+        (110, 1, "cursor", True, False),
+        (118, 2, "complete", False, False),
+    ],
+)
+async def test_map_cursor_batch_requires_consistent_frames_and_release(
+    monkeypatch, frame, taps, stop, released, valid
+) -> None:
+    requests, _ = mock_connection(
+        monkeypatch,
+        {
+            "id": "$request",
+            "ok": True,
+            "result": {"frame": frame, "taps": taps, "stop": stop, "released": released},
+        },
+    )
+    bridge = LuaBridgeClient()
+    if valid:
+        result = await bridge.move_map_cursor_batch(
+            16, start_frame=100, start=(1, 0), steps=2, gap=8
+        )
+        assert (result.frame, result.taps, result.stop) == (frame, taps, stop)
+    else:
+        with pytest.raises(BridgeError, match="map cursor batch"):
+            await bridge.move_map_cursor_batch(16, start_frame=100, start=(1, 0), steps=2, gap=8)
+
+    assert requests[0] == {
+        "id": 1,
+        "version": 1,
+        "operation": "move_map_cursor_batch",
+        "keys": 16,
+        "start_frame": 100,
+        "x": 1,
+        "y": 0,
+        "steps": 2,
+        "gap": 8,
+    }
+
+
+@pytest.mark.anyio
 async def test_input_methods_reject_invalid_masks_and_frame_counts() -> None:
     client = LuaBridgeClient()
     with pytest.raises(ValueError, match="10-bit mask"):

@@ -8,7 +8,7 @@ local bridge = {
     capabilities = {
         "connect", "set_keys", "press_keys", "advance_frames", "read_memory",
         "write_memory", "read_memory_batch", "screenshot", "reset", "save_state", "load_state",
-        "save_state_buffer", "load_state_buffer",
+        "save_state_buffer", "load_state_buffer", "move_map_cursor_batch",
     },
     max_message_bytes = 4718592,
     max_state_bytes = 3145728,
@@ -28,6 +28,7 @@ local script_directory = script_path:match("^(.*[/\\])") or ""
 local json = dofile(script_directory .. "dkjson.lua")
 local base64 = dofile(script_directory .. "base64.lua")
 local pending_action
+local cursor_batch
 
 local function decode_json(input)
     local value, position, err = json.decode(input)
@@ -45,6 +46,34 @@ local function error_response(request_id, code, message)
             message = message,
         },
     }
+end
+
+-- AW2 US revision 0. Match the free map-input checks in lifecycle.py and
+-- ui_state.py. Python validates the full battle snapshot at both ends.
+local cursor_directions = {
+    [16] = {1, 0}, [32] = {-1, 0}, [64] = {0, -1}, [128] = {0, 1},
+}
+local function cursor_batch_guard(batch)
+    if emu:read32(0x030040D0) ~= 0x08036945 or emu:read32(0x030040EC) ~= 0x080369BD
+        or emu:read32(0x03003F3C) ~= 1 or emu:read16(0x030032D8) ~= 13
+        or emu:read8(0x030030F0) ~= 0 or emu:read16(0x030040E4) ~= 0
+        or emu:read16(0x03003334) ~= 0 or emu:read16(0x030033EC) ~= batch.player
+        or emu:read16(0x0201E450) ~= batch.width or emu:read16(0x0201E452) ~= batch.height
+        or emu:read8(0x03003FC2) ~= batch.map_id
+        or emu:read16(0x03004080) ~= batch.day then
+        return "phase"
+    end
+    for index = 0, 31 do
+        if emu:read32(0x0200D610 + index * 0x6C) ~= 0 then return "phase" end
+    end
+    if emu:read16(0x030033E4) ~= batch.x or emu:read16(0x030033E6) ~= batch.y
+        or emu:read8(0x03003140) ~= batch.x or emu:read8(0x03003141) ~= batch.y then
+        return "cursor"
+    end
+end
+
+local function integer_in_range(value, lower, upper)
+    return type(value) == "number" and value >= lower and value <= upper and value % 1 == 0
 end
 
 function bridge.handle_request(request)
@@ -93,6 +122,43 @@ function bridge.handle_request(request)
         end
         emu:setKeys(request.keys)
         return {id = request_id, ok = true, result = {keys = emu:getKeys()}}
+    end
+
+    if request.operation == "move_map_cursor_batch" then
+        local direction = cursor_directions[request.keys]
+        local gap, steps = request.gap, request.steps
+        local x, y, start_frame = request.x, request.y, request.start_frame
+        if not direction or not integer_in_range(gap, 8, 60)
+            or not integer_in_range(steps, 2, 8) or not integer_in_range(x, 0, 47)
+            or not integer_in_range(y, 0, 38)
+            or not integer_in_range(start_frame, 0, 4294967295) then
+            return error_response(request_id, "invalid_request", "invalid map cursor batch")
+        end
+        if pending_action or cursor_batch then
+            return error_response(request_id, "busy", "a frame request is already pending")
+        end
+        if emu:currentFrame() ~= start_frame then
+            return error_response(
+                request_id, "frame_count_mismatch", "map cursor start frame changed"
+            )
+        end
+        local width, height = emu:read16(0x0201E450), emu:read16(0x0201E452)
+        local player = emu:read16(0x030033EC)
+        if width > 48 or height > 39 or not integer_in_range(player, 1, 4)
+            or not integer_in_range(x, 0, width - 1) or not integer_in_range(y, 0, height - 1)
+            or not integer_in_range(x + direction[1] * steps, 0, width - 1)
+            or not integer_in_range(y + direction[2] * steps, 0, height - 1) then
+            return error_response(
+                request_id, "invalid_request", "map cursor batch exceeds map bounds"
+            )
+        end
+        cursor_batch = {
+            id = request_id, start_frame = start_frame, x = x, y = y, keys = request.keys,
+            direction = direction, gap = gap, steps = steps, taps = 0, press = false,
+            width = width, height = height, player = player, map_id = emu:read8(0x03003FC2),
+            day = emu:read16(0x03004080),
+        }
+        return {id = request_id, ok = true, result = {deferred = true}}
     end
 
     if request.operation == "press_keys" or request.operation == "advance_frames" then
@@ -377,7 +443,51 @@ end
 -- The pinned headless and Qt frontends invoke bridgePoll from an idle loop while
 -- the core is paused. Gameplay runs only inside explicit advance/input commands.
 local client, buffer
+
+local function finish_request(response)
+    send_response(client, response)
+    close_client(client)
+    client = nil
+    buffer = nil
+end
+
+local function finish_cursor_batch(batch, reason)
+    emu:setKeys(0)
+    cursor_batch = nil
+    local frame = emu:currentFrame()
+    finish_request({
+        id = batch.id, ok = true, result = {
+            frame = frame,
+            taps = batch.taps,
+            stop = reason,
+            released = emu:getKeys() == 0,
+        },
+    })
+end
+
+local function poll_cursor_batch(batch)
+    local stop = cursor_batch_guard(batch)
+    if stop then
+        finish_cursor_batch(batch, stop)
+        return
+    end
+    local frames, keys = batch.gap, 0
+    if batch.press then frames, keys = 1, batch.keys end
+    local queued, accepted = pcall(function() return emu:requestFrames(frames, keys, true) end)
+    if not queued or not accepted then
+        emu:setKeys(0)
+        cursor_batch = nil
+        finish_request(error_response(
+            batch.id, "frame_gate_unavailable", "frame gate rejected batch"
+        ))
+    end
+end
+
 function bridge.poll()
+    if cursor_batch then
+        poll_cursor_batch(cursor_batch)
+        return
+    end
     if pending_action then return end
     if not client then
         client = listener:accept()
@@ -423,7 +533,34 @@ function bridge.poll()
     end
 end
 
+local function complete_cursor_batch(batch)
+    if batch.press then
+        batch.taps = batch.taps + 1
+        batch.x = batch.x + batch.direction[1]
+        batch.y = batch.y + batch.direction[2]
+    end
+    local advanced = batch.taps * (batch.gap + 1) + (batch.press and 0 or batch.gap)
+    if emu:currentFrame() ~= (batch.start_frame + advanced) % 4294967296 then
+        emu:setKeys(0)
+        cursor_batch = nil
+        finish_request(error_response(
+            batch.id, "frame_count_mismatch", "map cursor batch frame drift"
+        ))
+        return
+    end
+    local stop = cursor_batch_guard(batch)
+    if stop or batch.taps == batch.steps then
+        finish_cursor_batch(batch, stop or "complete")
+        return
+    end
+    batch.press = not batch.press
+end
+
 function bridge.complete()
+    if cursor_batch then
+        complete_cursor_batch(cursor_batch)
+        return
+    end
     if not pending_action then return end
     local action = pending_action
     pending_action = nil
@@ -453,10 +590,7 @@ function bridge.complete()
             result = result,
         }
     end
-    send_response(client, response)
-    close_client(client)
-    client = nil
-    buffer = nil
+    finish_request(response)
 end
 
 callbacks:add("bridgePoll", bridge.poll)

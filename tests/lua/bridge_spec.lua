@@ -17,6 +17,7 @@ local screenshot_capture_failure
 local screenshot_save_failure
 local fail_state_operation
 local partial_sends
+local ram
 
 local client = {}
 function client.hasdata(_self)
@@ -97,6 +98,12 @@ end
 function _G.emu.reset(_self)
     frame = 0
 end
+function _G.emu.read32(_self, address)
+    return ram[address] or 0
+end
+_G.emu.read16 = _G.emu.read32
+_G.emu.read8 = _G.emu.read32
+
 function _G.emu.readRange(_self, address, length)
     return string.rep(string.char(address % 256), length)
 end
@@ -157,6 +164,7 @@ end
 describe("mGBA Lua bridge", function()
     before_each(function()
         pending_chunks = {}
+        ram = {}
         sent_data = ""
         active_client = nil
         close_count = 0
@@ -214,6 +222,73 @@ describe("mGBA Lua bridge", function()
         assert.are.equal(100, frame)
         assert.are.equal(0, keys)
         assert.is_truthy(sent_data:match('"instance_mismatch"'))
+    end)
+
+    local function start_cursor_batch(steps)
+        ram = {
+            [0x030040D0] = 0x08036945, [0x030040EC] = 0x080369BD,
+            [0x03003F3C] = 1, [0x030032D8] = 13, [0x030033EC] = 1,
+            [0x0201E450] = 4, [0x0201E452] = 2,
+            [0x030033E4] = 1, [0x03003140] = 1,
+        }
+        pending_chunks = {
+            ('{"id":55,"version":1,"operation":"move_map_cursor_batch","keys":16,'
+                .. '"start_frame":100,"x":1,"y":0,"gap":8,"steps":%d}\n'):format(steps),
+        }
+        frame_callback()
+    end
+
+    local function finish_right_tap(x)
+        frame_callback()
+        assert.are.equal(0, queued_request.keys)
+        assert.are.equal(8, queued_request.frames)
+        finish_native_request()
+        frame_callback()
+        assert.are.equal(16, queued_request.keys)
+        assert.are.equal(1, queued_request.frames)
+        ram[0x030033E4], ram[0x03003140] = x, x
+        finish_native_request()
+    end
+
+    it("verifies both taps of a straight run ending at the edge", function()
+        start_cursor_batch(2)
+        finish_right_tap(2)
+        assert.are.equal("", sent_data)
+        finish_right_tap(3)
+        assert.are.equal(118, frame)
+        assert.are.equal(0, keys)
+        assert.is_truthy(sent_data:match('"stop":"complete"'))
+        assert.is_truthy(sent_data:match('"taps":2'))
+    end)
+
+    for _, position in ipairs({1, 3}) do
+        it("stops after an unexpected cursor position of " .. position, function()
+            start_cursor_batch(2)
+            finish_right_tap(position)
+            assert.are.equal(109, frame)
+            assert.are.equal(0, keys)
+            assert.is_truthy(sent_data:match('"stop":"cursor"'))
+            assert.is_truthy(sent_data:match('"taps":1'))
+        end)
+    end
+
+    it("stops before a tap if a process starts during the release gap", function()
+        start_cursor_batch(2)
+        frame_callback()
+        ram[0x0200D610 + 31 * 0x6C] = 0x0849D77C
+        finish_native_request()
+        assert.are.equal(108, frame)
+        assert.are.equal(0, keys)
+        assert.is_nil(queued_request)
+        assert.is_truthy(sent_data:match('"stop":"phase"'))
+        assert.is_truthy(sent_data:match('"taps":0'))
+    end)
+
+    it("rejects batches that would cross the map edge before advancing", function()
+        start_cursor_batch(3)
+        assert.are.equal(100, frame)
+        assert.is_nil(queued_request)
+        assert.is_truthy(sent_data:match('"code":"invalid_request"'))
     end)
 
     it("accepts valid key masks and rejects masks outside 10 bits", function()

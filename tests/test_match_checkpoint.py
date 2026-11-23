@@ -10,7 +10,8 @@ from test_match_controller import run_async_test, setup_controller
 from test_state_validation import memory as memory  # noqa: PLC0414
 from test_state_validation import snapshot
 
-from aw2_lab.action_navigation import NavigationError, NavigationFailureContext
+from aw2_lab.action_navigation import ActionNavigator, NavigationError, NavigationFailureContext
+from aw2_lab.bridge import CursorBatchResult
 from aw2_lab.checkpoint import CheckpointError
 from aw2_lab.checkpoint_store import CheckpointStore
 from aw2_lab.command_journal import JournalEvent, JsonlCommandJournal, new_journal_entry
@@ -235,6 +236,66 @@ async def test_failed_mutation_restores_emulator_and_tracker_from_recovery_check
         assert restored.revision > before.revision
         assert restored.game_state == before.game_state
         assert service.session.tracker.read() == restored
+        assert bridge.frame == before.game_state.frame
+        assert bridge.keys == 0
+        assert bridge.release_calls >= 1
+        assert service.store.current().command_result == result
+    finally:
+        await controller.stop()
+
+
+@run_async_test
+async def test_cursor_batch_phase_change_rolls_back_without_confirming(memory, tmp_path):
+    service, controller, match_id, _, _, bridge = await prepare(memory, tmp_path)
+    try:
+        before = await controller.current_observation(match_id)
+
+        class PhaseChangingBatch:
+            supports_cursor_batch = True
+
+            async def move_map_cursor_batch(self, keys, *, start_frame, start, steps, gap):
+                assert (keys, start, steps) == (16, (0, 0), 2)
+                assert start_frame == bridge.frame
+                bridge.frame += gap + 1
+                memory[2][0x30F0] = 1
+                return CursorBatchResult(bridge.frame, 1, "phase")
+
+        async def observe():
+            state = await bridge.decoded()
+            battle = state.battle.value
+            if battle is None:
+                return state
+            # Extend the two-tile fixture so the navigator can issue a batch.
+            return replace(
+                state,
+                battle=replace(
+                    state.battle,
+                    value=replace(battle, map=replace(battle.map, width=3)),
+                ),
+            )
+
+        async def attempt_purchase():
+            await ActionNavigator(PhaseChangingBatch(), observe).open_production_menu(2, 0)
+            pytest.fail("The executor did not stop after losing map input")
+
+        receipt = await controller.submit_serialized_mutation(
+            match_id=match_id,
+            request_id=uuid4(),
+            operation_name="purchase_fixture",
+            payload={},
+            expected_revision=before.revision,
+            handler=attempt_purchase,
+        )
+        result = await controller.wait_for_command(match_id, receipt.command_id, timeout=2)
+        restored = await controller.current_observation(match_id)
+        assert result.status is CommandStatus.ROLLED_BACK
+        assert result.error is not None
+        assert (
+            result.error.details["navigation_message"]
+            == "Could not verify map input after cursor batch"
+        )
+        assert restored.game_state == before.game_state
+        assert restored.revision > before.revision
         assert bridge.frame == before.game_state.frame
         assert bridge.keys == 0
         assert bridge.release_calls >= 1

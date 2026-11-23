@@ -10,10 +10,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import uuid4
 
-from aw2_lab.bridge import LuaBridgeClient
+from aw2_lab.bridge import MAX_CURSOR_BATCH_STEPS, LuaBridgeClient
 from aw2_lab.lifecycle import LifecyclePhase
 from aw2_lab.match_observation import MatchObservation
-from aw2_lab.state_model import GameState, ValueStatus
+from aw2_lab.state_model import BattleState, GameState, ValueStatus
 from aw2_lab.ui_state import CursorStatus, MenuFamily, MenuItem
 
 _KEY_A = 1
@@ -23,6 +23,7 @@ _KEY_RIGHT = 16
 _KEY_LEFT = 32
 _KEY_UP = 64
 _KEY_DOWN = 128
+_MAP_CURSOR_RELEASE_FRAMES = 8
 _YIELD_PROMPT_SETTLE_FRAMES = 30
 _TERMINAL_PHASES = frozenset(
     {
@@ -136,6 +137,37 @@ def validate_path(
     return points
 
 
+def _is_map_input(state: GameState) -> bool:
+    return (
+        state.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN
+        and state.ui.menu.family is MenuFamily.MAP_INPUT
+        and state.battle.status is ValueStatus.AVAILABLE
+    )
+
+
+def _map_input_cursor(state: GameState) -> tuple[int, int] | None:
+    cursor = state.ui.map_cursor
+    if (
+        _is_map_input(state)
+        and cursor.status is CursorStatus.AVAILABLE
+        and cursor.x is not None
+        and cursor.y is not None
+    ):
+        return cursor.x, cursor.y
+    return None
+
+
+def _same_map_turn(state: GameState, battle: BattleState) -> bool:
+    live = state.battle.value
+    return (
+        _is_map_input(state)
+        and live is not None
+        and (live.map.width, live.map.height) == (battle.map.width, battle.map.height)
+        and live.day == battle.day
+        and live.active_player_slot == battle.active_player_slot
+    )
+
+
 @dataclass(slots=True)
 class ActionNavigator:
     """Perform input-only navigation and verify each transition from GameState."""
@@ -158,11 +190,14 @@ class ActionNavigator:
 
     async def open_production_menu(self, x: int, y: int) -> GameState:
         """Open the production list at a supported facility coordinate."""
-        # A distant facility needs a verified bridge round trip for each cursor step.
         async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
             self._begin("open_production_menu")
             await self._move_cursor(x, y)
-            await self._tap("open-production-menu", _KEY_A)
+            await self._tap(
+                "open-production-menu",
+                _KEY_A,
+                map_cursor=(x, y),
+            )
             return await self._wait_for(
                 lambda value: value.ui.menu.family is MenuFamily.PRODUCTION_CHOICES,
                 description="the recognized production list",
@@ -334,17 +369,11 @@ class ActionNavigator:
 
     async def _move_cursor(self, x: int, y: int) -> GameState:
         state = await self._observe()
-        cursor = state.ui.map_cursor
-        if (
-            state.lifecycle.phase is not LifecyclePhase.BATTLE_PLAYER_TURN
-            or state.ui.menu.family is not MenuFamily.MAP_INPUT
-            or cursor.status is not CursorStatus.AVAILABLE
-            or cursor.x is None
-            or cursor.y is None
-        ):
+        position = _map_input_cursor(state)
+        if position is None:
             raise await self._fail("Map cursor movement requires recognized map input", state)
         battle = state.battle.value
-        if state.battle.status is not ValueStatus.AVAILABLE or battle is None:
+        if battle is None:
             raise await self._fail("Validated map dimensions are unavailable", state)
         if (
             isinstance(x, bool)
@@ -355,38 +384,79 @@ class ActionNavigator:
             raise await self._fail("Destination must use integer coordinates", state)
         if not (0 <= x < battle.map.width and 0 <= y < battle.map.height):
             raise await self._fail("Destination is outside the validated map", state)
-        while (cursor.x, cursor.y) != (x, y):
-            dx, dy = x - cursor.x, y - cursor.y
+
+        gap = max(self.limits.input_gap_frames, _MAP_CURSOR_RELEASE_FRAMES)
+        use_batch = (
+            getattr(self.bridge, "supports_cursor_batch", False) is True
+            and self.limits.input_frames == 1
+        )
+        while position != (x, y):
+            dx, dy = x - position[0], y - position[1]
             if dx:
                 name, sx, sy, key = (
                     ("right", 1, 0, _KEY_RIGHT) if dx > 0 else ("left", -1, 0, _KEY_LEFT)
                 )
             else:
                 name, sx, sy, key = ("down", 0, 1, _KEY_DOWN) if dy > 0 else ("up", 0, -1, _KEY_UP)
-            expected = (cursor.x + sx, cursor.y + sy)
-            await self._tap(name, key, minimum_gap=8)
-
-            def cursor_matches(
-                value: GameState,
-                expected_position: tuple[int | None, int | None] = expected,
-            ) -> bool:
-                return (
-                    value.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN
-                    and value.ui.menu.family is MenuFamily.MAP_INPUT
-                    and value.ui.map_cursor.status is CursorStatus.AVAILABLE
-                    and (value.ui.map_cursor.x, value.ui.map_cursor.y) == expected_position
+            steps = min(
+                abs(dx or dy),
+                MAX_CURSOR_BATCH_STEPS,
+                (self.limits.frame_budget - self._frames_used) // (gap + 1),
+            )
+            if use_batch and steps >= 2:
+                start_frame = state.frame
+                result = await self.bridge.move_map_cursor_batch(
+                    key, start_frame=start_frame, start=position, steps=steps, gap=gap
                 )
+                self._frames_used += (result.frame - start_frame) % (1 << 32)
+                for index in range(result.taps):
+                    start = (start_frame + index * (gap + 1) + gap) % (1 << 32)
+                    self.inputs.append(InputEvent(name, key, 1, start, (start + 1) % (1 << 32)))
+                expected = (position[0] + sx * result.taps, position[1] + sy * result.taps)
+                state = await self._observe()
+                if (
+                    state.frame != result.frame
+                    or result.stop == "phase"
+                    or not _same_map_turn(state, battle)
+                ):
+                    raise await self._fail("Could not verify map input after cursor batch", state)
+
+                position = _map_input_cursor(state)
+                use_batch = result.stop == "complete"
+                if result.stop == "cursor" and position is None:
+                    # Camera scrolling can delay the cursor cache by a few frames.
+                    state = await self._wait_for(
+                        lambda value: _map_input_cursor(value) is not None,
+                        description="map cursor to settle after batch",
+                        guard=lambda value: _same_map_turn(value, battle),
+                    )
+                    position = _map_input_cursor(state)
+                    use_batch = result.taps > 0 and position == expected
+                if position is None or (result.stop == "complete" and position != expected):
+                    raise await self._fail("Could not verify map cursor after batch", state)
+                continue
+
+            expected = (position[0] + sx, position[1] + sy)
+            await self._tap(
+                name,
+                key,
+                minimum_gap=gap,
+                map_cursor=position,
+            )
+
+            def cursor_matches(value: GameState, target: tuple[int, int] = expected) -> bool:
+                return _map_input_cursor(value) == target
 
             state = await self._wait_for(
                 cursor_matches,
                 description=f"cursor to reach {expected}",
+                guard=lambda value: _same_map_turn(value, battle),
             )
-            cursor = state.ui.map_cursor
+            position = expected
         return state
 
     async def select_unit(self, unit_id: str, observation: MatchObservation) -> GameState:
         """Select an active, unused current-player unit by its lifetime identity."""
-        # Reaching a distant unit requires verified bridge round trips for every cursor step.
         async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
             self._begin("select_unit")
             battle = observation.game_state.battle.value
@@ -429,7 +499,11 @@ class ActionNavigator:
                 raise await self._fail(
                     "Selected unit changed since the committed observation", state
                 )
-            await self._tap("select-unit", _KEY_A)
+            await self._tap(
+                "select-unit",
+                _KEY_A,
+                map_cursor=(unit.x, unit.y),
+            )
             state = await self._wait_for(
                 lambda value: (
                     value.ui.menu.family is MenuFamily.UNIT_MOVEMENT
@@ -1302,6 +1376,7 @@ class ActionNavigator:
         *,
         minimum_gap: int = 0,
         frame_budget: int | None = None,
+        map_cursor: tuple[int, int] | None = None,
     ) -> None:
         count = self.limits.input_frames
         # Let cursor changes and new selectors settle before dispatching A.
@@ -1310,11 +1385,20 @@ class ActionNavigator:
         if self._frames_used + gap + count > (frame_budget or self.limits.frame_budget):
             state = await self._observe()
             raise await self._fail("Navigation frame budget exhausted", state)
+        before = self._last_state
         end = await self.bridge.advance_frames(gap)
         self._frames_used += gap
         state = await self._observe()
         if state.frame != end:
             raise await self._fail("Observed state frame does not match release gap", state)
+        if map_cursor is not None:
+            battle = before.battle.value if before is not None else None
+            if (
+                battle is None
+                or not _same_map_turn(state, battle)
+                or _map_input_cursor(state) != map_cursor
+            ):
+                raise await self._fail(f"Map input changed before {name}", state)
         start = self._last_state.frame if self._last_state is not None else 0
         end = await self.bridge.press_keys(keys, count)
         self.inputs.append(InputEvent(name, keys, count, start, end))
@@ -1330,6 +1414,7 @@ class ActionNavigator:
         description: str,
         frame_budget: int | None = None,
         poll_frames: int | None = None,
+        guard: Postcondition | None = None,
     ) -> GameState:
         budget = self.limits.frame_budget if frame_budget is None else frame_budget
         interval = self.limits.poll_frames if poll_frames is None else poll_frames
@@ -1337,6 +1422,8 @@ class ActionNavigator:
         if state is None:
             state = await self._observe()
         while True:
+            if guard is not None and not guard(state):
+                raise await self._fail(f"Map input changed while waiting for {description}", state)
             if predicate(state):
                 return state
             if self._frames_used + interval > budget:

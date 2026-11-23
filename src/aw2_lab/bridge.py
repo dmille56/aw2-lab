@@ -10,9 +10,10 @@ import tempfile
 from dataclasses import dataclass
 from itertools import count
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 _MAX_STATE_BYTES = 3 * 1024 * 1024
+MAX_CURSOR_BATCH_STEPS = 8
 
 
 class BridgeError(ConnectionError):
@@ -29,6 +30,15 @@ class MemorySnapshot:
 
     frame: int
     ranges: tuple[bytes, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CursorBatchResult:
+    """Frame and input count at the first failed guard or the end of the run."""
+
+    frame: int
+    taps: int
+    stop: Literal["complete", "cursor", "phase"]
 
 
 class LuaBridgeClient:
@@ -51,6 +61,7 @@ class LuaBridgeClient:
         # emulator this launcher started rather than another process on the port.
         self.instance = instance
         self.allow_legacy_handshake = allow_legacy_handshake
+        self.supports_cursor_batch = False
         self._ids = count(1)
         self._lock = asyncio.Lock()
 
@@ -151,6 +162,10 @@ class LuaBridgeClient:
                     f"emulator (expected instance nonce {self.instance!r}, "
                     f"observed {observed!r})"
                 )
+        capabilities = handshake.get("capabilities")
+        self.supports_cursor_batch = (
+            isinstance(capabilities, list) and "move_map_cursor_batch" in capabilities
+        )
         return handshake
 
     async def read_memory_batch(self, ranges: list[tuple[int, int]]) -> list[bytes]:
@@ -288,6 +303,40 @@ class LuaBridgeClient:
         if isinstance(actual, bool) or not isinstance(actual, int) or actual != keys:
             raise BridgeError(f"Lua bridge did not apply key mask {keys}: {actual!r}")
         return actual
+
+    async def move_map_cursor_batch(
+        self, keys: int, *, start_frame: int, start: tuple[int, int], steps: int, gap: int
+    ) -> CursorBatchResult:
+        """Tap one D-pad direction with a map-input guard between every input."""
+        result = await self.request(
+            "move_map_cursor_batch",
+            keys=keys,
+            start_frame=start_frame,
+            x=start[0],
+            y=start[1],
+            steps=steps,
+            gap=gap,
+            timeout=self.timeout + steps * (gap + 1) / 60,
+        )
+        frame, taps, stop = result.get("frame"), result.get("taps"), result.get("stop")
+        if (
+            type(frame) is not int
+            or not 0 <= frame < 1 << 32
+            or type(taps) is not int
+            or not 0 <= taps <= steps
+            or stop not in ("complete", "cursor", "phase")
+            or result.get("released") is not True
+        ):
+            raise BridgeError("Lua bridge returned an invalid map cursor batch")
+        advanced = (frame - start_frame) % (1 << 32)
+        expected = taps * (gap + 1)
+        if stop == "complete":
+            valid = taps == steps and advanced == expected
+        else:
+            valid = advanced == expected or (taps < steps and advanced == expected + gap)
+        if not valid:
+            raise BridgeError("Lua bridge returned an inconsistent map cursor batch frame count")
+        return CursorBatchResult(frame, taps, stop)
 
     async def press_keys(self, keys: int, frames: int) -> int:
         """Hold a GBA key mask for exactly ``frames`` frames, then release all keys."""

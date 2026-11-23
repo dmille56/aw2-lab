@@ -422,17 +422,22 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     original board is restored at a fresh revision. These checks retain the
     current frame limit.
 
-*** TODO Speed up long executor cursor trips while preserving input verification
-    Measure elapsed time, emulator frames, and bridge round trips for long
-    open-map cursor trips in headless and windowed mGBA. Each tile currently
-    uses a tap with at least eight release frames and a verified observation.
-    Try batching straight runs in the bridge, checking the expected tile and
-    map-input phase after each step. If a batch cannot continue, release the
-    keys and resume with verified taps only from a confirmed map-input state.
-    Stop before confirming any action if the cursor or phase cannot be
-    verified. Compare both paths from the same checkpoints and cover turns,
-    map edges, missed or extra steps, and unexpected phase changes. Retain
-    frame and time bounds and verify checkpoint rollback on failure.
+*** DONE Speed up long executor cursor trips while preserving input verification
+    The Lua bridge batches up to eight straight map-cursor taps and checks the
+    turn, input phase, and exact cursor position at each step. The executor
+    verifies the full state when a batch returns. It allows bounded neutral
+    frames for an unsettled cursor cache and uses single taps from a verified
+    position after a missed or extra step. Unit selection and production
+    recheck the target tile after the release gap before pressing A.
+    A live comparison restored the same day-one Bean Island checkpoint for
+    each run and moved from =(1,7)= to the right edge at =(15,3)=. Both paths
+    used 172 emulator frames. Batching reduced bridge requests from 2,849 to
+    374. The median of three runs per path fell from 42.86 s to 5.86 s in
+    headless mGBA and from 42.68 s to 5.79 s in windowed mGBA. The route
+    included a camera-scroll cache delay and a change of direction. A separate
+    headless replay batched the return trip and opened production at =(3,6)=.
+    ROM-independent tests cover missed and extra steps, map edges, the
+    navigation frame budget, and rollback when the input phase changes.
 
 ** IN-PROGRESS Redesign the human client UI for usability and ergonomics
    Complete this usability redesign before starting the deferred cross-platform
