@@ -60,7 +60,10 @@ def test_navigation_limits_reject_unbounded_or_invalid_values() -> None:
         NavigationLimits(wall_timeout=0)
 
 
-def test_artillery_purchase_uses_resolution_timeout_for_all_rows(memory, monkeypatch) -> None:
+@pytest.mark.parametrize("row_changes_on_release", [False, True])
+def test_artillery_purchase_checks_each_row_and_rechecks_before_confirming(
+    memory, monkeypatch, row_changes_on_release
+) -> None:
     limits = NavigationLimits(wall_timeout=15, resolution_wall_timeout=60)
     real_timeout = asyncio.timeout
     timeouts = []
@@ -82,8 +85,10 @@ def test_artillery_purchase_uses_resolution_timeout_for_all_rows(memory, monkeyp
         frame = initial.frame
         row = 0
         confirmed = False
+        observations = 0
 
         async def observe(self) -> GameState:
+            self.observations += 1
             current_menu = (
                 MenuObservation(self.frame, MenuFamily.MAP_INPUT)
                 if self.confirmed
@@ -102,6 +107,8 @@ def test_artillery_purchase_uses_resolution_timeout_for_all_rows(memory, monkeyp
             )
 
         async def advance_frames(self, frames: int) -> int:
+            if row_changes_on_release and self.row == 7 and frames == limits.input_gap_frames:
+                self.row = 6
             self.frame += frames
             return self.frame
 
@@ -117,12 +124,19 @@ def test_artillery_purchase_uses_resolution_timeout_for_all_rows(memory, monkeyp
     bridge = PurchaseBridge()
     navigator = ActionNavigator(bridge, bridge.observe, limits=limits)
 
-    result = asyncio.run(navigator.choose_purchase_unit(10))
+    if row_changes_on_release:
+        with pytest.raises(NavigationError, match="Menu input changed before confirm-purchase"):
+            asyncio.run(navigator.choose_purchase_unit(10))
+        assert [event.name for event in navigator.inputs] == ["purchase-menu-down"] * 7
+        assert not bridge.confirmed
+        return
 
+    result = asyncio.run(navigator.choose_purchase_unit(10))
     assert result.ui.menu.family is MenuFamily.MAP_INPUT
     assert [event.name for event in navigator.inputs] == ["purchase-menu-down"] * 7 + [
         "confirm-purchase"
     ]
+    assert bridge.observations == 10
     assert timeouts == [limits.resolution_wall_timeout]
 
 

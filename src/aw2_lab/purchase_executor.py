@@ -103,8 +103,8 @@ class PurchaseActionExecutor:
             raise CommandRejected(ErrorCode.INVALID_REQUEST, "Insufficient funds for this unit")
 
         # Caller-controlled rejection is complete before the first controller input.
-        await self.navigator.open_production_menu(x, y)
-        final_state = await self.navigator.choose_purchase_unit(unit_type)
+        opened = await self.navigator.open_production_menu(x, y)
+        final_state = await self.navigator.choose_purchase_unit(unit_type, opened_menu=opened)
         final_battle = final_state.battle.value
         if (
             final_state.lifecycle.phase is not LifecyclePhase.BATTLE_PLAYER_TURN

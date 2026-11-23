@@ -117,7 +117,8 @@ def test_purchase_executes_and_verifies_new_unit(
             self.calls.append(("open", x, y))
             return initial.game_state
 
-        async def choose_purchase_unit(self, unit_type):
+        async def choose_purchase_unit(self, unit_type, *, opened_menu):
+            assert opened_menu is initial.game_state
             self.calls.append(("choose", unit_type))
             return final_state
 

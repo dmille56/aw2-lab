@@ -197,18 +197,24 @@ class ActionNavigator:
                 "open-production-menu",
                 _KEY_A,
                 map_cursor=(x, y),
+                settle_frames=self.limits.poll_frames,
             )
             return await self._wait_for(
                 lambda value: value.ui.menu.family is MenuFamily.PRODUCTION_CHOICES,
                 description="the recognized production list",
             )
 
-    async def choose_purchase_unit(self, unit_type: int) -> GameState:
+    async def choose_purchase_unit(
+        self, unit_type: int, *, opened_menu: GameState | None = None
+    ) -> GameState:
         """Select a verified facility production row and await the settled map turn."""
-        # Lower rows need a verified bridge round trip for every cursor step.
         async with self._bounded_operation(timeout=self.limits.resolution_wall_timeout):
             self._begin("purchase_unit")
-            state = await self._observe()
+            state = (
+                opened_menu
+                if opened_menu is not None and opened_menu is self._last_state
+                else await self._observe()
+            )
             menu = state.ui.menu
             if (
                 menu.family is not MenuFamily.PRODUCTION_CHOICES
@@ -216,25 +222,37 @@ class ActionNavigator:
                 or unit_type not in menu.production_unit_types
             ):
                 raise await self._fail("Purchase requires a recognized available unit row", state)
-            target = menu.production_unit_types.index(unit_type)
+            choices = menu.production_unit_types
+            target = choices.index(unit_type)
+
+            def row_selected(value: GameState, row: int) -> bool:
+                return (
+                    value.ui.menu.family is MenuFamily.PRODUCTION_CHOICES
+                    and value.ui.menu.production_unit_types == choices
+                    and value.ui.menu.selected_production_index == row
+                )
+
             while menu.selected_production_index != target:
                 direction = 1 if target > menu.selected_production_index else -1
                 key, name = (_KEY_DOWN, "down") if direction > 0 else (_KEY_UP, "up")
                 expected = menu.selected_production_index + direction
-                await self._tap(f"purchase-menu-{name}", key)
+                # Each directional tap begins from a verified row and observes its effect.
+                await self._tap(f"purchase-menu-{name}", key, observe_release=False)
 
-                def row_selected(value: GameState, row: int = expected) -> bool:
-                    return (
-                        value.ui.menu.family is MenuFamily.PRODUCTION_CHOICES
-                        and value.ui.menu.selected_production_index == row
-                    )
+                def step_selected(value: GameState, row: int = expected) -> bool:
+                    return row_selected(value, row)
 
                 state = await self._wait_for(
-                    row_selected,
+                    step_selected,
                     description=f"purchase row {expected}",
                 )
                 menu = state.ui.menu
-            await self._tap("confirm-purchase", _KEY_A)
+            await self._tap(
+                "confirm-purchase",
+                _KEY_A,
+                precondition=lambda value: row_selected(value, target),
+                settle_frames=self.limits.resolution_poll_frames,
+            )
             return await self._wait_for(
                 lambda value: (
                     value.lifecycle.phase is LifecyclePhase.BATTLE_PLAYER_TURN
@@ -1428,32 +1446,48 @@ class ActionNavigator:
         minimum_gap: int = 0,
         frame_budget: int | None = None,
         map_cursor: tuple[int, int] | None = None,
+        precondition: Postcondition | None = None,
+        observe_release: bool = True,
+        settle_frames: int = 0,
     ) -> None:
         count = self.limits.input_frames
         # Let cursor changes and new selectors settle before dispatching A.
         # Sampling release also makes consecutive button presses distinct.
         gap = max(self.limits.input_gap_frames, minimum_gap)
-        if self._frames_used + gap + count > (frame_budget or self.limits.frame_budget):
+        budget = frame_budget or self.limits.frame_budget
+        if self._frames_used + gap + count > budget:
             state = await self._observe()
             raise await self._fail("Navigation frame budget exhausted", state)
         before = self._last_state
-        end = await self.bridge.advance_frames(gap)
+        start = await self.bridge.advance_frames(gap)
         self._frames_used += gap
-        state = await self._observe()
-        if state.frame != end:
-            raise await self._fail("Observed state frame does not match release gap", state)
-        if map_cursor is not None:
-            battle = before.battle.value if before is not None else None
-            if (
-                battle is None
-                or not _same_map_turn(state, battle)
-                or _map_input_cursor(state) != map_cursor
-            ):
-                raise await self._fail(f"Map input changed before {name}", state)
-        start = self._last_state.frame if self._last_state is not None else 0
+        if observe_release or map_cursor is not None or precondition is not None:
+            state = await self._observe()
+            if state.frame != start:
+                raise await self._fail("Observed state frame does not match release gap", state)
+            if map_cursor is not None:
+                battle = before.battle.value if before is not None else None
+                if (
+                    battle is None
+                    or not _same_map_turn(state, battle)
+                    or _map_input_cursor(state) != map_cursor
+                ):
+                    raise await self._fail(f"Map input changed before {name}", state)
+            if precondition is not None and not precondition(state):
+                raise await self._fail(f"Menu input changed before {name}", state)
+        elif before is None or start != (before.frame + gap) % (1 << 32):
+            state = await self._observe()
+            raise await self._fail("Bridge frame does not match release gap", state)
         end = await self.bridge.press_keys(keys, count)
         self.inputs.append(InputEvent(name, keys, count, start, end))
         self._frames_used += count
+        if settle := min(settle_frames, budget - self._frames_used):
+            self._frames_used += settle
+            settled_frame = await self.bridge.advance_frames(settle)
+            if settled_frame != (end + settle) % (1 << 32):
+                state = await self._observe()
+                raise await self._fail("Bridge frame does not match settling gap", state)
+            end = settled_frame
         state = await self._observe()
         if state.frame != end:
             raise await self._fail("Observed state frame does not match input completion", state)

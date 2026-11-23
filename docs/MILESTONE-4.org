@@ -481,12 +481,35 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     ROM-independent tests cover early release after an extra step or phase
     change, cursor cache lag, and fallback after an incomplete hold.
 
-*** TODO Investigate how to speed up unit purchases
+*** IN-PROGRESS Investigate how to speed up unit purchases
     Benchmark purchases from nearby and distant production facilities in
     headless and windowed mGBA. Measure cursor travel, production menu
     navigation, and the wait for the new unit to appear. Record wall time,
     emulator frames, and bridge calls before and after any optimization.
     Verify the requested unit, facility, funds change, and settled result.
+    Implemented: reuse the verified open menu, check each directional tap's
+    release frame and resulting row, and recheck the requested row immediately
+    before confirming. Opening and confirming use their existing polling gaps
+    before the first full snapshot. The watchdogs and frame budgets still bound
+    both operations. The production list clamps at its first row, so wrapping
+    cannot shorten the route to the last row.
+    Live Rainy Haven comparison, median of three executor runs per case from
+    restored starting states. Each run verified the unit, funds, and settled
+    result. Timings include cursor travel, menu selection, and purchase
+    resolution through the executor.
+
+    | Purchase           | Headless seconds | Windowed seconds | Frames | Bridge calls |
+    |--------------------+------------------+------------------+--------+--------------|
+    | Nearby Infantry    | 0.71 to 0.44     | 0.73 to 0.49     |     46 |     14 to 11 |
+    | Nearby Missiles     | 2.31 to 1.37     | 2.49 to 1.35     |     76 |     54 to 41 |
+    | Distant Missiles    | 2.51 to 1.54     | 2.52 to 1.52     |    139 |     56 to 43 |
+    | Transport Copter   | 1.24 to 0.74     | 1.20 to 0.72     |     55 |     26 to 20 |
+    | Submarine          | 1.14 to 0.72     | 1.15 to 0.70     |     55 |     26 to 20 |
+
+    The distant route covered 13 tiles and used 63 cursor frames. For nearby
+    Missiles, selecting ten rows accounted for 30 frames and dropped from
+    41 bridge calls to 30. The purchase settled after 33 frames including the
+    confirm tap, with five bridge calls instead of six. Human review pending.
 
 *** TODO Investigate how to speed up ending a turn
     Benchmark End Turn in headless and windowed mGBA. Measure command menu
