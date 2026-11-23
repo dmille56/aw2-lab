@@ -422,6 +422,18 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     original board is restored at a fresh revision. These checks retain the
     current frame limit.
 
+*** TODO Speed up long executor cursor trips while preserving input verification
+    Measure elapsed time, emulator frames, and bridge round trips for long
+    open-map cursor trips in headless and windowed mGBA. Each tile currently
+    uses a tap with at least eight release frames and a verified observation.
+    Try batching straight runs in the bridge, checking the expected tile and
+    map-input phase after each step. If a batch cannot continue, release the
+    keys and resume with verified taps only from a confirmed map-input state.
+    Stop before confirming any action if the cursor or phase cannot be
+    verified. Compare both paths from the same checkpoints and cover turns,
+    map edges, missed or extra steps, and unexpected phase changes. Retain
+    frame and time bounds and verify checkpoint rollback on failure.
+
 ** IN-PROGRESS Redesign the human client UI for usability and ergonomics
    Complete this usability redesign before starting the deferred cross-platform
    acceptance matrix above. Use human playtesting to identify friction in common
