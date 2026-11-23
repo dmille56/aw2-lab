@@ -5,7 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from aw2_lab.action_navigation import ActionNavigator, validate_path
-from aw2_lab.aw2_unit_profiles import observed_rule_context, preflight_move
+from aw2_lab.aw2_unit_profiles import (
+    CAPTURABLE_TERRAINS,
+    CAPTURE_UNIT_TYPES,
+    observed_rule_context,
+    preflight_move,
+)
 from aw2_lab.lifecycle import LifecyclePhase
 from aw2_lab.match_contract import (
     CommandRequest,
@@ -23,8 +28,6 @@ from aw2_lab.match_observation import (
 from aw2_lab.state_model import ValueStatus
 from aw2_lab.ui_state import MenuFamily
 
-_CAPTURABLE_TERRAINS = frozenset({6, 8, 14})  # city, HQ, and base on the supported ROM
-_CAPTURE_UNIT_TYPES = frozenset({1, 2})  # Infantry and Mech
 _TERMINAL_PHASES = frozenset(
     {
         LifecyclePhase.RESULT_SEQUENCE,
@@ -79,7 +82,7 @@ class MoveCaptureActionExecutor:
             or unit.used_this_turn
         ):
             raise CommandRejected(ErrorCode.INVALID_REQUEST, "Capturing unit is unavailable")
-        if unit.unit_type not in _CAPTURE_UNIT_TYPES:
+        if unit.unit_type not in CAPTURE_UNIT_TYPES:
             raise CommandRejected(
                 ErrorCode.INVALID_REQUEST, "Only Infantry and Mechs can capture properties"
             )
@@ -95,7 +98,7 @@ class MoveCaptureActionExecutor:
 
         destination = path[-1] if path else (unit.x, unit.y)
         prop = next((item for item in battle.properties if (item.x, item.y) == destination), None)
-        if prop is None or prop.terrain_class not in _CAPTURABLE_TERRAINS:
+        if prop is None or prop.terrain_class not in CAPTURABLE_TERRAINS:
             raise CommandRejected(
                 ErrorCode.INVALID_REQUEST,
                 "Capture destination is not a supported capturable property",

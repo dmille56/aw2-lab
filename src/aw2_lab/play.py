@@ -34,6 +34,7 @@ from aw2_lab.local_launch import LocalLaunch
 from aw2_lab.map_catalog import MAPS_BY_ID
 from aw2_lab.match_contract import CO_ID_VALUES, CommandStatus, MatchLifecycle, PlayerSlot
 from aw2_lab.sdk import AsyncAW2Client, SDKError, WaitTimeout
+from aw2_lab.turn_brief import build_turn_brief
 
 
 class PlayError(RuntimeError):
@@ -367,6 +368,8 @@ async def ai_player(
                     instruction = COMMITTED_TURN_INSTRUCTION
                 else:
                     instruction = UNCOMMITTED_TURN_INSTRUCTION
+                brief = build_turn_brief(state, slot)
+                instruction = f"{instruction}\nCurrent turn brief: {brief.model_dump_json()}"
                 print(
                     f"AI {slot.value}: playing turn {budget.started} "
                     f"(attempt {attempt}/{attempts}, private log: {log})",

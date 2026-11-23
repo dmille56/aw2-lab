@@ -238,27 +238,9 @@ async def test_ai_turn_scheduling_follows_authoritative_state_and_cleans_up(
 ):
     from aw2_lab.match_contract import MatchLifecycle
 
-    before = SimpleNamespace(
-        settled=True,
-        summary=SimpleNamespace(lifecycle=MatchLifecycle.PLAYABLE),
-        observation=SimpleNamespace(
-            game_state=SimpleNamespace(
-                battle=SimpleNamespace(value=SimpleNamespace(day=1, active_player_slot=1))
-            )
-        ),
-    )
-    after = SimpleNamespace(
-        settled=True,
-        summary=before.summary,
-        observation=SimpleNamespace(
-            game_state=SimpleNamespace(
-                battle=SimpleNamespace(
-                    value=SimpleNamespace(
-                        day=1, active_player_slot=1 if outcome == "unchanged" else 2
-                    )
-                )
-            )
-        ),
+    before = _turn_state(lifecycle=MatchLifecycle.PLAYABLE, active_slot=1)
+    after = _turn_state(
+        lifecycle=MatchLifecycle.PLAYABLE, active_slot=1 if outcome == "unchanged" else 2
     )
 
     class Client:
@@ -324,17 +306,26 @@ async def test_ai_turn_scheduling_follows_authoritative_state_and_cleans_up(
 
 
 def _turn_state(
-    *, lifecycle, active_slot: int, day: int = 1, settled: bool = True, units: tuple = ()
+    *,
+    lifecycle,
+    active_slot: int,
+    day: int = 1,
+    settled: bool = True,
+    units: tuple = (),
+    revision: int = 1,
 ):
+    from aw2_lab.match_observation import IdentityStatus
+
     return SimpleNamespace(
         settled=settled,
-        summary=SimpleNamespace(lifecycle=lifecycle),
+        summary=SimpleNamespace(lifecycle=lifecycle, revision=revision),
         observation=SimpleNamespace(
+            identity_status=IdentityStatus.UNAVAILABLE,
             game_state=SimpleNamespace(
                 battle=SimpleNamespace(
                     value=_Battle(day=day, active_player_slot=active_slot, units=units)
-                )
-            )
+                ),
+            ),
         ),
     )
 
@@ -361,7 +352,7 @@ async def test_ai_host_continues_a_turn_aw2_left_open(
         # The action committed but the host never ended the turn, so the second
         # attempt must be told the board moved rather than rolled back.
         committed = _turn_state(
-            lifecycle=MatchLifecycle.PLAYABLE, active_slot=1, units=((3, 5, 7),)
+            lifecycle=MatchLifecycle.PLAYABLE, active_slot=1, units=((3, 5, 7),), revision=2
         )
         turns = [
             committed,
@@ -430,13 +421,20 @@ async def test_ai_host_continues_a_turn_aw2_left_open(
         assert stop.is_set()
         assert budget.completed == 1
     assert len(commands) == len(turns)
-    assert commands[0][-1] == play.FIRST_TURN_INSTRUCTION
+    instructions, briefs = zip(
+        *(command[-1].split("\nCurrent turn brief: ", 1) for command in commands),
+        strict=True,
+    )
+    assert instructions[0] == play.FIRST_TURN_INSTRUCTION
+    assert '"player_slot":"slot_1","revision":1' in briefs[0]
     if continuation is not None:
-        assert commands[1][-1] == continuation
-        assert "rolled back" not in commands[1][-1]
+        assert instructions[1] == continuation
+        assert "rolled back" not in instructions[1]
+        if outcome == "committed_action_then_end":
+            assert '"revision":2' in briefs[1]
     else:
-        for command in commands[1:]:
-            assert command[-1] == play.UNCOMMITTED_TURN_INSTRUCTION
+        for instruction in instructions[1:]:
+            assert instruction == play.UNCOMMITTED_TURN_INSTRUCTION
     assert (tmp_path / PlayerSlot.SLOT_1.value / "turn-1.jsonl").exists()
 
 

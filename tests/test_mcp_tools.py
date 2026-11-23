@@ -4,6 +4,7 @@ import asyncio
 import base64
 import hashlib
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from itertools import count
 from uuid import UUID, uuid4
 
@@ -18,10 +19,13 @@ from test_state_validation import memory as memory  # noqa: PLC0414
 
 import aw2_lab.mcp_runtime as adapter_module
 import aw2_lab.playable_runtime as runtime_module
+from aw2_lab.api_contract import StateResponse
 from aw2_lab.authorization import AuthorizationService
-from aw2_lab.match_contract import CommandResult, CommandStatus, MatchLifecycle
+from aw2_lab.match_contract import CommandResult, CommandStatus, MatchLifecycle, PlayerSlot
 from aw2_lab.match_controller import MatchController, MutationOutcome
 from aw2_lab.sdk import AsyncAW2Client, TransportError, WaitTimeout
+from aw2_lab.state_model import ObservedValue, PropertyState, ValueStatus, Weather
+from aw2_lab.turn_brief import build_turn_brief
 
 
 @asynccontextmanager
@@ -89,6 +93,78 @@ async def mounted(app, monkeypatch, *, client_type=None):
 def payload(response):
     assert not response.get("isError"), response
     return response["structuredContent"]
+
+
+@run_async_test
+async def test_turn_brief_binds_read_only_choices_to_the_authenticated_slot(
+    memory, tmp_path, monkeypatch
+):
+    app, runtime, _, match_id, _, bridge = await setup(memory, tmp_path, monkeypatch)
+    try:
+        async with mounted(app, monkeypatch) as (call, _, _http):
+            args = {"match_id": str(match_id)}
+            brief = payload(await call("get_turn_brief", args))
+            assert brief["revision"] == 1
+            assert brief["turn_ready"] and brief["player_slot"] == "slot_1"
+            assert [unit["unit_id"] for unit in brief["ready_units"]] == ["1"]
+            assert payload(await call("get_turn_brief", args, letter="q"))["turn_ready"] is False
+            assert (await call("get_turn_brief", args, letter="o"))["isError"]
+            assert (await call("get_turn_brief", {"match_id": str(uuid4())}))["isError"]
+            assert bridge.frame == 123
+
+            state = StateResponse.model_validate(payload(await call("get_state", args)))
+        observation = state.observation
+        assert observation is not None
+        game_state = observation.game_state
+        battle = game_state.battle.value
+        assert battle is not None
+        own, opposing = battle.units
+        player = replace(battle.players[0], funds=1000)
+        battle = replace(
+            battle,
+            players=(player, *battle.players[1:]),
+            fog_enabled=ObservedValue(ValueStatus.AVAILABLE, False),
+            co_effects_enabled=ObservedValue(ValueStatus.AVAILABLE, False),
+            weather=ObservedValue(ValueStatus.AVAILABLE, Weather.CLEAR),
+            properties=(
+                PropertyState(0, 0, 14, 1),
+                PropertyState(1, 0, 6, 0),
+                PropertyState(0, 1, 14, 1),
+            ),
+            units=(replace(own, fuel=1), opposing),
+        )
+
+        def with_battle(current):
+            observed = replace(
+                observation,
+                game_state=replace(game_state, battle=replace(game_state.battle, value=current)),
+            )
+            return state.model_copy(update={"observation": observed})
+
+        planned = build_turn_brief(with_battle(battle), PlayerSlot.SLOT_1, unit_id="1")
+        assert len(planned.empty_facilities) == 1
+        facility = planned.empty_facilities[0]
+        assert (facility.tile.x, facility.tile.y) == (0, 1)
+        assert [(unit.unit_type, unit.cost) for unit in facility.affordable_units] == [
+            ("Infantry", 1000)
+        ]
+        assert [unit.unit_id for unit in planned.opposing_targets] == ["2"]
+        assert planned.reachable_tiles is not None
+        (capture,) = (item for item in planned.reachable_tiles if item.can_capture)
+        assert [(step.x, step.y) for step in capture.path] == [(1, 0)]
+        assert all((item.tile.x, item.tile.y) != (1, 1) for item in planned.reachable_tiles)
+        assert (
+            build_turn_brief(with_battle(battle), PlayerSlot.SLOT_1, unit_id="2").reachable_tiles
+            is None
+        )
+
+        used = replace(battle, units=(replace(battle.units[0], used_this_turn=True), opposing))
+        assert build_turn_brief(with_battle(used), PlayerSlot.SLOT_1).ready_units == ()
+        fog = replace(battle, fog_enabled=ObservedValue(ValueStatus.AVAILABLE, True))
+        obscured = build_turn_brief(with_battle(fog), PlayerSlot.SLOT_1, unit_id="1")
+        assert obscured.opposing_targets == () and obscured.reachable_tiles is None
+    finally:
+        await runtime.controller.stop()
 
 
 @pytest.mark.parametrize(

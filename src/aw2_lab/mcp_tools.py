@@ -23,6 +23,7 @@ from aw2_lab.api_contract import (
     MatchListResponse,
     MatchSummary,
     ObservationResponse,
+    PlayerPrincipal,
     ReadinessResponse,
     SlotAuthorization,
     StateResponse,
@@ -64,6 +65,7 @@ from aw2_lab.mcp_runtime import MCPAdapterRuntime
 from aw2_lab.mcp_turn_wait import TurnWaitResult
 from aw2_lab.mcp_turn_wait import wait_for_turn as await_turn
 from aw2_lab.sdk import TERMINAL, AsyncAW2Client
+from aw2_lab.turn_brief import TurnBrief, build_turn_brief
 
 MAX_ARCHIVE_BASE64 = 4 * ((MAX_ARCHIVE_BYTES + 2) // 3)
 MCP_BODY_BYTES = MAX_ARCHIVE_BASE64 + 65536
@@ -181,6 +183,22 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
         """Read the versioned game observation, including unavailable decoder fields."""
         async with client(Permission.READ, match_id) as sdk:
             return await sdk.observation(match_id)
+
+    @server.tool()
+    async def get_turn_brief(
+        match_id: UUID, unit_id: UnitID | None = None, contract_version: int = 1
+    ) -> TurnBrief:
+        """Player: read your ready units, affordable production, and observed opponents at one revision. Pass a ready unit ID for verified movement paths and capture tiles when rules and visibility are known."""
+        request = server.get_context().request_context.request
+        if not isinstance(request, Request):
+            raise AuthorizationError(ErrorCode.INVALID_CREDENTIAL, "Authentication required")
+        principal = caller_from_request(request).principal
+        if not isinstance(principal, PlayerPrincipal):
+            raise AuthorizationError(ErrorCode.PERMISSION_DENIED, "A player slot is required")
+        async with client(Permission.READ, match_id) as sdk:
+            return build_turn_brief(
+                await sdk.state(match_id), principal.player_slot, unit_id=unit_id
+            )
 
     @server.tool(structured_output=False)
     async def get_screenshot(

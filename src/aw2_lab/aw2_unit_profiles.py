@@ -18,6 +18,9 @@ from aw2_lab.aw2_rules_data import (
 )
 from aw2_lab.state_model import BattleState, ValueStatus, Weather
 
+CAPTURABLE_TERRAINS = frozenset({6, 8, 14})  # city, HQ, and base on the supported ROM
+CAPTURE_UNIT_TYPES = frozenset({1, 2})  # Infantry and Mech
+
 
 class MovementType(IntEnum):
     FOOT = 0
