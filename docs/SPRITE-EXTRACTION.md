@@ -387,6 +387,26 @@ owner changes during play is still compared only against the army-keyed region. 
 turns, so it needs a map where a silo touches a base the active army owns (Pipe Maze) and,
 with `--attach-live`, it changes the running match.
 
+### Factory smoke
+
+Factory smoke uses four 16×16 transparent phases from ROM file offsets `0x0D20C4`,
+`0x0D2144`, `0x0D21C4`, and `0x0D2244`. Each block contains four 8×8 tiles, and the
+smoke color is shared by the property palettes. The pack builder adds the frames to
+the ROM-derived atlas and stores their regions and `frames_per_phase` under the optional
+`factory_smoke` manifest entry.
+
+In headless mGBA, the upper half of the factory sprite matched all four decoded
+phases over 120 consecutive screenshots at 20 emulator frames per phase. Pipe Maze
+showed the same smoke for all four owners and partial occlusion by an Infantry on
+the base. Sun Canal's neutral factory emitted no smoke. The client uses the board
+animation clock to draw the effect above owned bases at this cadence, between the
+terrain and unit layers. The base artwork remains visible with reduced motion or an
+older pack.
+
+Run `python -m aw2_lab.sprite_pack --rom "$AW2_ROM_PATH" --output-dir <new-pack-dir>`
+and point `aw2-lab play --sprite-pack` at the new directory. Run the terrain audit
+on the new pack if you also want its optional captured terrain cycles.
+
 ## Prototype delivery and rendering
 
 

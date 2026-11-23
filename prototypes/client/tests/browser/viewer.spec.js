@@ -1209,6 +1209,67 @@ test("renders a local sprite pack and retains keyboard inspection", async ({
   await expect(page.locator('#board [data-x="1"][data-y="0"]')).toBeFocused();
 });
 
+test("animates smoke above an owned factory and stops for reduced motion", async ({
+  page,
+}) => {
+  const state = structuredClone(fixture);
+  const battle = state.observation.game_state.battle.value;
+  Object.assign(battle.map.tiles[2], { terrain_class: 14, owner_slot: 1 });
+  Object.assign(battle.map.tiles[3], { terrain_class: 14, owner_slot: 0 });
+  battle.units[0].y = 1;
+  const atlas = `atlas-${"a".repeat(64)}.png`;
+  const terrain = { x: 0, y: 0, width: 16, height: 32 };
+  const frame = { ...terrain, height: 16 };
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await page.route("**/client-sprites/manifest.json", (route) =>
+    route.fulfill({
+      json: {
+        kind: "aw2-client-sprites",
+        version: 1,
+        atlas,
+        width: 16,
+        height: 32,
+        terrain: {
+          "6:1": terrain,
+          "1:0": terrain,
+          "14:0": terrain,
+          "14:1": terrain,
+        },
+        units: { "1:1": frame, "1:2": frame },
+        factory_smoke: {
+          frames_per_phase: 20,
+          frames: [frame, { ...frame, y: 16 }],
+        },
+      },
+    }),
+  );
+  await page.route(`**/client-sprites/${atlas}`, (route) =>
+    route.fulfill({
+      contentType: "image/svg+xml",
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="32"><rect width="16" height="32" fill="#508060"/></svg>',
+    }),
+  );
+  await connect(page);
+  const tile = (x, y) => page.locator(`#board [data-x="${x}"][data-y="${y}"]`);
+  const smoke = tile(0, 0).locator(".sprite-factory-smoke");
+  await expect(smoke).toBeVisible();
+  await expect(tile(0, 1).locator(".sprite-unit")).toBeVisible();
+  await expect(page.locator(".sprite-factory-smoke")).toHaveCount(1);
+  const phase = () =>
+    smoke.evaluate((node) => getComputedStyle(node).backgroundPositionY);
+  const initialPhase = await phase();
+  await expect.poll(phase).not.toBe(initialPhase);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(smoke).toHaveCount(0);
+  await expect(tile(0, 1).locator(".sprite-terrain")).toBeVisible();
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await expect(smoke).toBeVisible();
+  battle.map.tiles[2].owner_slot = 0;
+  state.summary.revision = state.observation.revision = 2;
+  await page.locator("#refresh").click();
+  await expect(page.locator(".sprite-factory-smoke")).toHaveCount(0);
+});
+
 test("clicking a distant destination builds a route without emulator input", async ({
   page,
   request,

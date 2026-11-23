@@ -12,7 +12,7 @@ import pytest
 from aw2_lab.aw2_rules_data import UNIT_DATA
 from aw2_lab.map_catalog import ALL_MAPS
 from aw2_lab.rom_profile import AW2_US_REVISION_0, UnsupportedRomError
-from aw2_lab.sprite_audit import GroundCell, SpritePack
+from aw2_lab.sprite_audit import GroundCell, SpritePack, decode_png
 from aw2_lab.sprite_extraction import (
     compose_tiles,
     decode_lz77,
@@ -27,6 +27,7 @@ from aw2_lab.sprite_pack import (
     TERRAIN_VARIANT_CLASSES,
     attach_animation_frames,
     build_sprite_pack,
+    factory_smoke_frames,
     property_frame,
     terrain_frame,
     terrain_variant_frame,
@@ -164,6 +165,19 @@ def test_local_pack_is_complete_deterministic_and_preserves_rom(tmp_path: Path) 
         assert 0 <= region["x"] <= manifest["width"] - region["width"]
         assert 0 <= region["y"] <= manifest["height"] - region["height"]
     png = (tmp_path / manifest["atlas"]).read_bytes()
+    smoke = manifest["factory_smoke"]
+    assert smoke["frames_per_phase"] == 20
+    assert len(smoke["frames"]) == 4
+    atlas_width, _, pixels = decode_png(png)
+    for region, (width, height, frame) in zip(
+        smoke["frames"], factory_smoke_frames(source), strict=True
+    ):
+        assert (width, height) == (16, 16)
+        assert region["y"] + height <= manifest["height"]
+        assert region["x"] + width <= atlas_width
+        rows = [((region["y"] + row) * atlas_width + region["x"]) * 4 for row in range(height)]
+        assert b"".join(pixels[start : start + width * 4] for start in rows) == frame
+        assert set(frame[3::4]) == {0, 255}
     assert hashlib.sha256(png).hexdigest() == manifest["atlas_sha256"]
     assert json.loads((tmp_path / "manifest.json").read_text()) == manifest
     assert build_sprite_pack(rom, tmp_path) == manifest

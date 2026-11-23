@@ -7,6 +7,7 @@ import "./RangeOverlay.css";
 import { Fragment, useEffect, useRef, type ReactNode } from "react";
 import {
   AnimatedTerrainSprite,
+  FactorySmokeSprite,
   Sprite,
   TerrainAnimationClock,
   terrainArtwork,
@@ -234,6 +235,17 @@ export function Board({
     (tile) => tile.x === selected?.x && tile.y === selected?.y,
   ) ?? { x: 0, y: 0 };
   const animation = spritePack?.animation;
+  const factorySmoke = spritePack?.factory_smoke;
+  const smokingTiles = new Set(
+    factorySmoke
+      ? battle?.map.tiles
+          .filter(
+            (tile) =>
+              tile.terrain_class === 14 && tile.owner_slot > 0 && tile.y > 0,
+          )
+          .map((tile) => `${tile.x},${tile.y - 1}`)
+      : [],
+  );
   const board = (
     <div
       id="board"
@@ -426,6 +438,9 @@ export function Board({
                       className="sprite-terrain"
                     />
                   ))}
+                {spritePack && factorySmoke && smokingTiles.has(tileKey) && (
+                  <FactorySmokeSprite pack={spritePack} smoke={factorySmoke} />
+                )}
                 <span
                   className="terrain-label"
                   aria-hidden="true"
@@ -475,7 +490,10 @@ export function Board({
     </div>
   );
   return (
-    <TerrainAnimationClock cycleFrames={animation?.cycle_frames}>
+    <TerrainAnimationClock
+      cycleFrames={animation?.cycle_frames}
+      smokeFramesPerPhase={factorySmoke?.frames_per_phase}
+    >
       {board}
     </TerrainAnimationClock>
   );

@@ -788,6 +788,10 @@ summary {
   z-index: 0;
 }
 
+.sprite-factory-smoke {
+  z-index: 1;
+}
+
 .sprite-unit {
   z-index: 2;
 }

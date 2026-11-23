@@ -74,6 +74,11 @@ class AnimationSection(TypedDict):
     frames: dict[str, dict[str, list[Region]]]
 
 
+class FactorySmokeSection(TypedDict):
+    frames_per_phase: int
+    frames: list[Region]
+
+
 class SpriteManifest(TypedDict):
     kind: str
     version: int
@@ -86,6 +91,7 @@ class SpriteManifest(TypedDict):
     terrain: dict[str, Region]
     portraits: dict[str, Region]
     terrain_variants: dict[str, Region]
+    factory_smoke: FactorySmokeSection
     animation: AnimationSection | None
 
 
@@ -134,6 +140,12 @@ class SpriteRegion(BaseModel):
     y: int = Field(ge=0, le=4096, strict=True)
     width: int = Field(ge=1, le=48, strict=True)
     height: int = Field(ge=1, le=48, strict=True)
+
+
+class FactorySmokeFrames(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    frames_per_phase: int = Field(ge=1, le=600, strict=True)
+    frames: list[SpriteRegion] = Field(min_length=2, max_length=MAX_FRAMES_PER_REGION)
 
 
 class AnimationFrames(BaseModel):
@@ -208,6 +220,7 @@ class SpritePackManifest(BaseModel):
     terrain: dict[str, SpriteRegion]
     portraits: dict[str, SpriteRegion] = Field(default_factory=dict)
     terrain_variants: dict[str, SpriteRegion] = Field(default_factory=dict)
+    factory_smoke: FactorySmokeFrames | None = None
     animation: AnimationFrames | None = None
 
     @model_validator(mode="after")
@@ -241,6 +254,14 @@ class SpritePackManifest(BaseModel):
                     raise ValueError("Graphical tile ID is outside the lookup")
                 if region.x + region.width > self.width or region.y + region.height > self.height:
                     raise ValueError("Sprite region is outside the atlas")
+        if self.factory_smoke is not None and any(
+            region.width != 16
+            or region.height != 16
+            or region.x + region.width > self.width
+            or region.y + region.height > self.height
+            for region in self.factory_smoke.frames
+        ):
+            raise ValueError("Factory smoke frames must be 16x16 and inside the atlas")
         return self
 
 
@@ -408,6 +429,17 @@ def terrain_variant_frame(rom: bytes, graphical_tile_id: int) -> tuple[int, int,
     return 16, 32, bytes(16 * 16 * 4) + ground
 
 
+def factory_smoke_frames(rom: bytes) -> list[tuple[int, int, bytes]]:
+    """Extract the four upper halves of the factory sprite seen in mGBA."""
+    # These four blocks become the first four tiles of the 16x32 factory OBJ.
+    # Only color 12 is used, and it is identical across the property palettes.
+    palette = decode_palette(rom, 0x0D3EE4, transparent=True)
+    return [
+        compose_tiles([decode_tile(rom, offset + tile * 32, palette) for tile in range(4)], 2)
+        for offset in range(0x0D20C4, 0x0D22C4, 128)
+    ]
+
+
 def build_sprite_pack(rom_path: Path, output: Path) -> SpriteManifest:
     profile = select_rom_profile(rom_path)
     output = output.expanduser().resolve()
@@ -435,7 +467,8 @@ def build_sprite_pack(rom_path: Path, output: Path) -> SpriteManifest:
         terrain = rom[0x0C1BC4 + tile] & 31
         frames.append(("terrain_variants", f"{terrain}:{tile}", terrain_variant_frame(rom, tile)))
     variants_y = map_height + 4 * 48
-    width, height = 256, variants_y + ((len(variant_ids) + 15) // 16) * 32
+    smoke_y = variants_y + ((len(variant_ids) + 15) // 16) * 32
+    width, height = 256, smoke_y + 16
     pixels = bytearray(width * height * 4)
     units: dict[str, Region] = {}
     terrains: dict[str, Region] = {}
@@ -465,6 +498,13 @@ def build_sprite_pack(rom_path: Path, output: Path) -> SpriteManifest:
             "width": w,
             "height": h,
         }
+    smoke_regions: list[Region] = []
+    for index, (w, h, frame) in enumerate(factory_smoke_frames(rom)):
+        x = index * w
+        for row in range(h):
+            start = ((smoke_y + row) * width + x) * 4
+            pixels[start : start + w * 4] = frame[row * w * 4 : (row + 1) * w * 4]
+        smoke_regions.append({"x": x, "y": smoke_y, "width": w, "height": h})
     png = encode_png(width, height, bytes(pixels))
     digest = hashlib.sha256(png).hexdigest()
     atlas = f"atlas-{digest}.png"
@@ -480,6 +520,7 @@ def build_sprite_pack(rom_path: Path, output: Path) -> SpriteManifest:
         "terrain": terrains,
         "portraits": portraits,
         "terrain_variants": terrain_variants,
+        "factory_smoke": {"frames_per_phase": 20, "frames": smoke_regions},
         "animation": None,
     }
     output.mkdir(parents=True, exist_ok=True)

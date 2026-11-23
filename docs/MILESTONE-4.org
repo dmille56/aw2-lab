@@ -1377,12 +1377,19 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     - [x] Load and validate the optional animation atlas and its manifest entries.
     - [x] Cycle animated terrain regions in the board while preserving static fallback.
 
-*** TODO Animate factory smoke on base tiles in the human client
+*** IN-PROGRESS Animate factory smoke on base tiles in the human client
     Capture the smoke cycle from mGBA and render it over factory (base) tiles
     with the existing terrain animation clock. Verify the smoke's placement,
     cadence, and appearance across ownership variants and with units on bases.
     Keep static artwork available when animation data is missing or reduced
     motion is enabled.
+    Implemented: new ROM-local packs include the four transparent smoke phases.
+    The board paints them in the square above each owned factory every 20
+    emulator frames (about 333 ms per phase). In isolated headless mGBA, 120
+    consecutive Pipe Maze screenshots matched the extracted phase order and
+    timing. Separate views verified all four owners, smoke partly covered by
+    a unit on its factory, and no smoke at Sun Canal's neutral factory. See
+    [[file:SPRITE-EXTRACTION.md::*Factory smoke][the extraction and setup notes]]. Human review pending.
 
 *** DONE Check per-cell property artwork
     City, HQ, airport, port, base, missile silo, and spent silo art is selected by army

@@ -28,18 +28,28 @@ interface AnimationManifest extends AtlasSize {
 }
 interface TerrainAnimation extends AnimationManifest, SpriteAtlas {}
 
+interface FactorySmoke {
+  frames_per_phase: number;
+  frames: SpriteRegion[];
+}
+
 export interface SpritePack extends SpriteAtlas {
   units: Record<string, SpriteRegion>;
   terrain: Record<string, SpriteRegion>;
   portraits?: Record<string, SpriteRegion>;
   terrain_variants?: Record<string, SpriteRegion>;
   animation?: TerrainAnimation;
+  factory_smoke?: FactorySmoke;
 }
-interface Manifest extends Omit<SpritePack, "image" | "animation"> {
+interface Manifest extends Omit<
+  SpritePack,
+  "image" | "animation" | "factory_smoke"
+> {
   kind: "aw2-client-sprites";
   version: 1;
   atlas: string;
   animation?: unknown;
+  factory_smoke?: unknown;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -161,6 +171,29 @@ export function validateTerrainAnimation(
   if (Object.keys(animation.frames).length) return animation;
 }
 
+export function validateFactorySmoke(
+  value: unknown,
+  atlas: AtlasSize,
+): FactorySmoke | undefined {
+  if (
+    !isRecord(value) ||
+    !boundedInteger(value.frames_per_phase, 1, 600) ||
+    !Array.isArray(value.frames) ||
+    !boundedInteger(value.frames.length, 2, 16)
+  )
+    return;
+  const frames: unknown[] = value.frames;
+  if (
+    frames.every(
+      (frame): frame is SpriteRegion =>
+        regionInAtlas(frame, atlas, 16) &&
+        frame.width === 16 &&
+        frame.height === 16,
+    )
+  )
+    return { frames_per_phase: value.frames_per_phase, frames };
+}
+
 export function terrainArtwork(
   pack: SpritePack | null,
   tile: {
@@ -235,12 +268,20 @@ export function useSpritePack(
           requestOptions(),
         );
         if (!response.ok) return;
-        const { animation: rawAnimation, ...manifest } = validateSpriteManifest(
-          await response.json(),
-        );
+        const {
+          animation: rawAnimation,
+          factory_smoke: rawSmoke,
+          ...manifest
+        } = validateSpriteManifest(await response.json());
         const image = await loadAtlas(base, manifest);
         if (!image || controller.signal.aborted) return;
-        const staticPack = { ...manifest, image };
+        const staticPack = {
+          ...manifest,
+          image,
+          factory_smoke: animateTerrain
+            ? validateFactorySmoke(rawSmoke, manifest)
+            : undefined,
+        };
         setPack(staticPack);
 
         const animation =
@@ -268,15 +309,10 @@ export function useSpritePack(
 }
 
 const TerrainFrame = createContext<number | null>(null);
+const FactorySmokeFrame = createContext<number | null>(null);
 const MIN_TERRAIN_FRAME_MS = 400;
 
-export function TerrainAnimationClock({
-  cycleFrames,
-  children,
-}: {
-  cycleFrames?: number;
-  children: ReactNode;
-}) {
+function useAnimationFrame(cycleFrames: number | undefined, minimumMs = 0) {
   const [frame, setFrame] = useState<number | null>(null);
   useEffect(() => {
     if (!cycleFrames) return;
@@ -289,10 +325,9 @@ export function TerrainAnimationClock({
         return;
       }
       setFrame(0);
-      // Audit samples can be closer together than is comfortable for a looping board.
       timer = window.setInterval(
         () => setFrame((current) => (current ?? 0) + 1),
-        Math.max(MIN_TERRAIN_FRAME_MS, (cycleFrames * 1000) / 60),
+        Math.max(minimumMs, (cycleFrames * 1000) / 60),
       );
     };
     syncMotion();
@@ -301,9 +336,45 @@ export function TerrainAnimationClock({
       window.clearInterval(timer);
       motion?.removeEventListener("change", syncMotion);
     };
-  }, [cycleFrames]);
+  }, [cycleFrames, minimumMs]);
+  return cycleFrames ? frame : null;
+}
+
+export function TerrainAnimationClock({
+  cycleFrames,
+  smokeFramesPerPhase,
+  children,
+}: {
+  cycleFrames?: number;
+  smokeFramesPerPhase?: number;
+  children: ReactNode;
+}) {
+  const frame = useAnimationFrame(cycleFrames, MIN_TERRAIN_FRAME_MS);
+  const smokeFrame = useAnimationFrame(smokeFramesPerPhase);
   return (
-    <TerrainFrame.Provider value={frame}>{children}</TerrainFrame.Provider>
+    <TerrainFrame.Provider value={frame}>
+      <FactorySmokeFrame.Provider value={smokeFrame}>
+        {children}
+      </FactorySmokeFrame.Provider>
+    </TerrainFrame.Provider>
+  );
+}
+
+export function FactorySmokeSprite({
+  pack,
+  smoke,
+}: {
+  pack: SpritePack;
+  smoke: FactorySmoke;
+}) {
+  const frame = useContext(FactorySmokeFrame);
+  if (frame === null) return null;
+  return (
+    <Sprite
+      pack={pack}
+      region={smoke.frames[frame % smoke.frames.length]}
+      className="sprite-factory-smoke"
+    />
   );
 }
 
