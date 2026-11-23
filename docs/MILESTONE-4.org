@@ -635,6 +635,15 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     overlap pattern, distinct threat/drop outlines, and a visible range legend.
     Overlays remain below units and HP; awaiting user visual review.
 
+*** TODO Apply Max and Grit's indirect range modifiers to the human client
+    With CO effects enabled, Max's indirect units have one less maximum range
+    and Grit's have one more before powers. Preserve minimum range and apply
+    Grit's verified Power and Super bonuses. The range overlays currently use
+    base maximum range while target selection reads the CO modifiers. Share the
+    effective range calculation across selected and held previews, enemy threat
+    overlays, and target eligibility. Check each edge of the adjusted range and
+    verify baseline range when CO effects are disabled.
+
 *** IN-PROGRESS Correct Join eligibility and verify complete cartridge behavior
     Human playtest feedback (2026-11-16): the menu offers Join for two full-HP
     Infantry. Audit client eligibility, server preflight, and result validation
@@ -683,6 +692,18 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     rollback, unknown outcome, and recovery required, naming action/reason/next
     steps. Rejections retain request context; repeated refreshes do not duplicate
     notices, and completed safe retries clear the stale unknown warning. Human review pending.
+
+*** TODO Diagnose stalled play sessions and add manual client recovery
+    In an =aw2-lab play= session, the human client stopped allowing movement and
+    end turn. The latest local Bean Island run retained a =playable= checkpoint
+    at revision 191 after a completed Move & Wait. The journal has no later
+    command or unresolved command. The browser state at the stall is unknown.
+    Reproduce the stall and trace command status, snapshot readiness, turn
+    ownership, and connection state to identify the cause. Show why controls
+    are disabled and add a manual recovery action that fetches the authoritative
+    state, reconciles pending commands without duplicate submissions, and resets
+    stale local plans. Give actionable guidance if the host is offline or the
+    match requires an operator checkpoint restore.
 
 *** IN-PROGRESS Make the selected unit unmistakable
     Human playtest feedback (2026-11-16): it is difficult to identify the selected
@@ -1345,6 +1366,13 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     captured frames, and reduced motion.
     - [x] Load and validate the optional animation atlas and its manifest entries.
     - [x] Cycle animated terrain regions in the board while preserving static fallback.
+
+*** TODO Animate factory smoke on base tiles in the human client
+    Capture the smoke cycle from mGBA and render it over factory (base) tiles
+    with the existing terrain animation clock. Verify the smoke's placement,
+    cadence, and appearance across ownership variants and with units on bases.
+    Keep static artwork available when animation data is missing or reduced
+    motion is enabled.
 
 *** DONE Check per-cell property artwork
     City, HQ, airport, port, base, missile silo, and spent silo art is selected by army
