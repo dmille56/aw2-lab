@@ -1,5 +1,6 @@
 import "./CargoBadge.css";
 import "./AmmoIndicator.css";
+import "./FuelIndicator.css";
 import { TerrainDefense } from "./TerrainDefense";
 import "./UnitHealth.css";
 import "./TargetHighlight.css";
@@ -27,6 +28,12 @@ import {
   ammoWarningLabel,
   ammoWarningVisible,
 } from "./ammo_indicator";
+import {
+  fuelInspectorValue,
+  fuelStatus,
+  fuelWarningLabel,
+  fuelWarningVisible,
+} from "./fuel_indicator";
 import type { BattleState, StateResponse, UnitState } from "./state";
 
 interface Profile {
@@ -96,7 +103,14 @@ export function UnitInspector({
         />
       ),
     ],
-    ["Fuel", `${unit.fuel}${profile ? `/${profile.fuel_capacity}` : ""}`],
+    [
+      "Fuel",
+      fuelInspectorValue(
+        unit,
+        snapshot.observation?.game_state.battle.value ?? null,
+        viewerSlot,
+      ),
+    ],
     [
       "Ammo",
       ammoInspectorValue(
@@ -289,6 +303,9 @@ export function Board({
             const ammo = unit ? ammoStatus(unit) : null;
             const lowAmmo =
               !!unit && ammoWarningVisible(unit, battle, yourSlot ?? null);
+            const fuel = unit ? fuelStatus(unit) : null;
+            const lowFuel =
+              !!unit && fuelWarningVisible(unit, battle, yourSlot ?? null);
             const unitRegion = unit
               ? spritePack?.units[`${unit.unit_type}:${unit.army_slot}`]
               : null;
@@ -321,6 +338,11 @@ export function Board({
                     ? `${ammo.remaining}/${ammo.capacity}`
                     : undefined
                 }
+                data-low-fuel={
+                  lowFuel && fuel
+                    ? `${fuel.remaining}/${fuel.capacity}`
+                    : undefined
+                }
                 data-acting-unit={isActing || undefined}
                 data-attackable-enemy={isEnemyTarget || undefined}
                 data-drop-selected={dropLabel || undefined}
@@ -334,7 +356,7 @@ export function Board({
                 data-your-unit={!!unit && unit.army_slot === yourSlot}
                 title={`${terrainName(tile.terrain_class)}${unit ? ` · ${unitName(unit)}` : ""}`}
                 aria-pressed={match}
-                aria-label={`${captureLabel ? `${captureLabel}, ` : ""}${isEnemyTarget ? "Attackable enemy, " : ""}${isActing ? "Selected acting unit, " : ""}${dropLabel ? `Cargo drop ${dropLabel}, ` : ""}${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit && lowAmmo && ammo ? `, ${ammoWarningLabel(ammo)}` : ""}${unit.army_slot === yourSlot ? ", your unit" : ""}${unit.cargo_references.length ? `, loaded transport, ${unit.cargo_references.length} passenger${unit.cargo_references.length === 1 ? "" : "s"} aboard` : ""}` : ""}`}
+                aria-label={`${captureLabel ? `${captureLabel}, ` : ""}${isEnemyTarget ? "Attackable enemy, " : ""}${isActing ? "Selected acting unit, " : ""}${dropLabel ? `Cargo drop ${dropLabel}, ` : ""}${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit && lowAmmo && ammo ? `, ${ammoWarningLabel(ammo)}` : ""}${lowFuel && fuel ? `, ${fuelWarningLabel(fuel)}` : ""}${unit.army_slot === yourSlot ? ", your unit" : ""}${unit.cargo_references.length ? `, loaded transport, ${unit.cargo_references.length} passenger${unit.cargo_references.length === 1 ? "" : "s"} aboard` : ""}` : ""}`}
                 onClick={() => (activate ?? select)(tile)}
                 onPointerDown={(event) => {
                   if (
@@ -494,6 +516,17 @@ export function Board({
                         <span className="used-mark">✓</span>
                       )}
                     </span>
+                    {lowFuel && fuel && (
+                      <span
+                        className="fuel-warning"
+                        aria-hidden="true"
+                        data-fuel-empty={fuel.empty || undefined}
+                        title={fuelWarningLabel(fuel)}
+                      >
+                        <span>F</span>
+                        <span>{fuel.remaining}</span>
+                      </span>
+                    )}
                     {lowAmmo && ammo && (
                       <span
                         className="ammo-warning"

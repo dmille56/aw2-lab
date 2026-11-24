@@ -7928,6 +7928,7 @@
       "minimum_range": 1,
       "maximum_range": 1,
       "fuel_capacity": 99,
+      "destroyed_at_zero_fuel": false,
       "ammo_capacity": 0,
       "cost": 1000,
       "primary_targets": [],
@@ -7954,6 +7955,7 @@
       "minimum_range": 1,
       "maximum_range": 1,
       "fuel_capacity": 70,
+      "destroyed_at_zero_fuel": false,
       "ammo_capacity": 3,
       "cost": 3000,
       "primary_targets": [
@@ -7990,6 +7992,7 @@
       "minimum_range": 1,
       "maximum_range": 1,
       "fuel_capacity": 50,
+      "destroyed_at_zero_fuel": false,
       "ammo_capacity": 8,
       "cost": 16000,
       "primary_targets": [
@@ -8032,6 +8035,7 @@
       "minimum_range": 1,
       "maximum_range": 1,
       "fuel_capacity": 70,
+      "destroyed_at_zero_fuel": false,
       "ammo_capacity": 9,
       "cost": 7000,
       "primary_targets": [
@@ -8074,6 +8078,7 @@
       "minimum_range": 1,
       "maximum_range": 1,
       "fuel_capacity": 80,
+      "destroyed_at_zero_fuel": false,
       "ammo_capacity": 0,
       "cost": 4000,
       "primary_targets": [],
@@ -8100,6 +8105,7 @@
       "minimum_range": 0,
       "maximum_range": 0,
       "fuel_capacity": 70,
+      "destroyed_at_zero_fuel": false,
       "ammo_capacity": 0,
       "cost": 5000,
       "primary_targets": [],
@@ -8112,6 +8118,7 @@
       "minimum_range": 1,
       "maximum_range": 1,
       "fuel_capacity": 99,
+      "destroyed_at_zero_fuel": false,
       "ammo_capacity": 9,
       "cost": 22000,
       "primary_targets": [
@@ -8154,6 +8161,7 @@
       "minimum_range": 2,
       "maximum_range": 3,
       "fuel_capacity": 50,
+      "destroyed_at_zero_fuel": false,
       "ammo_capacity": 9,
       "cost": 6000,
       "primary_targets": [
@@ -8182,6 +8190,7 @@
       "minimum_range": 3,
       "maximum_range": 5,
       "fuel_capacity": 50,
+      "destroyed_at_zero_fuel": false,
       "ammo_capacity": 6,
       "cost": 15000,
       "primary_targets": [
@@ -8210,6 +8219,7 @@
       "minimum_range": 1,
       "maximum_range": 1,
       "fuel_capacity": 60,
+      "destroyed_at_zero_fuel": false,
       "ammo_capacity": 9,
       "cost": 8000,
       "primary_targets": [
@@ -8238,6 +8248,7 @@
       "minimum_range": 3,
       "maximum_range": 5,
       "fuel_capacity": 50,
+      "destroyed_at_zero_fuel": false,
       "ammo_capacity": 6,
       "cost": 12000,
       "primary_targets": [
@@ -8255,6 +8266,7 @@
       "minimum_range": 1,
       "maximum_range": 1,
       "fuel_capacity": 99,
+      "destroyed_at_zero_fuel": true,
       "ammo_capacity": 9,
       "cost": 20000,
       "primary_targets": [
@@ -8272,6 +8284,7 @@
       "minimum_range": 1,
       "maximum_range": 1,
       "fuel_capacity": 99,
+      "destroyed_at_zero_fuel": true,
       "ammo_capacity": 9,
       "cost": 22000,
       "primary_targets": [
@@ -8300,6 +8313,7 @@
       "minimum_range": 1,
       "maximum_range": 1,
       "fuel_capacity": 99,
+      "destroyed_at_zero_fuel": true,
       "ammo_capacity": 6,
       "cost": 9000,
       "primary_targets": [
@@ -8342,6 +8356,7 @@
       "minimum_range": 0,
       "maximum_range": 0,
       "fuel_capacity": 99,
+      "destroyed_at_zero_fuel": true,
       "ammo_capacity": 0,
       "cost": 5000,
       "primary_targets": [],
@@ -8354,6 +8369,7 @@
       "minimum_range": 2,
       "maximum_range": 6,
       "fuel_capacity": 99,
+      "destroyed_at_zero_fuel": true,
       "ammo_capacity": 9,
       "cost": 28000,
       "primary_targets": [
@@ -8382,6 +8398,7 @@
       "minimum_range": 1,
       "maximum_range": 1,
       "fuel_capacity": 99,
+      "destroyed_at_zero_fuel": true,
       "ammo_capacity": 9,
       "cost": 18000,
       "primary_targets": [
@@ -8402,6 +8419,7 @@
       "minimum_range": 0,
       "maximum_range": 0,
       "fuel_capacity": 99,
+      "destroyed_at_zero_fuel": true,
       "ammo_capacity": 0,
       "cost": 12000,
       "primary_targets": [],
@@ -8414,6 +8432,7 @@
       "minimum_range": 1,
       "maximum_range": 1,
       "fuel_capacity": 60,
+      "destroyed_at_zero_fuel": true,
       "ammo_capacity": 6,
       "cost": 20000,
       "primary_targets": [

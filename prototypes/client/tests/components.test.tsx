@@ -776,3 +776,17 @@ describe("board turn heading", () => {
     expect(screen.getByRole("heading")).not.toHaveAttribute("data-your-turn");
   });
 });
+
+it("shows committed low fuel alongside ammunition with an accessible name", () => {
+  const state = structuredClone(battle);
+  state.units[0].unit_type = 5;
+  state.units[0].fuel = 34;
+  state.units[0].ammo = 4;
+  render(
+    <Board battle={state} selected={null} select={vi.fn()} yourSlot={1} />,
+  );
+  const tile = screen.getByRole("button", { name: /low fuel, 34 of 70/ });
+  expect(tile).toHaveAttribute("data-low-fuel", "34/70");
+  expect(tile.querySelector(".fuel-warning")).toHaveTextContent("F34");
+  expect(tile.querySelector(".ammo-warning")).toBeInTheDocument();
+});

@@ -75,6 +75,7 @@ def catalog_text() -> str:
                 "minimum_range": profile.minimum_range,
                 "maximum_range": profile.maximum_range,
                 "fuel_capacity": profile.fuel_capacity,
+                "destroyed_at_zero_fuel": profile.destroyed_at_zero_fuel,
                 "ammo_capacity": profile.ammo_capacity,
                 "cost": profile.cost,
                 "primary_targets": list(UNIT_DATA[key][9]),

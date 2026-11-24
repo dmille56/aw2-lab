@@ -1836,7 +1836,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
       it complete. There is no native marker to compare against, so acceptance is
       about how readable the symbolic badge is at each scale and theme.
 
-*** TODO Show a flashing low-fuel indicator over a unit's tile
+*** IN-PROGRESS Show a flashing low-fuel indicator over a unit's tile
     Human request (2026-11-24): Advance Wars 2 flashes a fuel icon over a unit
     that is low on fuel. Give the human client the same on-board cue so low fuel
     is visible on the unit's tile without opening the inspector.
@@ -1854,6 +1854,10 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Submarine, CO air-fuel discounts subtracted for aircraft) plus the
     =destroyed_at_zero_fuel= set. The board currently shows only HP, the used
     marker, cargo badges, and selection/target/range overlays.
+    Progress (2026-11-24): the client badge, fog gating, accessibility, and
+    synthetic checks are implemented; a Tank cartridge probe found no fuel marker
+    at the tested levels. See [[file:FUEL-INDICATOR.md][fuel indicator notes]]. Further cartridge coverage
+    and live-client review remain open.
     Before setting a threshold, measure the cartridge with the same method used
     for ammo ([[file:AMMO-INDICATOR.md][low-ammo indicator notes]]): the ammo
     study found no on-tile marker at all, so do not assume a native fuel glyph

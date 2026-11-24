@@ -3239,3 +3239,65 @@ test("claims a local launch link once and connects without persisting its creden
   await expect(page.locator("#board-turn")).toContainText("Turn unavailable");
   expect(claims).toBe(1);
 });
+
+test("shows committed low fuel with reduced motion and fog protection", async ({
+  page,
+}) => {
+  const state = structuredClone(fixture),
+    battle = state.observation.game_state.battle.value;
+  battle.units[0].unit_type = 5;
+  battle.units[0].fuel = 34;
+  battle.units[0].ammo = 4;
+  battle.units[1].unit_type = 5;
+  battle.units[1].fuel = 1;
+  battle.fog_enabled = { status: "available", value: true, reasons: [] };
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await connect(page);
+  const tile = page.locator('#board [data-x="0"][data-y="0"]');
+  const badge = tile.locator(".fuel-warning");
+  await expect(badge).toHaveText("F34");
+  await expect(tile).toHaveAttribute("data-low-fuel", "34/70");
+  await expect(tile).toHaveAccessibleName(/low fuel, 34 of 70/);
+  await expect(
+    page.locator('#board [data-x="1"][data-y="1"] .fuel-warning'),
+  ).toHaveCount(0);
+  await expect(
+    badge.evaluate((element) => getComputedStyle(element).animationName),
+  ).resolves.toBe("fuel-warning-flash");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(
+    badge.evaluate((element) => getComputedStyle(element).animationName),
+  ).resolves.toBe("none");
+  for (const zoom of ["36", "72", "90"]) {
+    await page.locator("#zoom").fill(zoom);
+    const fuelBox = await badge.boundingBox();
+    const ammoBox = await tile.locator(".ammo-warning").boundingBox();
+    expect(fuelBox.x + fuelBox.width).toBeLessThanOrEqual(ammoBox.x);
+  }
+  battle.units[0].fuel = 70;
+  state.summary.revision = state.observation.revision = 2;
+  await page.locator("#refresh").click();
+  await expect(badge).toHaveCount(0);
+});
+
+for (const scale of [50, 200])
+  test(`keeps fuel and ammo badges separate at ${scale}% on a narrow viewport`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(
+      (value) => localStorage.setItem("aw2-client-ui-scale", String(value)),
+      scale,
+    );
+    const state = structuredClone(fixture);
+    const battle = state.observation.game_state.battle.value;
+    battle.units[0].unit_type = 5;
+    battle.units[0].fuel = 34;
+    battle.units[0].ammo = 4;
+    await page.route("**/state", (route) => route.fulfill({ json: state }));
+    await connect(page);
+    const tile = page.locator('#board [data-x="0"][data-y="0"]');
+    const fuel = await tile.locator(".fuel-warning").boundingBox();
+    const ammo = await tile.locator(".ammo-warning").boundingBox();
+    expect(fuel.x + fuel.width).toBeLessThanOrEqual(ammo.x + 0.1);
+  });
