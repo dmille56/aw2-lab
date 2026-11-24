@@ -655,6 +655,9 @@ def _observe_unit_action_choices(
         )
         and has_cargo
     )
+    apc_supply_cargo_menu = (
+        ids == (6, 9, 0x0A) and has_cargo and _selected_unit_can_supply(snapshot, selected)
+    )
     if (
         0x0A not in ids
         and not (ids == (5,) and load_eligible)
@@ -674,7 +677,9 @@ def _observe_unit_action_choices(
     ):
         return None
     # Larger menus are accepted only for verified capture or cargo cases.
-    if count == 3 and not (ids == (0, 2, 0x0A) and capture_eligible) and not cargo_menu:
+    if count == 3 and not (
+        (ids == (0, 2, 0x0A) and capture_eligible) or cargo_menu or apc_supply_cargo_menu
+    ):
         return None
     items = (
         (MenuItem.JOIN,)

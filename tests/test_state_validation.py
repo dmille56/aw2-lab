@@ -409,6 +409,7 @@ def test_unit_movement_overlay_exposes_verified_source_cursor(memory, selector_s
         ((0, 6, 0x0A), MenuItem.FIRE),
         ((0, 6, 7, 0x0A), MenuItem.FIRE),
         ((9, 0x0A), MenuItem.SUPPLY),
+        ((6, 9, 0x0A), MenuItem.UNLOAD),
         ((0x0A, 0x0B), MenuItem.WAIT),
         ((0x0A, 0x0C), MenuItem.WAIT),
         ((0x0A,), MenuItem.WAIT),
@@ -522,6 +523,15 @@ def test_unit_action_choices_resolve_wait_from_verified_row_ids(
         )
 
     if 9 in action_ids:
+        if 6 in action_ids:
+            ewram[0x22697] = 0  # Drop requires cargo.
+            current = snapshot(memory)
+            assert not observe_menu(current, validate_battle_snapshot(current)).actionable
+            ewram[0x22697] = 2
+            ewram[0x226A8] = 0  # Supply requires an adjacent ally.
+            current = snapshot(memory)
+            assert not observe_menu(current, validate_battle_snapshot(current)).actionable
+            ewram[0x226A8] = 1
         ewram[0x22690] = 1  # A non-APC must not expose Supply.
         current = snapshot(memory)
         assert MenuItem.SUPPLY not in observe_menu(current, validate_battle_snapshot(current)).items

@@ -559,10 +559,17 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     to 12. Full battle snapshots fell from 23–24 to 10 per action. Human review
     pending.
 
-** TODO Investigate APC actions failing during human play
+** DONE Investigate APC actions failing during human play
    In the latest =aw2-lab play= session, on day 13 the APC could not move and
    wait or move and supply. Determine what caused the issue, fix it, and verify
    both actions with appropriate regression coverage.
+   - Investigation: both commands rolled back while waiting for the action menu
+     after the same movement. The failure screenshot shows Drop / Supply / Wait;
+     recognition rejected this three-row combination. The recognizer now accepts it
+     for an APC with cargo and an adjacent supply target, with state regression
+     coverage. Replaying the original recovery checkpoint in isolated headless
+     mGBA completed both move/wait and move/supply along the reported route; the
+     APC ended used at (5,8) in both cases. The source session was preserved.
 
 ** TODO Add a victory celebration animation to the human client
    Play a celebration animation when the human player achieves victory.
