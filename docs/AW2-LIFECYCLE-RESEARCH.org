@@ -54,6 +54,126 @@ and restore/reconnect at a terminal checkpoint. Compare the result screen with
 coherent snapshots and record ROM/build identity and limitations. The manual
 describes game rules, not the safety or persistence of any particular RAM field.
 
+** Three-army team surrender probe (2026-11-24)
+
+An isolated headless mGBA run started Pyramid Cape with three external armies,
+COs Andy/Max/Andy and teams A/B/B. Slot 1 yielded on day 1. The executor returned
+=finished= at =victory_presentation=, frame 5459; the player records reported
+defeated markers 1/0/0, control bytes 1/1/1, and team IDs 0/1/1 for slots 1–3.
+After 900 more frames the screen visibly displayed VICTORY while the phase was
+still =victory_presentation=. Thus this phase is demonstrably not a personal
+victory for slot 1, the surrendering player. The record values are consistent
+with slots 2 and 3 surviving as a team, but this screenshot does not identify
+the winner or establish the treatment of a previously eliminated teammate.
+
+The supported ROM SHA-256 is
+=ef3cc89273f9df88020f07751ea6306b25c39df01893822fe431550eedf9b134= and
+the headless build identity is
+=sha256:2428496c7cf6efaa59aa9536ede44790f02960df5f39afdbef3c3f4fe0a37f22=.
+The isolated probe and screenshot are at =/tmp/aw2-outcome-research/=. It used a
+fresh-save roster and isolated cartridge save; it did not modify the source save.
+This is one surrender case, not a general result decoder. The following probes
+cover selected optional-rule, draw, teammate, and restoration cases.
+
+** Team, optional-rule, draw and restore probes (2026-11-24)
+
+These isolated headless mGBA runs used the ROM and frontend identity recorded
+above, fresh-save CO selection, and isolated cartridge saves. They exercised
+the real boot and action executors; screenshots and probe scripts are external
+under =/tmp/aw2-outcome-research/=. These cases narrow the open questions but
+do not establish behavior for every map, team arrangement, or loss condition.
+
+- Four Corners, four armies, teams A/A/B/B, day 1: slot 1 yielded, slot 2
+  ended its turn, then slots 3 and 4 yielded. Defeated markers after those
+  commands were respectively =[1,0,0,0]=, =[1,0,0,0]=, =[1,0,1,0]=, and
+  =[0,0,1,1]=. The final summary visibly places Andy and Max of team A under
+  WIN and both team B COs under LOSE. Thus, in this case, an earlier-yielding
+  member shares its team's victory and its marker is cleared at the result.
+  Markers remained =[0,0,1,1]= at victory, summary, save prompt, and even
+  after return to the map-selection screen; stale markers alone are not proof
+  of an active or finished match. A terminal in-memory save restored frame 7325,
+  =victory_presentation=, and the same markers after visiting later screens.
+- Bean Island, two armies, TURN 5 and CAPT Off: both players ended every turn
+  without captures, each owning 11 properties. After slot 2 ended day 5, the
+  match finished at =defeat_presentation=, frame 5713, with both markers zero.
+  The visible result summary said DRAW. Restoring an in-memory terminal state
+  after navigating away restored that frame, phase, and both zero markers. A
+  zero marker for each opposing team therefore does not establish two winners.
+- Bean Island, two armies, TURN Off and CAPT 12: slot 1 bought Infantry,
+  approached the neutral city at (5,4), and completed capture on day 4. The
+  match finished immediately at =victory_presentation=, frame 5507. The
+  summary showed slot 1 WIN and slot 2 LOSE; markers were 0 and 4 respectively.
+  This verifies one property-limit victory, not how teams pool properties.
+- Bean Island, two armies, TURN 5 and CAPT Off: the same city capture gave
+  slot 1 twelve properties to slot 2's eleven. After slot 2 ended day 5, the
+  match finished at =victory_presentation=, frame 6279; markers were 0 and 5.
+  The result summary showed slot 1 WIN and slot 2 LOSE.
+
+These restore probes exercise mGBA state-buffer loading. The SDK acceptance
+scenario below covers the server restart path separately.
+
+** Team scoring and multi-team draws
+
+The following headless probes used the same ROM and frontend as above.
+Property counts are the decoded ownership totals in slot order. The screenshots
+and probe logs are external under =/tmp/aw2-outcome-research/=.
+
+| Case | Setup and observed outcome | Terminal frame | Defeated markers |
+|------+----------------------------+----------------+------------------|
+| TURN 5, three armies | Pyramid Cape, teams A/B/B, unchanged counts 9/5/5. The solo army appeared under WIN and both allied armies under LOSE. | 7850 | 0/5/5 |
+| TURN 5, four teams | Four Corners, teams A/B/C/D, unchanged counts 3/3/3/3. All four COs appeared under DRAW. | 9378 | 0/0/0/0 |
+| TURN 5, two teams tied for first | Four Corners, teams A/B/C/D. Slots 1 and 2 each captured a city through normal play, giving counts 4/4/3/3. Both leaders appeared under WIN and the other two under LOSE. | 10398 | 0/0/5/5 |
+| TURN 5, two teams | Four Corners, teams A/A/B/B, unchanged counts 3/3/3/3. All four COs appeared under DRAW. | 9626 | 0/0/0/0 |
+| CAPT 12, TURN Off | Four Corners, teams A/A/B/B. A prepared map had counts 8/3/3/3. Slot 1 completed a neutral city capture on day 4. Both team A COs appeared under WIN and both team B COs under LOSE. | 8451 | 0/0/4/4 |
+| CAPT 12, TURN Off | Pyramid Cape, teams A/B/B. Slots 2 and 3 each captured one city through normal play. The match remained playable at 9/6/6, including through further turn changes. | — | — |
+
+The Pyramid Cape result rules out a simple sum of allied holdings for TURN
+in that setup. The CAPT behavior differed across the two probes.
+The CAPT preparation changed five neutral city owners in the property table
+and both map layers, then used normal purchase, movement, and capture commands.
+A single army had at most nine decoded properties when the Four Corners
+CAPT match ended. Pyramid Cape establishes that the combined ownership of
+twelve properties is insufficient in at least one team arrangement. The
+prepared Four Corners result remains an observation of that setup. These
+probes do not establish a general CAPT team-scoring formula.
+
+The two full ties and the shared win all classified as =defeat_presentation=.
+The full ties restored to that phase and the original frame. A separate partial
+tie preparation that painted the same 4/4/3/3 ownership totals yielded DRAW
+with markers 0/0/0/0. Similarly, a prepared Pyramid Cape match with five
+extra cities for slot 2 kept slot 1 as winner despite decoded holdings 9/10/5.
+Those edits changed map and property records only. The discrepancy indicates
+that the prepared ownership totals alone do not reproduce the game's TURN
+scoring inputs. The precise TURN formula for allied armies with unequal
+holdings remains unverified.
+
+** Additional rout and HQ capture probes
+
+- Bean Island, TURN and CAPT Off. Slot 1 purchased one Infantry and slot 2
+  purchased one Tank. Slot 2 moved adjacent to the Infantry and attacked
+  until it was destroyed on day 7. Slot 1 still owned its HQ and bases. The
+  match finished at frame 8353 with markers 7/0 and Max (slot 2) under WIN.
+- Four Corners, teams A/A/B/B, TURN and CAPT Off. Slot 1 captured slot 3's
+  HQ at (0,0) on day 7. The match remained playable at frame 11608.
+  Property counts changed from 3/3/3/3 to 6/3/0/3 and defeated markers
+  were 0/0/7/0. Slot 4 retained its properties and zero defeat marker.
+  Both probes used standard commands from clean match starts.
+
+** Terminal checkpoint recovery through the HTTP API
+
+The headless SDK acceptance scenario in
+[[file:../tests/test_sdk_live_integration.py][test_sdk_live_integration.py]]
+completes a Bean Island HQ capture, stops the HTTP server, and starts a new
+server with the same durable store. Both authenticated players reconnect and
+see a settled =finished= match with the same terminal game state and a higher
+revision (39 to 40 at frame 10563 in this run). The screenshot for the new
+revision is associated with the original terminal frame. An explicit restore
+request for the finishing command's
+checkpoint is rejected with =checkpoint_incompatible= and the API continues
+to return the recovered observation. The explicit restore endpoint currently
+accepts playable checkpoints. Startup recovery can load a finished checkpoint.
+This acceptance scenario verifies an HQ win in headless mode.
+
 * Finding: Startup, title, Versus setup, and battle entry
 
 ** Claim and status

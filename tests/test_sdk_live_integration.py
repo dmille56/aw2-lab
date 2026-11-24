@@ -217,7 +217,10 @@ def test_two_sdk_clients_play_save_restart_and_finish(mode, tmp_path):
             ):
                 match = await admin.create_match()
                 match_id = match.match_id
-                for slot, client in zip(PlayerSlot, (red, blue), strict=True):
+                for slot, client in (
+                    (PlayerSlot.SLOT_1, red),
+                    (PlayerSlot.SLOT_2, blue),
+                ):
                     invitation = SecretStr(token_urlsafe(32))
                     await admin.invite(match_id, slot, invitation)
                     await client.join(match_id, slot, invitation, slot.value)
@@ -386,7 +389,9 @@ def test_two_sdk_clients_play_save_restart_and_finish(mode, tmp_path):
                 )
                 await record(red, "hq-partial")
                 await round_end(red, blue)
-                await action(red, "hq-victory", MoveCaptureAction(unit_id=infantry, path=()))
+                finishing = await action(
+                    red, "hq-victory", MoveCaptureAction(unit_id=infantry, path=())
+                )
                 victory = await record(blue, "hq-victory")
                 assert victory.summary.lifecycle.value == "finished"
                 png = await blue.screenshot(match_id, revision=victory.summary.revision)
@@ -396,6 +401,34 @@ def test_two_sdk_clients_play_save_restart_and_finish(mode, tmp_path):
                     "revision": png.revision,
                     "frame": png.frame,
                 }
+            async with (
+                server(tmp_path, mode, rom) as url,
+                AsyncAW2Client(url, credential=operator) as admin,
+                AsyncAW2Client(url, credential=players[0]) as red,
+                AsyncAW2Client(url, credential=players[1]) as blue,
+            ):
+                for client in (red, blue):
+                    reconnected = await record(client, "terminal-reconnected")
+                    assert reconnected.summary.revision > victory.summary.revision
+                    assert reconnected.summary == victory.summary.model_copy(
+                        update={"revision": reconnected.summary.revision}
+                    )
+                    assert reconnected.observation.game_state == victory.observation.game_state
+                    assert reconnected.observation.unit_identities == ()
+                replayed_png = await blue.screenshot(
+                    match_id, revision=reconnected.summary.revision
+                )
+                assert replayed_png.frame == png.frame
+
+                assert finishing.checkpoint_id is not None
+                receipt = await admin.restore_checkpoint(
+                    match_id, finishing.checkpoint_id, reconnected.summary.revision
+                )
+                refused = await admin.wait_for_command(match_id, receipt.command_id, timeout=60)
+                assert refused.status is CommandStatus.REJECTED
+                assert refused.error is not None
+                assert refused.error.code.value == "checkpoint_incompatible"
+                assert (await blue.state(match_id)).observation == reconnected.observation
                 if source_save_hash is not None:
                     assert sha(source_save.read_bytes()) == source_save_hash
                 evidence["source_save_unchanged_sha256"] = source_save_hash
