@@ -1,0 +1,51 @@
+.tile .ammo-warning {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 7;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 3px;
+  border: 1px solid #fff;
+  border-radius: 3px;
+  background: #a01100;
+  color: #fff;
+  font-size: clamp(10px, calc(var(--cell) * 0.22), 18px);
+  font-weight: 900;
+  line-height: 1;
+  pointer-events: none;
+  animation: ammo-warning-flash 1.2s steps(1, end) infinite;
+}
+
+.ammo-warning .ammo-icon {
+  font-size: clamp(8px, calc(var(--cell) * 0.16), 13px);
+  line-height: 1;
+}
+
+.ammo-warning .ammo-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.ammo-warning[data-ammo-empty] {
+  background: #4a1a12;
+  border-style: dashed;
+}
+
+@keyframes ammo-warning-flash {
+  0%,
+  49% {
+    opacity: 1;
+  }
+
+  50%,
+  100% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile .ammo-warning {
+    animation: none;
+  }
+}

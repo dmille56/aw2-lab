@@ -770,8 +770,23 @@ already reports `Ammo n/m`. The board currently shows only HP, the used marker,
 cargo badges, and selection/target overlays, so the indicator is a new tile
 marker rather than a data gap.
 
-Before implementing, verify the cartridge's own trigger, artwork, and flashing
-rate rather than copying Advance Wars By Web, whose revision 63 changed its
-low-ammo animation to below half ammo (previously at 1 or less). The TODO is
-recorded in [Milestone 4](MILESTONE-4.org) under *Show a flashing low-ammo
-indicator over a unit's tile*; it is not yet implemented or human-accepted.
+Before implementing, the cartridge's own trigger, artwork, and flashing rate were
+measured rather than copied from Advance Wars By Web: the Versus battle view draws
+no per-unit ammo marker at all, so there is nothing to copy. Only the seven pixels
+of the bottom-right status panel's printed number change when a Tank's ammo goes
+from 9 to 0 across 120 frames, and the pixels that blink on the map are terrain
+animation. See [low-ammo indicator notes](AMMO-INDICATOR.md) for the method and
+evidence.
+
+The client therefore uses a clearly labelled symbolic badge: a high-contrast
+`▮ <rounds>` pill in the tile's top-right corner, flashing on a 1.2 s cycle
+(`▯ 0` with a dashed border for empty primary ammunition), disabled under
+`prefers-reduced-motion: reduce`. It appears when ammo is strictly below half of
+the type's capacity, never for types with `ammo_capacity` 0 or embarked
+passengers, and never for another army while fog is enabled or unobserved. The
+tile's accessible name carries `low ammo, 4 of 9` or `out of ammunition, 0 of 9`,
+and the inspector's `Ammo n/m` line gains the same emphasis. Component and browser
+checks cover full, low, empty, capacity-0, secondary-only, fog, reduced motion, and
+the smallest tile scale. Recorded in [Milestone 4](MILESTONE-4.org) under *Show a
+flashing low-ammo indicator over a unit's tile*; human visual acceptance is still
+pending.

@@ -1893,6 +1893,79 @@ for (const type of [7, 20, 23, 22])
     await expect(transport.locator(".cargo-badge")).toHaveCount(0);
   });
 
+test("flashes low ammunition on the unit tile and reports it accessibly", async ({
+  page,
+}) => {
+  const state = structuredClone(fixture),
+    battle = state.observation.game_state.battle.value;
+  battle.units[0].unit_type = 5; // Tank: nine rounds of ammunition.
+  battle.units[0].ammo = 4;
+  battle.units[1].unit_type = 5;
+  battle.units[1].ammo = 9;
+  await page.route("**/state", (route) => route.fulfill({ json: state }));
+  await connect(page);
+  const tile = page.locator('#board [data-x="0"][data-y="0"]');
+  const badge = tile.locator(".ammo-warning");
+  await expect(badge).toHaveText("▮4");
+  await expect(tile).toHaveAccessibleName(/low ammo, 4 of 9/);
+  await expect(
+    badge.evaluate((element) => getComputedStyle(element).animationName),
+  ).resolves.toBe("ammo-warning-flash");
+
+  battle.units[0].ammo = 9;
+  state.summary.revision = state.observation.revision = 2;
+  await page.locator("#refresh").click();
+  await expect(badge).toHaveCount(0);
+
+  battle.units[0].unit_type = 10; // Artillery has no unlimited secondary weapon.
+  battle.units[0].ammo = 0;
+  state.summary.revision = state.observation.revision = 3;
+  await page.locator("#refresh").click();
+  await expect(tile.locator(".ammo-warning")).toHaveText("▯0");
+  await expect(tile.locator(".ammo-warning")).toHaveAttribute(
+    "data-ammo-empty",
+  );
+  await expect(tile).toHaveAccessibleName(/out of ammunition, 0 of 9/);
+
+  battle.units[0].unit_type = 5;
+  battle.units[0].ammo = 4;
+  battle.units[1].ammo = 4;
+  battle.fog_enabled = { status: "available", value: true, reasons: [] };
+  state.summary.revision = state.observation.revision = 4;
+  await page.locator("#refresh").click();
+  await expect(
+    page.locator('#board [data-x="1"][data-y="1"] .ammo-warning'),
+  ).toHaveCount(0);
+  await expect(tile.locator(".ammo-warning")).toHaveText("▮4");
+  battle.fog_enabled.value = false;
+  state.summary.revision = state.observation.revision = 5;
+  await page.locator("#refresh").click();
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(
+    badge.evaluate((element) => getComputedStyle(element).animationName),
+  ).resolves.toBe("none");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+
+  // The badge stays inside its tile at the smallest supported interface scale.
+  await page.locator("#zoom").fill("36");
+  const tileBounds = await tile.boundingBox();
+  const badgeBounds = await badge.boundingBox();
+  expect(badgeBounds).not.toBeNull();
+  expect(badgeBounds.x).toBeGreaterThanOrEqual(tileBounds.x);
+  expect(badgeBounds.x + badgeBounds.width).toBeLessThanOrEqual(
+    tileBounds.x + tileBounds.width,
+  );
+  expect(badgeBounds.y).toBeGreaterThanOrEqual(tileBounds.y);
+  expect(badgeBounds.y + badgeBounds.height).toBeLessThanOrEqual(
+    tileBounds.y + tileBounds.height,
+  );
+  await page.locator("#zoom").fill("90");
+
+  await tile.click();
+  await expect(page.locator("#inspector")).toContainText("4/9 · low");
+});
+
 test("announces a new own turn without stealing focus or repeating on refresh/reconnect", async ({
   page,
   request,

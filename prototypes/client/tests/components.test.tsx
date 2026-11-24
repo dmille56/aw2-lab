@@ -633,6 +633,82 @@ it("shows a two-passenger cargo badge and accessible count on a loaded Lander", 
   ).toBeInTheDocument();
 });
 
+it("flashes a low-ammo badge on the unit tile and names it for screen readers", () => {
+  const state = structuredClone(battle);
+  state.units[0].unit_type = 5;
+  state.units[0].ammo = 4;
+  render(
+    <Board battle={state} selected={null} select={vi.fn()} yourSlot={1} />,
+  );
+  const tile = screen.getByRole("button", { name: /low ammo, 4 of 9/ });
+  expect(tile.querySelector(".ammo-warning")?.textContent).toBe("▮4");
+  expect(tile).toHaveAttribute("data-low-ammo", "4/9");
+  expect(tile.querySelector(".ammo-warning")).toHaveAttribute(
+    "aria-hidden",
+    "true",
+  );
+});
+
+it("keeps an empty primary weapon distinguishable from a merely low one", () => {
+  const state = structuredClone(battle);
+  state.units[0].unit_type = 10; // Artillery has no unlimited secondary weapon.
+  state.units[0].ammo = 0;
+  render(
+    <Board battle={state} selected={null} select={vi.fn()} yourSlot={1} />,
+  );
+  const tile = screen.getByRole("button", {
+    name: /out of ammunition, 0 of 9/,
+  });
+  expect(tile.querySelector(".ammo-warning")?.textContent).toBe("▯0");
+  expect(tile.querySelector(".ammo-warning")).toHaveAttribute(
+    "data-ammo-empty",
+  );
+});
+
+it("shows no ammo badge for full ammunition or units with no ammunition pool", () => {
+  const state = structuredClone(battle);
+  state.units[0].unit_type = 5;
+  state.units[0].ammo = 9;
+  state.units[1].unit_type = 1; // Infantry: ammo capacity 0, ammo always 0.
+  state.units[1].ammo = 0;
+  render(
+    <Board battle={state} selected={null} select={vi.fn()} yourSlot={1} />,
+  );
+  expect(document.querySelectorAll(".ammo-warning")).toHaveLength(0);
+});
+
+it("hides enemy ammo badges while fog is on and keeps the viewer's own", () => {
+  const state = structuredClone(battle);
+  state.fog_enabled = { status: "available", value: true, reasons: [] };
+  state.units[0].unit_type = 5;
+  state.units[0].ammo = 2;
+  state.units[1].unit_type = 5;
+  state.units[1].ammo = 2;
+  render(
+    <Board battle={state} selected={null} select={vi.fn()} yourSlot={1} />,
+  );
+  const badges = document.querySelectorAll(".ammo-warning");
+  expect(badges).toHaveLength(1);
+  expect(badges[0].closest(".tile")).toHaveAttribute("data-your-unit", "true");
+  expect(
+    screen.getByRole("button", { name: /low ammo, 2 of 9/ }),
+  ).toBeInTheDocument();
+});
+
+it("annotates the inspector with low or empty ammunition", () => {
+  const inspected = structuredClone(battle);
+  inspected.units[0].unit_type = 5;
+  inspected.units[0].ammo = 4;
+  render(
+    <UnitInspector
+      unit={inspected.units[0]}
+      snapshot={snapshot}
+      viewerSlot={1}
+    />,
+  );
+  expect(screen.getByText("4/9 · low")).toBeInTheDocument();
+});
+
 it("renders an accessible damage estimate and explains unavailable observations", () => {
   const previewBattle = structuredClone(battle);
   const [attacker, defender] = previewBattle.units;

@@ -549,7 +549,11 @@ export function App() {
               <h2>Inspector</h2>
               <div id="inspector">
                 {snapshot && battle && cargoUnit ? (
-                  <UnitInspector unit={cargoUnit} snapshot={snapshot} />
+                  <UnitInspector
+                    unit={cargoUnit}
+                    snapshot={snapshot}
+                    viewerSlot={humanSlot(view.identity)}
+                  />
                 ) : tile && snapshot ? (
                   <>
                     <h3>
@@ -590,7 +594,11 @@ export function App() {
                     />
                     {unit && (
                       <>
-                        <UnitInspector unit={unit} snapshot={snapshot} />
+                        <UnitInspector
+                          unit={unit}
+                          snapshot={snapshot}
+                          viewerSlot={humanSlot(view.identity)}
+                        />
                         {unit.cargo_references.map((ref) => {
                           const item = battle?.units.find(
                             (u) => u.reference === ref,
@@ -600,6 +608,7 @@ export function App() {
                               key={ref}
                               unit={item}
                               snapshot={snapshot}
+                              viewerSlot={humanSlot(view.identity)}
                             />
                           ) : null;
                         })}

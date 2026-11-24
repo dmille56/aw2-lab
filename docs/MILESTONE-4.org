@@ -1774,7 +1774,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Unit/browser checks cover context, updates, contrast, narrow layouts, and scale.
     Human visual acceptance remains pending.
 
-*** TODO Show a flashing low-ammo indicator over a unit's tile
+*** IN-PROGRESS Show a flashing low-ammo indicator over a unit's tile
     Human request (2026-11-23): Advance Wars 2 shows a flashing ammo icon over a
     unit that is low on ammunition. Give the human client the same on-board cue
     so low ammo is visible on the unit's tile without opening the inspector.
@@ -1786,38 +1786,55 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     carries each type's =ammo_capacity=, and the tile inspector already lists
     =Ammo n/m=. The board itself currently shows only HP, the used marker,
     cargo badges, and selection/target overlays.
-    Establish the native behavior from the checksum-verified supported cartridge
-    before implementing. Determine the trigger (remaining ammo relative to
-    capacity, an absolute value, or zero ammo), whether units with =ammo_capacity=
-    of 0 or with unlimited secondary weapons are ever marked, the icon artwork,
-    and the pulse frequency and duration. Advance Wars By Web revision 63 moved
-    its low-ammo animation to below half ammo (previously <= 1); that is a
-    reference, not evidence for AW2. Record the observed threshold and frames,
-    and state explicitly when an observation is unavailable instead of guessing.
-    - [ ] Extract the native ammo icon into the external sprite pack where the
+    Native behavior established (2026-11-23): the supported cartridge has no
+    on-tile ammo marker at all. Isolated Bean Island Versus runs wrote a purchased
+    Tank's ammo field from 9 down to 0 and compared each pixel's colour set over
+    120 frames per value; only seven pixels changed, all inside the bottom-right
+    status panel where the printed number changes shape. Nothing over the unit's
+    tile or elsewhere on the map blinked differently, and the panel routine at
+    =0x08039F80= only uses a =cmp r0, #9; bhi= test to shift the digit glyph four
+    pixels when the value needs two digits. See
+    [[file:AMMO-INDICATOR.md][low-ammo indicator notes]] for the method and the
+    coordinates. There is no native artwork to extract and no native pulse to copy,
+    so the threshold below is a documented client convention, not observed AW2
+    evidence. Advance Wars By Web revision 63 moved its low-ammo animation to below
+    half ammo (previously <= 1); the client follows that convention.
+    - [X] Extract the native ammo icon into the external sprite pack where the
       artwork can be verified, reusing the existing animated-region pipeline
       where practical. Keep all ROM-derived artwork outside Git and the Nix
       store, and retain a symbolic high-contrast fallback for missing artwork.
-    - [ ] Render the indicator on the occupied tile alongside the HP badge,
+      Not applicable: the board draws no ammo glyph, so the badge is the symbolic
+      fallback and no artwork was extracted.
+    - [X] Render the indicator on the occupied tile alongside the HP badge,
       cargo badge, used marker, and selection/target/range overlays without
       crowding them at supported tile sizes, interface scales, and both themes.
       Match the native flashing animation; provide a static equivalent when
-      reduced motion is requested.
-    - [ ] Drive the marker from committed observations only: show it after
+      reduced motion is requested. Implemented in
+      =prototypes/client/web/ammo_indicator.ts= and =AmmoIndicator.css= in the
+      tile's top-right corner, flashing on a 1.2 s cycle and static under
+      =prefers-reduced-motion: reduce=.
+    - [X] Drive the marker from committed observations only: show it after
       attacks that spend ammo, clear it when an APC supplies the unit or a Join
       restores ammo, and hide it for embarked or unobserved units. Do not reveal
-      enemy ammo that fog of war has not exposed.
-    - [ ] Expose the state accessibly: include low or empty ammunition in the
+      enemy ammo that fog of war has not exposed. The badge comes only from the
+      committed observation's ammo value; embarked units never show it, and other
+      armies are suppressed while fog is enabled or its state is unobserved.
+    - [X] Expose the state accessibly: include low or empty ammunition in the
       tile's accessible name and the unit inspector, and do not rely on colour
-      alone. Note remaining ammo and any secondary-weapon-only case.
-    - [ ] Add ROM-independent component and browser checks with synthetic
+      alone. Note remaining ammo and any secondary-weapon-only case. "Low" is
+      strictly below half capacity; units with =ammo_capacity= of 0 never get a
+      badge, and empty primary ammunition with an unlimited secondary weapon is
+      worded separately.
+    - [X] Add ROM-independent component and browser checks with synthetic
       fixtures (full, low, and zero ammo; =ammo_capacity= of 0; secondary-only
       weapons; fog; reduced motion; narrow layouts and 50-200% scaling), plus
-      live cartridge evidence comparing the native flashing icon with the client
-      rendering on a real match. Run =pre-commit run --all-files= and require
-      every hook to pass.
+      live cartridge evidence for the native side. =pre-commit run --all-files=
+      passes on every hook. The cartridge evidence shows there is no native
+      on-tile marker to compare against; a live-client screenshot review against
+      a real match is still open with the item below.
     - [ ] Review the indicator with the user in the live client before marking
-      it complete.
+      it complete. There is no native marker to compare against, so acceptance is
+      about how readable the symbolic badge is at each scale and theme.
 
 *** IN-PROGRESS Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,
@@ -1866,8 +1883,9 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     terrain-defense ratings before attack confirmation, and a temporary attack
     range preview while holding the right mouse button on friendly/enemy units.
     A further TODO requests a flashing low-ammo indicator over a unit's tile,
-    matching the native Advance Wars 2 board cue. Implement it after verifying
-    the cartridge's trigger and artwork, then review it with the user.
+    matching the native Advance Wars 2 board cue. The cartridge has no such cue
+    (measured; see [[file:AMMO-INDICATOR.md][low-ammo indicator notes]]), so a
+    symbolic badge is implemented; human review of its readability is still open.
     - [ ] Human rechecks the reported usability follow-ups and accepts the redesign.
 
     For every implementation item, add focused behavior checks, run relevant

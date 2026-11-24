@@ -1,4 +1,5 @@
 import "./CargoBadge.css";
+import "./AmmoIndicator.css";
 import { TerrainDefense } from "./TerrainDefense";
 import "./UnitHealth.css";
 import "./TargetHighlight.css";
@@ -20,6 +21,12 @@ import {
   unitLabel,
 } from "./presentation";
 import catalogData from "./catalog.json";
+import {
+  ammoInspectorValue,
+  ammoStatus,
+  ammoWarningLabel,
+  ammoWarningVisible,
+} from "./ammo_indicator";
 import type { BattleState, StateResponse, UnitState } from "./state";
 
 interface Profile {
@@ -62,9 +69,11 @@ export function Details({ entries }: { entries: [string, ReactNode][] }) {
 export function UnitInspector({
   unit,
   snapshot,
+  viewerSlot = null,
 }: {
   unit: UnitState;
   snapshot: StateResponse;
+  viewerSlot?: number | null;
 }) {
   const profile = catalog.units[unit.unit_type];
   const identity = snapshot.observation?.unit_identities.find(
@@ -88,7 +97,14 @@ export function UnitInspector({
       ),
     ],
     ["Fuel", `${unit.fuel}${profile ? `/${profile.fuel_capacity}` : ""}`],
-    ["Ammo", `${unit.ammo}${profile ? `/${profile.ammo_capacity}` : ""}`],
+    [
+      "Ammo",
+      ammoInspectorValue(
+        unit,
+        snapshot.observation?.game_state.battle.value ?? null,
+        viewerSlot,
+      ),
+    ],
   ];
   if (unit.cargo_references.length)
     entries.push(["Cargo", unit.cargo_references.length]);
@@ -270,6 +286,9 @@ export function Board({
                 ? ""
                 : `Capture in progress, ${CAPTURE_POINTS_REQUIRED - capturePoints} points remaining`;
             const terrain = terrainArtwork(spritePack, tile);
+            const ammo = unit ? ammoStatus(unit) : null;
+            const lowAmmo =
+              !!unit && ammoWarningVisible(unit, battle, yourSlot ?? null);
             const unitRegion = unit
               ? spritePack?.units[`${unit.unit_type}:${unit.army_slot}`]
               : null;
@@ -297,6 +316,11 @@ export function Board({
                 type="button"
                 tabIndex={tile.x === tabStop.x && tile.y === tabStop.y ? 0 : -1}
                 data-cargo-count={unit?.cargo_references.length || undefined}
+                data-low-ammo={
+                  lowAmmo && ammo
+                    ? `${ammo.remaining}/${ammo.capacity}`
+                    : undefined
+                }
                 data-acting-unit={isActing || undefined}
                 data-attackable-enemy={isEnemyTarget || undefined}
                 data-drop-selected={dropLabel || undefined}
@@ -310,7 +334,7 @@ export function Board({
                 data-your-unit={!!unit && unit.army_slot === yourSlot}
                 title={`${terrainName(tile.terrain_class)}${unit ? ` · ${unitName(unit)}` : ""}`}
                 aria-pressed={match}
-                aria-label={`${captureLabel ? `${captureLabel}, ` : ""}${isEnemyTarget ? "Attackable enemy, " : ""}${isActing ? "Selected acting unit, " : ""}${dropLabel ? `Cargo drop ${dropLabel}, ` : ""}${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit.army_slot === yourSlot ? ", your unit" : ""}${unit.cargo_references.length ? `, loaded transport, ${unit.cargo_references.length} passenger${unit.cargo_references.length === 1 ? "" : "s"} aboard` : ""}` : ""}`}
+                aria-label={`${captureLabel ? `${captureLabel}, ` : ""}${isEnemyTarget ? "Attackable enemy, " : ""}${isActing ? "Selected acting unit, " : ""}${dropLabel ? `Cargo drop ${dropLabel}, ` : ""}${step >= 0 ? `Route step ${step}${destination ? ", destination" : ""}, ` : ""}${isTarget ? "Attack target, " : ""}${isReachable ? "Reachable movement tile, " : ""}${isTransit ? "Allied transit only, " : ""}${isAttackable ? "Potential attack range, " : ""}${isThreatened ? "Potentially threatened by observed enemies, " : ""}${isDropTarget ? "Valid unload drop tile, " : ""}(${tile.x}, ${tile.y}) ${terrainName(tile.terrain_class)}, ${owner(tile.owner_slot)}${unit ? `, ${unitName(unit)}, ${owner(unit.army_slot)}, health ${unit.internal_health}, ${unit.used_this_turn ? "used" : "ready"}${unit && lowAmmo && ammo ? `, ${ammoWarningLabel(ammo)}` : ""}${unit.army_slot === yourSlot ? ", your unit" : ""}${unit.cargo_references.length ? `, loaded transport, ${unit.cargo_references.length} passenger${unit.cargo_references.length === 1 ? "" : "s"} aboard` : ""}` : ""}`}
                 onClick={() => (activate ?? select)(tile)}
                 onPointerDown={(event) => {
                   if (
@@ -470,6 +494,19 @@ export function Board({
                         <span className="used-mark">✓</span>
                       )}
                     </span>
+                    {lowAmmo && ammo && (
+                      <span
+                        className="ammo-warning"
+                        aria-hidden="true"
+                        data-ammo-empty={ammo.empty || undefined}
+                        title={ammoWarningLabel(ammo)}
+                      >
+                        <span className="ammo-icon">
+                          {ammo.empty ? "▯" : "▮"}
+                        </span>
+                        <span className="ammo-count">{ammo.remaining}</span>
+                      </span>
+                    )}
                   </>
                 )}
                 <span className="coords" hidden={!coordinates}>
