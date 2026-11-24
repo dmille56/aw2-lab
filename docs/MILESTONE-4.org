@@ -571,8 +571,25 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
      mGBA completed both move/wait and move/supply along the reported route; the
      APC ended used at (5,8) in both cases. The source session was preserved.
 
+** TODO Research Versus outcomes and expose reliable player-specific results
+   Investigate victory and defeat conditions, team and tie behavior, and the
+   terminal memory signals described in [[file:AW2-LIFECYCLE-RESEARCH.org::*Versus victory and defeat rules: sources and open questions][the Versus result research]]. Verify
+   supported win and loss paths in the original game, including multiplayer,
+   optional rules, eliminated teammates, and checkpoint restore/reconnect.
+   Expose only results supported by evidence, preserve unknown outcomes, and add
+   regression and live coverage before clients rely on them.
+
 ** TODO Add a victory celebration animation to the human client
    Play a celebration animation when the human player achieves victory.
+   - First expose a reliable player-specific result at the finished boundary.
+     The current match summary has no winner, terminal observations discard live
+     battle data, and the victory presentation phase also occurs after surrender;
+     it cannot identify whether this client won. Cover surrender, natural victory,
+     reconnects, and supported multiplayer configurations before triggering the
+     celebration, and respect reduced-motion preferences.
+   - The researched per-army defeated marker is not by itself a global winner:
+     teams, multiplayer, and other loss mechanisms remain unverified. See
+     [[file:AW2-LIFECYCLE-RESEARCH.org::*Remaining gaps][lifecycle research gaps]].
 
 ** TODO Add a defeat animation to the human client
    Play a defeat animation when the human player is defeated.

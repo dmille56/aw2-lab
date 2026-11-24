@@ -16,6 +16,44 @@ The newer [[file:AW2-LIFECYCLE-COVERAGE.org][additional lifecycle coverage]] ver
 three CPU turns with full or skipped animations, No Visual combat, regular/Super
 Power activation, and save/yield dialogues. Unknown contexts remain unavailable.
 
+* Versus victory and defeat rules: sources and open questions
+
+The [[https://www.nintendo.com/eu/media/downloads/games_8/emanuals/game_boy_advance_8/Manual_GameBoyAdvance_AdvanceWars2BlackHoleRising_EN_DE_FR_ES_IT.pdf][official Advance Wars 2 manual]] describes these rules. Its general battle
+outcome section warns that victory conditions vary by mode; its Versus rules
+section separately describes optional TURN and CAPT settings.
+
+- HQ capture: completing capture of an enemy HQ defeats its army.
+- Rout: defeating all deployed units defeats an army. The precise timing and
+  exceptions for an army with no units, including at initial deployment or after
+  deleting, joining, or losing transported units, require game verification.
+- Yield: an army can surrender through the Options menu.
+- CAPT: an optional rule sets a property-capture victory condition. Verify what
+  counts, when it is evaluated, and how allied armies contribute.
+- TURN: an optional day limit ends the battle; the manual says the army with the
+  most bases wins. Its terminology does not establish the exact property types
+  counted, team aggregation, tie handling, or evaluation timing.
+
+Versus allows up to four armies, with alliances formed by assigning the same team
+letter in games with at least three armies. The manual's rules do not specify
+whether a previously defeated teammate receives a winning result, or all tie and
+team cases. Advance Wars By Web is a separate game and its rules are not evidence
+of the original GBA game's behavior.
+
+The [[*Finding: three-player HQ eliminations and final victory][three-player HQ observations]] show an army can be eliminated while the
+match continues. The [[*Finding: Results, save-progress exit, and powers][result and power comparison]] identifies a per-army defeated
+marker, not a verified universal winner field. A victory presentation is not a
+player-specific result: the existing surrender execution can also reach it. The
+API currently publishes a finished lifecycle without a winner and intentionally
+does not expose retained battle data at the terminal boundary. Do not infer the
+human player's victory solely from a result phase or one defeated marker.
+
+Further research must establish result behavior and reliable, guarded memory
+signals for rout, HQ capture, surrender, CAPT and TURN; two-, three-, and
+four-army free-for-all and team configurations; ties and eliminated teammates;
+and restore/reconnect at a terminal checkpoint. Compare the result screen with
+coherent snapshots and record ROM/build identity and limitations. The manual
+describes game rules, not the safety or persistence of any particular RAM field.
+
 * Finding: Startup, title, Versus setup, and battle entry
 
 ** Claim and status
