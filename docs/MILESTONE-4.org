@@ -1836,6 +1836,75 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
       it complete. There is no native marker to compare against, so acceptance is
       about how readable the symbolic badge is at each scale and theme.
 
+*** TODO Show a flashing low-fuel indicator over a unit's tile
+    Human request (2026-11-24): Advance Wars 2 flashes a fuel icon over a unit
+    that is low on fuel. Give the human client the same on-board cue so low fuel
+    is visible on the unit's tile without opening the inspector.
+    The data is already available in committed observations: the decoder reads
+    fuel from bits 0..6 of unit record byte =+6= masked with =0x7F=, the ROM HUD
+    reader masks away the unassigned bit 7
+    ([[file:AW2-MAP-RESEARCH.org::*Finding: APC supply and paired unit fuel/ammo changes][APC supply findings]],
+    [[file:AW2-STATE-VALIDATION.org][state validation notes]]), the verified unit
+    catalog carries each type's =fuel_capacity= and daily upkeep, and the tile
+    inspector already lists =Fuel n/m=. Route planning already validates
+    =unit.fuel= against terrain/weather/CO costs, and
+    [[file:../src/aw2_lab/aw2_unit_profiles.py][the shared rule module]] models
+    turn-start upkeep from ROM routine =0x080253B0= (zero for embarked units and
+    units standing on their matching owned service property, =5= for a submerged
+    Submarine, CO air-fuel discounts subtracted for aircraft) plus the
+    =destroyed_at_zero_fuel= set. The board currently shows only HP, the used
+    marker, cargo badges, and selection/target/range overlays.
+    Before setting a threshold, measure the cartridge with the same method used
+    for ammo ([[file:AMMO-INDICATOR.md][low-ammo indicator notes]]): the ammo
+    study found no on-tile marker at all, so do not assume a native fuel glyph
+    or pulse exists.
+    - [ ] Measure the native behavior on the supported cartridge. In isolated
+      headless mGBA Bean Island Versus runs, write a purchased unit's fuel field
+      (byte =+6=, bits 0..6) to full, one tile short, half, =1=, and =0=, capture
+      120 consecutive frames per value, and diff every pixel's colour set against
+      the full-fuel control. Report whether any change lands on the unit's tile,
+      on terrain animation, or only in the bottom-right status panel, and record
+      the blink cadence and the ROM routine if a marker is found. Write the
+      findings and the evidence hashes in a new
+      [[file:FUEL-INDICATOR.md][low-fuel indicator notes]] page, keeping ROMs,
+      saves, screenshots, and logs outside Git and the Nix store.
+    - [ ] Extract the native fuel icon into the external sprite pack if the
+      measurement finds one, reusing the existing animated-region pipeline where
+      practical. Keep all ROM-derived artwork outside Git and the Nix store, and
+      retain a symbolic high-contrast fallback for missing artwork.
+    - [ ] Choose and document the threshold. If the cartridge exposes a native
+      low-fuel rule, follow it and cite the evidence. Otherwise state the client
+      convention explicitly, mirroring the ammo badge's "strictly below half
+      capacity" rule from Advance Wars By Web revision 63 (=fuel * 2 <
+      fuel_capacity=), and label it as a client convention rather than AW2
+      behavior. Decide how to word empty fuel separately from low fuel: units
+      that are destroyed at =0= fuel need a stronger warning than units that
+      merely stop moving, and =fuel_capacity= of 0 never gets a badge.
+    - [ ] Render the indicator on the occupied tile alongside the HP badge, cargo
+      badge, used marker, and selection/target/range overlays without crowding
+      them at supported tile sizes, interface scales, and both themes. Match the
+      native flashing animation when one was measured; otherwise use a static,
+      clearly labelled pulse and provide a static equivalent when reduced motion
+      is requested.
+    - [ ] Drive the marker from committed observations only: it must reflect
+      movement costs, turn-start upkeep, APC replenishment, Join/Repair effects,
+      and submarine submerge costs, and hide for embarked or unobserved units. Do
+      not reveal enemy fuel that fog of war has not exposed; suppress other armies
+      while fog is enabled or its state is unobserved, exactly as ammo does. Never
+      infer fuel from movement plans or previews that were not committed.
+    - [ ] Expose the state accessibly: include low or empty fuel in the tile's
+      accessible name and the unit inspector, carry the value in a
+      =data-low-fuel="n/m=" attribute for checks, and do not rely on colour alone.
+    - [ ] Add ROM-independent component and browser checks with synthetic
+      fixtures (full, low, and zero fuel; =fuel_capacity= of 0; fog on, off, and
+      unknown; reduced motion; narrow layouts and 50-200% scaling) plus live
+      cartridge evidence for the native side. Require =pre-commit run --all-files=
+      to pass on every hook.
+    - [ ] Review the indicator with the user in the live client before marking it
+      complete. If the cartridge has no native marker, acceptance is about how
+      readable the symbolic badge is at each scale and theme alongside the existing
+      ammo badge.
+
 *** IN-PROGRESS Playtest and accept the redesign
     Depends on integrated feedback. Playtest selection, movement, attack,
     purchasing, unloading, cancellation, end turn, and error recovery against
@@ -1886,6 +1955,9 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     matching the native Advance Wars 2 board cue. The cartridge has no such cue
     (measured; see [[file:AMMO-INDICATOR.md][low-ammo indicator notes]]), so a
     symbolic badge is implemented; human review of its readability is still open.
+    The matching low-fuel TODO above requests the same cue for fuel; it starts by
+    measuring whether the cartridge actually renders a fuel marker before any
+    badge is designed.
     - [ ] Human rechecks the reported usability follow-ups and accepts the redesign.
 
     For every implementation item, add focused behavior checks, run relevant
