@@ -565,6 +565,18 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     to 12. Full battle snapshots fell from 23–24 to 10 per action. Human review
     pending.
 
+*** TODO Investigate how to speed up AI turns in =aw2-lab play=
+    Benchmark AI turns in headless and windowed mGBA. Measure wall time per
+    turn, Pi host subprocess startup time, turn-brief build time, MCP tool-call
+    latency, settle-wait time (=read_after_ai_attempt=), and retry-attempt
+    count. Identify bottlenecks: host process spawn/startup, brief construction,
+    polling cadence in the settle/wait loops, per-attempt re-spawn of the Pi
+    host (vs. reusing a session), and the 30-second =wait_for_turn= timeout and
+    retry behavior. Record wall time, emulator frames, and bridge/HTTP calls
+    before and after any optimization, and verify the same turn outcome
+    (player, day, funds, settled state). Keep the private JSONL logs, keep the
+    trusted-client model, and do not weaken verification of committed actions.
+
 ** DONE Investigate APC actions failing during human play
    In the latest =aw2-lab play= session, on day 13 the APC could not move and
    wait or move and supply. Determine what caused the issue, fix it, and verify
