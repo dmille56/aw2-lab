@@ -359,7 +359,10 @@ async def _recover_checkpoint_on_startup(
     )
     session = CheckpointSession(
         MatchObservationTracker(manifest.match.match_id),
-        lambda: capture_game_state(bridge, rom_path=settings.rom_path),
+        lambda: capture_game_state(
+            bridge, rom_path=settings.rom_path, versus=manifest.match.configuration
+        ),
+        manifest.match.configuration,
     )
     service = MatchCheckpointService(
         controller=controller,

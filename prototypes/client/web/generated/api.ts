@@ -7412,6 +7412,8 @@ export interface components {
             schema_version: number;
             ui: components["schemas"]["UIStateObservation"];
             validation: components["schemas"]["BattleValidationReport"];
+            /** Versus Result */
+            versus_result?: components["schemas"]["VersusPlayerResult"][] | null;
         };
         /**
          * GameplayCommandRequest
@@ -8822,6 +8824,19 @@ export interface components {
          * @enum {string}
          */
         ValueStatus: "available" | "unavailable" | "unknown";
+        /**
+         * VersusOutcome
+         * @enum {string}
+         */
+        VersusOutcome: "win" | "loss" | "draw" | "unknown";
+        /**
+         * VersusPlayerResult
+         * @description Outcome for a configured player at the observed result boundary.
+         */
+        VersusPlayerResult: {
+            outcome: components["schemas"]["VersusOutcome"];
+            slot: components["schemas"]["PlayerSlot"];
+        };
         /**
          * Weather
          * @enum {string}

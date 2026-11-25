@@ -215,8 +215,21 @@ each player generate its own credential before joining. The combined example is
 for a trusted operator process; clients that only play do not receive its token.
 
 State reads return the last committed observation even while a command is
-executing; `settled` is then false. Before Start, observation is null. The
-settled-only observation route returns `409 observation_unavailable` before
+executing; `settled` is then false. Before Start, observation is null.
+The observation's `game_state.versus_result` lists configured slots in order at a
+managed Versus result boundary. Each entry has a `slot` such as `slot_1` and
+an `outcome` of `win`, `loss`, `draw`, or `unknown`. Both read endpoints
+return the same outcomes to each authorized player. Live observations return
+null and older snapshots may omit the field. Startup recovery reads the
+result again from the saved terminal frame.
+
+Use the slot's outcome for win, loss, or draw presentation. The native
+presentation phase can be shared by different results. The decoder uses
+verified terminal player records, with configured and native TURN settings
+as additional evidence for a draw. Early result frames and inconsistent
+records yield `unknown`.
+
+The settled-only observation route returns `409 observation_unavailable` before
 Start or during execution. Reads never advance emulator frames.
 
 Screenshots are captured at boundary publication, checked against the observed

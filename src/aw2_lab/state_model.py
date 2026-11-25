@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import Any
 
 from aw2_lab.lifecycle import LifecycleAssessment
+from aw2_lab.match_contract import PlayerSlot
 from aw2_lab.rom_profile import AW2_US_REVISION_0, RomProfile, UnsupportedRomError
 from aw2_lab.state_validation import BattleValidationReport
 from aw2_lab.ui_state import MapCursorObservation, MenuObservation
@@ -40,6 +41,21 @@ class Weather(StrEnum):
     CLEAR = "clear"
     SNOW = "snow"
     RAIN = "rain"
+
+
+class VersusOutcome(StrEnum):
+    WIN = "win"
+    LOSS = "loss"
+    DRAW = "draw"
+    UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True, slots=True)
+class VersusPlayerResult:
+    """Outcome for a configured player at the observed result boundary."""
+
+    slot: PlayerSlot
+    outcome: VersusOutcome
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,6 +177,8 @@ class GameState:
     validation: BattleValidationReport
     ui: UIStateObservation
     battle: ObservedValue[BattleState]
+    # Keep the default out of OpenAPI so generated clients accept older snapshots.
+    versus_result: tuple[VersusPlayerResult, ...] | None = field(default_factory=lambda: None)
 
     def __post_init__(self) -> None:
         if isinstance(self.schema_version, bool) or not isinstance(self.schema_version, int):

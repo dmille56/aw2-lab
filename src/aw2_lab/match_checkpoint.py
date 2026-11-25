@@ -40,6 +40,7 @@ from aw2_lab.match_contract import (
     CommandStatus,
     ErrorBody,
     ErrorCode,
+    FixedMatchConfiguration,
     MatchLifecycle,
     MatchSummary,
     PlayerSlot,
@@ -71,6 +72,7 @@ class CheckpointSession:
 
     tracker: MatchObservationTracker
     capture_game_state: Callable[[], Awaitable[GameState]]
+    configuration: FixedMatchConfiguration | None = None
 
 
 class MatchCheckpointService:

@@ -88,7 +88,8 @@ class PlayableRuntime:
         controller.set_input_release_provider(self.release_inputs, replace=True)
 
     async def _capture(self) -> GameState:
-        return await capture_game_state(self.bridge, rom_path=self.rom_path)
+        versus = self._service.session.configuration if self._service is not None else None
+        return await capture_game_state(self.bridge, rom_path=self.rom_path, versus=versus)
 
     async def _save_navigation_screenshot(self, path: Path) -> Path:
         return await self.bridge.save_screenshot(path)
@@ -120,7 +121,9 @@ class PlayableRuntime:
             controller=self.controller,
             store=self.store,
             bridge=self.bridge,
-            session=CheckpointSession(MatchObservationTracker(match_id), self._observe),
+            session=CheckpointSession(
+                MatchObservationTracker(match_id), self._observe, summary.configuration
+            ),
             runtime=self.identity,
             journal=self.journal,
         )

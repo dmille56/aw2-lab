@@ -345,6 +345,9 @@ def test_two_sdk_clients_play_save_restart_and_finish(mode, tmp_path):
                 await action(red, "surrender", SurrenderAction())
                 terminal = await record(blue, "surrender-finished")
                 assert terminal.summary.lifecycle.value == "finished"
+                assert tuple(
+                    entry.outcome for entry in terminal.observation.game_state.versus_result
+                ) == ("loss", "win")
                 receipt = await admin.restore_checkpoint(
                     match_id, checkpoint, terminal.summary.revision
                 )
@@ -394,6 +397,9 @@ def test_two_sdk_clients_play_save_restart_and_finish(mode, tmp_path):
                 )
                 victory = await record(blue, "hq-victory")
                 assert victory.summary.lifecycle.value == "finished"
+                assert tuple(
+                    entry.outcome for entry in victory.observation.game_state.versus_result
+                ) == ("win", "loss")
                 png = await blue.screenshot(match_id, revision=victory.summary.revision)
                 (tmp_path / "victory.png").write_bytes(png.png)
                 evidence["victory_png_sha256"] = sha(png.png)

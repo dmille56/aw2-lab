@@ -3,6 +3,9 @@
 from pathlib import Path
 
 from aw2_lab.bridge import LuaBridgeClient
+from aw2_lab.lifecycle import LifecyclePhase
+from aw2_lab.map_catalog import MAPS_BY_ID
+from aw2_lab.match_contract import FixedMatchConfiguration
 from aw2_lab.state_model import (
     GAME_STATE_SCHEMA_VERSION,
     BattleState,
@@ -16,9 +19,12 @@ from aw2_lab.state_model import (
     UIStateObservation,
     UnitState,
     ValueStatus,
+    VersusOutcome,
+    VersusPlayerResult,
     Weather,
 )
 from aw2_lab.state_validation import (
+    BATTLE_MAP_ID_ADDRESS,
     MAP_BASE,
     PLAYER_BASE,
     PLAYER_STRIDE,
@@ -38,7 +44,9 @@ from aw2_lab.state_validation import (
 from aw2_lab.ui_state import observe_map_cursor, observe_menu
 
 
-def decode_snapshot(snapshot: BattleMemorySnapshot) -> GameState:
+def decode_snapshot(
+    snapshot: BattleMemorySnapshot, *, versus: FixedMatchConfiguration | None = None
+) -> GameState:
     """Decode immutable RAM only after validating this exact snapshot.
 
     Offline callers are responsible for capturing both RAM regions at one frame.
@@ -67,10 +75,16 @@ def decode_snapshot(snapshot: BattleMemorySnapshot) -> GameState:
             ),
         ),
         battle=battle,
+        versus_result=_decode_versus_result(snapshot, report.lifecycle.phase, versus),
     )
 
 
-async def capture_game_state(bridge: LuaBridgeClient, *, rom_path: Path) -> GameState:
+async def capture_game_state(
+    bridge: LuaBridgeClient,
+    *,
+    rom_path: Path,
+    versus: FixedMatchConfiguration | None = None,
+) -> GameState:
     """Verify the ROM, capture RAM without advancing frames, and decode it.
 
     The capture checks each response and the final frame boundary. An unsupported
@@ -78,7 +92,77 @@ async def capture_game_state(bridge: LuaBridgeClient, *, rom_path: Path) -> Game
     any state is published.
     """
     layout = load_battle_layout(rom_path)
-    return decode_snapshot(await capture_battle_snapshot(bridge, layout))
+    return decode_snapshot(await capture_battle_snapshot(bridge, layout), versus=versus)
+
+
+_RESULT_PHASES = frozenset(
+    {
+        LifecyclePhase.RESULT_SEQUENCE,
+        LifecyclePhase.VICTORY_PRESENTATION,
+        LifecyclePhase.DEFEAT_PRESENTATION,
+        LifecyclePhase.RESULT_SUMMARY,
+        LifecyclePhase.SAVE_PROGRESS_PROMPT,
+    }
+)
+_GAME_MODE_ADDRESS = 0x03003FC1
+_VERSUS_MODE = 3
+_BATTLE_DAY_ADDRESS = 0x03004080
+_TURN_LIMIT_ADDRESS = 0x03003FF0
+
+
+def _decode_versus_result(
+    snapshot: BattleMemorySnapshot,
+    phase: LifecyclePhase,
+    versus: FixedMatchConfiguration | None,
+) -> tuple[VersusPlayerResult, ...] | None:
+    if versus is None or phase not in _RESULT_PHASES:
+        return None
+    slots = versus.player_slots
+    unknown = tuple(VersusPlayerResult(slot, VersusOutcome.UNKNOWN) for slot in slots)
+    if phase is LifecyclePhase.RESULT_SEQUENCE:
+        return unknown  # The result process may still be updating the records.
+
+    mode = snapshot.read(_GAME_MODE_ADDRESS, 1)[0]
+    map_id = snapshot.read(BATTLE_MAP_ID_ADDRESS, 1)[0]
+    day = snapshot.u16(_BATTLE_DAY_ADDRESS)
+    if mode != _VERSUS_MODE or map_id != MAPS_BY_ID[versus.map_id].rom_id or day == 0:
+        return unknown
+    records = tuple(
+        snapshot.read(PLAYER_BASE + index * PLAYER_STRIDE, PLAYER_STRIDE) for index in range(1, 5)
+    )
+    teams = versus.team_ids
+    for index, record in enumerate(records, 1):
+        if index > len(slots):
+            if record[0x1B] != 0:
+                return unknown
+        elif (
+            record[0x1A] != index
+            or record[0x1B] != 1
+            or record[0x1D] > 18
+            or record[0x2A] != teams[index - 1]
+        ):
+            return unknown
+    markers = tuple(int.from_bytes(record[0x14:0x16], "little") for record in records[: len(slots)])
+    if any(marker > day for marker in markers) or all(markers):
+        return unknown
+    if any(markers):
+        winning_teams = {team for team, marker in zip(teams, markers, strict=True) if not marker}
+        losing_teams = {team for team, marker in zip(teams, markers, strict=True) if marker}
+        if winning_teams & losing_teams:
+            return unknown  # This boundary has not established a common team result.
+        return tuple(
+            VersusPlayerResult(slot, VersusOutcome.LOSS if marker else VersusOutcome.WIN)
+            for slot, marker in zip(slots, markers, strict=True)
+        )
+    # A confirmed turn-limit presentation with no defeated participants is
+    # a draw. A top-score tie can use the same script with nonzero markers.
+    if (
+        phase is LifecyclePhase.DEFEAT_PRESENTATION
+        and day == versus.rules.day_limit
+        and snapshot.read(_TURN_LIMIT_ADDRESS, 1)[0] == day
+    ):
+        return tuple(VersusPlayerResult(slot, VersusOutcome.DRAW) for slot in slots)
+    return unknown
 
 
 def _blocked_battle(report: BattleValidationReport) -> ObservedValue[BattleState]:
@@ -202,7 +286,7 @@ def _decode_battle(snapshot: BattleMemorySnapshot) -> BattleState:
         )
     )
     return BattleState(
-        day=snapshot.u16(0x03004080),
+        day=snapshot.u16(_BATTLE_DAY_ADDRESS),
         active_player_slot=snapshot.u16(0x030033EC),
         weather=weather_observation,
         map=MapState(width, height, tuple(tiles)),

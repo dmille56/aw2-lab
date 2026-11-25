@@ -13,6 +13,8 @@ from aw2_lab.lifecycle import (
     SCREEN_CALLBACKS,
     LifecyclePhase,
 )
+from aw2_lab.map_catalog import MAPS_BY_ID
+from aw2_lab.match_contract import FixedMatchConfiguration, MatchRules
 from aw2_lab.rom_profile import AW2_US_REVISION_0, UnsupportedRomError
 from aw2_lab.state_decoder import decode_snapshot
 from aw2_lab.state_model import PropertyState
@@ -988,6 +990,59 @@ def test_consistent_retained_data_is_unavailable_in_menus_and_results(memory, sc
     assert not any(report.available(name) for name in BattleStructure)
     with pytest.raises(ValueError, match="Lifecycle phase"):
         report.require_live()
+
+
+@pytest.mark.parametrize(
+    ("script", "markers", "teams", "day_limit", "expected"),
+    [
+        (0x08615CB0, (0, 5), (0, 1), None, ("win", "loss")),
+        (0x08615CB0, (5, 0), (0, 1), None, ("loss", "win")),
+        (0x084C327C, (0, 0, 5, 5), (0, 1, 2, 3), 5, ("win", "win", "loss", "loss")),
+        (0x08615CB0, (0, 0, 5, 5), (0, 0, 1, 1), None, ("win", "win", "loss", "loss")),
+        (0x084C327C, (0, 0), (0, 1), 5, ("draw", "draw")),
+        (0x084C327C, (0, 0), (0, 1), None, ("unknown", "unknown")),
+        (0x08615CB0, (0, 0), (0, 1), 5, ("unknown", "unknown")),
+        (0x0849D56C, (0, 5), (0, 1), 5, ("unknown", "unknown")),
+        (0x08615CB0, (0, 6), (0, 1), 5, ("unknown", "unknown")),
+        (0x08615CB0, (5, 5), (0, 1), 5, ("unknown", "unknown")),
+    ],
+)
+def test_versus_result_uses_terminal_records(memory, script, markers, teams, day_limit, expected):
+    _, ewram, iwram = memory
+    config = FixedMatchConfiguration(
+        map_id="four_corners" if len(teams) == 4 else "bean_island",
+        player_3_co="andy" if len(teams) == 4 else None,
+        player_4_co="max" if len(teams) == 4 else None,
+        player_2_team="a" if teams[1] == 0 else "b",
+        player_3_team="b" if len(teams) == 4 and teams[2] == 1 else "c",
+        player_4_team="b" if len(teams) == 4 and teams[3] == 1 else "d",
+        rules=MatchRules(day_limit=day_limit),
+    )
+    iwram[0x3FC1:0x3FC3] = bytes((3, MAPS_BY_ID[config.map_id].rom_id))
+    iwram[0x3FF0] = day_limit or 0
+    pack_into("<H", iwram, 0x4080, 5)
+    for slot, (marker, team) in enumerate(zip(markers, teams, strict=True), 1):
+        base = 0x23284 + slot * 60
+        pack_into("<H", ewram, base + 0x14, marker)
+        ewram[base + 0x1A] = slot
+        ewram[base + 0x1B] = 1
+        ewram[base + 0x2A] = team
+    assert decode_snapshot(snapshot(memory), versus=config).versus_result is None
+    pack_into("<I", ewram, 0xD610, script)
+    for offset, value in zip((0x40D0, 0x40EC), SCREEN_CALLBACKS, strict=True):
+        pack_into("<I", iwram, offset, value)
+    current = snapshot(memory)
+    assert decode_snapshot(current).versus_result is None
+    state = decode_snapshot(current, versus=config)
+    assert state.battle.value is None
+    assert state.versus_result is not None
+    assert tuple(entry.slot for entry in state.versus_result) == config.player_slots
+    assert tuple(entry.outcome for entry in state.versus_result) == expected
+
+    # An otherwise recognizable result cannot be mapped onto a different team roster.
+    ewram[0x23284 + 60 + 0x2A] = 3
+    result = decode_snapshot(snapshot(memory), versus=config).versus_result
+    assert result is not None and all(entry.outcome == "unknown" for entry in result)
 
 
 @pytest.mark.parametrize("state", [5, 9, 12, 14])

@@ -8240,6 +8240,20 @@
           },
           "validation": {
             "$ref": "#/components/schemas/BattleValidationReport"
+          },
+          "versus_result": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/VersusPlayerResult"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Versus Result"
           }
         },
         "required": [
@@ -10978,6 +10992,33 @@
         ],
         "title": "ValueStatus",
         "type": "string"
+      },
+      "VersusOutcome": {
+        "enum": [
+          "win",
+          "loss",
+          "draw",
+          "unknown"
+        ],
+        "title": "VersusOutcome",
+        "type": "string"
+      },
+      "VersusPlayerResult": {
+        "description": "Outcome for a configured player at the observed result boundary.",
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/VersusOutcome"
+          },
+          "slot": {
+            "$ref": "#/components/schemas/PlayerSlot"
+          }
+        },
+        "required": [
+          "slot",
+          "outcome"
+        ],
+        "title": "VersusPlayerResult",
+        "type": "object"
       },
       "Weather": {
         "enum": [

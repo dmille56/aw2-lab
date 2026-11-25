@@ -147,6 +147,16 @@ that the prepared ownership totals alone do not reproduce the game's TURN
 scoring inputs. The precise TURN formula for allied armies with unequal
 holdings remains unverified.
 
+The decoder checks native Versus mode (=0x03003FC1=, value 3), map ID
+(=0x03003FC2=), and the configured player roster before using terminal
+markers. On the replayed Bean Island and Four Corners full draws, the
+day halfword at =0x03004080= and TURN byte at =0x03003FF0= were both 5
+when the presentation started. The native result dispatcher checks for
+surviving armies on opposing teams before choosing the presentation at
+=0x08037FB4=. The shared-win case also takes that path. The decoder
+requires all participants' markers to be clear to report a draw and
+returns unknown when the result evidence is incomplete.
+
 ** Additional rout and HQ capture probes
 
 - Bean Island, TURN and CAPT Off. Slot 1 purchased one Infantry and slot 2
