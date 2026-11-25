@@ -284,6 +284,21 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     player. Keep the message body and private JSONL logs plain. Disable
     color for redirected output or when =NO_COLOR= is set.
 
+*** TODO Time each tool call and AI thinking block in =--ai-log=
+    Add per-call and per-thinking-block timing to the =--ai-log= terminal view.
+    Pi events carry no timestamps, so durations are measured by the log
+    follower with a monotonic clock. Tool call duration is the span from
+    =tool_execution_start= to the matching =tool_execution_end= (same tool,
+    FIFO) and is printed on the end line. Thinking time is an approximation:
+    the span from =message_start= to the first =tool_execution_start= in the
+    message, or to =message_end= when no tool call follows. Print the duration
+    live on the relevant lines and a per-AI-turn summary after the attempt
+    loop exits (total time, time in tool calls, time in AI/thinking),
+    aggregated across attempts. Timing is opt-in with =--ai-log= and plain
+    text. Acceptance: tool durations appear on end lines, thinking durations
+    appear in details mode, and the summary line reports total/tool/thinking
+    totals for the whole turn.
+
 *** IN-PROGRESS Keep the match running when a player acts immediately after an AI turn
     In the 2026-11-23 =aw2-lab play= session, Player 2's End Turn completed at
     revision 298. Player 1 started Move & Capture while the AI host was
