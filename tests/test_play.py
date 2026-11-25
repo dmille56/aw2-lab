@@ -81,6 +81,14 @@ def test_ai_log_summary_reports_mcp_status_and_details_are_opt_in():
     ).encode()
     assert list(render_pi_event(call, "summary")) == ["Calling move wait"]
     assert list(render_pi_event(result, "summary")) == ["Move wait returned (rolled back)"]
+    combined_result = json.dumps(
+        {
+            "type": "tool_execution_end",
+            "toolName": "mcp__aw2__play_action",
+            "result": {"structuredContent": {"command": {"status": "completed"}}},
+        }
+    ).encode()
+    assert list(render_pi_event(combined_result, "summary")) == ["Play action returned (completed)"]
     assert list(render_pi_event(thought, "summary")) == []
     assert list(render_pi_event(call, "details"))[-1] == '  Arguments: {"path": []}'
     assert list(render_pi_event(thought, "details", token="player-secret")) == [

@@ -36,11 +36,13 @@ from aw2_lab.match_contract import (
     CheckpointReference,
     CommandReceipt,
     CommandResult,
+    CommandStatus,
     ContractModel,
     Coordinate,
     DiveAction,
     EndTurnAction,
     ErrorCode,
+    GameplayAction,
     JoinAction,
     LoadAction,
     MoveAttackAction,
@@ -60,7 +62,7 @@ from aw2_lab.match_contract import (
     Revision as MatchRevision,
 )
 from aw2_lab.match_events import CommandUpdatedEvent
-from aw2_lab.mcp_auth import caller_from_request
+from aw2_lab.mcp_auth import MCPCaller, caller_from_request
 from aw2_lab.mcp_contract import MCPFailure
 from aw2_lab.mcp_runtime import MCPAdapterRuntime
 from aw2_lab.mcp_turn_wait import TurnWaitResult
@@ -92,6 +94,10 @@ class CommandWaitResult(ContractModel):
     command: CommandResult
 
 
+class PlayActionResult(CommandWaitResult):
+    turn_brief: TurnBrief | None = None
+
+
 class ArchiveResult(ContractModel):
     match_id: UUID
     checkpoint_id: UUID
@@ -102,14 +108,17 @@ class ArchiveResult(ContractModel):
 
 
 def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
+    def request_caller() -> MCPCaller:
+        request = server.get_context().request_context.request
+        if not isinstance(request, Request):
+            raise AuthorizationError(ErrorCode.INVALID_CREDENTIAL, "Authentication required")
+        return caller_from_request(request)
+
     @asynccontextmanager
     async def client(
         permission: Permission = Permission.READ, match_id: UUID | None = None
     ) -> AsyncIterator[AsyncAW2Client]:
-        request = server.get_context().request_context.request
-        if not isinstance(request, Request):
-            raise AuthorizationError(ErrorCode.INVALID_CREDENTIAL, "Authentication required")
-        caller = caller_from_request(request)
+        caller = request_caller()
         caller.check(permission, match_id)
         if adapter is None:
             raise AuthorizationError(ErrorCode.RUNTIME_UNAVAILABLE, "MCP adapter is unavailable")
@@ -190,10 +199,7 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
         match_id: UUID, unit_id: UnitID | None = None, contract_version: int = 1
     ) -> TurnBrief:
         """Player: read your ready units, affordable production, and observed opponents at one revision. Pass a ready unit ID for verified movement paths and capture tiles when rules and visibility are known."""
-        request = server.get_context().request_context.request
-        if not isinstance(request, Request):
-            raise AuthorizationError(ErrorCode.INVALID_CREDENTIAL, "Authentication required")
-        principal = caller_from_request(request).principal
+        principal = request_caller().principal
         if not isinstance(principal, PlayerPrincipal):
             raise AuthorizationError(ErrorCode.PERMISSION_DENIED, "A player slot is required")
         async with client(Permission.READ, match_id) as sdk:
@@ -234,6 +240,47 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
         async with client(Permission.READ, match_id) as sdk:
             return await sdk.command_status(match_id, command_id)
 
+    async def wait_for_command_result(
+        caller: MCPCaller,
+        sdk: AsyncAW2Client,
+        match_id: UUID,
+        command_id: UUID,
+        timeout_seconds: float,
+    ) -> CommandWaitResult:
+        if adapter is None:
+            raise AuthorizationError(ErrorCode.RUNTIME_UNAVAILABLE, "MCP adapter is unavailable")
+        matches = adapter.matches
+        if matches is None:
+            raise AuthorizationError(ErrorCode.RUNTIME_UNAVAILABLE, "MCP adapter is unavailable")
+        async with asyncio.timeout(timeout_seconds):
+            try:
+                async with asyncio.timeout(timeout_seconds * 0.9):
+                    while True:
+                        source = await matches.subscribe_events(caller.principal, match_id)
+                        try:
+                            # Subscribe first so a completion after this read is queued.
+                            command = await sdk.command_status(match_id, command_id)
+                            if command.status in TERMINAL:
+                                return CommandWaitResult(timed_out=False, command=command)
+                            while True:
+                                message = await source.next(timeout=timeout_seconds)
+                                event = message.event
+                                if (
+                                    isinstance(event, CommandUpdatedEvent)
+                                    and event.payload.command_id == command_id
+                                    and event.payload.status in TERMINAL
+                                ):
+                                    return CommandWaitResult(timed_out=False, command=event.payload)
+                        except StopAsyncIteration:
+                            # Recheck status after reconnecting to cover missed events.
+                            pass
+                        finally:
+                            source.close()
+            except TimeoutError:
+                command = await sdk.command_status(match_id, command_id)
+                caller.check(Permission.READ, match_id)
+                return CommandWaitResult(timed_out=command.status not in TERMINAL, command=command)
+
     @server.tool()
     async def wait_for_command(
         match_id: UUID,
@@ -242,49 +289,42 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
         contract_version: int = 1,
     ) -> CommandWaitResult:
         """Wait at most 60 seconds for completion; timeout or cancellation never cancels accepted work."""
-        request = server.get_context().request_context.request
-        if not isinstance(request, Request):
-            raise AuthorizationError(ErrorCode.INVALID_CREDENTIAL, "Authentication required")
-        caller = caller_from_request(request)
-        caller.check(Permission.READ, match_id)
-        if adapter is None:
+        async with client(Permission.READ, match_id) as sdk:
+            return await wait_for_command_result(
+                request_caller(), sdk, match_id, command_id, timeout_seconds
+            )
+
+    @server.tool()
+    async def play_action(
+        match_id: UUID,
+        expected_revision: Revision,
+        request_id: UUID,
+        action: GameplayAction,
+        timeout_seconds: WaitSeconds = 30,
+        contract_version: int = 1,
+    ) -> PlayActionResult:
+        """Player: submit one action (action.kind names the move), wait for its result, and get the next brief if your turn is still ready. On timeout use wait_for_command with the returned command ID. Retry uncertain submissions with the identical request ID and payload."""
+        caller = request_caller()
+        principal = caller.principal
+        if not isinstance(principal, PlayerPrincipal):
+            raise AuthorizationError(ErrorCode.PERMISSION_DENIED, "A player slot is required")
+        if adapter is None or adapter.matches is None:
             raise AuthorizationError(ErrorCode.RUNTIME_UNAVAILABLE, "MCP adapter is unavailable")
-        matches = adapter.matches
-        if matches is None:
-            raise AuthorizationError(ErrorCode.RUNTIME_UNAVAILABLE, "MCP adapter is unavailable")
-        async with adapter.sdk(caller) as sdk:
-            async with asyncio.timeout(timeout_seconds):
-                try:
-                    async with asyncio.timeout(timeout_seconds * 0.9):
-                        while True:
-                            source = await matches.subscribe_events(caller.principal, match_id)
-                            try:
-                                # Subscribe first so a completion after this read is queued.
-                                command = await sdk.command_status(match_id, command_id)
-                                if command.status in TERMINAL:
-                                    return CommandWaitResult(timed_out=False, command=command)
-                                while True:
-                                    message = await source.next(timeout=timeout_seconds)
-                                    event = message.event
-                                    if (
-                                        isinstance(event, CommandUpdatedEvent)
-                                        and event.payload.command_id == command_id
-                                        and event.payload.status in TERMINAL
-                                    ):
-                                        return CommandWaitResult(
-                                            timed_out=False, command=event.payload
-                                        )
-                            except StopAsyncIteration:
-                                # Recheck status after reconnecting to cover missed events.
-                                pass
-                            finally:
-                                source.close()
-                except TimeoutError:
-                    command = await sdk.command_status(match_id, command_id)
-                    caller.check(Permission.READ, match_id)
-                    return CommandWaitResult(
-                        timed_out=command.status not in TERMINAL, command=command
-                    )
+        async with client(Permission.PLAY, match_id) as sdk:
+            receipt = await sdk.submit(match_id, expected_revision, action, request_id=request_id)
+            result = await wait_for_command_result(
+                caller, sdk, match_id, receipt.command_id, timeout_seconds
+            )
+            brief = None
+            if result.command.status is CommandStatus.COMPLETED:
+                state = await adapter.matches.state(principal, match_id)
+                if state.summary.revision == result.command.resulting_revision:
+                    candidate = build_turn_brief(state, principal.player_slot)
+                    if candidate.turn_ready or candidate.cursor_recovery_available:
+                        brief = candidate
+            return PlayActionResult(
+                timed_out=result.timed_out, command=result.command, turn_brief=brief
+            )
 
     @server.tool()
     async def wait_for_turn(

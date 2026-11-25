@@ -629,7 +629,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     the full production startup and the benefit of retaining a live Pi
     process would require a controlled model-host replay. Human review pending.
 
-*** TODO Reduce model round trips and thinking time in =aw2-lab play=
+*** IN-PROGRESS Reduce model round trips and thinking time in =aw2-lab play=
     In 71 saved AI turn logs, 328 successful command waits were immediately
     followed by a board brief at the resulting revision. In 164 of those
     sequences, the next call retrieved a unit-specific brief at that revision.
@@ -643,6 +643,19 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
       same player can still act. Preserve revision, timeout, and recovery checks.
     - Have the AI request the unit-specific brief directly when it has
       already chosen the acting unit. That brief includes board-level information.
+
+    The play prompt uses =play_action= for new commands, including End Turn,
+    and requests unit-specific briefs directly once it chooses a unit.
+    The combined call uses the same command queue and completion checks.
+    See [[file:MCP-TOOLS.md][the MCP contract]].
+
+    Replayed the same three scripted Bean Island turns in headless and
+    windowed mGBA. In each mode, the combined path reduced MCP tool calls
+    from 5/5/6 to 2/2/3 and HTTP requests from 52 to 40. Each replay used
+    195 bridge requests and matched the previous turn outcomes and frame
+    counts. The scripted wall times were 2.83/2.98/3.44 s headless and
+    2.87/2.92/3.68 s windowed. The live same-checkpoint comparison of
+    =--thinking low= and =medium= remains pending. The default is =medium=.
 
 ** DONE Investigate APC actions failing during human play
    In the latest =aw2-lab play= session, on day 13 the APC could not move and

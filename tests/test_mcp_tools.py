@@ -6,6 +6,7 @@ import hashlib
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from itertools import count
+from struct import pack_into
 from uuid import UUID, uuid4
 
 import httpx
@@ -415,6 +416,80 @@ async def test_lifecycle_schema_validation_and_no_side_effects(tmp_path, monkeyp
             assert payload(await call("get_readiness", letter="o"))
     finally:
         await controller.stop()
+
+
+@run_async_test
+async def test_play_action_returns_committed_brief_and_reconciles_timeout(
+    memory, tmp_path, monkeypatch
+):
+    app, runtime, _, match_id, _, bridge = await setup(memory, tmp_path, monkeypatch)
+    release = asyncio.Event()
+    executions = []
+
+    class Executor:
+        def __init__(self, navigator, tracker, *_runtime_args):
+            self.tracker = tracker
+
+        async def execute(self, request, observation):
+            kind = request.action.kind
+            executions.append(kind)
+            if kind == "end_turn":
+                pack_into("<H", memory[2], 0x33EC, 2)
+            else:
+                await release.wait()
+            bridge.frame += 1
+            return MutationOutcome(
+                observation=self.tracker.commit_boundary(await bridge.decoded()),
+                lifecycle=MatchLifecycle.PLAYABLE,
+            )
+
+    monkeypatch.setattr(runtime_module, "MoveWaitActionExecutor", Executor)
+    monkeypatch.setattr(runtime_module, "EndTurnActionExecutor", Executor)
+    args = {
+        "match_id": str(match_id),
+        "expected_revision": 1,
+        "request_id": str(uuid4()),
+        "action": {"kind": "move_wait", "unit_id": "1", "path": []},
+        "timeout_seconds": 0.2,
+    }
+    try:
+        async with mounted(app, monkeypatch) as (call, _, _):
+            assert (await call("play_action", args, letter="o"))["isError"]
+            pending = payload(await call("play_action", args))
+            assert pending["timed_out"] and pending["turn_brief"] is None
+            command_id = pending["command"]["command_id"]
+            release.set()
+            completed = payload(await call("play_action", {**args, "timeout_seconds": 2}))
+            assert completed["command"]["command_id"] == command_id
+            assert completed["command"]["status"] == "completed"
+            assert completed["turn_brief"]["turn_ready"]
+            assert completed["turn_brief"]["revision"] == 2
+
+            stale = payload(await call("play_action", {**args, "request_id": str(uuid4())}))
+            assert stale["command"]["error"]["code"] == "stale_revision"
+            assert stale["turn_brief"] is None
+
+            handoff = payload(
+                await call(
+                    "play_action",
+                    {
+                        **args,
+                        "expected_revision": 2,
+                        "request_id": str(uuid4()),
+                        "action": {"kind": "end_turn"},
+                        "timeout_seconds": 2,
+                    },
+                )
+            )
+            assert handoff["command"]["status"] == "completed"
+            assert handoff["turn_brief"] is None
+            replay = payload(await call("play_action", args))
+            assert replay["command"] == completed["command"]
+            assert replay["turn_brief"] is None
+            assert executions == ["move_wait", "end_turn"]
+    finally:
+        release.set()
+        await runtime.controller.stop()
 
 
 @run_async_test

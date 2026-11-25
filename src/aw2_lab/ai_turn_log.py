@@ -74,6 +74,12 @@ def render_pi_event(line: bytes, mode: LogMode, *, token: str = "") -> Iterator[
             isinstance(structured, dict) and structured.get("isError") is True
         )
         status = body.get("status") if isinstance(body, dict) else None
+        if (
+            status is None
+            and isinstance(body, dict)
+            and isinstance(command := body.get("command"), dict)
+        ):
+            status = command.get("status")
         suffix = (
             f" ({_display(status.replace('_', ' '), token, 60)})" if isinstance(status, str) else ""
         )
