@@ -629,6 +629,21 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     the full production startup and the benefit of retaining a live Pi
     process would require a controlled model-host replay. Human review pending.
 
+*** TODO Reduce model round trips and thinking time in =aw2-lab play=
+    In 71 saved AI turn logs, 328 successful command waits were immediately
+    followed by a board brief at the resulting revision. In 164 of those
+    sequences, the next call retrieved a unit-specific brief at that revision.
+
+    - Replay identical opening and midgame checkpoints with the same model
+      at =--thinking low= and =medium=. Compare turn wall time, model
+      responses, tool calls, rejected actions, and what the AI accomplished
+      on the board before deciding whether to change the default.
+    - Prototype a single AI action tool call that submits the command,
+      waits for its authoritative result, and returns a fresh brief when the
+      same player can still act. Preserve revision, timeout, and recovery checks.
+    - Have the AI request the unit-specific brief directly when it has
+      already chosen the acting unit. That brief includes board-level information.
+
 ** DONE Investigate APC actions failing during human play
    In the latest =aw2-lab play= session, on day 13 the APC could not move and
    wait or move and supply. Determine what caused the issue, fix it, and verify
