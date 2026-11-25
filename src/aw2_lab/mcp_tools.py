@@ -252,43 +252,39 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
         matches = adapter.matches
         if matches is None:
             raise AuthorizationError(ErrorCode.RUNTIME_UNAVAILABLE, "MCP adapter is unavailable")
-        source = None
-        try:
-            async with adapter.sdk(caller) as sdk:
-                async with asyncio.timeout(timeout_seconds):
-                    try:
-                        async with asyncio.timeout(timeout_seconds * 0.9):
+        async with adapter.sdk(caller) as sdk:
+            async with asyncio.timeout(timeout_seconds):
+                try:
+                    async with asyncio.timeout(timeout_seconds * 0.9):
+                        while True:
                             source = await matches.subscribe_events(caller.principal, match_id)
-                            while True:
+                            try:
+                                # Subscribe first so a completion after this read is queued.
                                 command = await sdk.command_status(match_id, command_id)
                                 if command.status in TERMINAL:
                                     return CommandWaitResult(timed_out=False, command=command)
-                                try:
+                                while True:
                                     message = await source.next(timeout=timeout_seconds)
-                                except TimeoutError:
-                                    continue
-                                except StopAsyncIteration:
-                                    source.close()
-                                    source = await matches.subscribe_events(
-                                        caller.principal, match_id
-                                    )
-                                    continue
-                                event = message.event
-                                if (
-                                    isinstance(event, CommandUpdatedEvent)
-                                    and event.payload.command_id == command_id
-                                    and event.payload.status in TERMINAL
-                                ):
-                                    return CommandWaitResult(timed_out=False, command=event.payload)
-                    except TimeoutError:
-                        command = await sdk.command_status(match_id, command_id)
-                        caller.check(Permission.READ, match_id)
-                        return CommandWaitResult(
-                            timed_out=command.status not in TERMINAL, command=command
-                        )
-        finally:
-            if source is not None:
-                source.close()
+                                    event = message.event
+                                    if (
+                                        isinstance(event, CommandUpdatedEvent)
+                                        and event.payload.command_id == command_id
+                                        and event.payload.status in TERMINAL
+                                    ):
+                                        return CommandWaitResult(
+                                            timed_out=False, command=event.payload
+                                        )
+                            except StopAsyncIteration:
+                                # Recheck status after reconnecting to cover missed events.
+                                pass
+                            finally:
+                                source.close()
+                except TimeoutError:
+                    command = await sdk.command_status(match_id, command_id)
+                    caller.check(Permission.READ, match_id)
+                    return CommandWaitResult(
+                        timed_out=command.status not in TERMINAL, command=command
+                    )
 
     @server.tool()
     async def wait_for_turn(

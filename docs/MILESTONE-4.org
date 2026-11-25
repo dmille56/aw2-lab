@@ -573,7 +573,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     to 12. Full battle snapshots fell from 23–24 to 10 per action. Human review
     pending.
 
-*** TODO Investigate how to speed up AI turns in =aw2-lab play=
+*** IN-PROGRESS Investigate how to speed up AI turns in =aw2-lab play=
     Benchmark AI turns in headless and windowed mGBA. Measure wall time per
     turn, Pi host subprocess startup time, turn-brief build time, MCP tool-call
     latency, settle-wait time (=read_after_ai_attempt=), and retry-attempt
@@ -584,6 +584,50 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     before and after any optimization, and verify the same turn outcome
     (player, day, funds, settled state). Keep the private JSONL logs, keep the
     trusted-client model, and do not weaken verification of committed actions.
+
+    Replayed three scripted AI-vs-AI turns on Bean Island through =aw2-lab
+    play= and real mGBA in each mode, before and after the change. The MCP host
+    bought Infantry on each Day 1 turn and moved Infantry on Day 2. It checked
+    command completion and ended each turn. Per-turn wall time ran from the
+    initial brief build through the post-attempt state read. Request totals
+    cover all three turns, including both players' overlapping handoffs.
+
+    | mGBA     | Turn wall times before (s) | Turn wall times after (s) | HTTP before → after | Status GETs before → after | Bridge before → after |
+    |----------+----------------------------+---------------------------+---------------------+----------------------------+-----------------------|
+    | Headless | 2.80, 2.92, 3.38           | 2.79, 2.85, 3.41          | 72 → 52             | 26 → 6                     | 195 → 195             |
+    | Windowed | 2.77, 2.89, 3.37           | 2.76, 3.12, 3.53          | 74 → 52             | 28 → 6                     | 195 → 195             |
+
+    All runs advanced 293, 311, and 306 emulator frames per turn,
+    respectively. Each turn settled on the first attempt with the same next
+    player, day, and slot-ordered funds across runs: slot 2 Day 1 (10,000 /
+    11,000), slot 1 Day 2 (21,000 / 10,000), and slot 2 Day 2 (21,000 /
+    21,000). Each run made seven state GETs.
+
+    Initial brief builds took 0.13–0.32 ms. Spawning the scripted host took
+    0.84–1.45 ms, and its initialization through MCP readiness after imports
+    took 39–53 ms. Post-attempt reads took 4.0–5.5 ms. The MCP tool-call
+    measurements include the emulator: command waits took 704–1,320 ms,
+    action submissions 47–164 ms, and brief reads 72–207 ms. The request
+    reduction did not produce a consistent wall-time improvement in this
+    sample.
+
+    The MCP command wait now subscribes before its first status read and
+    checks the event stream for completion of the requested command. It
+    rechecks status after a reconnect and before returning a timeout. The
+    30-second turn wait is an SSE subscription deadline. A committed handoff
+    can wake it immediately, and an expired subscription is reopened. The
+    post-attempt read only polls at 200 ms intervals when it sees unsettled
+    state on the same turn.
+
+    The installed Pi 1.5.2 binary reached offline RPC readiness in 298–319 ms
+    over seven cold process launches with an isolated profile, MCP and
+    extensions disabled. Separately, 71 existing private turn logs showed a
+    median 2.39 s per assistant response (1,762 responses) and 51 ms per tool
+    execution (1,827 measured calls). These logs combine sessions and give
+    no controlled headless/windowed model comparison. The production launcher
+    still starts a fresh process that resumes the slot's Pi session. Measuring
+    the full production startup and the benefit of retaining a live Pi
+    process would require a controlled model-host replay. Human review pending.
 
 ** DONE Investigate APC actions failing during human play
    In the latest =aw2-lab play= session, on day 13 the APC could not move and

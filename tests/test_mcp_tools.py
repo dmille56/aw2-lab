@@ -422,6 +422,7 @@ async def test_wait_timeout_terminal_failure_and_capacity(memory, tmp_path, monk
     app, runtime, _, match_id, _, _bridge = await setup(memory, tmp_path, monkeypatch)
     command_id, request_id = uuid4(), uuid4()
     terminal = False
+    status_reads = 0
     blocked = asyncio.Event()
     entered = asyncio.Event()
     active = 0
@@ -432,6 +433,8 @@ async def test_wait_timeout_terminal_failure_and_capacity(memory, tmp_path, monk
                 raise WaitTimeout(match_id, command_id)
 
             async def command_status(self, match_id, command_id):
+                nonlocal status_reads
+                status_reads += 1
                 return CommandResult(
                     match_id=match_id,
                     command_id=command_id,
@@ -459,6 +462,8 @@ async def test_wait_timeout_terminal_failure_and_capacity(memory, tmp_path, monk
             }
             waited = payload(await call("wait_for_command", args))
             assert waited["timed_out"] and waited["command"]["status"] == "running"
+            # The initial snapshot should not trigger a status read between entry and timeout.
+            assert status_reads == 2
             terminal = True
             waited = payload(await call("wait_for_command", args))
             assert not waited["timed_out"] and waited["command"]["status"] == "recovery_required"
