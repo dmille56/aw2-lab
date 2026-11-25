@@ -58,6 +58,9 @@ def decode_snapshot(
         if report.can_decode_live
         else _blocked_battle(report)
     )
+    versus_result, versus_final_day = _decode_versus_result(
+        snapshot, report.lifecycle.phase, versus
+    )
     return GameState(
         schema_version=GAME_STATE_SCHEMA_VERSION,
         frame=snapshot.frame,
@@ -75,7 +78,8 @@ def decode_snapshot(
             ),
         ),
         battle=battle,
-        versus_result=_decode_versus_result(snapshot, report.lifecycle.phase, versus),
+        versus_result=versus_result,
+        versus_final_day=versus_final_day,
     )
 
 
@@ -114,19 +118,19 @@ def _decode_versus_result(
     snapshot: BattleMemorySnapshot,
     phase: LifecyclePhase,
     versus: FixedMatchConfiguration | None,
-) -> tuple[VersusPlayerResult, ...] | None:
+) -> tuple[tuple[VersusPlayerResult, ...] | None, int | None]:
     if versus is None or phase not in _RESULT_PHASES:
-        return None
+        return None, None
     slots = versus.player_slots
     unknown = tuple(VersusPlayerResult(slot, VersusOutcome.UNKNOWN) for slot in slots)
     if phase is LifecyclePhase.RESULT_SEQUENCE:
-        return unknown  # The result process may still be updating the records.
+        return unknown, None  # The result process may still be updating the records.
 
     mode = snapshot.read(_GAME_MODE_ADDRESS, 1)[0]
     map_id = snapshot.read(BATTLE_MAP_ID_ADDRESS, 1)[0]
     day = snapshot.u16(_BATTLE_DAY_ADDRESS)
     if mode != _VERSUS_MODE or map_id != MAPS_BY_ID[versus.map_id].rom_id or day == 0:
-        return unknown
+        return unknown, None
     records = tuple(
         snapshot.read(PLAYER_BASE + index * PLAYER_STRIDE, PLAYER_STRIDE) for index in range(1, 5)
     )
@@ -134,26 +138,26 @@ def _decode_versus_result(
     for index, record in enumerate(records, 1):
         if index > len(slots):
             if record[0x1B] != 0:
-                return unknown
+                return unknown, None
         elif (
             record[0x1A] != index
             or record[0x1B] != 1
             or record[0x1D] > 18
             or record[0x2A] != teams[index - 1]
         ):
-            return unknown
+            return unknown, None
     markers = tuple(int.from_bytes(record[0x14:0x16], "little") for record in records[: len(slots)])
     if any(marker > day for marker in markers) or all(markers):
-        return unknown
+        return unknown, None
     if any(markers):
         winning_teams = {team for team, marker in zip(teams, markers, strict=True) if not marker}
         losing_teams = {team for team, marker in zip(teams, markers, strict=True) if marker}
         if winning_teams & losing_teams:
-            return unknown  # This boundary has not established a common team result.
+            return unknown, day  # This boundary has not established a common team result.
         return tuple(
             VersusPlayerResult(slot, VersusOutcome.LOSS if marker else VersusOutcome.WIN)
             for slot, marker in zip(slots, markers, strict=True)
-        )
+        ), day
     # A confirmed turn-limit presentation with no defeated participants is
     # a draw. A top-score tie can use the same script with nonzero markers.
     if (
@@ -161,8 +165,8 @@ def _decode_versus_result(
         and day == versus.rules.day_limit
         and snapshot.read(_TURN_LIMIT_ADDRESS, 1)[0] == day
     ):
-        return tuple(VersusPlayerResult(slot, VersusOutcome.DRAW) for slot in slots)
-    return unknown
+        return tuple(VersusPlayerResult(slot, VersusOutcome.DRAW) for slot in slots), day
+    return unknown, day
 
 
 def _blocked_battle(report: BattleValidationReport) -> ObservedValue[BattleState]:

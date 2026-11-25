@@ -392,11 +392,16 @@ def test_two_sdk_clients_play_save_restart_and_finish(mode, tmp_path):
                 )
                 await record(red, "hq-partial")
                 await round_end(red, blue)
+                before_finish = await red.state(match_id)
                 finishing = await action(
                     red, "hq-victory", MoveCaptureAction(unit_id=infantry, path=())
                 )
                 victory = await record(blue, "hq-victory")
                 assert victory.summary.lifecycle.value == "finished"
+                assert (
+                    victory.observation.game_state.versus_final_day
+                    == before_finish.observation.game_state.battle.value.day
+                )
                 assert tuple(
                     entry.outcome for entry in victory.observation.game_state.versus_result
                 ) == ("win", "loss")

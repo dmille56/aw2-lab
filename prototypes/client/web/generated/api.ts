@@ -7412,6 +7412,8 @@ export interface components {
             schema_version: number;
             ui: components["schemas"]["UIStateObservation"];
             validation: components["schemas"]["BattleValidationReport"];
+            /** Versus Final Day */
+            versus_final_day?: number | null;
             /** Versus Result */
             versus_result?: components["schemas"]["VersusPlayerResult"][] | null;
         };

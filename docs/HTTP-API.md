@@ -223,6 +223,10 @@ return the same outcomes to each authorized player. Live observations return
 null and older snapshots may omit the field. Startup recovery reads the
 result again from the saved terminal frame.
 
+`game_state.versus_final_day` reports the day from the validated Versus
+result frame. It is null when that day is unavailable, including during play,
+and may be absent from older snapshots.
+
 Use the slot's outcome for win, loss, or draw presentation. The native
 presentation phase can be shared by different results. The decoder uses
 verified terminal player records, with configured and native TURN settings

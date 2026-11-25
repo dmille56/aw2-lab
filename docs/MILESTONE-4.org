@@ -597,12 +597,15 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
      decorative animation and a static presentation for reduced motion.
      Browser coverage verifies each result and the missing-slot fallback.
 
-** TODO Show a post-match Versus summary in the human client
+** DONE Show a post-match Versus summary in the human client
    Show a summary players can read after the result animation and revisit after
    reconnecting to the finished match. Include the map, participating players
    and their COs, team assignments, and each slot's outcome. Include the final
    day and match statistics where reliable data is available, and label
    unavailable values clearly.
+   - The finished view lists every configured slot and restores the summary
+     on reconnect. The API supplies the final day from the verified result
+     frame. Cumulative match statistics remain unavailable.
 
 ** IN-PROGRESS Redesign the human client UI for usability and ergonomics
    Complete this usability redesign before starting the deferred cross-platform

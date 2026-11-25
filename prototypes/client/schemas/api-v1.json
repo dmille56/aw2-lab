@@ -8241,6 +8241,17 @@
           "validation": {
             "$ref": "#/components/schemas/BattleValidationReport"
           },
+          "versus_final_day": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Versus Final Day"
+          },
           "versus_result": {
             "anyOf": [
               {

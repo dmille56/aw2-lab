@@ -1027,7 +1027,9 @@ def test_versus_result_uses_terminal_records(memory, script, markers, teams, day
         ewram[base + 0x1A] = slot
         ewram[base + 0x1B] = 1
         ewram[base + 0x2A] = team
-    assert decode_snapshot(snapshot(memory), versus=config).versus_result is None
+    live_state = decode_snapshot(snapshot(memory), versus=config)
+    assert live_state.versus_result is None
+    assert live_state.versus_final_day is None
     pack_into("<I", ewram, 0xD610, script)
     for offset, value in zip((0x40D0, 0x40EC), SCREEN_CALLBACKS, strict=True):
         pack_into("<I", iwram, offset, value)
@@ -1038,11 +1040,15 @@ def test_versus_result_uses_terminal_records(memory, script, markers, teams, day
     assert state.versus_result is not None
     assert tuple(entry.slot for entry in state.versus_result) == config.player_slots
     assert tuple(entry.outcome for entry in state.versus_result) == expected
+    invalid_markers = all(markers) or any(marker > 5 for marker in markers)
+    assert state.versus_final_day == (None if script == 0x0849D56C or invalid_markers else 5)
 
     # An otherwise recognizable result cannot be mapped onto a different team roster.
     ewram[0x23284 + 60 + 0x2A] = 3
-    result = decode_snapshot(snapshot(memory), versus=config).versus_result
+    mismatched_state = decode_snapshot(snapshot(memory), versus=config)
+    result = mismatched_state.versus_result
     assert result is not None and all(entry.outcome == "unknown" for entry in result)
+    assert mismatched_state.versus_final_day is None
 
 
 @pytest.mark.parametrize("state", [5, 9, 12, 14])

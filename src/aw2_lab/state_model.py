@@ -179,6 +179,7 @@ class GameState:
     battle: ObservedValue[BattleState]
     # Keep the default out of OpenAPI so generated clients accept older snapshots.
     versus_result: tuple[VersusPlayerResult, ...] | None = field(default_factory=lambda: None)
+    versus_final_day: int | None = field(default_factory=lambda: None)
 
     def __post_init__(self) -> None:
         if isinstance(self.schema_version, bool) or not isinstance(self.schema_version, int):

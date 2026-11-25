@@ -1127,6 +1127,36 @@ main {
   min-width: 0;
 }
 
+.post-match-summary dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+
+.post-match-summary dt {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.post-match-summary dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.post-match-summary table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.post-match-summary :is(th, td) {
+  border-bottom: 1px solid var(--border);
+  padding: 8px 6px;
+  text-align: start;
+  vertical-align: top;
+}
+
 .command-feedback:empty {
   display: none;
 }

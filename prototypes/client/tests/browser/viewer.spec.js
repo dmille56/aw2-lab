@@ -393,7 +393,9 @@ for (const [outcome, title, animation] of [
     );
     await connect(page);
     const heading = page.locator("#board-turn");
+    const summary = page.getByRole("region", { name: "Match summary" });
     await expect(heading).not.toHaveAttribute("data-match-result");
+    await expect(summary).toHaveCount(0);
 
     state.summary.lifecycle = "finished";
     state.summary.revision += 1;
@@ -412,10 +414,39 @@ for (const [outcome, title, animation] of [
       { slot: "slot_2", outcome: outcome === "win" ? "loss" : "win" },
       ...(outcome ? [{ slot: "slot_1", outcome }] : []),
     ];
+    if (outcome !== null) state.observation.game_state.versus_final_day = 5;
     await page.locator("#refresh").click();
 
     await expect(heading).toBeVisible();
     await expect(heading).toContainText(title);
+    await expect(
+      summary.getByText("Bean Island", { exact: true }),
+    ).toBeVisible();
+    await expect(summary.locator("dd").nth(1)).toHaveText(
+      outcome === null ? "Unavailable" : "5",
+    );
+    const ownRow = summary.getByRole("row", { name: /^Player 1/ });
+    await expect(ownRow).toContainText("one · You");
+    await expect(ownRow.getByRole("cell")).toHaveText([
+      "Andy",
+      "A",
+      outcome === null || outcome === "unknown" ? "Unavailable" : title,
+    ]);
+    await expect(
+      summary.getByRole("row", { name: /^Player 2/ }).getByRole("cell"),
+    ).toHaveText(["Max", "B", outcome === "win" ? "Defeat" : "Victory"]);
+    await expect(
+      summary.getByText("Match statistics unavailable."),
+    ).toBeVisible();
+    if (outcome === "win") {
+      await page.locator("#disconnect").click();
+      await expect(summary).toHaveCount(0);
+      await page.locator("#match-id").fill(fixture.summary.match_id);
+      await page.locator("#token").fill(token);
+      await page.locator("#connect button").click();
+      await expect(summary.locator("dd").nth(1)).toHaveText("5");
+      await expect(ownRow.getByRole("cell").last()).toHaveText("Victory");
+    }
     await expect(heading).toHaveAttribute(
       "data-match-result",
       outcome ?? "unknown",

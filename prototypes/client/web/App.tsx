@@ -9,6 +9,7 @@ import {
 import { claimLocalLaunch } from "./launch_handoff";
 import { TerrainDefense } from "./TerrainDefense";
 import { MapPanel } from "./MapPanel";
+import { PostMatchSummary } from "./PostMatchSummary";
 import {
   CAPTURE_POINTS_REQUIRED,
   coName,
@@ -726,6 +727,12 @@ export function App() {
               empty={empty}
               yourSlot={yourSlot}
             />
+            {finished && snapshot && (
+              <PostMatchSummary
+                snapshot={snapshot}
+                yourSlot={view.connected ? yourSlot : null}
+              />
+            )}
             <CommandFeedback
               view={view}
               onRetry={session.retryUncertainAction}
