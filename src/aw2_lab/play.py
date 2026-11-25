@@ -25,6 +25,7 @@ import uvicorn
 from pydantic import SecretStr
 
 from aw2_lab.ai_host import prepare_pi
+from aw2_lab.ai_turn_log import LogMode, follow_ai_log
 from aw2_lab.api.app import create_app
 from aw2_lab.api.client_web import configure_client
 from aw2_lab.api_contract import (
@@ -157,6 +158,13 @@ def parser() -> argparse.ArgumentParser:
         default="medium",
     )
     result.add_argument("--startup-timeout", type=positive, default=120)
+    result.add_argument(
+        "--ai-log",
+        nargs="?",
+        const="summary",
+        choices=("summary", "details"),
+        help="show a live AI turn log; use details to include tool payloads and available thinking",
+    )
     result.add_argument("--ai-turn-timeout", type=positive, default=600)
     result.add_argument(
         "--max-ai-turns",
@@ -338,6 +346,7 @@ async def ai_player(
     budget: TurnBudget,
     stop: asyncio.Event,
     attempts: int = 3,
+    log_mode: LogMode | None = None,
 ) -> None:
     if attempts < 1:
         raise ValueError("AI turn attempts must be at least 1")
@@ -398,22 +407,29 @@ async def ai_player(
                     f"(attempt {attempt}/{attempts}, private log: {log})",
                     flush=True,
                 )
+                prefix = (
+                    f"[AI {own_slot} · Day {day if day is not None else '?'}"
+                    f" · Turn {budget.started} · Attempt {attempt}/{attempts}]"
+                )
                 with log.open("ab") as output:
-                    process = await asyncio.create_subprocess_exec(
-                        *base_command,
-                        instruction,
-                        env=env,
-                        cwd=directory,
-                        stdout=output,
-                        stderr=output,
-                        start_new_session=True,
-                    )
-                    try:
-                        code = await asyncio.wait_for(process.wait(), timeout)
-                    except TimeoutError:
-                        raise PlayError(f"AI turn timed out; inspect {log}") from None
-                    finally:
-                        await stop_process(process)
+                    async with follow_ai_log(
+                        log, offset=output.tell(), mode=log_mode, prefix=prefix, token=token
+                    ):
+                        process = await asyncio.create_subprocess_exec(
+                            *base_command,
+                            instruction,
+                            env=env,
+                            cwd=directory,
+                            stdout=output,
+                            stderr=output,
+                            start_new_session=True,
+                        )
+                        try:
+                            code = await asyncio.wait_for(process.wait(), timeout)
+                        except TimeoutError:
+                            raise PlayError(f"AI turn timed out; inspect {log}") from None
+                        finally:
+                            await stop_process(process)
                 if code:
                     raise PlayError(f"AI host exited with status {code}; inspect {log}")
                 try:
@@ -629,6 +645,7 @@ async def run(args: argparse.Namespace) -> None:
                         budget=budget,
                         stop=stop,
                         attempts=args.ai_turn_attempts,
+                        log_mode=args.ai_log,
                     )
                 )
                 task.add_done_callback(host_done)

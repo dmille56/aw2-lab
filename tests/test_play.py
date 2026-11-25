@@ -12,6 +12,7 @@ from fastapi import FastAPI
 
 from aw2_lab import play
 from aw2_lab.ai_host import prepare_pi
+from aw2_lab.ai_turn_log import follow_ai_log, render_pi_event
 from aw2_lab.match_contract import CO_ID_VALUES, CommandStatus, PlayerSlot
 
 # Value-equal stand-in for BattleState so the launcher can tell a committed
@@ -30,6 +31,70 @@ _Battle = namedtuple("_Battle", "day active_player_slot units")
 )
 def test_mode_assignments(mode, human, expected):
     assert play.ai_slots(mode, human) == expected
+
+
+def test_ai_log_is_opt_in():
+    parser = play.parser()
+    assert parser.parse_args(["ai-vs-ai"]).ai_log is None
+    assert parser.parse_args(["ai-vs-ai", "--ai-log"]).ai_log == "summary"
+    assert parser.parse_args(["ai-vs-ai", "--ai-log", "details"]).ai_log == "details"
+
+
+def test_ai_log_summary_reports_mcp_status_and_details_are_opt_in():
+    call = b'{"type":"tool_execution_start","toolName":"mcp__aw2__move_wait","args":{"path":[]}}'
+    result = json.dumps(
+        {
+            "type": "tool_execution_end",
+            "toolName": "mcp__aw2__move_wait",
+            "result": {"structuredContent": {"structuredContent": {"status": "rolled_back"}}},
+        }
+    ).encode()
+    thought = json.dumps(
+        {
+            "type": "message_end",
+            "message": {
+                "content": [{"type": "thinking", "thinking": "\x1b[31mRoute\nplayer-secret"}]
+            },
+        }
+    ).encode()
+    assert list(render_pi_event(call, "summary")) == ["Calling move wait"]
+    assert list(render_pi_event(result, "summary")) == ["Move wait returned (rolled back)"]
+    assert list(render_pi_event(thought, "summary")) == []
+    assert list(render_pi_event(call, "details"))[-1] == '  Arguments: {"path": []}'
+    assert list(render_pi_event(thought, "details", token="player-secret")) == [
+        "Thinking: [31mRoute [redacted]"
+    ]
+    assert list(render_pi_event(b"Pi stderr\n", "details")) == []
+
+
+@pytest.mark.anyio
+async def test_ai_log_follows_the_current_attempt_and_drains_final_partial_record(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "turn-1.jsonl"
+    previous = b'{"type":"tool_execution_start","toolName":"end_turn"}\n'
+    call = b'{"type":"tool_execution_start","toolName":"get_state"}\n'
+    result = b'{"type":"tool_execution_end","toolName":"get_state","isError":true}'
+    path.write_bytes(previous)
+    lines = []
+    shown = asyncio.Event()
+
+    def capture(line, *, flush):
+        lines.append(line)
+        shown.set()
+
+    monkeypatch.setattr("aw2_lab.ai_turn_log.print", capture, raising=False)
+    async with follow_ai_log(
+        path, offset=len(previous), mode="summary", prefix="[Attempt 2/3]", token=""
+    ):
+        with path.open("ab") as stream:
+            stream.write(call)
+        await asyncio.wait_for(shown.wait(), 3)
+        assert lines == ["[Attempt 2/3] Calling get state"]
+        with path.open("ab") as stream:
+            stream.write(result)
+    assert lines[-1] == "[Attempt 2/3] Get state failed"
+    assert path.read_bytes() == previous + call + result
 
 
 def test_configuration_and_invalid_combinations():
@@ -377,7 +442,7 @@ def _turn_state(
     ],
 )
 async def test_ai_host_continues_a_turn_aw2_left_open(
-    tmp_path, monkeypatch, outcome, expected_error, continuation
+    tmp_path, monkeypatch, capsys, outcome, expected_error, continuation
 ) -> None:
     from aw2_lab.match_contract import MatchLifecycle
 
@@ -430,6 +495,10 @@ async def test_ai_host_continues_a_turn_aw2_left_open(
 
     async def spawn(*args, **kwargs):
         commands.append(args)
+        if outcome == "rollback_then_end":
+            line = b'{"type":"tool_execution_start","toolName":"mcp__aw2__end_turn"}\n'
+            kwargs["stdout"].write(line)
+            kwargs["stdout"].flush()
         return Process()
 
     monkeypatch.setattr(play.asyncio, "create_subprocess_exec", spawn)
@@ -448,6 +517,7 @@ async def test_ai_host_continues_a_turn_aw2_left_open(
         budget=budget,
         stop=stop,
         attempts=3,
+        log_mode="summary" if outcome == "rollback_then_end" else None,
     )
     if expected_error:
         with pytest.raises(play.PlayError, match=expected_error):
@@ -471,7 +541,15 @@ async def test_ai_host_continues_a_turn_aw2_left_open(
     else:
         for instruction in instructions[1:]:
             assert instruction == play.UNCOMMITTED_TURN_INSTRUCTION
-    assert (tmp_path / PlayerSlot.SLOT_1.value / "turn-1.jsonl").exists()
+    log = tmp_path / PlayerSlot.SLOT_1.value / "turn-1.jsonl"
+    assert log.exists()
+    if outcome == "rollback_then_end":
+        rendered = [line for line in capsys.readouterr().out.splitlines() if "Calling" in line]
+        assert rendered == [
+            "[AI 1 · Day 1 · Turn 1 · Attempt 1/3] Calling end turn",
+            "[AI 1 · Day 1 · Turn 1 · Attempt 2/3] Calling end turn",
+        ]
+        assert len(log.read_bytes().splitlines()) == 2
 
 
 def test_ai_prompt_teaches_the_host_to_resume_a_rolled_back_turn() -> None:

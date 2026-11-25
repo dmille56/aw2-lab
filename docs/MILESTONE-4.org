@@ -270,11 +270,13 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    assistant errors occurred. These bounded end-turn checks do not claim model
    strategy quality, unit-action planning, full matches, or manual UX acceptance.
 
-*** TODO Offer a readable AI turn log in =aw2-lab play=
+*** DONE Offer a readable AI turn log in =aw2-lab play=
     Add an opt-in terminal view that updates during play. Group entries by AI
     player, game day, turn, and retry attempt. Show tool calls and their outcomes
     in plain language, with call details and any thinking text Pi exposes
     available on demand. Keep the private JSONL logs for later inspection.
+    - Use =--ai-log= for the summary or =--ai-log details= for tool payloads
+      and any thinking text the provider makes available to Pi.
 
 *** IN-PROGRESS Keep the match running when a player acts immediately after an AI turn
     In the 2026-11-23 =aw2-lab play= session, Player 2's End Turn completed at

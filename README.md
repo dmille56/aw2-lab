@@ -68,6 +68,13 @@ short checks; `--ai-turn-timeout` bounds each host invocation. A failed host or
 an unfinished turn stops the helper with the private log path instead of silently
 repeating actions or model calls.
 
+Add `--ai-log` to an AI match to follow tool calls and outcomes in the
+launcher's terminal. Each line identifies the AI player, game day, turn, and
+retry attempt. Use `--ai-log details` to include bounded tool arguments,
+results, and thinking text when the model provider exposes it to Pi.
+Both modes keep the full private `slot_N/turn-N.jsonl` log in the run directory
+for later inspection.
+
 
 ## Launch the client prototype
 
