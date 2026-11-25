@@ -1,8 +1,9 @@
 import "./PlayerHud.css";
 import type { CSSProperties } from "react";
-import type { BattleState } from "./state";
+import type { BattleState, PlayerStats } from "./state";
 import { useSpritePack } from "./sprites";
 import { coName } from "./presentation";
+import { PlayerMatchStats } from "./PlayerMatchStats";
 import {
   activePowerLabel,
   powerMeterLabel,
@@ -13,9 +14,13 @@ import {
 export function PlayerHud({
   battle,
   yourSlot,
+  stats,
+  fogRestricted = battle.fog_enabled.value !== false,
 }: {
   battle: BattleState;
   yourSlot: number | null;
+  stats?: PlayerStats[] | null;
+  fogRestricted?: boolean;
 }) {
   const pack = useSpritePack(true);
   return (
@@ -24,6 +29,7 @@ export function PlayerHud({
         const name = coName(player.co_id),
           charge = powerCharge(player),
           portrait = pack?.portraits?.[String(player.co_id)];
+        const fundsVisible = !fogRestricted || player.slot === yourSlot;
         const readiness =
           powerReadiness(player, "super") === "ready"
             ? "Super Power ready"
@@ -62,11 +68,24 @@ export function PlayerHud({
             <div className="hud-funds">
               <small>FUNDS</small>
               <strong>
-                {player.funds.toLocaleString()}
-                <span aria-hidden="true"> G</span>
-                <span className="sr-only"> funds</span>
+                {fundsVisible ? (
+                  <>
+                    {player.funds.toLocaleString()}
+                    <span aria-hidden="true"> G</span>
+                    <span className="sr-only"> funds</span>
+                  </>
+                ) : (
+                  "Unavailable"
+                )}
               </strong>
             </div>
+            <PlayerMatchStats
+              stats={
+                fogRestricted && player.slot !== yourSlot
+                  ? undefined
+                  : stats?.find((entry) => entry.slot === `slot_${player.slot}`)
+              }
+            />
             <div className="hud-charge">
               {charge ? (
                 <div

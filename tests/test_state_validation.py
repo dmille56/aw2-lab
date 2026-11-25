@@ -1051,6 +1051,45 @@ def test_versus_result_uses_terminal_records(memory, script, markers, teams, day
     assert mismatched_state.versus_final_day is None
 
 
+def test_live_versus_stats_use_owned_income_properties_and_include_cargo_value(memory):
+    _, ewram, iwram = memory
+    ewram[0x22690] = 7
+    ewram[0x22697] = 2
+    ewram[0x2269C:0x226A8] = bytes([1, 8, 0, 0, 100, 0, 99, 0, 0, 0, 0, 0])
+    pack_into("<I", ewram, 0x23284 + 60, 7500)
+    config = FixedMatchConfiguration(rules=MatchRules(starting_funds=1500))
+    stats = decode_snapshot(snapshot(memory), versus=config).versus_stats
+    assert stats is not None
+    red, blue = stats
+    assert (red.unit_count, red.unit_value) == (1, 6000)
+    assert (red.property_count, red.income, red.funds) == (1, 1500, 7500)
+    assert (blue.unit_count, blue.unit_value, blue.funds) == (1, 1000, 0)
+    for fog_byte in (1, 255):
+        iwram[0x3FCD] = fog_byte
+        assert decode_snapshot(snapshot(memory), versus=config).versus_stats is None
+
+
+def test_terminal_versus_stats_leave_unvalidated_unit_totals_unavailable(memory):
+    _, ewram, iwram = memory
+    config = FixedMatchConfiguration()
+    iwram[0x3FC1:0x3FC3] = bytes((3, MAPS_BY_ID[config.map_id].rom_id))
+    ewram[0x23284 + 120 + 0x1B] = 1
+    pack_into("<H", ewram, 0x23284 + 120 + 0x14, 1)
+    pack_into("<I", ewram, 0xD610, 0x08615CB0)
+    for offset, value in zip((0x40D0, 0x40EC), SCREEN_CALLBACKS, strict=True):
+        pack_into("<I", iwram, offset, value)
+    ewram[0x22690] = 255
+    terminal = decode_snapshot(snapshot(memory), versus=config)
+    assert terminal.battle.value is None
+    assert terminal.versus_stats is not None
+    assert all(
+        stat.unit_count is None and stat.unit_value is None for stat in terminal.versus_stats
+    )
+    assert all(stat.property_count == 1 and stat.income == 1000 for stat in terminal.versus_stats)
+    iwram[0x3FCD] = 1
+    assert decode_snapshot(snapshot(memory), versus=config).versus_stats is None
+
+
 @pytest.mark.parametrize("state", [5, 9, 12, 14])
 def test_consistent_arrays_do_not_make_entry_gaps_or_computer_turns_live(memory, state) -> None:
     pack_into("<H", memory[2], 0x32D8, state)

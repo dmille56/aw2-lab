@@ -14,6 +14,7 @@ import {
   CAPTURE_POINTS_REQUIRED,
   coName,
   humanSlot,
+  ownMatchStats,
   perspective,
   playerName,
   propertyCapturePoints,
@@ -154,6 +155,14 @@ export function App() {
   });
   const finished = snapshot?.summary.lifecycle === "finished";
   const yourSlot = humanSlot(view.identity);
+  const fogRestricted =
+    snapshot?.summary.configuration.rules.fog !== false ||
+    battle?.fog_enabled.value !== false;
+  const fundsVisible = (slot: number) => !fogRestricted || slot === yourSlot;
+  const ownStats =
+    fogRestricted && view.connected && battle && snapshot && yourSlot !== null
+      ? ownMatchStats(snapshot, battle, yourSlot)
+      : undefined;
   const outcome =
     finished && view.connected && yourSlot !== null
       ? obs?.game_state.versus_result?.find(
@@ -421,15 +430,25 @@ export function App() {
                     ? " · Your turn"
                     : ""}
                   {" · "}Funds:{" "}
-                  {battle.players.find(
-                    (player) => player.slot === battle.active_player_slot,
-                  )?.funds ?? "Unavailable"}
+                  {fundsVisible(battle.active_player_slot)
+                    ? (battle.players.find(
+                        (player) => player.slot === battle.active_player_slot,
+                      )?.funds ?? "Unavailable")
+                    : "Unavailable"}
                 </p>
               )}
               {battle && (
                 <PlayerHud
                   battle={battle}
-                  yourSlot={humanSlot(view.identity)}
+                  yourSlot={yourSlot}
+                  stats={
+                    fogRestricted
+                      ? ownStats
+                        ? [ownStats]
+                        : null
+                      : obs?.game_state.versus_stats
+                  }
+                  fogRestricted={fogRestricted}
                 />
               )}
               <MatchControls
@@ -500,8 +519,11 @@ export function App() {
                           : ""}
                       </strong>
                       <p>
-                        Funds: {player.funds} · CO: {coName(player.co_id)} · ID{" "}
-                        {player.co_id}
+                        Funds:{" "}
+                        {fundsVisible(player.slot)
+                          ? player.funds
+                          : "Unavailable"}{" "}
+                        · CO: {coName(player.co_id)} · ID {player.co_id}
                       </p>
                       <p>CO power: {activePowerLabel(player.active_power)}</p>
                       <p>Power meter: {powerMeterLabel(player.power_meter)}</p>
@@ -512,20 +534,6 @@ export function App() {
                           player.co_id,
                           player.power_use_counter,
                         )}
-                      </p>
-                      <p>
-                        Units:{" "}
-                        {
-                          battle.units.filter(
-                            (u) => u.army_slot === player.slot,
-                          ).length
-                        }{" "}
-                        · Properties:{" "}
-                        {
-                          battle.properties.filter(
-                            (p) => p.owner_slot === player.slot,
-                          ).length
-                        }
                       </p>
                     </div>
                   ))}

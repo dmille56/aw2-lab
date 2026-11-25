@@ -376,6 +376,32 @@ test("confirms surrender explicitly and shows the finished command activity", as
   );
 });
 
+test("shows only the player's own match totals in fog", async ({ page }) => {
+  const state = structuredClone(fixture);
+  state.summary.configuration.rules.fog = true;
+  const battle = state.observation.game_state.battle.value;
+  battle.fog_enabled = { status: "available", value: true, reasons: [] };
+  battle.players[0].funds = 1500;
+  battle.players[1].funds = 98765;
+  await page.route("**/v1/matches/*/state", (route) =>
+    route.fulfill({ json: state }),
+  );
+  await connect(page);
+  const hud = page.getByLabel("Player status");
+  const own = hud.locator(".hud-player.player-1");
+  const enemy = hud.locator(".hud-player.player-2");
+  await expect(own.locator("dd")).toHaveText(["1", "1,000 G", "1", "1,000 G"]);
+  await expect(enemy.locator("dd")).toHaveText([
+    "Unavailable",
+    "Unavailable",
+    "Unavailable",
+    "Unavailable",
+  ]);
+  await expect(enemy.locator(".hud-funds")).toContainText("Unavailable");
+  await page.getByText("Match details and player statistics").click();
+  await expect(page.locator("#players")).not.toContainText("98765");
+});
+
 for (const [outcome, title, animation] of [
   ["win", "Victory", "versus-victory"],
   ["loss", "Defeat", "versus-defeat"],
@@ -415,6 +441,25 @@ for (const [outcome, title, animation] of [
       ...(outcome ? [{ slot: "slot_1", outcome }] : []),
     ];
     if (outcome !== null) state.observation.game_state.versus_final_day = 5;
+    if (outcome === "win")
+      state.observation.game_state.versus_stats = [
+        {
+          slot: "slot_1",
+          unit_count: 2,
+          unit_value: 8_000,
+          property_count: 4,
+          income: 4_000,
+          funds: 2_500,
+        },
+        {
+          slot: "slot_2",
+          unit_count: 0,
+          unit_value: 0,
+          property_count: null,
+          income: null,
+          funds: 0,
+        },
+      ];
     await page.locator("#refresh").click();
 
     await expect(heading).toBeVisible();
@@ -435,10 +480,22 @@ for (const [outcome, title, animation] of [
     await expect(
       summary.getByRole("row", { name: /^Player 2/ }).getByRole("cell"),
     ).toHaveText(["Max", "B", outcome === "win" ? "Defeat" : "Victory"]);
-    await expect(
-      summary.getByText("Match statistics unavailable."),
-    ).toBeVisible();
     if (outcome === "win") {
+      const stats = summary.locator(".final-player-stats");
+      await expect(stats.nth(0).locator("dd")).toHaveText([
+        "2",
+        "8,000 G",
+        "4",
+        "4,000 G",
+        "2,500 G",
+      ]);
+      await expect(stats.nth(1).locator("dd")).toHaveText([
+        "0",
+        "0 G",
+        "Unavailable",
+        "Unavailable",
+        "0 G",
+      ]);
       await page.locator("#disconnect").click();
       await expect(summary).toHaveCount(0);
       await page.locator("#match-id").fill(fixture.summary.match_id);
@@ -446,6 +503,11 @@ for (const [outcome, title, animation] of [
       await page.locator("#connect button").click();
       await expect(summary.locator("dd").nth(1)).toHaveText("5");
       await expect(ownRow.getByRole("cell").last()).toHaveText("Victory");
+      await expect(stats.nth(0).locator("dd").last()).toHaveText("2,500 G");
+    } else {
+      await expect(
+        summary.getByText("Match statistics unavailable."),
+      ).toBeVisible();
     }
     await expect(heading).toHaveAttribute(
       "data-match-result",

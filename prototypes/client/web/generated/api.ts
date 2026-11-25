@@ -7416,6 +7416,8 @@ export interface components {
             versus_final_day?: number | null;
             /** Versus Result */
             versus_result?: components["schemas"]["VersusPlayerResult"][] | null;
+            /** Versus Stats */
+            versus_stats?: components["schemas"]["PlayerMatchStats"][] | null;
         };
         /**
          * GameplayCommandRequest
@@ -8051,6 +8053,23 @@ export interface components {
              * @enum {string}
              */
             team_id: "a" | "b" | "c" | "d";
+        };
+        /**
+         * PlayerMatchStats
+         * @description Current values at one verified Versus boundary.
+         */
+        PlayerMatchStats: {
+            /** Funds */
+            funds: number;
+            /** Income */
+            income: number | null;
+            /** Property Count */
+            property_count: number | null;
+            slot: components["schemas"]["PlayerSlot"];
+            /** Unit Count */
+            unit_count: number | null;
+            /** Unit Value */
+            unit_value: number | null;
         };
         /** PlayerPrincipal */
         PlayerPrincipal: {

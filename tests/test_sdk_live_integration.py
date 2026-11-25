@@ -229,6 +229,14 @@ def test_two_sdk_clients_play_save_restart_and_finish(mode, tmp_path):
                 assert start.status is CommandStatus.COMPLETED, start.error
                 initial = await record(red, "initial")
                 assert initial.observation.game_state.battle.value.active_player_slot == 1
+                red_stats, blue_stats = initial.observation.game_state.versus_stats
+                assert (red_stats.unit_count, red_stats.unit_value) == (0, 0)
+                assert (red_stats.property_count, red_stats.income, red_stats.funds) == (
+                    11,
+                    11000,
+                    11000,
+                )
+                assert blue_stats.funds == 0
                 initial_archive = await admin.export_checkpoint(match_id, start.checkpoint_id)
                 with zipfile.ZipFile(io.BytesIO(initial_archive)) as archive:
                     native = archive.read("state.bin")
@@ -398,6 +406,7 @@ def test_two_sdk_clients_play_save_restart_and_finish(mode, tmp_path):
                 )
                 victory = await record(blue, "hq-victory")
                 assert victory.summary.lifecycle.value == "finished"
+                assert victory.observation.game_state.versus_stats is not None
                 assert (
                     victory.observation.game_state.versus_final_day
                     == before_finish.observation.game_state.battle.value.day

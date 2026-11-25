@@ -1,4 +1,5 @@
 import type { VersusOutcome } from "./BoardTurn";
+import { PlayerMatchStats } from "./PlayerMatchStats";
 import { playerName } from "./presentation";
 import type { StateResponse } from "./state";
 
@@ -25,6 +26,7 @@ export function PostMatchSummary({
   const { configuration } = snapshot.summary;
   const game = snapshot.observation?.game_state;
   const finalDay = game?.versus_final_day;
+  const stats = configuration.rules.fog ? null : game?.versus_stats;
   return (
     <section
       className="card post-match-summary"
@@ -70,7 +72,22 @@ export function PostMatchSummary({
           })}
         </tbody>
       </table>
-      <p className="hint">Match statistics unavailable.</p>
+      {stats?.length ? (
+        <>
+          <h3>Final match stats</h3>
+          {configuration.players.map((player) => (
+            <div key={player.slot} className="final-player-stats">
+              <h4>Player {player.slot.slice(5)}</h4>
+              <PlayerMatchStats
+                includeFunds
+                stats={stats.find((entry) => entry.slot === player.slot)}
+              />
+            </div>
+          ))}
+        </>
+      ) : (
+        <p className="hint">Match statistics unavailable.</p>
+      )}
     </section>
   );
 }

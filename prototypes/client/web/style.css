@@ -1157,6 +1157,38 @@ main {
   vertical-align: top;
 }
 
+.player-match-stats {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7rem), 1fr));
+  gap: 6px 12px;
+  margin: 6px 0;
+}
+
+.post-match-summary .player-match-stats {
+  display: grid;
+}
+
+.player-match-stats dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.player-match-stats dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.final-player-stats {
+  padding-block: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.final-player-stats h4 {
+  margin: 0 0 6px;
+}
+
 .command-feedback:empty {
   display: none;
 }

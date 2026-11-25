@@ -227,6 +227,18 @@ result again from the saved terminal frame.
 result frame. It is null when that day is unavailable, including during play,
 and may be absent from older snapshots.
 
+`game_state.versus_stats` lists per-slot values at a committed playable or
+finished Versus boundary. Unit count covers deployed units. Unit value sums
+catalog prices for surviving units, including cargo. Property count covers
+income-producing properties, and income is that count multiplied by the
+configured rate. Funds come from the player record. These are current values
+at the observation frame, including for a finished match.
+
+A missing table at a result boundary makes its figures null. The aggregate
+field is null when fog is on or unverified and may be absent in older
+observations. This applies to HTTP, the SDK, and MCP reads. The existing
+trusted board observation policy still applies.
+
 Use the slot's outcome for win, loss, or draw presentation. The native
 presentation phase can be shared by different results. The decoder uses
 verified terminal player records, with configured and native TURN settings

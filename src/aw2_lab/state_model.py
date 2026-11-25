@@ -59,6 +59,18 @@ class VersusPlayerResult:
 
 
 @dataclass(frozen=True, slots=True)
+class PlayerMatchStats:
+    """Current values at one verified Versus boundary."""
+
+    slot: PlayerSlot
+    unit_count: int | None
+    unit_value: int | None
+    property_count: int | None
+    income: int | None
+    funds: int
+
+
+@dataclass(frozen=True, slots=True)
 class TileState:
     x: int
     y: int
@@ -180,6 +192,7 @@ class GameState:
     # Keep the default out of OpenAPI so generated clients accept older snapshots.
     versus_result: tuple[VersusPlayerResult, ...] | None = field(default_factory=lambda: None)
     versus_final_day: int | None = field(default_factory=lambda: None)
+    versus_stats: tuple[PlayerMatchStats, ...] | None = field(default_factory=lambda: None)
 
     def __post_init__(self) -> None:
         if isinstance(self.schema_version, bool) or not isinstance(self.schema_version, int):

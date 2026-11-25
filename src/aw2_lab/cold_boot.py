@@ -131,6 +131,7 @@ async def boot_fixed_versus_match(
     team_ids: tuple[int, ...] | None = None,
     late_versus_unlock: bool = False,
     fresh_roster: bool = False,
+    capture_battle: Callable[[], Awaitable[GameState]] | None = None,
 ) -> ColdBootResult:
     """Navigate from cartridge boot and verify the selected map at the first turn.
 
@@ -639,7 +640,11 @@ async def boot_fixed_versus_match(
         await checkpoint("verified-configurable-rules", rules)
         await tap("start-battle", _KEY_A)
         await wait_for(LifecyclePhase.BATTLE_PLAYER_TURN, budget=1800)
-        game_state = await capture_game_state(bridge, rom_path=rom_path)
+        game_state = (
+            await capture_battle()
+            if capture_battle is not None
+            else await capture_game_state(bridge, rom_path=rom_path)
+        )
         startup_memory = await bridge.read_memory_snapshot(
             [(BATTLE_MAP_ID_ADDRESS, 1), (0x03003FED, 1)]
         )

@@ -605,9 +605,9 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    unavailable values clearly.
    - The finished view lists every configured slot and restores the summary
      on reconnect. The API supplies the final day from the verified result
-     frame. Cumulative match statistics remain unavailable.
+     frame. Current totals at the result boundary are tracked below.
 
-** IN-PROGRESS Show live match stats at a glance
+** DONE Show live match stats at a glance
    Add better match statistics while a match is in progress and after it has
    ended, so players can read the state of the match in a glance. In particular,
    show per player (and, where useful, per team):
@@ -624,6 +624,11 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    - Show the stats in the human client during play and in the post-match
      summary, and expose them through the API/MCP observations where reliable.
    - Add ROM-independent checks with synthetic fixtures and live evidence.
+   - The HUD and finished summary show per-slot totals. Unit value includes
+     cargo and unit count covers deployed units. The API and MCP omit shared
+     totals with fog enabled or unverified. During play the human client's
+     authenticated player can still see their own totals. The finished summary
+     labels figures unavailable when their source tables cannot be validated.
 
 ** IN-PROGRESS Redesign the human client UI for usability and ergonomics
    Complete this usability redesign before starting the deferred cross-platform

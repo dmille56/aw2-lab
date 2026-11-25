@@ -1,5 +1,10 @@
 import catalog from "./catalog.json";
-import type { StateResponse, UnitState } from "./state";
+import type {
+  BattleState,
+  PlayerStats,
+  StateResponse,
+  UnitState,
+} from "./state";
 import type { MatchIdentity } from "./session";
 
 export const CAPTURE_POINTS_REQUIRED = 20;
@@ -87,6 +92,37 @@ export const humanSlot = (identity: MatchIdentity | null) =>
   identity?.role === "player" && identity.player_slot
     ? Number(identity.player_slot.slice(5))
     : null;
+
+export function ownMatchStats(
+  snapshot: StateResponse,
+  battle: BattleState,
+  slot: number,
+): PlayerStats | undefined {
+  const player = battle.players.find((entry) => entry.slot === slot);
+  const configured = snapshot.summary.configuration.players.find(
+    (entry) => entry.slot === `slot_${slot}`,
+  );
+  if (!player || !configured) return;
+  const units = battle.units.filter((unit) => unit.army_slot === slot);
+  const prices: Record<number, { cost: number }> = catalog.units;
+  const properties = battle.properties.filter(
+    (property) =>
+      property.owner_slot === slot &&
+      [6, 8, 10, 11, 14].includes(property.terrain_class),
+  ).length;
+  return {
+    slot: configured.slot,
+    unit_count: units.filter((unit) => !unit.embarked).length,
+    unit_value: units.every((unit) => prices[unit.unit_type] !== undefined)
+      ? units.reduce((sum, unit) => sum + prices[unit.unit_type].cost, 0)
+      : null,
+    property_count: properties,
+    income:
+      properties * snapshot.summary.configuration.rules.income_per_property,
+    funds: player.funds,
+  };
+}
+
 export function perspective(
   snapshot: StateResponse,
   identity: MatchIdentity | null,

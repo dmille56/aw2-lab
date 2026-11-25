@@ -8265,6 +8265,20 @@
               }
             ],
             "title": "Versus Result"
+          },
+          "versus_stats": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PlayerMatchStats"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Versus Stats"
           }
         },
         "required": [
@@ -9615,6 +9629,72 @@
           "control"
         ],
         "title": "PlayerConfiguration",
+        "type": "object"
+      },
+      "PlayerMatchStats": {
+        "description": "Current values at one verified Versus boundary.",
+        "properties": {
+          "funds": {
+            "title": "Funds",
+            "type": "integer"
+          },
+          "income": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Income"
+          },
+          "property_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Property Count"
+          },
+          "slot": {
+            "$ref": "#/components/schemas/PlayerSlot"
+          },
+          "unit_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Count"
+          },
+          "unit_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Value"
+          }
+        },
+        "required": [
+          "slot",
+          "unit_count",
+          "unit_value",
+          "property_count",
+          "income",
+          "funds"
+        ],
+        "title": "PlayerMatchStats",
         "type": "object"
       },
       "PlayerPrincipal": {

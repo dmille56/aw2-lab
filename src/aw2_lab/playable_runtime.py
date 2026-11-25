@@ -139,6 +139,7 @@ class PlayableRuntime:
                 co_ids=summary.configuration.co_ids,
                 team_ids=summary.configuration.team_ids,
                 match_rules=summary.configuration.rules,
+                capture_battle=self._observe,
             )
         except ColdBootError as error:
             # Startup has already mutated the emulator. Preserve the safe menu

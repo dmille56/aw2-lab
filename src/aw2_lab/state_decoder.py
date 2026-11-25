@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from aw2_lab.aw2_unit_profiles import UNIT_PROFILES
 from aw2_lab.bridge import LuaBridgeClient
 from aw2_lab.lifecycle import LifecyclePhase
 from aw2_lab.map_catalog import MAPS_BY_ID
@@ -12,6 +13,7 @@ from aw2_lab.state_model import (
     GameState,
     MapState,
     ObservedValue,
+    PlayerMatchStats,
     PlayerState,
     PropertyState,
     StateContext,
@@ -80,6 +82,7 @@ def decode_snapshot(
         battle=battle,
         versus_result=versus_result,
         versus_final_day=versus_final_day,
+        versus_stats=_decode_versus_stats(snapshot, report, versus, battle.value, versus_final_day),
     )
 
 
@@ -184,6 +187,62 @@ def _blocked_battle(report: BattleValidationReport) -> ObservedValue[BattleState
     return ObservedValue(status, None, tuple(reasons))
 
 
+def _decode_versus_stats(
+    snapshot: BattleMemorySnapshot,
+    report: BattleValidationReport,
+    versus: FixedMatchConfiguration | None,
+    battle: BattleState | None,
+    final_day: int | None,
+) -> tuple[PlayerMatchStats, ...] | None:
+    if (
+        versus is None
+        or versus.rules.fog
+        or _decode_rule_toggle(snapshot, 0x03003FCD).value is not False
+        or (battle is None and final_day is None)
+    ):
+        return None
+    # Terminal tables are validated individually. Keep any unsupported table
+    # unavailable and leave the full battle observation blocked.
+    units = (
+        battle.units
+        if battle is not None
+        else (_decode_units(snapshot) if report.units.status is ValidationStatus.VALID else None)
+    )
+    properties = (
+        battle.properties
+        if battle is not None
+        else (
+            _decode_properties(snapshot)
+            if report.properties.status is ValidationStatus.VALID
+            else None
+        )
+    )
+    stats = []
+    for number, slot in enumerate(versus.player_slots, 1):
+        army = None if units is None else [u for u in units if u.army_slot == number]
+        owned = (
+            None
+            if properties is None
+            else sum(
+                prop.owner_slot == number and prop.terrain_class in (6, 8, 10, 11, 14)
+                for prop in properties
+            )
+        )
+        stats.append(
+            PlayerMatchStats(
+                slot=slot,
+                unit_count=None if army is None else sum(not unit.embarked for unit in army),
+                unit_value=None
+                if army is None
+                else sum(UNIT_PROFILES[unit.unit_type].cost for unit in army),
+                property_count=owned,
+                income=None if owned is None else owned * versus.rules.starting_funds,
+                funds=snapshot.u32(PLAYER_BASE + number * PLAYER_STRIDE),
+            )
+        )
+    return tuple(stats)
+
+
 def _decode_battle(snapshot: BattleMemorySnapshot) -> BattleState:
     """Read only structures whose complete validation and live gates have passed."""
     width, height = snapshot.u16(MAP_BASE), snapshot.u16(MAP_BASE + 2)
@@ -253,6 +312,29 @@ def _decode_battle(snapshot: BattleMemorySnapshot) -> BattleState:
                 )
             )
 
+    raw_weather = snapshot.read(0x03003FEC, 1)[0]
+    weather = {0: Weather.CLEAR, 1: Weather.SNOW, 2: Weather.RAIN}.get(raw_weather)
+    weather_observation = (
+        ObservedValue(ValueStatus.AVAILABLE, weather)
+        if weather is not None
+        else ObservedValue[Weather](
+            ValueStatus.UNKNOWN, None, (f"Unsupported current weather value {raw_weather}",)
+        )
+    )
+    return BattleState(
+        day=snapshot.u16(_BATTLE_DAY_ADDRESS),
+        active_player_slot=snapshot.u16(0x030033EC),
+        weather=weather_observation,
+        map=MapState(width, height, tuple(tiles)),
+        properties=tuple(properties),
+        players=tuple(players),
+        units=_decode_units(snapshot),
+        co_effects_enabled=_decode_rule_toggle(snapshot, 0x03003FC8),
+        fog_enabled=_decode_rule_toggle(snapshot, 0x03003FCD),
+    )
+
+
+def _decode_units(snapshot: BattleMemorySnapshot) -> tuple[UnitState, ...]:
     units = []
     for army in range(4):
         for slot in range(1, UNITS_PER_ARMY + 1):
@@ -279,27 +361,7 @@ def _decode_battle(snapshot: BattleMemorySnapshot) -> BattleState:
                     submerged=record[0] == 24 and bool(record[1] & 0x20),
                 )
             )
-
-    raw_weather = snapshot.read(0x03003FEC, 1)[0]
-    weather = {0: Weather.CLEAR, 1: Weather.SNOW, 2: Weather.RAIN}.get(raw_weather)
-    weather_observation = (
-        ObservedValue(ValueStatus.AVAILABLE, weather)
-        if weather is not None
-        else ObservedValue[Weather](
-            ValueStatus.UNKNOWN, None, (f"Unsupported current weather value {raw_weather}",)
-        )
-    )
-    return BattleState(
-        day=snapshot.u16(_BATTLE_DAY_ADDRESS),
-        active_player_slot=snapshot.u16(0x030033EC),
-        weather=weather_observation,
-        map=MapState(width, height, tuple(tiles)),
-        properties=tuple(properties),
-        players=tuple(players),
-        units=tuple(units),
-        co_effects_enabled=_decode_rule_toggle(snapshot, 0x03003FC8),
-        fog_enabled=_decode_rule_toggle(snapshot, 0x03003FCD),
-    )
+    return tuple(units)
 
 
 def _decode_properties(snapshot: BattleMemorySnapshot) -> tuple[PropertyState, ...]:

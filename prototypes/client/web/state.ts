@@ -3,6 +3,7 @@ import type { components } from "./generated/api";
 export type StateResponse = components["schemas"]["StateResponse"];
 export type BattleState = components["schemas"]["BattleState"];
 export type UnitState = components["schemas"]["UnitState"];
+export type PlayerStats = components["schemas"]["PlayerMatchStats"];
 export const MATCH_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const record = (value: unknown): Record<string, unknown> =>
