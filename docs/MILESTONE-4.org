@@ -584,13 +584,15 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
      [[file:AW2-LIFECYCLE-RESEARCH.org::*Team scoring and multi-team draws][the live probes]].
      The exact TURN and CAPT scoring formulas remain research questions.
 
-** TODO Add a victory celebration animation to the human client
-   Play a celebration animation when the human player achieves victory.
-   - Trigger from the human player's confirmed =win= outcome in =versus_result=,
-     including team and shared wins. Respect reduced-motion preferences.
-
-** TODO Add a defeat animation to the human client
-   Play a defeat animation when the human player is defeated.
+** TODO Animate Versus match results in the human client
+   Use the human player's slot in =versus_result= when the match finishes.
+   - =win=: Celebrate victory, including team and shared wins.
+   - =loss=: Play a defeat animation.
+   - =draw=: Play a distinct draw animation.
+   - =unknown=: Play a neutral match-finished animation with a result-unavailable
+     label. Use the same fallback if the player's result is missing.
+   - Respect reduced-motion preferences and keep the result readable without
+     animation. Verify all four presentations and the missing-result fallback.
 
 ** IN-PROGRESS Redesign the human client UI for usability and ergonomics
    Complete this usability redesign before starting the deferred cross-platform
