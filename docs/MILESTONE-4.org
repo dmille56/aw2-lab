@@ -278,7 +278,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     - Use =--ai-log= for the summary or =--ai-log details= for tool payloads
       and any thinking text the provider makes available to Pi.
 
-*** TODO Color the AI turn log prefix in the terminal
+*** DONE Color the AI turn log prefix in the terminal
     In both =--ai-log= modes, color the full prefix, such as
     =[AI 2 · Day 1 · Turn 1 · Attempt 1/3]=, with a consistent color per AI
     player. Keep the message body and private JSONL logs plain. Disable

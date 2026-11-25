@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import sys
 from collections import namedtuple
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -12,7 +13,7 @@ from fastapi import FastAPI
 
 from aw2_lab import play
 from aw2_lab.ai_host import prepare_pi
-from aw2_lab.ai_turn_log import follow_ai_log, render_pi_event
+from aw2_lab.ai_turn_log import color_ai_log_prefix, follow_ai_log, render_pi_event
 from aw2_lab.match_contract import CO_ID_VALUES, CommandStatus, PlayerSlot
 
 # Value-equal stand-in for BattleState so the launcher can tell a committed
@@ -38,6 +39,27 @@ def test_ai_log_is_opt_in():
     assert parser.parse_args(["ai-vs-ai"]).ai_log is None
     assert parser.parse_args(["ai-vs-ai", "--ai-log"]).ai_log == "summary"
     assert parser.parse_args(["ai-vs-ai", "--ai-log", "details"]).ai_log == "details"
+
+
+def test_ai_log_colors_only_terminal_prefixes(monkeypatch):
+    first = "[AI 1 · Day 1 · Turn 1 · Attempt 1/3]"
+    second = "[AI 2 · Day 1 · Turn 2 · Attempt 1/3]"
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("TERM", "xterm")
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    assert f"{color_ai_log_prefix(first, 1)} Calling end turn" == (
+        f"\x1b[91m{first}\x1b[0m Calling end turn"
+    )
+    assert color_ai_log_prefix(second, 2) == f"\x1b[94m{second}\x1b[0m"
+
+    monkeypatch.setenv("NO_COLOR", "")
+    assert color_ai_log_prefix(first, 1) == first
+    monkeypatch.delenv("NO_COLOR")
+    monkeypatch.setenv("TERM", "dumb")
+    assert color_ai_log_prefix(first, 1) == first
+    monkeypatch.setenv("TERM", "xterm")
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: False)
+    assert color_ai_log_prefix(first, 1) == first
 
 
 def test_ai_log_summary_reports_mcp_status_and_details_are_opt_in():

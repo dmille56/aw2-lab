@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import sys
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -12,6 +14,20 @@ from typing import Literal
 LogMode = Literal["summary", "details"]
 _MAX_RECORD = 1024 * 1024
 _DISPLAY_LIMIT = 1200
+_PLAYER_COLORS = {1: 91, 2: 94, 3: 92, 4: 93}
+
+
+def color_ai_log_prefix(prefix: str, player_slot: int) -> str:
+    """Color the label only when stdout supports terminal styling."""
+    color = _PLAYER_COLORS.get(player_slot)
+    if (
+        color is None
+        or not sys.stdout.isatty()
+        or "NO_COLOR" in os.environ
+        or os.environ.get("TERM") == "dumb"
+    ):
+        return prefix
+    return f"\x1b[{color}m{prefix}\x1b[0m"
 
 
 def _display(text: str, token: str, limit: int = _DISPLAY_LIMIT) -> str:

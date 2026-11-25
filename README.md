@@ -72,6 +72,8 @@ Add `--ai-log` to an AI match to follow tool calls and outcomes in the
 launcher's terminal. Each line identifies the AI player, game day, turn, and
 retry attempt. Use `--ai-log details` to include bounded tool arguments,
 results, and thinking text when the model provider exposes it to Pi.
+Terminal prefixes are colored by player. Set `NO_COLOR` for plain text.
+Redirected output is always plain.
 Both modes keep the full private `slot_N/turn-N.jsonl` log in the run directory
 for later inspection.
 

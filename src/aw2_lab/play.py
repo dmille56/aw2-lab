@@ -25,7 +25,7 @@ import uvicorn
 from pydantic import SecretStr
 
 from aw2_lab.ai_host import prepare_pi
-from aw2_lab.ai_turn_log import LogMode, follow_ai_log
+from aw2_lab.ai_turn_log import LogMode, color_ai_log_prefix, follow_ai_log
 from aw2_lab.api.app import create_app
 from aw2_lab.api.client_web import configure_client
 from aw2_lab.api_contract import (
@@ -413,7 +413,11 @@ async def ai_player(
                 )
                 with log.open("ab") as output:
                     async with follow_ai_log(
-                        log, offset=output.tell(), mode=log_mode, prefix=prefix, token=token
+                        log,
+                        offset=output.tell(),
+                        mode=log_mode,
+                        prefix=color_ai_log_prefix(prefix, own_slot) if log_mode else prefix,
+                        token=token,
                     ):
                         process = await asyncio.create_subprocess_exec(
                             *base_command,
