@@ -607,6 +607,24 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
      on reconnect. The API supplies the final day from the verified result
      frame. Cumulative match statistics remain unavailable.
 
+** IN-PROGRESS Show live match stats at a glance
+   Add better match statistics while a match is in progress and after it has
+   ended, so players can read the state of the match in a glance. In particular,
+   show per player (and, where useful, per team):
+   - Current unit value (sum of the verified cost of the player's units).
+   - Current unit count (number of the player's units on the board).
+   - Current income (per-turn income, derived from properties owned; show the
+     property count alongside the income figure).
+   - Current money (funds).
+   Requirements:
+   - Derive every figure from committed observations only (state decoder and
+     verified unit catalog); never from movement plans or previews.
+   - Label unavailable values clearly and keep fog-of-war gating: do not reveal
+     enemy figures that fog has not exposed.
+   - Show the stats in the human client during play and in the post-match
+     summary, and expose them through the API/MCP observations where reliable.
+   - Add ROM-independent checks with synthetic fixtures and live evidence.
+
 ** IN-PROGRESS Redesign the human client UI for usability and ergonomics
    Complete this usability redesign before starting the deferred cross-platform
    acceptance matrix above. Use human playtesting to identify friction in common
