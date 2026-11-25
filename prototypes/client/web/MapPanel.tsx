@@ -13,7 +13,7 @@ import {
   type Position,
   type UnitRangePreview,
 } from "./Board";
-import { BoardTurn, type BoardTurnMode } from "./BoardTurn";
+import { BoardTurn, type BoardTurnMode, type VersusOutcome } from "./BoardTurn";
 import { fitTileSize, terrainLabel, unitLabel } from "./presentation";
 import type { BattleState } from "./state";
 import type { UnitState } from "./state";
@@ -30,6 +30,7 @@ export function MapPanel({
   onBoardWidthChange,
   turnMode = "snapshot",
   finished = false,
+  outcome,
   selected,
   select,
   empty,
@@ -51,6 +52,7 @@ export function MapPanel({
   onBoardWidthChange?: (width: number | null) => void;
   turnMode?: BoardTurnMode;
   finished?: boolean;
+  outcome?: VersusOutcome;
   selected: Position | null;
   select: (position: Position) => void;
   empty: string;
@@ -204,6 +206,7 @@ export function MapPanel({
           yourSlot={yourSlot}
           mode={turnMode}
           finished={finished}
+          outcome={outcome}
         />
         <button
           type="button"

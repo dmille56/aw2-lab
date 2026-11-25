@@ -151,8 +151,16 @@ export function App() {
       void session.submitAction(action, revision);
     },
   });
+  const finished = snapshot?.summary.lifecycle === "finished";
+  const yourSlot = humanSlot(view.identity);
+  const outcome =
+    finished && view.connected && yourSlot !== null
+      ? obs?.game_state.versus_result?.find(
+          (result) => result.slot === `slot_${yourSlot}`,
+        )?.outcome
+      : undefined;
   const showBoardRecovery =
-    view.connected && !!snapshot && !!gameplay.unavailable;
+    view.connected && !!snapshot && !finished && !!gameplay.unavailable;
   const boardRecoveryError = showBoardRecovery && !view.ready ? view.error : "";
   const recoverSession = () => {
     gameplay.reset("Action plan cleared for session recovery.");
@@ -640,7 +648,8 @@ export function App() {
               turnMode={
                 view.connected ? "live" : snapshot ? "snapshot" : "unavailable"
               }
-              finished={snapshot?.summary.lifecycle === "finished"}
+              finished={finished}
+              outcome={outcome}
               battle={battle}
               selected={selected}
               select={gameplay.inspectTile}
@@ -715,7 +724,7 @@ export function App() {
                 }),
               )}
               empty={empty}
-              yourSlot={humanSlot(view.identity)}
+              yourSlot={yourSlot}
             />
             <CommandFeedback
               view={view}

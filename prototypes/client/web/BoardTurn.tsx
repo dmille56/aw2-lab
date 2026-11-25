@@ -1,17 +1,28 @@
 import type { BattleState } from "./state";
+import type { components } from "./generated/api";
 
 export type BoardTurnMode = "live" | "snapshot" | "unavailable";
+export type VersusOutcome = components["schemas"]["VersusOutcome"];
+
+const resultTitles: Record<VersusOutcome, string> = {
+  win: "Victory",
+  loss: "Defeat",
+  draw: "Draw",
+  unknown: "Match finished",
+};
 
 export function BoardTurn({
   battle,
   yourSlot,
   mode,
   finished = false,
+  outcome = "unknown",
 }: {
   battle: BattleState | null;
   yourSlot: number | null;
   mode: BoardTurnMode;
   finished?: boolean;
+  outcome?: VersusOutcome;
 }) {
   const active = battle?.players.some(
     (player) => player.slot === battle.active_player_slot,
@@ -21,7 +32,7 @@ export function BoardTurn({
   const own =
     !finished && mode === "live" && active !== null && active === yourSlot;
   const title = finished
-    ? "Match finished"
+    ? resultTitles[outcome]
     : active === null || mode === "unavailable"
       ? "Turn unavailable"
       : own
@@ -34,6 +45,7 @@ export function BoardTurn({
       ? "Not your turn"
       : null,
     battle ? `Day ${battle.day}` : null,
+    finished && outcome === "unknown" ? "Result unavailable" : null,
     mode === "unavailable" ? "Connect or open a snapshot" : null,
   ]
     .filter(Boolean)
@@ -43,9 +55,11 @@ export function BoardTurn({
       id="board-turn"
       className={`board-turn${active !== null && !finished ? ` player-${active}` : ""}`}
       data-your-turn={own || undefined}
+      data-match-result={finished ? outcome : undefined}
+      aria-live="polite"
     >
       <span>{title}</span>
-      <small>{context}</small>
+      {context && <small>{context}</small>}
     </h2>
   );
 }

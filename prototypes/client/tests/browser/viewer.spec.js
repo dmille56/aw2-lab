@@ -376,6 +376,62 @@ test("confirms surrender explicitly and shows the finished command activity", as
   );
 });
 
+for (const [outcome, title, animation] of [
+  ["win", "Victory", "versus-victory"],
+  ["loss", "Defeat", "versus-defeat"],
+  ["draw", "Draw", "versus-draw"],
+  ["unknown", "Match finished", "versus-finished"],
+  [null, "Match finished", "versus-finished"],
+]) {
+  test(`shows the Versus result for ${outcome ?? "a missing outcome"}`, async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    const state = structuredClone(fixture);
+    await page.route("**/v1/matches/*/state", (route) =>
+      route.fulfill({ json: state }),
+    );
+    await connect(page);
+    const heading = page.locator("#board-turn");
+    await expect(heading).not.toHaveAttribute("data-match-result");
+
+    state.summary.lifecycle = "finished";
+    state.summary.revision += 1;
+    state.observation.revision += 1;
+    state.observation.game_state.battle = {
+      status: "unavailable",
+      value: null,
+      reasons: ["Match finished"],
+    };
+    state.observation.unit_identities = [];
+    state.observation.identity_status = "unavailable";
+    state.observation.identity_reasons = ["Match finished"];
+    state.observation.action_readiness = "unknown";
+    state.observation.action_readiness_reasons = ["Match finished"];
+    state.observation.game_state.versus_result = [
+      { slot: "slot_2", outcome: outcome === "win" ? "loss" : "win" },
+      ...(outcome ? [{ slot: "slot_1", outcome }] : []),
+    ];
+    await page.locator("#refresh").click();
+
+    await expect(heading).toBeVisible();
+    await expect(heading).toContainText(title);
+    await expect(heading).toHaveAttribute(
+      "data-match-result",
+      outcome ?? "unknown",
+    );
+    await expect(heading).not.toHaveAttribute("data-your-turn");
+    if (outcome === "unknown" || outcome === null)
+      await expect(heading).toContainText("Result unavailable");
+    const motion = () =>
+      heading.evaluate((el) => getComputedStyle(el, "::after").animationName);
+    expect(await motion()).toBe(animation);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    expect(await motion()).toBe("none");
+    await expect(heading).toContainText(title);
+  });
+}
+
 test("retains recent command activity and distinguishes terminal results", async ({
   page,
   request,

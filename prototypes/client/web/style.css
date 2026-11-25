@@ -290,6 +290,104 @@ textarea:focus-visible,
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
+.board-turn[data-match-result] {
+  grid-template-columns: minmax(0, 1fr) clamp(2.25rem, 22%, 6rem);
+  border-left-color: var(--result-color, var(--accent));
+}
+
+.board-turn[data-match-result]::after {
+  grid-area: 1 / 2 / 3 / 3;
+  align-self: center;
+  height: 1.75rem;
+  background: var(--result-art);
+  content: "";
+  pointer-events: none;
+}
+
+.board-turn[data-match-result="win"] {
+  --result-color: #cf9a37;
+  --result-art:
+    linear-gradient(#efc768 0 0) 50% 50% / 0.75rem 0.75rem no-repeat,
+    linear-gradient(#efc768 0 0) 12% 76% / 0.3rem 0.3rem no-repeat,
+    linear-gradient(#efc768 0 0) 90% 66% / 0.3rem 0.3rem no-repeat,
+    linear-gradient(var(--accent) 0 0) 30% 14% / 0.38rem 0.38rem no-repeat,
+    linear-gradient(var(--accent) 0 0) 74% 5% / 0.38rem 0.38rem no-repeat;
+}
+
+.board-turn[data-match-result="loss"] {
+  --result-color: #b66a72;
+  --result-art:
+    linear-gradient(var(--result-color) 0 0) 50% 28% / 84% 0.3rem no-repeat,
+    linear-gradient(var(--result-color) 0 0) 50% 53% / 56% 0.3rem no-repeat,
+    linear-gradient(var(--result-color) 0 0) 50% 78% / 28% 0.3rem no-repeat;
+}
+
+.board-turn[data-match-result="draw"] {
+  --result-color: #8b83bf;
+  --result-art:
+    linear-gradient(var(--result-color) 0 0) 50% 34% / 74% 0.35rem no-repeat,
+    linear-gradient(var(--result-color) 0 0) 50% 66% / 74% 0.35rem no-repeat;
+}
+
+.board-turn[data-match-result="unknown"] {
+  --result-art: linear-gradient(var(--accent) 0 0) 50% 50% / 74% 0.25rem
+    no-repeat;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .board-turn[data-match-result="win"]::after {
+    animation: versus-victory 750ms ease-out both;
+  }
+
+  .board-turn[data-match-result="loss"]::after {
+    animation: versus-defeat 500ms ease-out both;
+  }
+
+  .board-turn[data-match-result="draw"]::after {
+    animation: versus-draw 500ms ease-out both;
+  }
+
+  .board-turn[data-match-result="unknown"]::after {
+    animation: versus-finished 400ms ease-out both;
+  }
+}
+
+@keyframes versus-victory {
+  0% {
+    opacity: 0;
+    transform: translateY(0.4rem) scale(0.45);
+  }
+
+  65% {
+    opacity: 1;
+    transform: translateY(-0.15rem) scale(1.06);
+  }
+}
+
+@keyframes versus-defeat {
+  from {
+    opacity: 0.35;
+    transform: translateY(-0.35rem);
+  }
+}
+
+@keyframes versus-draw {
+  from {
+    opacity: 0.35;
+    transform: scaleY(1.45);
+  }
+}
+
+@keyframes versus-finished {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  to {
+    clip-path: inset(0);
+  }
+}
+
 .map-panel input[type="range"] {
   width: 100%;
 }

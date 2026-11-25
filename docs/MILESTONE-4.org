@@ -584,7 +584,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
      [[file:AW2-LIFECYCLE-RESEARCH.org::*Team scoring and multi-team draws][the live probes]].
      The exact TURN and CAPT scoring formulas remain research questions.
 
-** TODO Animate Versus match results in the human client
+** DONE Animate Versus match results in the human client
    Use the human player's slot in =versus_result= when the match finishes.
    - =win=: Celebrate victory, including team and shared wins.
    - =loss=: Play a defeat animation.
@@ -593,6 +593,9 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
      label. Use the same fallback if the player's result is missing.
    - Respect reduced-motion preferences and keep the result readable without
      animation. Verify all four presentations and the missing-result fallback.
+   - The board heading shows the authenticated player's result, with a short
+     decorative animation and a static presentation for reduced motion.
+     Browser coverage verifies each result and the missing-slot fallback.
 
 ** IN-PROGRESS Redesign the human client UI for usability and ergonomics
    Complete this usability redesign before starting the deferred cross-platform
