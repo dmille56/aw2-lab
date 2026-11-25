@@ -13,7 +13,7 @@ from fastapi import FastAPI
 
 from aw2_lab import play
 from aw2_lab.ai_host import prepare_pi
-from aw2_lab.ai_turn_log import color_ai_log_prefix, follow_ai_log, render_pi_event
+from aw2_lab.ai_turn_log import color_ai_log_prefix, follow_ai_log, render_pi_event, time_ai_turn
 from aw2_lab.match_contract import CO_ID_VALUES, CommandStatus, PlayerSlot
 
 # Value-equal stand-in for BattleState so the launcher can tell a committed
@@ -114,6 +114,7 @@ async def test_ai_log_follows_the_current_attempt_and_drains_final_partial_recor
         shown.set()
 
     monkeypatch.setattr("aw2_lab.ai_turn_log.print", capture, raising=False)
+    monkeypatch.setattr("aw2_lab.ai_turn_log.monotonic", iter([10.0, 11.5]).__next__)
     async with follow_ai_log(
         path, offset=len(previous), mode="summary", prefix="[Attempt 2/3]", token=""
     ):
@@ -123,8 +124,67 @@ async def test_ai_log_follows_the_current_attempt_and_drains_final_partial_recor
         assert lines == ["[Attempt 2/3] Calling get state"]
         with path.open("ab") as stream:
             stream.write(result)
-    assert lines[-1] == "[Attempt 2/3] Get state failed"
+    assert lines[-1] == "[Attempt 2/3] Get state failed [1.50s]"
     assert path.read_bytes() == previous + call + result
+
+
+@pytest.mark.anyio
+async def test_ai_log_times_thinking_and_same_name_tools_across_attempts(
+    tmp_path, monkeypatch, capsys
+):
+    path = tmp_path / "turn-1.jsonl"
+    start = {"type": "message_start", "message": {"role": "assistant"}}
+    end = {
+        "type": "message_end",
+        "message": {
+            "role": "assistant",
+            "content": [{"type": "thinking", "thinking": "Check the board"}],
+        },
+    }
+    call = {"type": "tool_execution_start", "toolName": "get_state"}
+    result = {"type": "tool_execution_end", "toolName": "get_state"}
+    end_with_tool = {
+        "type": "message_end",
+        "message": {
+            "role": "assistant",
+            "content": [*end["message"]["content"], {"type": "toolCall"}],
+        },
+    }
+    monkeypatch.setattr(
+        "aw2_lab.ai_turn_log.monotonic",
+        iter([0, 1, 2, 3, 4, 5, 7, 8, 10, 12, 13, 14, 16, 18]).__next__,
+    )
+
+    def append(records):
+        with path.open("ab") as stream:
+            for event in records:
+                stream.write(json.dumps(event).encode() + b"\n")
+
+    with time_ai_turn("details", "[Turn]") as timing:
+        append([start, end_with_tool, call, call, result, result, call])
+        async with follow_ai_log(
+            path, offset=0, mode="details", prefix="[Attempt 1]", token="", timing=timing
+        ):
+            pass
+        offset = path.stat().st_size
+        append([result, start, end, call, result])
+        async with follow_ai_log(
+            path, offset=offset, mode="summary", prefix="[Attempt 2]", token="", timing=timing
+        ):
+            pass
+
+    assert capsys.readouterr().out.splitlines() == [
+        "[Attempt 1] Thinking: Check the board [2.00s]",
+        "[Attempt 1] Calling get state",
+        "[Attempt 1] Calling get state",
+        "[Attempt 1] Get state returned [2.00s]",
+        "[Attempt 1] Get state returned [3.00s]",
+        "[Attempt 1] Calling get state",
+        "[Attempt 2] Get state returned",
+        "[Attempt 2] Calling get state",
+        "[Attempt 2] Get state returned [2.00s]",
+        "[Turn] Timing: total 18.00s, tools 7.00s, thinking 3.00s",
+    ]
 
 
 def test_configuration_and_invalid_combinations():
@@ -573,13 +633,19 @@ async def test_ai_host_continues_a_turn_aw2_left_open(
             assert instruction == play.UNCOMMITTED_TURN_INSTRUCTION
     log = tmp_path / PlayerSlot.SLOT_1.value / "turn-1.jsonl"
     assert log.exists()
+    output = capsys.readouterr().out.splitlines()
+    summaries = [line for line in output if "Timing:" in line]
     if outcome == "rollback_then_end":
-        rendered = [line for line in capsys.readouterr().out.splitlines() if "Calling" in line]
+        rendered = [line for line in output if "Calling" in line]
         assert rendered == [
             "[AI 1 · Day 1 · Turn 1 · Attempt 1/3] Calling end turn",
             "[AI 1 · Day 1 · Turn 1 · Attempt 2/3] Calling end turn",
         ]
+        assert len(summaries) == 1
+        assert summaries[0].startswith("[AI 1 · Day 1 · Turn 1] Timing: total ")
         assert len(log.read_bytes().splitlines()) == 2
+    else:
+        assert summaries == []
 
 
 def test_ai_prompt_teaches_the_host_to_resume_a_rolled_back_turn() -> None:

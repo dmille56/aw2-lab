@@ -25,7 +25,7 @@ import uvicorn
 from pydantic import SecretStr
 
 from aw2_lab.ai_host import prepare_pi
-from aw2_lab.ai_turn_log import LogMode, color_ai_log_prefix, follow_ai_log
+from aw2_lab.ai_turn_log import LogMode, color_ai_log_prefix, follow_ai_log, time_ai_turn
 from aw2_lab.api.app import create_app
 from aw2_lab.api.client_web import configure_client
 from aw2_lab.api_contract import (
@@ -393,82 +393,93 @@ async def ai_player(
             log = directory / f"turn-{budget.started}.jsonl"
             committed = battle
             changed = False
-            for attempt in range(1, attempts + 1):
-                if attempt == 1:
-                    instruction = FIRST_TURN_INSTRUCTION
-                elif changed:
-                    instruction = COMMITTED_TURN_INSTRUCTION
-                else:
-                    instruction = UNCOMMITTED_TURN_INSTRUCTION
-                brief = build_turn_brief(state, slot)
-                instruction = f"{instruction}\nCurrent turn brief: {brief.model_dump_json()}"
-                print(
-                    f"AI {slot.value}: playing turn {budget.started} "
-                    f"(attempt {attempt}/{attempts}, private log: {log})",
-                    flush=True,
-                )
-                prefix = (
-                    f"[AI {own_slot} · Day {day if day is not None else '?'}"
-                    f" · Turn {budget.started} · Attempt {attempt}/{attempts}]"
-                )
-                with log.open("ab") as output:
-                    async with follow_ai_log(
-                        log,
-                        offset=output.tell(),
-                        mode=log_mode,
-                        prefix=color_ai_log_prefix(prefix, own_slot) if log_mode else prefix,
-                        token=token,
-                    ):
-                        process = await asyncio.create_subprocess_exec(
-                            *base_command,
-                            instruction,
-                            env=env,
-                            cwd=directory,
-                            stdout=output,
-                            stderr=output,
-                            start_new_session=True,
-                        )
-                        try:
-                            code = await asyncio.wait_for(process.wait(), timeout)
-                        except TimeoutError:
-                            raise PlayError(f"AI turn timed out; inspect {log}") from None
-                        finally:
-                            await stop_process(process)
-                if code:
-                    raise PlayError(f"AI host exited with status {code}; inspect {log}")
-                try:
-                    state = await read_after_ai_attempt(player, match_id, day=day, slot=own_slot)
-                except TimeoutError:
-                    raise PlayError(
-                        f"Match command did not settle after the AI returned; inspect {log}"
-                    ) from None
-                observed = state.observation.game_state.battle.value if state.observation else None
-                if state.summary.lifecycle is MatchLifecycle.RECOVERY_REQUIRED:
-                    raise PlayError(f"Match requires recovery after the AI turn; inspect {log}")
-                if (
-                    state.summary.lifecycle is MatchLifecycle.PLAYABLE
-                    and observed
-                    and observed.day == day
-                    and observed.active_player_slot == own_slot
-                ):
-                    if attempt < attempts:
-                        changed = observed != committed
-                        committed = observed
-                        reason = (
-                            "a committed action left it open" if changed else "no action committed"
-                        )
-                        print(
-                            f"AI {slot.value}: turn {budget.started} is still open after "
-                            f"{reason}; continuing with the current state "
-                            f"(attempt {attempt + 1}/{attempts})",
-                            flush=True,
-                        )
-                        continue
-                    raise PlayError(
-                        f"AI returned without ending its turn after {attempts} attempts; "
-                        f"inspect {log}"
+            turn_label = (
+                f"[AI {own_slot} · Day {day if day is not None else '?'} · Turn {budget.started}"
+            )
+            turn_prefix = f"{turn_label}]"
+            if log_mode:
+                turn_prefix = color_ai_log_prefix(turn_prefix, own_slot)
+            with time_ai_turn(log_mode, turn_prefix) as timing:
+                for attempt in range(1, attempts + 1):
+                    if attempt == 1:
+                        instruction = FIRST_TURN_INSTRUCTION
+                    elif changed:
+                        instruction = COMMITTED_TURN_INSTRUCTION
+                    else:
+                        instruction = UNCOMMITTED_TURN_INSTRUCTION
+                    brief = build_turn_brief(state, slot)
+                    instruction = f"{instruction}\nCurrent turn brief: {brief.model_dump_json()}"
+                    print(
+                        f"AI {slot.value}: playing turn {budget.started} "
+                        f"(attempt {attempt}/{attempts}, private log: {log})",
+                        flush=True,
                     )
-                break
+                    prefix = f"{turn_label} · Attempt {attempt}/{attempts}]"
+                    with log.open("ab") as output:
+                        async with follow_ai_log(
+                            log,
+                            offset=output.tell(),
+                            mode=log_mode,
+                            prefix=color_ai_log_prefix(prefix, own_slot) if log_mode else prefix,
+                            token=token,
+                            timing=timing,
+                        ):
+                            process = await asyncio.create_subprocess_exec(
+                                *base_command,
+                                instruction,
+                                env=env,
+                                cwd=directory,
+                                stdout=output,
+                                stderr=output,
+                                start_new_session=True,
+                            )
+                            try:
+                                code = await asyncio.wait_for(process.wait(), timeout)
+                            except TimeoutError:
+                                raise PlayError(f"AI turn timed out; inspect {log}") from None
+                            finally:
+                                await stop_process(process)
+                    if code:
+                        raise PlayError(f"AI host exited with status {code}; inspect {log}")
+                    try:
+                        state = await read_after_ai_attempt(
+                            player, match_id, day=day, slot=own_slot
+                        )
+                    except TimeoutError:
+                        raise PlayError(
+                            f"Match command did not settle after the AI returned; inspect {log}"
+                        ) from None
+                    observed = (
+                        state.observation.game_state.battle.value if state.observation else None
+                    )
+                    if state.summary.lifecycle is MatchLifecycle.RECOVERY_REQUIRED:
+                        raise PlayError(f"Match requires recovery after the AI turn; inspect {log}")
+                    if (
+                        state.summary.lifecycle is MatchLifecycle.PLAYABLE
+                        and observed
+                        and observed.day == day
+                        and observed.active_player_slot == own_slot
+                    ):
+                        if attempt < attempts:
+                            changed = observed != committed
+                            committed = observed
+                            reason = (
+                                "a committed action left it open"
+                                if changed
+                                else "no action committed"
+                            )
+                            print(
+                                f"AI {slot.value}: turn {budget.started} is still open after "
+                                f"{reason}; continuing with the current state "
+                                f"(attempt {attempt + 1}/{attempts})",
+                                flush=True,
+                            )
+                            continue
+                        raise PlayError(
+                            f"AI returned without ending its turn after {attempts} attempts; "
+                            f"inspect {log}"
+                        )
+                    break
             budget.completed += 1
             if budget.limit and budget.completed >= budget.limit:
                 stop.set()
