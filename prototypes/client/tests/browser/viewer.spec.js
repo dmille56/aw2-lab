@@ -419,6 +419,7 @@ for (const [outcome, title, animation] of [
     );
     await connect(page);
     const heading = page.locator("#board-turn");
+    const empty = page.locator("#empty");
     const summary = page.getByRole("region", { name: "Match summary" });
     await expect(heading).not.toHaveAttribute("data-match-result");
     await expect(summary).toHaveCount(0);
@@ -513,6 +514,9 @@ for (const [outcome, title, animation] of [
       "data-match-result",
       outcome ?? "unknown",
     );
+    await expect(empty).toContainText("The match has ended");
+    await expect(empty).toContainText("result and match summary below");
+    await expect(empty).not.toContainText("Lifecycle phase");
     await expect(heading).not.toHaveAttribute("data-your-turn");
     if (outcome === "unknown" || outcome === null)
       await expect(heading).toContainText("Result unavailable");

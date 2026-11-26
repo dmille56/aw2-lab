@@ -184,9 +184,11 @@ export function App() {
       };
   const empty = !snapshot
     ? "Connect or open an exported StateResponse JSON file to see the board."
-    : obs
-      ? `Battle ${observed(obs.game_state.battle)}`
-      : "No committed observation available.";
+    : finished
+      ? "The match has ended. The battle board is no longer available; see the result and match summary below."
+      : obs
+        ? `Battle ${observed(obs.game_state.battle)}`
+        : "No committed observation available.";
   return (
     <>
       <a className="skip-link" href="#draft-heading">
