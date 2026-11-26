@@ -723,6 +723,17 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
      on reconnect. The API supplies the final day from the verified result
      frame. Current totals at the result boundary are tracked below.
 
+** TODO Handle finished-match lifecycle phases throughout the human client
+   After a match ends, the client can still request live battle data and show
+   =Battle unavailable: Lifecycle phase victory_presentation is not an allowed
+   live context=. Treat terminal lifecycle phases as a finished-match context:
+   stop live battle-only requests, use the committed terminal observation and
+   =versus_result= to show an appropriate win, loss, draw, or neutral
+   result-unavailable presentation, and keep the post-match summary available
+   on reconnect. Handle missing or unknown results without surfacing a
+   confusing internal lifecycle error. Verify victory, defeat, draw, unknown,
+   and missing-result cases, including transitions and reconnects.
+
 ** DONE Show live match stats at a glance
    Add better match statistics while a match is in progress and after it has
    ended, so players can read the state of the match in a glance. In particular,
