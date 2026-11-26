@@ -1346,6 +1346,26 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     Implemented: the property tile shows a flag during partial capture. Its
     accessible name and tooltip include the remaining points. Human review pending.
 
+*** DONE Fix seaport and airport capture in the human client
+    Human report (2026-11-24): playing the Puzzle Trio map with =aw2-lab play=
+    did not allow capturing seaports/airports. Seaports and airports should be
+    capturable using Infantry/Mechs.
+    The client submitted the capture commands, but server preflight rejected
+    both terrain classes. The emulator menu reader and the turn brief also
+    excluded them. The executor, menu reader, and turn brief now share the
+    Versus capture rules in =capture_rules.py=. The client offers the same
+    terrain types and excludes campaign labs.
+
+    Replayed the original rejected Puzzle Trio commands against isolated
+    headless and windowed mGBA. The seaport at =(11,9)= (command
+    =83d99cef-2486-4cc9-b924-795c3eab058a=) and airport at =(14,9)= (command
+    =de587b5d-f05a-4e61-905a-32ab32100832=) each accumulated 10 capture points
+    on the first action by full-health Infantry. After cycling the active
+    players, a second Capture transferred ownership to slot 1 and reset
+    progress to zero. The journal, original checkpoints, and source save were
+    preserved. ROM-independent tests cover Infantry and Mech eligibility and
+    capture submission, native menu recognition, and turn brief choices.
+
 *** IN-PROGRESS Show the defender's terrain defense rating before attack confirmation
     Human playtest feedback (2026-11-16): show the defending tile's 0-4 defense
     rating alongside estimated damage before the player confirms an attack.

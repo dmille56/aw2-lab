@@ -8,6 +8,7 @@ import type {
 import type { MatchIdentity } from "./session";
 
 export const CAPTURE_POINTS_REQUIRED = 20;
+export const CAPTURABLE_TERRAINS = [6, 8, 10, 11, 14];
 
 export function propertyCapturePoints(
   unit: UnitState | undefined,
@@ -108,7 +109,7 @@ export function ownMatchStats(
   const properties = battle.properties.filter(
     (property) =>
       property.owner_slot === slot &&
-      [6, 8, 10, 11, 14].includes(property.terrain_class),
+      CAPTURABLE_TERRAINS.includes(property.terrain_class),
   ).length;
   return {
     slot: configured.slot,

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
+from aw2_lab.capture_rules import CAPTURABLE_TERRAINS, CAPTURE_UNIT_TYPES
 from aw2_lab.lifecycle import (
     BattleControlObservation,
     LifecycleAssessment,
@@ -827,7 +828,7 @@ def _selected_unit_can_capture(
     snapshot: BattleMemorySnapshot, selected: SelectedUnitObservation
 ) -> bool:
     """Constrain the verified Capture row ID to an eligible unit on a property."""
-    if selected.unit_type not in (1, 2):  # Infantry and Mech
+    if selected.unit_type not in CAPTURE_UNIT_TYPES:
         return False
     width, height = snapshot.u16(MAP_BASE), snapshot.u16(MAP_BASE + 2)
     coordinates = [(selected.x, selected.y)]
@@ -841,7 +842,7 @@ def _selected_unit_can_capture(
             continue
         terrain_owner = snapshot.read(MAP_BASE + 0x1432 + y * width + x, 1)[0]
         terrain_class, owner_code = terrain_owner & 31, terrain_owner >> 5
-        if terrain_class in (6, 8, 14) and owner_code != selected.army_slot:
+        if terrain_class in CAPTURABLE_TERRAINS and owner_code != selected.army_slot:
             return True
     return False
 

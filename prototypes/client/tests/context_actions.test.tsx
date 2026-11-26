@@ -95,6 +95,55 @@ async function selectInPlace() {
   await userEvent.click(tile(0, 0));
   await userEvent.click(tile(0, 0));
 }
+
+it.each([
+  [10, 1],
+  [10, 2],
+  [11, 1],
+  [11, 2],
+  [20, 1],
+])(
+  "checks capture eligibility on terrain %i for unit %i",
+  async (terrain, kind) => {
+    const view = viewWith(["move_capture"], (state) => {
+      const battle = state.observation!.game_state.battle.value!;
+      battle.units[0].unit_type = kind;
+      const destination = battle.map.tiles.find(
+        ({ x, y }) => x === 1 && y === 0,
+      )!;
+      destination.terrain_class = terrain;
+      battle.properties.push({
+        x: 1,
+        y: 0,
+        terrain_class: terrain,
+        owner_slot: 0,
+      });
+    });
+    const onSubmit = vi.fn();
+    render(<Harness view={view} onSubmit={onSubmit} />);
+    await userEvent.click(tile(0, 0));
+    await userEvent.click(tile(1, 0));
+    const capture = screen.queryByRole("button", {
+      name: "Capture",
+    });
+    if (terrain === 20) {
+      expect(capture).toBeNull();
+      return;
+    }
+    expect(capture).toBeEnabled();
+    await userEvent.click(capture!);
+    expect(onSubmit).toHaveBeenCalledExactlyOnceWith(
+      {
+        contract_version: 1,
+        kind: "move_capture",
+        unit_id: "1",
+        path: [{ contract_version: 1, x: 1, y: 0 }],
+      },
+      1,
+    );
+  },
+);
+
 it.each(["supply", "dive", "rise"])(
   "commits %s directly from the unit menu",
   async (kind) => {

@@ -153,6 +153,27 @@ async def test_turn_brief_binds_read_only_choices_to_the_authenticated_slot(
         assert planned.reachable_tiles is not None
         (capture,) = (item for item in planned.reachable_tiles if item.can_capture)
         assert [(step.x, step.y) for step in capture.path] == [(1, 0)]
+        for terrain_class in (10, 11, 20):
+            facility_battle = replace(
+                battle,
+                properties=tuple(
+                    replace(prop, terrain_class=terrain_class)
+                    if (prop.x, prop.y) == (1, 0)
+                    else prop
+                    for prop in battle.properties
+                ),
+                units=(replace(battle.units[0], unit_type=2), opposing),
+            )
+            facility_plan = build_turn_brief(
+                with_battle(facility_battle), PlayerSlot.SLOT_1, unit_id="1"
+            )
+            assert facility_plan.reachable_tiles is not None
+            destination = next(
+                item
+                for item in facility_plan.reachable_tiles
+                if (item.tile.x, item.tile.y) == (1, 0)
+            )
+            assert destination.can_capture is (terrain_class != 20)
         assert all((item.tile.x, item.tile.y) != (1, 1) for item in planned.reachable_tiles)
         assert (
             build_turn_brief(with_battle(battle), PlayerSlot.SLOT_1, unit_id="2").reachable_tiles

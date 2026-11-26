@@ -5,12 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from aw2_lab.action_navigation import ActionNavigator, validate_path
-from aw2_lab.aw2_unit_profiles import (
-    CAPTURABLE_TERRAINS,
-    CAPTURE_UNIT_TYPES,
-    observed_rule_context,
-    preflight_move,
-)
+from aw2_lab.aw2_unit_profiles import observed_rule_context, preflight_move
+from aw2_lab.capture_rules import CAPTURABLE_TERRAINS, CAPTURE_UNIT_TYPES
 from aw2_lab.lifecycle import LifecyclePhase
 from aw2_lab.match_contract import (
     CommandRequest,

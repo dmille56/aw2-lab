@@ -52,11 +52,14 @@ def _request(match_id: UUID, unit_id: str, path: tuple[tuple[int, int], ...]) ->
     ],
     ids=("stationary-progress", "move-progress", "capture-completes"),
 )
+@pytest.mark.parametrize("terrain_class", [6, 10, 11], ids=["city", "airport", "seaport"])
+@pytest.mark.parametrize("unit_type", [1, 2], ids=["infantry", "mech"])
 def test_move_capture_executes_and_verifies_outcome(
-    memory, path, destination, owner, points
+    memory, path, destination, owner, points, terrain_class, unit_type
 ) -> None:
     match_id = uuid4()
     tracker = MatchObservationTracker(match_id)
+    memory[1][0x22690] = unit_type
     initial_state = decode_snapshot(snapshot(memory))
     initial_battle = initial_state.battle.value
     assert initial_battle is not None
@@ -66,7 +69,9 @@ def test_move_capture_executes_and_verifies_outcome(
             initial_state.battle,
             value=replace(
                 initial_battle,
-                properties=(PropertyState(*destination, terrain_class=6, owner_slot=0),),
+                properties=(
+                    PropertyState(*destination, terrain_class=terrain_class, owner_slot=0),
+                ),
             ),
         ),
     )
@@ -97,7 +102,7 @@ def test_move_capture_executes_and_verifies_outcome(
         units=tuple(
             final_unit if item.reference == unit.reference else item for item in battle.units
         ),
-        properties=(PropertyState(*destination, terrain_class=6, owner_slot=owner),),
+        properties=(PropertyState(*destination, terrain_class=terrain_class, owner_slot=owner),),
     )
     final_state = replace(
         initial.game_state,

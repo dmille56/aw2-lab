@@ -135,7 +135,11 @@ def test_map_cursor_observation_requires_live_phase_and_matching_bounded_coordin
     assert "outside the validated map" in cursor.reasons[0]
 
 
-def test_capture_choices_use_the_reached_tile_and_capture_row_id(memory) -> None:
+@pytest.mark.parametrize("terrain_class", [6, 10, 11], ids=["city", "airport", "seaport"])
+@pytest.mark.parametrize("unit_type", [1, 2], ids=["infantry", "mech"])
+def test_capture_choices_use_the_reached_tile_and_capture_row_id(
+    memory, terrain_class, unit_type
+) -> None:
     _, ewram, iwram = memory
     pack_into("<I", ewram, 0xD610, 0x0849BE38)
     pack_into("<I", iwram, 0x1470, 0x0848A42C)
@@ -149,6 +153,8 @@ def test_capture_choices_use_the_reached_tile_and_capture_row_id(memory) -> None
     iwram[0x30F0] = 1
     pack_into("<H", iwram, 0x3334, 4)
     ewram[0x1E450 + 0x51A] = 1
+    ewram[0x1F885] = terrain_class
+    ewram[0x22690] = unit_type
 
     current = snapshot(memory)
     menu = observe_menu(current, validate_battle_snapshot(current))

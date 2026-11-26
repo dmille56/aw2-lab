@@ -4,13 +4,8 @@ from heapq import heappop, heappush
 
 from aw2_lab.api_contract import StateResponse
 from aw2_lab.aw2_rules_data import TERRAIN_NAMES
-from aw2_lab.aw2_unit_profiles import (
-    CAPTURABLE_TERRAINS,
-    CAPTURE_UNIT_TYPES,
-    UNIT_PROFILES,
-    movement_cost,
-    observed_rule_context,
-)
+from aw2_lab.aw2_unit_profiles import UNIT_PROFILES, movement_cost, observed_rule_context
+from aw2_lab.capture_rules import CAPTURABLE_TERRAINS, CAPTURE_UNIT_TYPES
 from aw2_lab.match_contract import ContractModel, Coordinate, MatchLifecycle, PlayerSlot, Revision
 from aw2_lab.match_observation import ActionReadiness, IdentityStatus, has_unsettled_map_cursor
 from aw2_lab.production_rules import PRODUCTION_BY_TERRAIN

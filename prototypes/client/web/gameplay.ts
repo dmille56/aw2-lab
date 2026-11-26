@@ -11,6 +11,7 @@ import { supportedProductionProperties } from "./command_input";
 import catalog from "./catalog.json";
 import { movementRoute, unloadDropTiles, validateMovement } from "./movement";
 import { attackTargets } from "./combat_overlay";
+import { CAPTURABLE_TERRAINS } from "./presentation";
 
 /** Cartridge 0x08025FC0: the destination must display less than 10 HP. */
 export function joinCompatible(source: UnitState, partner: UnitState): boolean {
@@ -579,7 +580,7 @@ export function useGameplay(
       (p) =>
         sameTile(p, destination) &&
         !allied(p.owner_slot) &&
-        [6, 8, 10, 11, 14, 20].includes(p.terrain_class),
+        CAPTURABLE_TERRAINS.includes(p.terrain_class),
     );
   const loadUnavailableReason = !transportAtDestination
     ? "End the route on a friendly carrier tile to load."
