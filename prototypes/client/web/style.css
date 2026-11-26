@@ -1075,14 +1075,6 @@ main {
   margin-block: 10px;
 }
 
-.cargo-choice button[aria-pressed="true"] {
-  outline: 2px solid var(--accent);
-}
-
-.tile[data-drop-selected] {
-  box-shadow: inset 0 0 0 4px #16834a;
-}
-
 .tile.sprite-tile {
   border: 0;
 }

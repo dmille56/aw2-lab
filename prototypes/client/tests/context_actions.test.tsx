@@ -167,6 +167,59 @@ it("commits a silo launch on board target selection", async () => {
     1,
   );
 });
+it("opens drop selection immediately after choosing Unload for a moved APC", async () => {
+  const view = viewWith(["unload"], (state) => {
+    const battle = state.observation!.game_state.battle.value!;
+    const carrier = battle.units[0];
+    carrier.unit_type = 7;
+    carrier.cargo_references = [3];
+    battle.units.push({
+      ...carrier,
+      reference: 3,
+      unit_slot: 3,
+      unit_type: 1,
+      embarked: true,
+      used_this_turn: true,
+      cargo_references: [],
+    });
+    state.observation!.unit_identities.push({
+      reference: 3,
+      identity_id: "4",
+      generation: 1,
+    });
+  });
+  const onSubmit = vi.fn();
+  render(<Harness view={view} onSubmit={onSubmit} />);
+  await userEvent.click(tile(0, 0));
+  await userEvent.click(tile(1, 0));
+  await userEvent.click(screen.getByRole("button", { name: "Unload" }));
+  expect(screen.queryByRole("dialog", { name: "Unit actions" })).toBeNull();
+  expect(tile(0, 0)).toHaveAttribute("data-drop-target", "true");
+  expect(tile(0, 1)).not.toHaveAttribute("data-drop-target");
+  await waitFor(() => expect(tile(0, 0)).toHaveFocus());
+  await userEvent.keyboard("{Enter}");
+  expect(onSubmit).not.toHaveBeenCalled();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Unload selected cargo" }),
+  );
+  expect(onSubmit).toHaveBeenCalledExactlyOnceWith(
+    {
+      contract_version: 1,
+      kind: "unload",
+      transport_id: "1",
+      path: [{ contract_version: 1, x: 1, y: 0 }],
+      drops: [
+        {
+          contract_version: 1,
+          unit_id: "4",
+          destination: { contract_version: 1, x: 0, y: 0 },
+        },
+      ],
+    },
+    1,
+  );
+});
+
 it("selects two distinct Lander drop tiles before one final unload command", async () => {
   const view = viewWith(["unload"], (state) => {
     const battle = state.observation!.game_state.battle.value!;

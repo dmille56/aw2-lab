@@ -666,6 +666,14 @@ export function App() {
               select={gameplay.inspectTile}
               activate={gameplay.activate}
               cancel={cancelBoardAction}
+              unloadSelectionNotice={
+                gameplay.draft.contextual &&
+                gameplay.draft.phase === "review" &&
+                gameplay.draft.kind === "unload" &&
+                gameplay.draft.unloadPassengerId
+                  ? gameplay.draft.notice
+                  : undefined
+              }
               cancelAttackTarget={
                 gameplay.draft.contextual &&
                 gameplay.draft.phase === "target" &&
@@ -737,6 +745,11 @@ export function App() {
               empty={empty}
               yourSlot={yourSlot}
             />
+            <ContextActions
+              model={gameplay}
+              view={view}
+              onSubmit={session.submitAction}
+            />
             {finished && snapshot && (
               <PostMatchSummary
                 snapshot={snapshot}
@@ -750,11 +763,6 @@ export function App() {
             />
           </div>
           <PurchaseMenu
-            model={gameplay}
-            view={view}
-            onSubmit={session.submitAction}
-          />
-          <ContextActions
             model={gameplay}
             view={view}
             onSubmit={session.submitAction}

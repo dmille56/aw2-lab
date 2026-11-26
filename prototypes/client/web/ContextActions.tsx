@@ -171,28 +171,14 @@ export function ContextActions({
   useLayoutEffect(() => {
     if (firstAttackTarget) focusTile(firstAttackTarget);
   }, [firstAttackTarget]);
-  useLayoutEffect(() => {
-    if (
-      draft.contextual &&
-      draft.phase === "review" &&
-      draft.kind === "unload" &&
-      !draft.unloadPassengerId &&
-      Object.keys(draft.dropDestinations).length
-    )
-      document.querySelector<HTMLButtonElement>("#unload-confirm")?.focus();
-  }, [
-    draft.contextual,
-    draft.phase,
-    draft.kind,
-    draft.unloadPassengerId,
-    draft.dropDestinations,
-  ]);
   const unloading =
     draft.phase === "review" && draft.kind === "unload" && draft.contextual;
+  const hasDrops = unloading && Object.keys(draft.dropDestinations).length > 0;
   if (
     !point ||
     !model.selectedUnit ||
     model.pending ||
+    (unloading && draft.unloadPassengerId) ||
     (draft.phase !== "menu" &&
       draft.phase !== "enemy_menu" &&
       !selectingMissileTarget &&
@@ -243,6 +229,10 @@ export function ContextActions({
   const chooseTarget = (kind: ActionKind) => {
     model.dispatch({ type: "choose", kind });
     if (kind === "silo_launch") requestAnimationFrame(() => focusTile(point));
+  };
+  const chooseUnloadPassenger = (unitId: string, tile: Position) => {
+    model.dispatch({ type: "unload_passenger", unitId });
+    requestAnimationFrame(() => focusTile(tile));
   };
   const silo =
     [1, 2].includes(model.selectedUnit.unit_type) &&
@@ -298,8 +288,9 @@ export function ContextActions({
       label="Unit actions"
     >
       <h3>
-        {unitName(model.selectedUnit)} ·{" "}
-        {Math.ceil(model.selectedUnit.internal_health / 10)} HP
+        {hasDrops
+          ? "Confirm unload"
+          : `${unitName(model.selectedUnit)} · ${Math.ceil(model.selectedUnit.internal_health / 10)} HP`}
       </h3>
       {selectingMissileTarget ? (
         <p role="status">
@@ -307,7 +298,18 @@ export function ContextActions({
         </p>
       ) : unloading ? (
         <>
-          <p>Choose a passenger, then a highlighted drop tile.</p>
+          {hasDrops ? (
+            <button
+              data-autofocus
+              type="button"
+              disabled={!model.prepareAction("unload")}
+              onClick={() => send("unload")}
+            >
+              Unload selected cargo
+            </button>
+          ) : (
+            <p>Choose a passenger, then a highlighted drop tile.</p>
+          )}
           {model.unloadDropOptions.map((item, index) => {
             const drop = draft.dropDestinations[item.id];
             const destinations = item.destinations.filter(
@@ -320,17 +322,13 @@ export function ContextActions({
               <div className="cargo-choice" key={item.id}>
                 <button
                   type="button"
-                  aria-pressed={draft.unloadPassengerId === item.id}
                   disabled={!model.editable || !destinations.length}
-                  onClick={() => {
-                    model.dispatch({
-                      type: "unload_passenger",
-                      unitId: item.id,
-                    });
-                    requestAnimationFrame(() =>
-                      focusTile(drop ?? destinations[0] ?? point),
-                    );
-                  }}
+                  onClick={() =>
+                    chooseUnloadPassenger(
+                      item.id,
+                      drop ?? destinations[0] ?? point,
+                    )
+                  }
                 >
                   Passenger {index + 1}: {unitName(item.unit)}
                 </button>
@@ -358,14 +356,6 @@ export function ContextActions({
             );
           })}
           <p role="status">{model.unloadError}</p>
-          <button
-            id="unload-confirm"
-            type="button"
-            disabled={!model.prepareAction("unload")}
-            onClick={() => send("unload")}
-          >
-            Unload selected cargo
-          </button>
         </>
       ) : (
         <div className="action-menu-buttons">
@@ -416,7 +406,13 @@ export function ContextActions({
                   (item) => !item.destinations.length,
                 )
               }
-              onClick={() => model.dispatch({ type: "choose", kind: "unload" })}
+              onClick={() => {
+                model.dispatch({ type: "choose", kind: "unload" });
+                const [passenger] = model.unloadDropOptions;
+                const drop = passenger?.destinations[0];
+                if (model.unloadDropOptions.length === 1 && passenger && drop)
+                  chooseUnloadPassenger(passenger.id, drop);
+              }}
             >
               Unload
             </button>

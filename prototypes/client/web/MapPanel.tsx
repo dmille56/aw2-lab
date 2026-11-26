@@ -38,6 +38,7 @@ export function MapPanel({
   activate,
   cancel,
   cancelAttackTarget,
+  unloadSelectionNotice,
   route,
   target,
   selectedUnit = null,
@@ -60,6 +61,7 @@ export function MapPanel({
   activate?: (position: Position) => void;
   cancel?: () => void;
   cancelAttackTarget?: () => void;
+  unloadSelectionNotice?: string;
   route?: Position[];
   target?: Position | null;
   selectedUnit?: UnitState | null;
@@ -296,6 +298,14 @@ export function MapPanel({
           </button>
         </div>
       )}
+      {unloadSelectionNotice && (
+        <div className="toolbar">
+          <p role="status">{unloadSelectionNotice}</p>
+          <button type="button" onClick={cancel}>
+            Cancel drop selection
+          </button>
+        </div>
+      )}
       <div id="map-scroll" ref={scroll}>
         <Board
           battle={battle}
@@ -372,6 +382,12 @@ export function MapPanel({
             </span>
           )}
           {!!enemyTargets.size && <span>ATTACK · eligible enemy</span>}
+          {!!dropTargets.size && (
+            <span>
+              <i aria-hidden="true" className="range-swatch drop-range" />
+              Unload · dashed gold border
+            </span>
+          )}
           {!heldMovement && (showAttackRange || heldCoverage) && (
             <span>
               <i aria-hidden="true" className="range-swatch firing-range" />

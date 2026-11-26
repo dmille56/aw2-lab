@@ -43,8 +43,13 @@
 }
 
 .drop-range {
-  background: #18b45d66;
-  border: 3px dashed #07542b;
+  background: rgb(255 205 52 / 42%);
+  border: 3px dashed #ffcd34;
+  box-shadow: inset 0 0 0 1px #171717;
+}
+
+.tile[data-drop-selected] .drop-range {
+  border-style: solid;
 }
 
 .range-key {

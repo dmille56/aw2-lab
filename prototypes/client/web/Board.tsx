@@ -447,10 +447,15 @@ export function Board({
                   isTransit ||
                   isAttackable ||
                   isThreatened ||
-                  isDropTarget) && (
+                  isDropTarget ||
+                  dropLabel) && (
                   <span
                     aria-hidden="true"
-                    className={`range-overlay${isReachable ? " movement-range" : ""}${isTransit ? " transit-range" : ""}${isAttackable ? " firing-range" : ""}${isThreatened ? " threat-range" : ""}${isDropTarget ? " drop-range" : ""}`}
+                    className={
+                      isDropTarget || dropLabel
+                        ? "range-overlay drop-range"
+                        : `range-overlay${isReachable ? " movement-range" : ""}${isTransit ? " transit-range" : ""}${isAttackable ? " firing-range" : ""}${isThreatened ? " threat-range" : ""}`
+                    }
                   />
                 )}
                 {isEnemyTarget && (

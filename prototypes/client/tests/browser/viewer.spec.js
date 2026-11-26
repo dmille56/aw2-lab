@@ -1698,7 +1698,7 @@ test("context menu submits Capture directly from an eligible observed property",
   );
 });
 
-test("unload passenger selection previews a drop before one final command", async ({
+test("moving an APC then choosing Unload immediately highlights drop tiles", async ({
   page,
   request,
 }) => {
@@ -1735,19 +1735,28 @@ test("unload passenger selection previews a drop before one final command", asyn
     await route.fulfill({ response, json: capabilities });
   });
   await connect(page);
-  await page.locator('#board [data-x="0"][data-y="0"]').click();
-  await page.locator('#board [data-x="0"][data-y="0"]').click();
+  const drop = page.locator('#board [data-x="0"][data-y="0"]');
+  await drop.click();
+  await page.locator('#board [data-x="1"][data-y="0"]').click();
   const menu = page.getByRole("dialog", { name: "Unit actions" });
   await menu.getByRole("button", { name: "Unload", exact: true }).click();
-  await menu
-    .getByRole("button", { name: "Passenger 1: Infantry", exact: true })
-    .click();
-  const drop = page.locator('#board [data-x="1"][data-y="0"]');
+  await expect(menu).toBeHidden();
   await expect(drop).toHaveAttribute("data-drop-target", "true");
+  await expect(page.locator("#board [data-drop-target]")).toHaveCount(1);
+  const highlight = drop.locator(".range-overlay");
+  await expect(highlight).toHaveClass("range-overlay drop-range");
+  await expect(highlight).toHaveCSS("border-top-color", "rgb(255, 205, 52)");
+  await expect(highlight).toHaveCSS("border-top-style", "dashed");
   await expect(drop).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(drop).toHaveAttribute("data-drop-selected", "D1");
+  await expect(highlight).toHaveCSS("border-top-style", "solid");
+  await expect(
+    menu.getByRole("heading", { name: "Confirm unload" }),
+  ).toBeVisible();
+  await expect(menu).toHaveCSS("position", "fixed");
   const submit = menu.getByRole("button", { name: "Unload selected cargo" });
+  await expect(submit).toBeInViewport();
   await expect(submit).toBeFocused();
   expect((await (await request.get("/__test/stats")).json()).commands).toBe(0);
   await page.unroute("**/state");
@@ -1759,12 +1768,12 @@ test("unload passenger selection previews a drop before one final command", asyn
     contract_version: 1,
     kind: "unload",
     transport_id: "1",
-    path: [],
+    path: [{ contract_version: 1, x: 1, y: 0 }],
     drops: [
       {
         contract_version: 1,
         unit_id: "4",
-        destination: { contract_version: 1, x: 1, y: 0 },
+        destination: { contract_version: 1, x: 0, y: 0 },
       },
     ],
   });
@@ -2584,6 +2593,7 @@ test("Cruiser previews two different copter drops over sea before one command", 
   page,
   request,
 }) => {
+  await page.setViewportSize({ width: 390, height: 640 });
   const state = structuredClone(fixture);
   const battle = state.observation.game_state.battle.value;
   battle.units[0].unit_type = 22;
@@ -2636,14 +2646,23 @@ test("Cruiser previews two different copter drops over sea before one command", 
   await menu
     .getByRole("button", { name: "Passenger 1: Battle Copter", exact: true })
     .click();
+  await expect(menu).toBeHidden();
   const drop = page.locator('#board [data-x="1"][data-y="0"]');
   await expect(drop).toHaveAttribute("data-drop-target", "true");
   await expect(drop).toBeFocused();
-  await page.keyboard.press("Enter");
+  await drop.click();
   await expect(drop).toHaveAttribute("data-drop-selected", "D1");
-  await menu
-    .getByRole("button", { name: "Passenger 2: Transport Copter", exact: true })
-    .click();
+  const passenger = menu.getByRole("button", {
+    name: "Passenger 2: Transport Copter",
+    exact: true,
+  });
+  await passenger.click();
+  await expect(menu).toBeHidden();
+  await page.getByRole("button", { name: "Cancel drop selection" }).click();
+  await expect(menu).toBeVisible();
+  await expect(drop).toHaveAttribute("data-drop-selected", "D1");
+  await passenger.click();
+  await expect(menu).toBeHidden();
   const secondDrop = page.locator('#board [data-x="0"][data-y="1"]');
   await expect(secondDrop).toHaveAttribute("data-drop-target", "true");
   await secondDrop.click();
