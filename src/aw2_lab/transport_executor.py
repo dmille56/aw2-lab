@@ -378,11 +378,11 @@ class UnloadActionExecutor:
                 and drop_index == len(action.drops) - 1
                 and not remaining_cargo
             )
-            # The Cruiser's post-drop menu is still an unresolved engine phase.
+            # A two-passenger carrier's post-drop menu can keep the engine unresolved.
             # Keep battle decoding blocked there; verify the complete cargo result
             # after Wait reaches a settled boundary, before committing anything.
             deferred_cargo_check = (
-                carrier.unit_type == 22
+                carrier.unit_type in (22, 23)
                 and after_drop.battle.status is ValueStatus.UNAVAILABLE
                 and after_drop.lifecycle.phase is LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
                 and all(

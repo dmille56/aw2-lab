@@ -634,10 +634,10 @@ def _observe_unit_action_choices(
         or not _selected_special_unit_action_is_valid(snapshot, ids, selected)
     ):
         return None
-    # After a Cruiser's first Drop, the native continuation menu uses state 5.
-    # Keep this exception limited to its observed Drop/Wait and final Wait rows.
+    # After a two-passenger carrier's first Drop, the native continuation menu
+    # uses state 5. Accept only the observed Drop/Wait and final Wait rows.
     if snapshot.u16(0x03003334) == 5 and not (
-        selected.unit_type == 22 and ids in ((6, 0x0A), (0x0A,))
+        selected.unit_type in (22, 23) and ids in ((6, 0x0A), (0x0A,))
     ):
         return None
     if not _menu_rules_allow_dispatch(snapshot):
@@ -899,7 +899,7 @@ def _is_unload_targeting(
     # Native 0x080294FC cycles +0x20 through adjacent target indices 0..3.
     # This object is a cursor helper: its old action-menu row bytes are stale,
     # including the 5-row/row-4 values in the Rainy Haven Cruiser trace.
-    cursor_mode = input_state == 4 or (selected.unit_type == 22 and input_state == 5)
+    cursor_mode = input_state == 4 or (selected.unit_type in (22, 23) and input_state == 5)
     legacy_continuation = (
         input_state == 5
         and target_index == 1

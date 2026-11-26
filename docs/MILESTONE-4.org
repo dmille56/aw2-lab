@@ -781,6 +781,21 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
    - [X] Use a distinct color for valid cargo-unload tiles so they are easy to distinguish from movement and attack range markers. Dashed gold marks available drop tiles, and a solid gold border marks a selected drop.
    - [X] Keep the interface from obscuring the board while the player selects a unit's unload destination. With one passenger, Unload goes straight to selecting a drop tile adjacent to the carrier's planned destination. With multiple passengers, the dialog closes after the player chooses a passenger. It returns after the player picks a tile or cancels drop selection. After a drop is selected, the confirmation dialog opens over the current view and focuses the submit button.
 
+*** DONE Investigate failure to unload two Infantry from a Lander
+    The =aw2-lab play= journal showed that command
+    =7e1b42d5-3a54-401e-9ddf-ca4e832bac63= submitted both passengers and both
+    drop tiles. The command rolled back after the first drop because the
+    observer only recognized the continuation menu and cursor for Cruisers.
+    Recognize those states for Landers and verify both drops against the
+    settled battle state before committing.
+
+    Replayed the exact command through the unload executor in isolated
+    headless and windowed mGBA from recovery checkpoint
+    =065496f0-5249-58be-a238-4648ced179c0=. Both runs settled at frame 6346:
+    the Lander moved to =(9,7)= with no remaining cargo, and both Infantry
+    disembarked at =(10,7)= and =(9,6)= with their identities preserved.
+    The original journal, checkpoint, and source save were unchanged.
+
 *** DONE Record the Advance Wars client redesign kickoff and checklist
     Redesign started on 2026-11-15, after the first usability layout pass.
     Direction: AWBW-style play area, Advance Wars-style contextual actions,

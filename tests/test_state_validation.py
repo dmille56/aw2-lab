@@ -709,7 +709,9 @@ def test_single_tile_drop_cursor_uses_live_source_during_cursor_mode(
     report = validate_battle_snapshot(current)
     menu = observe_menu(current, report)
     cursor = observe_map_cursor(current, report)
-    recognized = input_state == 4 or carrier_type == 22 or cargo_rows == 3 and selector_table == 1
+    recognized = (
+        input_state == 4 or carrier_type in (22, 23) or cargo_rows == 3 and selector_table == 1
+    )
     if not recognized:
         assert menu.family is not MenuFamily.UNIT_DROP_TARGETING
         return
@@ -1455,7 +1457,8 @@ def test_cruiser_cargo_links_decode_both_copter_types(memory) -> None:
 
 
 @pytest.mark.parametrize("action_ids", [(6, 10), (10,)])
-def test_cruiser_post_drop_continuation_menu(memory, action_ids) -> None:
+@pytest.mark.parametrize("carrier_type", [22, 23], ids=["cruiser", "lander"])
+def test_post_drop_continuation_menu(memory, action_ids, carrier_type) -> None:
     _, ewram, iwram = memory
     pack_into("<I", ewram, 0xD610, UNIT_ACTION_MENU_SCRIPT)
     pack_into("<I", iwram, 0x40D8, 0x02022690)
@@ -1468,7 +1471,7 @@ def test_cruiser_post_drop_continuation_menu(memory, action_ids) -> None:
     iwram[0x14A1 + offset : 0x14A1 + offset + len(action_ids)] = bytes(action_ids)
     iwram[0x30F0] = 1
     ewram[0x22690:0x2269C] = bytes(
-        (22, 6, 1, 1, 100, 0, 99, 2 if 6 in action_ids else 0, 0, 0, 0, 0)
+        (carrier_type, 6, 1, 1, 100, 0, 99, 2 if 6 in action_ids else 0, 0, 0, 0, 0)
     )
     ewram[0x1E450 + 0x51A + 3] = 1
     current = snapshot(memory)

@@ -142,8 +142,8 @@ def _game_state_at(initial, frame, battle, menu):
 
 @pytest.mark.parametrize(
     ("carrier_type", "cargo_types", "corrupt_result"),
-    [(7, (1,), False), (23, (1, 5), False), (22, (19, 20), False), (22, (19, 20), True)],
-    ids=("apc", "lander-two", "cruiser-mixed", "cruiser-invalid-final"),
+    [(7, (1,), False), (23, (1, 1), False), (22, (19, 20), False), (22, (19, 20), True)],
+    ids=("apc", "lander-two-infantry", "cruiser-mixed", "cruiser-invalid-final"),
 )
 def test_unload_drops_named_cargo_and_commits_identity_stable_state(
     memory, carrier_type, cargo_types, corrupt_result
@@ -199,7 +199,7 @@ def test_unload_drops_named_cargo_and_commits_identity_stable_state(
         rows = (MenuItem.UNLOAD, MenuItem.WAIT) if remaining else (MenuItem.WAIT,)
         menu_after_drop = (
             MenuObservation(125 + index, MenuFamily.MAP_INPUT)
-            if carrier_type == 7 and not remaining
+            if carrier_type in (7, 23) and not remaining
             else replace(action_menu, items=rows, selected_item=rows[0])
         )
         after_drop_states.append(
@@ -230,7 +230,7 @@ def test_unload_drops_named_cargo_and_commits_identity_stable_state(
         assert not landed.embarked and landed.used_this_turn
         assert (landed.x, landed.y) == destinations[index]
 
-    if carrier_type == 22:
+    if carrier_type in (22, 23):
         after_drop_states = [
             replace(
                 state,
@@ -239,10 +239,12 @@ def test_unload_drops_named_cargo_and_commits_identity_stable_state(
                     lifecycle=replace(
                         state.lifecycle, phase=LifecyclePhase.BATTLE_ENGINE_UNRESOLVED
                     ),
-                    live_reasons=("Battle engine is in the Cruiser continuation menu",),
+                    live_reasons=("Battle engine is in the carrier continuation menu",),
                 ),
                 battle=ObservedValue(ValueStatus.UNAVAILABLE, None, ("Not a settled turn",)),
             )
+            if state.ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES
+            else state
             for state in after_drop_states
         ]
 
@@ -327,7 +329,7 @@ def test_unload_drops_named_cargo_and_commits_identity_stable_state(
         ("move", ()),
         *(("drop", destination) for destination in destinations),
     ]
-    if carrier_type != 7:
+    if after_drop_states[-1].ui.menu.family is MenuFamily.UNIT_ACTION_CHOICES:
         expected_calls.append(("wait",))
     assert navigator.calls == expected_calls
     assert outcome.observation is not None and outcome.observation.revision == 2
