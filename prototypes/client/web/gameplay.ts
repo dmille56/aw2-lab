@@ -9,7 +9,12 @@ import type { Position } from "./Board";
 import type { GameplayAction } from "./command_input";
 import { supportedProductionProperties } from "./command_input";
 import catalog from "./catalog.json";
-import { movementRoute, unloadDropTiles, validateMovement } from "./movement";
+import {
+  movementRoute,
+  transportUnloadBlockReason,
+  unloadDropTiles,
+  validateMovement,
+} from "./movement";
 import { attackTargets } from "./combat_overlay";
 import { CAPTURABLE_TERRAINS } from "./presentation";
 
@@ -538,12 +543,17 @@ export function useGameplay(
                   ? movement.endpointError
                   : "";
   const unloadFeature = feature("unload");
+  const unloadBlock =
+    battle && destination && selectedUnit
+      ? transportUnloadBlockReason(battle, selectedUnit, destination)
+      : "";
   const unloadUnavailableReason = !selectedTransportCargo.length
     ? "Select a ready carrier with identified cargo."
     : !destination
       ? "Choose the carrier's final tile before selecting drop tiles."
       : unloadDropOptions.every((item) => item.destinations.length === 0)
-        ? "No adjacent empty tiles have verified legal terrain for this cargo."
+        ? unloadBlock ||
+          "No adjacent empty tiles have verified legal terrain for this cargo."
         : !unloadFeature?.implemented || !unloadFeature.available
           ? (unloadFeature?.unavailable_reason ??
             "The connected server does not currently enable unloading.")

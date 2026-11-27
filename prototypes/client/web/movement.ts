@@ -26,6 +26,19 @@ export interface MovementReach {
   alliedTransit: Set<string>;
 }
 
+export function transportUnloadBlockReason(
+  battle: BattleState,
+  carrier: UnitState,
+  destination: Position,
+): string {
+  const tile = battle.map.tiles.find(
+    ({ x, y }) => x === destination.x && y === destination.y,
+  );
+  return carrier.unit_type === 20 && tile?.terrain_class === 7
+    ? "Transport Copters cannot unload while over sea."
+    : "";
+}
+
 /** Return observed legal drop tiles adjacent to a carrier's planned destination. */
 export function unloadDropTiles(
   battle: BattleState,
@@ -37,6 +50,7 @@ export function unloadDropTiles(
   const player = battle.players.find((item) => item.slot === cargo.army_slot);
   if (
     !profile ||
+    transportUnloadBlockReason(battle, carrier, carrierDestination) ||
     battle.co_effects_enabled.status !== "available" ||
     battle.weather.status !== "available" ||
     battle.weather.value === null

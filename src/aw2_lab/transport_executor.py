@@ -255,6 +255,12 @@ class UnloadActionExecutor:
 
         final_carrier_position = path[-1] if path else (carrier.x, carrier.y)
         tile_by_position = {(tile.x, tile.y): tile for tile in battle.map.tiles}
+        carrier_tile = tile_by_position.get(final_carrier_position)
+        # The cartridge offers only Wait when a Transport Copter ends over sea.
+        if carrier.unit_type == 20 and carrier_tile is not None and carrier_tile.terrain_class == 7:
+            raise CommandRejected(
+                ErrorCode.INVALID_REQUEST, "Transport Copters cannot unload while over sea"
+            )
         occupied = {
             (unit.x, unit.y)
             for unit in battle.units

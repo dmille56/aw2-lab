@@ -347,6 +347,56 @@ def test_unload_drops_named_cargo_and_commits_identity_stable_state(
     assert committed_carrier.used_this_turn and not committed_carrier.cargo_references
 
 
+@pytest.mark.parametrize("move_first", [False, True], ids=["stationary", "move"])
+def test_transport_copter_cannot_unload_over_sea(memory, move_first) -> None:
+    tracker, initial, _carrier, _cargo, carrier_id, cargo_ids, _destinations = _setup(
+        memory, carrier_type=20
+    )
+    battle = initial.game_state.battle.value
+    assert battle is not None
+    sea = (1, 0) if move_first else (0, 0)
+    drop = (0, 0) if move_first else (1, 0)
+    tiles = tuple(
+        replace(tile, terrain_class=7 if (tile.x, tile.y) == sea else 1)
+        if (tile.x, tile.y) in (sea, drop)
+        else tile
+        for tile in battle.map.tiles
+    )
+    initial = replace(
+        initial,
+        game_state=replace(
+            initial.game_state,
+            battle=replace(
+                initial.game_state.battle,
+                value=replace(battle, map=replace(battle.map, tiles=tiles)),
+            ),
+        ),
+    )
+    request = CommandRequest(
+        match_id=initial.match_id,
+        player_slot=PlayerSlot.SLOT_1,
+        credential=SecretStr("x" * 32),
+        request_id=uuid4(),
+        expected_revision=initial.revision,
+        action=UnloadAction(
+            transport_id=carrier_id,
+            path=(Coordinate(x=sea[0], y=sea[1]),) if move_first else (),
+            drops=(CargoDrop(unit_id=cargo_ids[0], destination=Coordinate(x=drop[0], y=drop[1])),),
+        ),
+    )
+
+    class NoInputNavigator:
+        async def select_unit(self, *args, **kwargs):
+            pytest.fail("sea-drop validation must happen before emulator input")
+
+    with pytest.raises(CommandRejected, match="Transport Copters cannot unload while over sea"):
+        asyncio.run(
+            UnloadActionExecutor(cast(ActionNavigator, NoInputNavigator()), tracker).execute(
+                request, initial
+            )
+        )
+
+
 def test_unload_rejects_an_occupied_drop_tile_before_emulator_input(memory) -> None:
     tracker, initial, carrier, _cargoes, carrier_id, cargo_ids, _destinations = _setup(memory)
 

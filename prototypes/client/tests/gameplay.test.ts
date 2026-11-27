@@ -622,6 +622,30 @@ it("plans a legal transport unload and includes the carrier route and cargo iden
   unmount();
 });
 
+it("blocks a Transport Copter drop when the route ends over sea", () => {
+  const view = transportView(20, 1);
+  const battle = view.snapshot!.observation!.game_state.battle.value!;
+  battle.map.tiles.find(({ x, y }) => x === 1 && y === 0)!.terrain_class = 7;
+  const { result } = renderHook(() => useGameplay(view, vi.fn()));
+  act(() => result.current.selectUnit("1"));
+  expect(result.current.unloadDropOptions[0].destinations).toContainEqual({
+    x: 0,
+    y: 1,
+  });
+  act(() => result.current.dispatch({ type: "plan" }));
+  act(() => result.current.activate({ x: 1, y: 0 }));
+  expect(result.current.movementReady).toBe(true);
+  expect(result.current.unloadDropOptions[0].destinations).toEqual([]);
+  expect(result.current.unloadUnavailableReason).toContain(
+    "Transport Copters cannot unload while over sea",
+  );
+  act(() => result.current.dispatch({ type: "choose", kind: "unload" }));
+  act(() => result.current.dispatch({ type: "unload_passenger", unitId: "4" }));
+  act(() => result.current.activate({ x: 0, y: 0 }));
+  expect(result.current.unloadTargets.size).toBe(0);
+  expect(result.current.action).toBeNull();
+});
+
 it.each([22, 23])(
   "plans distinct sequential drops for carrier %s",
   (carrier) => {

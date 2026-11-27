@@ -280,6 +280,9 @@ export function ContextActions({
   const missing = choices.filter(
     (item) => item.show && !model.available(item.kind),
   );
+  const noUnloadTargets = model.unloadDropOptions.every(
+    (item) => !item.destinations.length,
+  );
   return (
     <ActionMenu
       key={draft.phase}
@@ -402,9 +405,10 @@ export function ContextActions({
                 !model.editable ||
                 !model.available("unload") ||
                 !model.movementReady ||
-                model.unloadDropOptions.every(
-                  (item) => !item.destinations.length,
-                )
+                noUnloadTargets
+              }
+              title={
+                noUnloadTargets ? model.unloadUnavailableReason : undefined
               }
               onClick={() => {
                 model.dispatch({ type: "choose", kind: "unload" });
