@@ -731,6 +731,46 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     outcomes in three pairs. The profile is opt-in. Full-game strength
     remains to be measured.
 
+*** TODO Find what helps the AW2 model reason better
+    Reuse the headless Bean Island benchmark with =openai/gpt-6-luna= at
+    =medium= for 20 model turns. Vary only the initial turn brief. Keep
+    the compact MCP tool list, gameplay prompt, tool schemas, and replies
+    fixed.
+
+    - Stage 1 (eight turns). Compare the current brief with a brief that
+      identifies the ready Infantry already capturing a property, its tile,
+      capture points earned, and whether continuing in place finishes the
+      capture this turn. Derive the facts from committed state for the
+      verified Andy fixture. A fresh capture has no in-progress entry.
+      Save Day 3 before Infantry starts capturing at =(5,4)= and reuse Day 4
+      when Infantry can finish the capture and the Tank has a legal attack.
+      Verify the opportunities through the SDK and run each variant twice
+      per checkpoint, alternating the order.
+    - Carry the capture section into Stage 2 if it yields at least one more
+      completed Day 4 capture, with at least as many voluntary turn
+      completions, no more rejected actions, and no decrease in aggregate
+      Day 3 capture progress or Day 4 net combat HP. Otherwise carry forward
+      the current facts.
+    - Stage 2 (twelve turns). Render the selected facts as compact rows,
+      JSON with named fields, and short labeled text. Use the same facts
+      and section order. Run each format twice per checkpoint and rotate
+      the starting format across the four replay groups.
+    - Restore the checkpoint and start a fresh Pi session before every run.
+      Allow one 600-second attempt per turn. Measure city ownership and
+      capture progress at =(5,4)= from committed state, Day 4 net combat HP,
+      voluntary turn completion, rejected and rolled-back actions, input
+      and cached tokens, tool calls, and wall time.
+    - Consider Stage 2 formats that match or exceed compact rows on
+      voluntary turn completion and aggregate board scores at each
+      checkpoint, with at most as many rejected or rolled-back actions.
+      Choose the lowest median total input tokens per turn, including cache
+      reads, and favor compact rows on ties.
+    - Add ROM-independent checks for correct capture facts and equivalent
+      renderings. Run the opt-in benchmark and pre-commit checks. Record
+      each paired result and the decision here. Keep the public CLI and MCP
+      contracts as they are. Treat a winning format as a candidate for
+      playtesting on more positions.
+
 ** DONE Investigate APC actions failing during human play
    In the latest =aw2-lab play= session, on day 13 the APC could not move and
    wait or move and supply. Determine what caused the issue, fix it, and verify
