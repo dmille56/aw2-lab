@@ -675,6 +675,34 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     2.87/2.92/3.68 s windowed. The live same-checkpoint comparison of
     =--thinking low= and =medium= remains pending. The default is =medium=.
 
+*** TODO Test whether a smaller MCP interface improves AI play
+    Across 128 saved Pi turn logs, median model-facing tool-result text was
+    8.8 KB for =get_turn_brief= and 4.5 KB for =play_action=. Median
+    =play_action= arguments occupied 217 bytes. Use paired replays to see
+    whether reducing the model's reading load improves decisions on the board.
+
+    - Add an opt-in =--ai-mcp-profile compact= with a smaller Pi tool list and
+      compact initial briefs, turn briefs, and action replies. Preserve the
+      same game information, legal action choices, and command safeguards.
+      Keep the current profile as the default and test new tactical guidance
+      separately.
+    - Verify equivalent briefs and command behavior in ROM-independent tests.
+      Run eight headless Bean Island turns with =openai/gpt-6-luna= at
+      =medium=. Replay the same opening and midgame checkpoints twice per
+      profile, alternate profile order, and start each turn in a fresh Pi
+      session. Verify that the midgame offers a reachable capture and a legal
+      attack before replaying it.
+    - Score voluntary turn completion, opening capture-capable purchases,
+      midgame capture progress, and net combat HP from committed state.
+      Record rejected actions, tool calls, wall time, model-facing reply bytes,
+      and provider input, cached input, and output tokens.
+    - Report all four paired comparisons. Advance to broader playtesting only
+      if median model-facing reply bytes fall by at least 30%, the compact
+      profile completes at least as many turns, matches or exceeds the
+      baseline on the applicable board measures in at least three pairs, and
+      produces no more rejected actions overall. Use a later side-swapped
+      full-game evaluation to assess match strength.
+
 ** DONE Investigate APC actions failing during human play
    In the latest =aw2-lab play= session, on day 13 the APC could not move and
    wait or move and supply. Determine what caused the issue, fix it, and verify
