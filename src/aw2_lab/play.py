@@ -40,7 +40,7 @@ from aw2_lab.local_launch import LocalLaunch
 from aw2_lab.map_catalog import MAPS_BY_ID
 from aw2_lab.match_contract import CO_ID_VALUES, CommandStatus, MatchLifecycle, PlayerSlot
 from aw2_lab.sdk import AsyncAW2Client, SDKError, WaitTimeout
-from aw2_lab.turn_brief import build_turn_brief
+from aw2_lab.turn_brief import BriefFormat, build_turn_brief, compact_turn_brief
 
 
 class PlayError(RuntimeError):
@@ -152,6 +152,12 @@ def parser() -> argparse.ArgumentParser:
         help="Pi provider/model (otherwise use existing Pi default)",
     )
     result.add_argument("--pi-bin", default=os.environ.get("AW2_PI_BIN", "pi"))
+    result.add_argument(
+        "--ai-mcp-profile",
+        choices=("standard", "compact"),
+        default="standard",
+        help="model-facing MCP tools and turn replies (default: standard)",
+    )
     result.add_argument(
         "--thinking",
         choices=("off", "minimal", "low", "medium", "high", "xhigh", "max"),
@@ -347,6 +353,7 @@ async def ai_player(
     stop: asyncio.Event,
     attempts: int = 3,
     log_mode: LogMode | None = None,
+    mcp_profile: BriefFormat = "standard",
 ) -> None:
     if attempts < 1:
         raise ValueError("AI turn attempts must be at least 1")
@@ -362,6 +369,7 @@ async def ai_player(
         model=model,
         prompt=prompt,
         thinking=thinking,
+        mcp_profile=mcp_profile,
     )
     base_command = [
         *host_command,
@@ -408,7 +416,12 @@ async def ai_player(
                     else:
                         instruction = UNCOMMITTED_TURN_INSTRUCTION
                     brief = build_turn_brief(state, slot)
-                    instruction = f"{instruction}\nCurrent turn brief: {brief.model_dump_json()}"
+                    brief_json = (
+                        compact_turn_brief(brief).model_dump_json(exclude_none=True)
+                        if mcp_profile == "compact"
+                        else brief.model_dump_json()
+                    )
+                    instruction = f"{instruction}\nCurrent turn brief: {brief_json}"
                     print(
                         f"AI {slot.value}: playing turn {budget.started} "
                         f"(attempt {attempt}/{attempts}, private log: {log})",
@@ -661,6 +674,7 @@ async def run(args: argparse.Namespace) -> None:
                         stop=stop,
                         attempts=args.ai_turn_attempts,
                         log_mode=args.ai_log,
+                        mcp_profile=args.ai_mcp_profile,
                     )
                 )
                 task.add_done_callback(host_done)

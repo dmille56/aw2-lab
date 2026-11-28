@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import hashlib
+import json
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from itertools import count
@@ -22,11 +23,17 @@ import aw2_lab.mcp_runtime as adapter_module
 import aw2_lab.playable_runtime as runtime_module
 from aw2_lab.api_contract import StateResponse
 from aw2_lab.authorization import AuthorizationService
-from aw2_lab.match_contract import CommandResult, CommandStatus, MatchLifecycle, PlayerSlot
+from aw2_lab.match_contract import (
+    CommandResult,
+    CommandStatus,
+    Coordinate,
+    MatchLifecycle,
+    PlayerSlot,
+)
 from aw2_lab.match_controller import MatchController, MutationOutcome
 from aw2_lab.sdk import AsyncAW2Client, TransportError, WaitTimeout
 from aw2_lab.state_model import ObservedValue, PropertyState, ValueStatus, Weather
-from aw2_lab.turn_brief import build_turn_brief
+from aw2_lab.turn_brief import build_turn_brief, compact_turn_brief
 
 
 @asynccontextmanager
@@ -108,6 +115,14 @@ async def test_turn_brief_binds_read_only_choices_to_the_authenticated_slot(
             assert brief["revision"] == 1
             assert brief["turn_ready"] and brief["player_slot"] == "slot_1"
             assert [unit["unit_id"] for unit in brief["ready_units"]] == ["1"]
+            compact_args = {**args, "format": "compact"}
+            compact_reply = await call("get_turn_brief", compact_args)
+            compact = payload(compact_reply)
+            assert compact["format"] == "compact" and compact["revision"] == brief["revision"]
+            assert compact["ready_units"][0] == ["1", "Infantry", [0, 0], 10]
+            assert "reachable_tiles" not in compact
+            assert len(compact_reply["content"][0]["text"]) < len(json.dumps(brief))
+            assert (await call("get_turn_brief", compact_args, letter="o"))["isError"]
             assert payload(await call("get_turn_brief", args, letter="q"))["turn_ready"] is False
             assert (await call("get_turn_brief", args, letter="o"))["isError"]
             assert (await call("get_turn_brief", {"match_id": str(uuid4())}))["isError"]
@@ -153,6 +168,18 @@ async def test_turn_brief_binds_read_only_choices_to_the_authenticated_slot(
         assert planned.reachable_tiles is not None
         (capture,) = (item for item in planned.reachable_tiles if item.can_capture)
         assert [(step.x, step.y) for step in capture.path] == [(1, 0)]
+        compact_plan = compact_turn_brief(planned)
+        assert compact_plan.ready_units[0] == ("1", "Infantry", (0, 0), 10)
+        assert compact_plan.opposing_targets[0][0] == "2"
+        assert compact_plan.reachable_tiles is not None
+        assert ((1, 0), ((1, 0),), True) in compact_plan.reachable_tiles
+        second_facility = facility.model_copy(update={"tile": Coordinate(x=4, y=5)})
+        grouped = compact_turn_brief(
+            planned.model_copy(update={"empty_facilities": (facility, second_facility)})
+        )
+        (group,) = grouped.empty_facilities
+        assert group.tiles == ((0, 1), (4, 5))
+        assert group.affordable_units == (("Infantry", 1000),)
         for terrain_class in (10, 11, 20):
             facility_battle = replace(
                 battle,
@@ -185,6 +212,16 @@ async def test_turn_brief_binds_read_only_choices_to_the_authenticated_slot(
         fog = replace(battle, fog_enabled=ObservedValue(ValueStatus.AVAILABLE, True))
         obscured = build_turn_brief(with_battle(fog), PlayerSlot.SLOT_1, unit_id="1")
         assert obscured.opposing_targets == () and obscured.reachable_tiles is None
+        compact_fog = compact_turn_brief(obscured).model_dump(mode="json", exclude_none=True)
+        assert compact_fog["opposing_targets"] == [] and "reachable_tiles" not in compact_fog
+        empty_move = compact_turn_brief(
+            obscured.model_copy(update={"reachable_tiles": (), "ready_units": ()})
+        ).model_dump(mode="json", exclude_none=True)
+        assert empty_move["reachable_tiles"] == empty_move["ready_units"] == []
+        recovery = compact_turn_brief(
+            obscured.model_copy(update={"turn_ready": False, "cursor_recovery_available": True})
+        )
+        assert recovery.cursor_recovery_available and not recovery.turn_ready
     finally:
         await runtime.controller.stop()
 
@@ -439,9 +476,10 @@ async def test_lifecycle_schema_validation_and_no_side_effects(tmp_path, monkeyp
         await controller.stop()
 
 
+@pytest.mark.parametrize("brief_format", ["standard", "compact"])
 @run_async_test
 async def test_play_action_returns_committed_brief_and_reconciles_timeout(
-    memory, tmp_path, monkeypatch
+    memory, tmp_path, monkeypatch, brief_format
 ):
     app, runtime, _, match_id, _, bridge = await setup(memory, tmp_path, monkeypatch)
     release = asyncio.Event()
@@ -473,11 +511,13 @@ async def test_play_action_returns_committed_brief_and_reconciles_timeout(
         "action": {"kind": "move_wait", "unit_id": "1", "path": []},
         "timeout_seconds": 0.2,
     }
+    if brief_format == "compact":
+        args["format"] = brief_format
     try:
         async with mounted(app, monkeypatch) as (call, _, _):
             assert (await call("play_action", args, letter="o"))["isError"]
             pending = payload(await call("play_action", args))
-            assert pending["timed_out"] and pending["turn_brief"] is None
+            assert pending["timed_out"] and pending.get("turn_brief") is None
             command_id = pending["command"]["command_id"]
             release.set()
             completed = payload(await call("play_action", {**args, "timeout_seconds": 2}))
@@ -485,10 +525,12 @@ async def test_play_action_returns_committed_brief_and_reconciles_timeout(
             assert completed["command"]["status"] == "completed"
             assert completed["turn_brief"]["turn_ready"]
             assert completed["turn_brief"]["revision"] == 2
+            if brief_format == "compact":
+                assert set(completed["command"]) == {"command_id", "status", "resulting_revision"}
 
             stale = payload(await call("play_action", {**args, "request_id": str(uuid4())}))
             assert stale["command"]["error"]["code"] == "stale_revision"
-            assert stale["turn_brief"] is None
+            assert stale.get("turn_brief") is None
 
             handoff = payload(
                 await call(
@@ -503,13 +545,53 @@ async def test_play_action_returns_committed_brief_and_reconciles_timeout(
                 )
             )
             assert handoff["command"]["status"] == "completed"
-            assert handoff["turn_brief"] is None
+            assert handoff.get("turn_brief") is None
             replay = payload(await call("play_action", args))
             assert replay["command"] == completed["command"]
-            assert replay["turn_brief"] is None
+            assert replay.get("turn_brief") is None
             assert executions == ["move_wait", "end_turn"]
     finally:
         release.set()
+        await runtime.controller.stop()
+
+
+@run_async_test
+async def test_compact_play_action_reports_rollback(memory, tmp_path, monkeypatch):
+    app, runtime, _, match_id, _, bridge = await setup(memory, tmp_path, monkeypatch)
+
+    class FailingExecutor:
+        def __init__(self, *_args):
+            pass
+
+        async def execute(self, *_args):
+            bridge.frame += 1
+            raise RuntimeError("synthetic executor failure")
+
+    monkeypatch.setattr(runtime_module, "MoveWaitActionExecutor", FailingExecutor)
+    try:
+        async with mounted(app, monkeypatch) as (call, _, _):
+            reply = payload(
+                await call(
+                    "play_action",
+                    {
+                        "match_id": str(match_id),
+                        "expected_revision": 1,
+                        "request_id": str(uuid4()),
+                        "action": {"kind": "move_wait", "unit_id": "1", "path": []},
+                        "format": "compact",
+                        "timeout_seconds": 2,
+                    },
+                )
+            )
+            assert reply["command"]["status"] == "rolled_back"
+            assert reply["command"]["error"]
+            assert "turn_brief" not in reply
+            brief = payload(
+                await call("get_turn_brief", {"match_id": str(match_id), "format": "compact"})
+            )
+            assert brief["turn_ready"]
+            assert brief["revision"] == reply["command"]["resulting_revision"]
+    finally:
         await runtime.controller.stop()
 
 

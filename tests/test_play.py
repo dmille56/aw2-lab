@@ -12,7 +12,7 @@ import pytest
 from fastapi import FastAPI
 
 from aw2_lab import play
-from aw2_lab.ai_host import prepare_pi
+from aw2_lab.ai_host import COMPACT_AI_TOOLS, prepare_pi
 from aw2_lab.ai_turn_log import color_ai_log_prefix, follow_ai_log, render_pi_event, time_ai_turn
 from aw2_lab.match_contract import CO_ID_VALUES, CommandStatus, PlayerSlot
 
@@ -271,6 +271,26 @@ def test_pi_hosts_keep_credentials_and_histories_separate(tmp_path, monkeypatch)
         assert (directory / "agent/auth.json").is_symlink()
         assert "--no-builtin-tools" in command and "--no-context-files" in command
     assert commands[0] != commands[1]
+
+
+def test_compact_ai_profile_limits_tools_and_explains_rows(tmp_path):
+    command, _ = prepare_pi(
+        tmp_path / "compact",
+        url="http://127.0.0.1:1234/mcp/",
+        token="player-token",
+        match_id=uuid4(),
+        slot=PlayerSlot.SLOT_1,
+        executable="pi",
+        model="test/model",
+        prompt="Play AW2",
+        mcp_profile="compact",
+    )
+    tools = command[command.index("--tools") + 1].split(",")
+    assert tools == [f"mcp__aw2__{name}" for name in COMPACT_AI_TOOLS]
+    assert "mcp__aw2__debug_reset" not in tools
+    prompt = command[command.index("--system-prompt") + 1]
+    assert 'format: "compact"' in prompt
+    assert "Copy every step in the path" in prompt
 
 
 @pytest.mark.anyio

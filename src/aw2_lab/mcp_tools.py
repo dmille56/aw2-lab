@@ -11,7 +11,7 @@ from uuid import UUID
 
 from mcp import types
 from mcp.server.fastmcp import FastMCP
-from pydantic import Field, TypeAdapter
+from pydantic import BaseModel, Field, RootModel, TypeAdapter
 from starlette.requests import Request
 
 from aw2_lab.api_contract import (
@@ -41,6 +41,7 @@ from aw2_lab.match_contract import (
     Coordinate,
     DiveAction,
     EndTurnAction,
+    ErrorBody,
     ErrorCode,
     GameplayAction,
     JoinAction,
@@ -68,7 +69,13 @@ from aw2_lab.mcp_runtime import MCPAdapterRuntime
 from aw2_lab.mcp_turn_wait import TurnWaitResult
 from aw2_lab.mcp_turn_wait import wait_for_turn as await_turn
 from aw2_lab.sdk import TERMINAL, AsyncAW2Client
-from aw2_lab.turn_brief import TurnBrief, build_turn_brief
+from aw2_lab.turn_brief import (
+    BriefFormat,
+    CompactTurnBrief,
+    TurnBrief,
+    build_turn_brief,
+    compact_turn_brief,
+)
 
 MAX_ARCHIVE_BASE64 = 4 * ((MAX_ARCHIVE_BYTES + 2) // 3)
 MCP_BODY_BYTES = MAX_ARCHIVE_BASE64 + 65536
@@ -96,6 +103,32 @@ class CommandWaitResult(ContractModel):
 
 class PlayActionResult(CommandWaitResult):
     turn_brief: TurnBrief | None = None
+
+
+class CompactCommandResult(BaseModel):
+    command_id: UUID
+    status: CommandStatus
+    resulting_revision: Revision | None = None
+    error: ErrorBody | None = None
+
+
+class CompactPlayActionResult(ContractModel):
+    format: Literal["compact"] = "compact"
+    timed_out: bool
+    command: CompactCommandResult
+    turn_brief: CompactTurnBrief | None = None
+
+
+def _planning_result(result: ContractModel, *, compact: bool) -> types.CallToolResult:
+    return types.CallToolResult(
+        structuredContent=result.model_dump(mode="json", exclude_none=compact),
+        content=[
+            types.TextContent(
+                type="text",
+                text=result.model_dump_json(exclude_none=compact, indent=None if compact else 2),
+            )
+        ],
+    )
 
 
 class ArchiveResult(ContractModel):
@@ -196,16 +229,22 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
 
     @server.tool()
     async def get_turn_brief(
-        match_id: UUID, unit_id: UnitID | None = None, contract_version: int = 1
-    ) -> TurnBrief:
+        match_id: UUID,
+        unit_id: UnitID | None = None,
+        contract_version: int = 1,
+        format: BriefFormat = "standard",
+    ) -> Annotated[types.CallToolResult, RootModel[TurnBrief | CompactTurnBrief]]:
         """Player: read your ready units, affordable production, and observed opponents at one revision. Pass a ready unit ID for verified movement paths and capture tiles when rules and visibility are known."""
         principal = request_caller().principal
         if not isinstance(principal, PlayerPrincipal):
             raise AuthorizationError(ErrorCode.PERMISSION_DENIED, "A player slot is required")
         async with client(Permission.READ, match_id) as sdk:
-            return build_turn_brief(
+            brief = build_turn_brief(
                 await sdk.state(match_id), principal.player_slot, unit_id=unit_id
             )
+            if format == "compact":
+                return _planning_result(compact_turn_brief(brief), compact=True)
+            return _planning_result(brief, compact=False)
 
     @server.tool(structured_output=False)
     async def get_screenshot(
@@ -302,7 +341,8 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
         action: GameplayAction,
         timeout_seconds: WaitSeconds = 30,
         contract_version: int = 1,
-    ) -> PlayActionResult:
+        format: BriefFormat = "standard",
+    ) -> Annotated[types.CallToolResult, RootModel[PlayActionResult | CompactPlayActionResult]]:
         """Player: submit one action (action.kind names the move), wait for its result, and get the next brief if your turn is still ready. On timeout use wait_for_command with the returned command ID. Retry uncertain submissions with the identical request ID and payload."""
         caller = request_caller()
         principal = caller.principal
@@ -322,8 +362,22 @@ def register_tools(server: FastMCP, adapter: MCPAdapterRuntime | None) -> None:
                     candidate = build_turn_brief(state, principal.player_slot)
                     if candidate.turn_ready or candidate.cursor_recovery_available:
                         brief = candidate
-            return PlayActionResult(
-                timed_out=result.timed_out, command=result.command, turn_brief=brief
+            command = result.command
+            if format == "compact":
+                compact_result = CompactPlayActionResult(
+                    timed_out=result.timed_out,
+                    command=CompactCommandResult(
+                        command_id=command.command_id,
+                        status=command.status,
+                        resulting_revision=command.resulting_revision,
+                        error=command.error,
+                    ),
+                    turn_brief=compact_turn_brief(brief) if brief is not None else None,
+                )
+                return _planning_result(compact_result, compact=True)
+            return _planning_result(
+                PlayActionResult(timed_out=result.timed_out, command=command, turn_brief=brief),
+                compact=False,
             )
 
     @server.tool()

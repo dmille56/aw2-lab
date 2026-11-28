@@ -675,7 +675,7 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
     2.87/2.92/3.68 s windowed. The live same-checkpoint comparison of
     =--thinking low= and =medium= remains pending. The default is =medium=.
 
-*** TODO Test whether a smaller MCP interface improves AI play
+*** DONE Test whether a smaller MCP interface improves AI play
     Across 128 saved Pi turn logs, median model-facing tool-result text was
     8.8 KB for =get_turn_brief= and 4.5 KB for =play_action=. Median
     =play_action= arguments occupied 217 bytes. Use paired replays to see
@@ -702,6 +702,34 @@ outside Git and the Nix store. Nix/NixOS remains the primary verification path.
       baseline on the applicable board measures in at least three pairs, and
       produces no more rejected actions overall. Use a later side-swapped
       full-game evaluation to assess match strength.
+
+    The opt-in profile is available as =--ai-mcp-profile compact=. To repeat
+    the paid comparison, set =AW2_ROM_PATH= to the supported ROM and run
+    =AW2_RUN_AI_MCP_BENCHMARK=1 pytest -s tests/test_ai_mcp_benchmark.py=.
+    Set =AW2_BENCHMARK_PI_BIN= if the Pi executable requires an override.
+    The benchmark writes per-turn measurements and private logs to its
+    pytest temporary directory.
+
+    In headless mGBA, Pi 1.5.2 exposed exactly eight tools in compact mode.
+    All eight turns ended voluntarily with zero rejected or rolled-back
+    actions. Values below are standard → compact.
+
+    | Checkpoint | Repeat | Board score | Median reply bytes | Seconds | Calls |
+    |------------+--------+-------------+--------------------+---------+-------|
+    | Opening | 1 | 4 → 3 capture-capable purchases | 1850 → 491 | 30.53 → 21.74 | 5 → 5 |
+    | Opening | 2 | 3 → 3 capture-capable purchases | 1133 → 491 | 27.22 → 35.26 | 5 → 5 |
+    | Midgame | 1 | −10 → −10 capture progress, +21 → +21 net combat HP | 5284 → 676 | 46.50 → 43.19 | 9 → 9 |
+    | Midgame | 2 | −10 → −10 capture progress, +21 → +21 net combat HP | 5650 → 688 | 45.97 → 47.02 | 9 → 10 |
+
+    Pooled median model-facing reply text fell from 2707 to 532 bytes (80%).
+    Pi reported 90 → 93 uncached input tokens, 482895 → 167589 cached input
+    tokens, and 5816 → 5913 output tokens. Total turn time was 150.22 → 147.21
+    seconds. Both profiles gave up the designated capture in both midgame
+    repeats. Net combat HP uses the game's internal health scale.
+
+    Compact met the threshold for broader playtesting, with equivalent board
+    outcomes in three pairs. The profile is opt-in. Full-game strength
+    remains to be measured.
 
 ** DONE Investigate APC actions failing during human play
    In the latest =aw2-lab play= session, on day 13 the APC could not move and

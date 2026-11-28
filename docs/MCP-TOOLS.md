@@ -58,6 +58,16 @@ and can act or recover the cursor. Otherwise the brief is null. If the
 command is still running, continue waiting by command ID. If the submission
 outcome is unknown, retry with the same request ID and gameplay payload.
 
+`get_turn_brief` and `play_action` accept an optional `format: "compact"`.
+Compact briefs use `[x, y]` tiles, `[unit_id, unit_type, tile, hp]` unit rows,
+and `[destination, path, can_capture]` movement rows. Production groups list
+the tiles sharing a facility type and an identical menu of `[unit_type, cost]`
+rows. Absent values are omitted. An absent `reachable_tiles` means movement
+data is unavailable. An empty array means there are no destinations. Action
+replies keep the command ID, status, resulting revision if known, and any
+error. Actions still use their usual typed arguments, including `{x, y}` path
+steps.
+
 `wait_for_command` defaults to 30 seconds and permits 0 < timeout_seconds <= 60.
 It uses authorized match events, reserving the last 10% of its
 budget for an authorized final status read. Return shape is

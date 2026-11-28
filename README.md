@@ -68,6 +68,9 @@ short checks; `--ai-turn-timeout` bounds each host invocation. A failed host or
 an unfinished turn stops the helper with the private log path instead of silently
 repeating actions or model calls.
 
+Add `--ai-mcp-profile compact` to try a smaller set of model-facing MCP tools
+and shorter turn replies. The default profile is `standard`.
+
 Add `--ai-log` to an AI match to follow tool calls, outcomes, and durations
 in the launcher's terminal. Each event line identifies the AI player, game
 day, turn, and retry attempt. A turn summary shows total elapsed time and

@@ -1,6 +1,9 @@
 """Player-specific planning data from one committed match observation."""
 
 from heapq import heappop, heappush
+from typing import Literal
+
+from pydantic import BaseModel
 
 from aw2_lab.api_contract import StateResponse
 from aw2_lab.aw2_rules_data import TERRAIN_NAMES
@@ -49,6 +52,73 @@ class TurnBrief(ContractModel):
     empty_facilities: tuple[EmptyFacility, ...] = ()
     movement_unit_id: str | None = None
     reachable_tiles: tuple[ReachableTile, ...] | None = None
+
+
+BriefFormat = Literal["standard", "compact"]
+TilePair = tuple[int, int]
+UnitRow = tuple[str, str, TilePair, int]
+PurchaseRow = tuple[str, int]
+MovementRow = tuple[TilePair, tuple[TilePair, ...], bool]
+
+
+class FacilityGroup(BaseModel):
+    facility: str
+    tiles: tuple[TilePair, ...]
+    affordable_units: tuple[PurchaseRow, ...]
+
+
+class CompactTurnBrief(ContractModel):
+    format: Literal["compact"] = "compact"
+    player_slot: PlayerSlot
+    revision: Revision
+    lifecycle: MatchLifecycle
+    turn_ready: bool
+    cursor_recovery_available: bool
+    day: int | None = None
+    funds: int | None = None
+    ready_units: tuple[UnitRow, ...]
+    opposing_targets: tuple[UnitRow, ...]
+    empty_facilities: tuple[FacilityGroup, ...]
+    movement_unit_id: str | None = None
+    reachable_tiles: tuple[MovementRow, ...] | None = None
+
+
+def compact_turn_brief(brief: TurnBrief) -> CompactTurnBrief:
+    def tile_pair(tile: Coordinate) -> TilePair:
+        return tile.x, tile.y
+
+    def unit_row(unit: BriefUnit) -> UnitRow:
+        return unit.unit_id, unit.unit_type, tile_pair(unit.tile), unit.hp
+
+    facilities: dict[tuple[str, tuple[PurchaseRow, ...]], list[TilePair]] = {}
+    for facility in brief.empty_facilities:
+        menu = tuple((unit.unit_type, unit.cost) for unit in facility.affordable_units)
+        facilities.setdefault((facility.facility, menu), []).append(tile_pair(facility.tile))
+
+    return CompactTurnBrief(
+        player_slot=brief.player_slot,
+        revision=brief.revision,
+        lifecycle=brief.lifecycle,
+        turn_ready=brief.turn_ready,
+        cursor_recovery_available=brief.cursor_recovery_available,
+        day=brief.day,
+        funds=brief.funds,
+        ready_units=tuple(map(unit_row, brief.ready_units)),
+        opposing_targets=tuple(map(unit_row, brief.opposing_targets)),
+        empty_facilities=tuple(
+            FacilityGroup(facility=facility, tiles=tuple(tiles), affordable_units=menu)
+            for (facility, menu), tiles in facilities.items()
+        ),
+        movement_unit_id=brief.movement_unit_id,
+        reachable_tiles=(
+            None
+            if brief.reachable_tiles is None
+            else tuple(
+                (tile_pair(move.tile), tuple(map(tile_pair, move.path)), move.can_capture)
+                for move in brief.reachable_tiles
+            )
+        ),
+    )
 
 
 def build_turn_brief(
